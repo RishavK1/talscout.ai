@@ -190,7 +190,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   // Close the drawer whenever the route changes.
   useEffect(() => {
-    setOpen(false);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: close drawer on navigation
+    setOpen((prev) => (prev ? false : prev));
   }, [pathname]);
 
   // Lock body scroll while the drawer is open.

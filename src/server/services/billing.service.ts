@@ -1,0 +1,88 @@
+import { getServices } from "@/server/container";
+import { subscriptionRepo } from "@/server/repositories/subscription.repo";
+import { webhookRepo } from "@/server/repositories/webhook.repo";
+import { tenantRepo } from "@/server/repositories/tenant.repo";
+import { userRepo } from "@/server/repositories/user.repo";
+import { auditRepo } from "@/server/repositories/audit.repo";
+import { PLAN_PRICES, type CheckoutBody } from "@/server/validation/billing";
+import { BadRequest, PaymentRequired } from "@/server/http/errors";
+import type { TenantContext } from "@/server/db/tx";
+
+const ACTIVE_STATUSES = new Set(["trialing", "active"]);
+
+export const billingService = {
+  async createCheckout(ctx: TenantContext, body: CheckoutBody) {
+    const sub = await subscriptionRepo.getByTenant(ctx);
+    // Amount is computed from the server price book — never from the client.
+    const amount = PLAN_PRICES[body.plan] * body.seats;
+    const session = await getServices().payment.createCheckoutSession({
+      tenantId: ctx.tenantId,
+      plan: body.plan,
+      seats: body.seats,
+      amount,
+      customerId: sub?.stripeCustomerId ?? undefined,
+    });
+    await auditRepo.log(ctx, { action: "billing.checkout", metadata: { plan: body.plan, seats: body.seats } });
+    return { url: session.url };
+  },
+
+  /** Public path. Signature-verified, idempotent, reconciles to server truth. */
+  async handleWebhook(rawBody: string, signature: string | null) {
+    let event;
+    try {
+      event = getServices().payment.verifyWebhook(rawBody, signature);
+    } catch {
+      throw new BadRequest("Invalid webhook signature"); // PAY-01
+    }
+
+    const first = await webhookRepo.markProcessed(event.id);
+    if (!first) return { received: true, duplicate: true }; // PAY-02
+
+    const tenantId = event.data.tenantId;
+    if (!tenantId) return { received: true, ignored: "no_tenant" };
+
+    switch (event.type) {
+      case "checkout.session.completed":
+      case "customer.subscription.created":
+      case "customer.subscription.updated": {
+        const seats = event.data.seats ?? 1;
+        await subscriptionRepo.upsertByTenantAdmin(tenantId, {
+          status: (event.data.status as "active") ?? "active",
+          seats,
+          stripeCustomerId: event.data.stripeCustomerId,
+          stripeSubId: event.data.stripeSubId,
+          renewsAt: event.data.renewsAt ? new Date(event.data.renewsAt) : null,
+        });
+        await tenantRepo.updateAdmin(tenantId, {
+          seatLimit: seats,
+          plan: event.data.plan,
+        });
+        return { received: true };
+      }
+      case "customer.subscription.deleted": {
+        await subscriptionRepo.upsertByTenantAdmin(tenantId, { status: "canceled" });
+        return { received: true };
+      }
+      default:
+        return { received: true, ignored: event.type }; // PAY-04
+    }
+  },
+
+  /** PAY-05: privileged actions require a paid/trialing subscription. */
+  async assertActiveSubscription(ctx: TenantContext) {
+    const sub = await subscriptionRepo.getByTenant(ctx);
+    if (!sub || !ACTIVE_STATUSES.has(sub.status)) {
+      throw new PaymentRequired("An active subscription is required");
+    }
+    return sub;
+  },
+
+  /** PAY-06: cannot consume more seats than purchased. */
+  async assertSeatAvailable(ctx: TenantContext) {
+    const sub = await this.assertActiveSubscription(ctx);
+    const used = await userRepo.countActiveSeats(ctx);
+    if (used >= sub.seats) {
+      throw new PaymentRequired("No seats available — increase your plan");
+    }
+  },
+};

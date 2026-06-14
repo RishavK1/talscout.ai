@@ -282,6 +282,125 @@ body {
   }
 }
 
+/* ============================================================
+   Landing page — gradients, cursor-glow & motion (v2 redesign)
+   ============================================================ */
+
+/* Soft "aurora" mesh background (cream base + teal/lime/gold blooms) */
+.bg-aurora {
+  background:
+    radial-gradient(42% 55% at 12% 18%, rgba(0, 90, 95, 0.10) 0%, transparent 60%),
+    radial-gradient(38% 48% at 88% 12%, rgba(143, 219, 0, 0.16) 0%, transparent 60%),
+    radial-gradient(46% 58% at 78% 88%, rgba(254, 210, 85, 0.12) 0%, transparent 62%),
+    linear-gradient(180deg, #faf7f3 0%, #ffffff 100%);
+}
+.bg-aurora-soft {
+  background:
+    radial-gradient(40% 60% at 85% 10%, rgba(0, 90, 95, 0.06) 0%, transparent 60%),
+    radial-gradient(40% 60% at 10% 90%, rgba(143, 219, 0, 0.08) 0%, transparent 60%),
+    #faf7f3;
+}
+
+/* Deep teal gradient for dark bands */
+.bg-teal-gradient {
+  background: linear-gradient(135deg, #00696e 0%, #004145 55%, #00282b 100%);
+}
+
+/* Lime CTA gradient */
+.bg-lime-gradient {
+  background: linear-gradient(120deg, #b6ff45 0%, #a9f931 45%, #8fdb00 100%);
+}
+
+/* Gradient text (teal → lime) */
+.text-gradient-teal {
+  background: linear-gradient(115deg, #005a5f 0%, #1c686d 45%, #6cba1a 115%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+/* Dotted grid patterns */
+.bg-grid-dark {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+.bg-grid-soft {
+  background-image: radial-gradient(rgba(44, 35, 34, 0.045) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* Cursor-following glow layer. Parent sets --mx/--my (px) on mousemove;
+   --glow-color / --glow-size come from the PointerGlow component. */
+.pointer-glow-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    var(--glow-size, 600px) circle at var(--mx, 50%) var(--my, 30%),
+    var(--glow-color, rgba(0, 90, 95, 0.14)),
+    transparent 45%
+  );
+  transition: background 0.12s var(--ease-out);
+}
+
+/* Spotlight cards — soft highlight follows the cursor inside the card */
+.spotlight {
+  position: relative;
+}
+.spotlight::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.35s var(--ease-out);
+  background: radial-gradient(
+    240px circle at var(--mx, 50%) var(--my, 50%),
+    rgba(143, 219, 0, 0.16),
+    transparent 60%
+  );
+}
+.spotlight:hover::after {
+  opacity: 1;
+}
+
+/* Gentle floating motion for hero cards / orbs */
+@keyframes float-slow {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-12px); }
+}
+.animate-float-slow {
+  animation: float-slow 7s var(--ease-out) infinite;
+}
+@keyframes float-slower {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-7px); }
+}
+.animate-float-slower {
+  animation: float-slower 9s var(--ease-out) infinite;
+}
+
+/* Logo marquee */
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.animate-marquee {
+  animation: marquee 30s linear infinite;
+}
+
+/* Blinking caret for the typed search demo */
+@keyframes caret-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+.animate-caret {
+  animation: caret-blink 1.1s steps(1) infinite;
+}
+
 /* Material Symbols base (font loaded via <link> in layout) */
 .material-symbols-outlined {
   font-family: "Material Symbols Outlined";

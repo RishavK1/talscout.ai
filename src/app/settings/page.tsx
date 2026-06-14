@@ -283,7 +283,8 @@ export default function SettingsPage() {
   useEffect(() => {
     const h = window.location.hash.replace("#", "");
     const found = TABS.find((t) => slug(t) === h);
-    if (found) setTab(found);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: read URL hash on mount (window not available at SSR)
+    if (found) setTab(() => found);
   }, []);
 
   const selectTab = (t: Tab) => {

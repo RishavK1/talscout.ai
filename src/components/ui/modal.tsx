@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { easeOut } from "@/lib/motion";
@@ -21,7 +21,10 @@ export function Modal({
   maxWidth?: string;
 }) {
   const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  useLayoutEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- hydration guard: intentionally flipping client-only flag
+    setMounted(true);
+  }, []);
 
   // Close on Escape + lock body scroll while open.
   useEffect(() => {
