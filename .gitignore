@@ -36,6 +36,21 @@ yarn-error.log*
 # vercel
 .vercel
 
+# local preview / screenshot artifacts (never commit)
+.cp*/
+shot-*.png
+*.screenshot.png
+
+# AI assistant / skill tooling (never commit)
+.agents/
+skills-lock.json
+.claude/
+*.skill
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# AI assistant instruction files (never commit)
+AGENTS.md
+CLAUDE.md
