@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { api } from "@/lib/api";
 import { toast } from "sonner";
 
 export default function SignUpPage() {
@@ -14,6 +13,7 @@ export default function SignUpPage() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -21,15 +21,32 @@ export default function SignUpPage() {
       toast.error("Please fill in all fields");
       return;
     }
+    if (password.length < 8) {
+      toast.error("Password must be at least 8 characters");
+      return;
+    }
     setLoading(true);
     try {
-      // Server creates a confirmed user (works regardless of email-confirm setting)…
-      await api.post("/api/auth/register", { name, email, password });
-      // …then sign in to establish the session.
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      // Standard Supabase sign-up → sends a verification email when the project
+      // has "Confirm email" enabled. The link returns to /auth/callback.
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { full_name: name },
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
       if (error) throw error;
-      toast.success("Account created successfully!");
-      router.push("/onboarding/workspace");
+
+      if (data.session) {
+        // Email confirmation is disabled → we already have a session.
+        toast.success("Account created successfully!");
+        router.push("/onboarding/workspace");
+      } else {
+        // Confirmation required → tell the user to check their inbox.
+        setEmailSent(true);
+      }
     } catch (err: any) {
       toast.error(err.message || "Failed to create account");
     } finally {
@@ -50,6 +67,41 @@ export default function SignUpPage() {
       toast.error(err.message || "Failed to initialize Google signup");
     }
   };
+
+  if (emailSent) {
+    return (
+      <main className="flex min-h-screen w-full items-center justify-center bg-bg-cream p-4">
+        <div className="w-full max-w-[480px] rounded-xl border border-border-low-alpha bg-white p-10 text-center shadow-[0_10px_40px_rgba(44,35,34,0.06)]">
+          <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-container/10">
+            <span className="material-symbols-outlined text-[28px] text-primary">mark_email_unread</span>
+          </div>
+          <h1 className="mb-2 font-headline-lg text-headline-lg text-on-surface">Check your email</h1>
+          <p className="mb-6 font-body-md text-body-md text-on-surface-variant">
+            We sent a verification link to{" "}
+            <span className="font-semibold text-on-surface">{email}</span>. Click it to
+            activate your account, then come back to log in.
+          </p>
+          <Link
+            href="/login"
+            className="inline-flex w-full items-center justify-center rounded-lg bg-primary px-6 py-3 font-label-md text-label-md text-on-primary transition-colors hover:bg-primary-container"
+          >
+            Back to log in
+          </Link>
+          <p className="mt-4 font-body-md text-[13px] text-text-muted">
+            Didn&apos;t get it? Check spam, or{" "}
+            <button
+              type="button"
+              onClick={() => setEmailSent(false)}
+              className="text-primary underline-offset-4 hover:underline"
+            >
+              try again
+            </button>
+            .
+          </p>
+        </div>
+      </main>
+    );
+  }
 
   return (
     // Split Screen Container

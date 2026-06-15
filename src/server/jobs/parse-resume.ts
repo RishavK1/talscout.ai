@@ -4,7 +4,23 @@ import { candidateRepo } from "@/server/repositories/candidate.repo";
 import { resumeFileRepo } from "@/server/repositories/resume-file.repo";
 import { resumeProfileSchema } from "@/server/validation/resume-profile";
 import { typeMatches } from "@/server/ingestion/file-type";
+import { extractResumeText } from "@/server/ingestion/extract-text";
 import type { Services } from "@/server/ports";
+import type { ResumeProfile } from "@/server/validation/resume-profile";
+
+/** Build the text we embed — richer than the summary alone, so semantic search
+ *  matches on title, skills and location too. */
+function embeddingText(p: ResumeProfile): string {
+  return [
+    p.fullName,
+    p.currentTitle,
+    p.location,
+    p.skills?.length ? `Skills: ${p.skills.join(", ")}` : null,
+    p.summary,
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
 
 export interface ParseResumePayload {
   tenantId: string;
@@ -40,7 +56,7 @@ export async function parseResume(
   if (snapshot.candidate.status === "ready") return; // idempotent (CONC-04)
 
   // 2) Heavy work, no tx held
-  let profileData: import("@/server/validation/resume-profile").ResumeProfile | null = null;
+  let profileData: ResumeProfile | null = null;
   let embedding: number[] | null = null;
   let sha: string | null = null;
   let errorReason: string | null = null;
@@ -53,13 +69,15 @@ export async function parseResume(
     const declaredMime = snapshot.file?.mimeType ?? "text/plain";
     if (!typeMatches(declaredMime, bytes)) throw new IngestError("type_mismatch"); // UP-02
 
-    const text = bytes.toString("utf8");
+    // Extract real text from PDF/DOCX (binary) before the LLM sees it.
+    const text = await extractResumeText(bytes, declaredMime);
+    if (!text || text.trim().length < 10) throw new IngestError("empty_document");
     const raw = await services.extractor.extract(text); // may throw (AI-03)
     const parsed = resumeProfileSchema.safeParse(raw);
     if (!parsed.success) throw new IngestError("invalid_extraction"); // AI-02/04
     profileData = parsed.data;
 
-    embedding = await services.embedder.embed(profileData.summary ?? text);
+    embedding = await services.embedder.embed(embeddingText(profileData));
   } catch (e) {
     errorReason = e instanceof IngestError ? e.code : "extraction_failed";
   }
