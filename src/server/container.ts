@@ -3,6 +3,8 @@ import type { Services } from "@/server/ports";
 import { MockStorage } from "@/server/adapters/mock.storage";
 import { MockExtractor } from "@/server/adapters/mock.extractor";
 import { MockEmbedder } from "@/server/adapters/mock.embedder";
+import { MockReranker } from "@/server/adapters/mock.reranker";
+import { GeminiReranker } from "@/server/adapters/gemini.reranker";
 import { MockPaymentProvider } from "@/server/adapters/mock.payment";
 import { InProcessQueue } from "@/server/adapters/inprocess.queue";
 import { ClaudeExtractor } from "@/server/adapters/claude.extractor";
@@ -33,6 +35,7 @@ export function getServices(): Services {
       storage: new MockStorage(),
       extractor: new MockExtractor(),
       embedder: new MockEmbedder(),
+      reranker: new MockReranker(),
       payment: new MockPaymentProvider(),
       queue,
       limiter: new MemoryRateLimiter(),
@@ -55,10 +58,15 @@ export function getServices(): Services {
 
     const limiter = env.REDIS_URL ? new RedisRateLimiter() : new MemoryRateLimiter();
 
+    // LLM reranking needs an AI key. With Gemini available we rerank for real;
+    // otherwise we degrade gracefully to pure vector order (identity rerank).
+    const reranker = env.GEMINI_API_KEY ? new GeminiReranker() : new MockReranker();
+
     services = {
       storage: new SupabaseStorage(),
       extractor,
       embedder: new VoyageEmbedder(),
+      reranker,
       payment: new StripePaymentProvider(),
       queue,
       limiter,

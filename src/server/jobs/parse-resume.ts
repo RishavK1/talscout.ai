@@ -5,21 +5,44 @@ import { resumeFileRepo } from "@/server/repositories/resume-file.repo";
 import { resumeProfileSchema } from "@/server/validation/resume-profile";
 import { typeMatches } from "@/server/ingestion/file-type";
 import { extractResumeText } from "@/server/ingestion/extract-text";
+import { normalizeProfile } from "@/server/ingestion/normalize-profile";
 import type { Services } from "@/server/ports";
 import type { ResumeProfile } from "@/server/validation/resume-profile";
 
-/** Build the text we embed — richer than the summary alone, so semantic search
- *  matches on title, skills and location too. */
+/**
+ * Build the text we embed. We deliberately include the FULL professional
+ * signal — title, summary, every role's title/company/highlights, projects,
+ * certifications, languages and experience — so the vector represents the
+ * candidate's actual profession and depth, not just a keyword skim. Better
+ * document text directly improves first-stage retrieval recall at scale.
+ */
 function embeddingText(p: ResumeProfile): string {
-  return [
+  const parts: (string | null | undefined)[] = [
     p.fullName,
     p.currentTitle,
     p.location,
-    p.skills?.length ? `Skills: ${p.skills.join(", ")}` : null,
+    p.yearsExperience != null ? `${p.yearsExperience} years of experience` : null,
     p.summary,
-  ]
-    .filter(Boolean)
-    .join("\n");
+    p.skills?.length ? `Skills: ${p.skills.join(", ")}` : null,
+    p.languages?.length ? `Languages: ${p.languages.join(", ")}` : null,
+    p.certifications?.length ? `Certifications: ${p.certifications.join(", ")}` : null,
+  ];
+
+  for (const w of p.workHistory ?? []) {
+    const role = [w.title, w.company].filter(Boolean).join(" at ");
+    const dates = [w.startDate, w.endDate].filter(Boolean).join(" – ");
+    const highlights = w.highlights?.length
+      ? w.highlights.join("; ")
+      : w.description ?? "";
+    parts.push([role, dates, highlights].filter(Boolean).join(". "));
+  }
+
+  for (const proj of p.projects ?? []) {
+    const tech = proj.technologies?.length ? ` (${proj.technologies.join(", ")})` : "";
+    parts.push([proj.name, proj.description].filter(Boolean).join(": ") + tech);
+  }
+
+  return parts.filter(Boolean).join("\n");
 }
 
 export interface ParseResumePayload {
@@ -75,7 +98,9 @@ export async function parseResume(
     const raw = await services.extractor.extract(text); // may throw (AI-03)
     const parsed = resumeProfileSchema.safeParse(raw);
     if (!parsed.success) throw new IngestError("invalid_extraction"); // AI-02/04
-    profileData = parsed.data;
+    // Deterministic cleanup: canonical skills, deduped contacts, derived
+    // experience — keeps stored profiles consistent and embeddings clean.
+    profileData = normalizeProfile(parsed.data);
 
     embedding = await services.embedder.embed(embeddingText(profileData));
   } catch (e) {

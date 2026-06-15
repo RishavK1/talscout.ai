@@ -62,9 +62,41 @@ export interface ResumeExtractor {
   extract(text: string): Promise<ExtractedProfile>;
 }
 
+/** Modern embedding models encode queries and documents asymmetrically; using
+ *  the right side materially improves retrieval quality. */
+export type EmbedInputType = "query" | "document";
+
 export interface Embedder {
   readonly dimensions: number;
-  embed(text: string): Promise<number[]>;
+  /** `inputType` defaults to "document" (the corpus side). Pass "query" when
+   *  embedding a user's search text. */
+  embed(text: string, inputType?: EmbedInputType): Promise<number[]>;
+}
+
+/** A candidate handed to the reranker — compact, text-only (no vectors). */
+export interface RerankDocument {
+  id: string;
+  /** A plain-text profile representation the model reads to judge fit. */
+  text: string;
+}
+
+export interface RerankResult {
+  id: string;
+  /** Relevance to the query in [0,1]. Higher = better fit. */
+  score: number;
+  /** Short human-readable justification ("why matched"), if the model gives one. */
+  reason?: string;
+}
+
+/**
+ * Second-stage relevance model. Given the query + the top-K vector hits, it
+ * *reads* each profile and scores true semantic fit — catching cases a single
+ * cosine number misses (e.g. a full-stack dev whose only tie to "video editor"
+ * is one unrelated certification). Implementations MUST preserve the input ids
+ * and never invent new ones.
+ */
+export interface Reranker {
+  rerank(query: string, documents: RerankDocument[]): Promise<RerankResult[]>;
 }
 
 export type JobHandler = (payload: unknown) => Promise<void>;
@@ -122,6 +154,7 @@ export interface Services {
   storage: Storage;
   extractor: ResumeExtractor;
   embedder: Embedder;
+  reranker: Reranker;
   queue: JobQueue;
   payment: PaymentProvider;
   limiter: RateLimiter;

@@ -24,6 +24,7 @@ interface SearchedCandidate {
   status: string;
   score: number | null;
   matchedSkills: string[];
+  matchReason?: string | null;
 }
 
 function SearchPageContent() {
@@ -396,8 +397,17 @@ function SearchPageContent() {
                           </div>
                         )}
                       </div>
-                      {/* AI Summary */}
+                      {/* AI relevance verdict (from the reranker) + summary */}
                       <div className="bg-bg-cream rounded-lg p-4 mb-4 border border-border-low-alpha">
+                        {c.matchReason && (
+                          <div className="flex items-start gap-3 mb-3 pb-3 border-b border-border-low-alpha">
+                            <span className="material-symbols-outlined text-tertiary-fixed-dim mt-0.5" style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
+                            <p className="font-body-md text-body-md text-on-surface leading-relaxed">
+                              <span className="font-semibold text-primary">Why this match: </span>
+                              {c.matchReason}
+                            </p>
+                          </div>
+                        )}
                         <div className="flex items-start gap-3">
                           <span className="material-symbols-outlined text-primary mt-0.5" style={{ fontVariationSettings: "'FILL' 1" }}>summarize</span>
                           <p className="font-body-md text-body-md text-on-surface leading-relaxed">
