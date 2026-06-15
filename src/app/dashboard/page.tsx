@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/app/app-shell";
 import { useAuth } from "@/components/app/auth-provider";
 import { api } from "@/lib/api";
+import { TopAppBar } from "@/components/app/top-app-bar";
+
 
 interface SimpleCandidate {
   id: string;
@@ -106,9 +108,8 @@ export default function DashboardPage() {
       {/* Main Content Area */}
       <div className="min-h-screen flex flex-col relative">
         {/* TopAppBar */}
-        <header className="sticky top-0 z-40 bg-surface/80 backdrop-blur-md flex flex-wrap justify-between items-center gap-3 px-4 sm:px-6 py-4 border-b border-border-low-alpha">
-          {/* Search on Left */}
-          <div className="flex-1 min-w-[200px] max-w-md">
+        <TopAppBar
+          leftContent={
             <form
               onSubmit={(e) => {
                 e.preventDefault();
@@ -120,37 +121,33 @@ export default function DashboardPage() {
                   router.push("/search");
                 }
               }}
+              className="w-full"
             >
               <div className="relative">
                 <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
                 <input className="w-full pl-10 pr-4 py-2 bg-white border border-outline-variant rounded-full font-body-md text-body-md text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all" placeholder="Search across organization..." type="text" />
               </div>
             </form>
-          </div>
-          {/* Trailing Actions */}
-          <div className="flex items-center gap-4">
-            <button type="button" className="flex items-center justify-center w-10 h-10 rounded-full text-on-surface-variant hover:bg-surface-container-low transition-colors duration-200 active:opacity-80">
-              <span className="material-symbols-outlined">history</span>
-            </button>
-            <button type="button" className="flex items-center justify-center w-10 h-10 rounded-full text-on-surface-variant hover:bg-surface-container-low transition-colors duration-200 active:opacity-80">
-              <span className="material-symbols-outlined">notifications</span>
-            </button>
-            <Link href="/upload" className="bg-primary text-on-primary px-4 py-2 rounded-lg font-label-md text-label-md hover:bg-primary-container transition-colors duration-200 shadow-sm">
-              + Upload résumés
-            </Link>
-            <div
-              onClick={() => router.push("/settings")}
-              className="w-8 h-8 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center font-headline-md text-[14px] leading-none ml-2 cursor-pointer select-none active:scale-95 transition-transform overflow-hidden"
-            >
-              {avatarUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
-              ) : (
-                userInitials
-              )}
+          }
+          rightContent={
+            <div className="flex items-center gap-4">
+              <Link href="/upload" className="bg-primary text-white px-5 py-2.5 rounded-xl font-label-md text-label-md hover:shadow-lg transition-all active:scale-[0.98] whitespace-nowrap">
+                + Upload résumés
+              </Link>
+              <div
+                onClick={() => router.push("/settings")}
+                className="w-8 h-8 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center font-headline-md text-[14px] leading-none ml-2 cursor-pointer select-none active:scale-95 transition-transform overflow-hidden shadow-sm"
+              >
+                {avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                ) : (
+                  userInitials
+                )}
+              </div>
             </div>
-          </div>
-        </header>
+          }
+        />
         {/* Main Canvas */}
         <main className="flex-1 p-4 sm:p-6 lg:p-12 max-w-[1440px] mx-auto w-full">
           {/* Greeting Section */}

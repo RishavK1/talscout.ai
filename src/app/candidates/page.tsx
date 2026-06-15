@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/app/app-shell";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
+import { TopAppBar } from "@/components/app/top-app-bar";
+
 
 interface ApiCandidate {
   id: string;
@@ -140,34 +142,25 @@ export default function CandidatesPage() {
 
   return (
     <AppShell>
-      {/* TopAppBar */}
-      <header className="hidden md:flex bg-surface/80 dark:bg-surface-container/80 backdrop-blur-md sticky top-0 z-40 border-b border-border-low-alpha justify-between items-center px-6 py-4">
-        <div className="flex-1 max-w-xl">
-          <div className="relative">
+      <TopAppBar
+        leftContent={
+          <div className="relative w-full">
             <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
             <input
-              className="w-full pl-10 pr-4 py-2 bg-surface-white border border-border-low-alpha rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none font-body-md text-body-md text-on-surface placeholder:text-on-surface-variant/60 transition-all"
+              className="w-full pl-10 pr-4 py-2 bg-surface-white border border-border-low-alpha rounded-full font-body-md text-body-md text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
               placeholder="Search across candidates, roles..."
               type="text"
               value={q}
               onChange={(e) => setQ(e.target.value)}
             />
           </div>
-        </div>
-        <div className="flex items-center gap-6">
-          <div className="flex items-center gap-2">
-            <button type="button" className="p-2 rounded-full text-on-surface-variant hover:bg-surface-container-low transition-all scale-95 duration-100 active:opacity-80">
-              <span className="material-symbols-outlined">notifications</span>
-            </button>
-            <button type="button" className="p-2 rounded-full text-on-surface-variant hover:bg-surface-container-low transition-all scale-95 duration-100 active:opacity-80">
-              <span className="material-symbols-outlined">history</span>
-            </button>
-          </div>
-          <Link href="/upload" className="bg-primary text-on-primary px-4 py-2 rounded-lg font-label-md text-label-md hover:bg-primary-container transition-colors duration-200 flex items-center gap-2">
+        }
+        rightContent={
+          <Link href="/upload" className="bg-primary text-white px-5 py-2.5 rounded-xl font-label-md text-label-md hover:shadow-lg transition-all active:scale-[0.98] whitespace-nowrap">
             + Upload résumés
           </Link>
-        </div>
-      </header>
+        }
+      />
 
       {/* Main Content Canvas */}
       <main className="p-4 sm:p-6 lg:p-12 max-w-[1160px] mx-auto min-h-screen">

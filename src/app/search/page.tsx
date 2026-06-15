@@ -7,6 +7,8 @@ import { toast } from "sonner";
 import { AppShell } from "@/components/app/app-shell";
 import { api } from "@/lib/api";
 import { useAuth } from "@/components/app/auth-provider";
+import { TopAppBar } from "@/components/app/top-app-bar";
+
 
 type ViewMode = "list" | "grid";
 
@@ -129,25 +131,14 @@ function SearchPageContent() {
     <AppShell>
       {/* Main Content Area */}
       <div className="flex flex-col min-h-screen relative">
-        {/* TopAppBar Component */}
-        <header className="flex flex-wrap justify-between items-center gap-3 px-4 sm:px-6 py-4 sticky top-0 z-40 bg-surface/80 dark:bg-surface-container/80 backdrop-blur-md border-b border-border-low-alpha">
-          <div className="flex-1 max-w-xl">
-            {/* Handled in main content canvas */}
-          </div>
-          {/* Trailing Actions */}
-          <div className="flex items-center gap-4">
-            <button type="button" className="text-on-surface-variant hover:bg-surface-container-low p-2 rounded-full transition-all scale-95 duration-100 active:opacity-80">
-              <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 0" }}>history</span>
-            </button>
-            <button type="button" className="text-on-surface-variant hover:bg-surface-container-low p-2 rounded-full transition-all scale-95 duration-100 active:opacity-80 relative">
-              <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 0" }}>notifications</span>
-              <span className="absolute top-1 right-1 w-2 h-2 bg-error rounded-full"></span>
-            </button>
-            <Link href="/upload" className="px-4 py-2 bg-white border border-border-low-alpha text-primary rounded-lg font-label-md text-label-md hover:bg-surface-container-low transition-colors shadow-sm">
+        <TopAppBar
+          leftContent={null}
+          rightContent={
+            <Link href="/upload" className="bg-primary text-white px-5 py-2.5 rounded-xl font-label-md text-label-md hover:shadow-lg transition-all active:scale-[0.98] whitespace-nowrap">
               + Upload résumé
             </Link>
-          </div>
-        </header>
+          }
+        />
 
         {/* Main Canvas */}
         <main className="flex-1 p-4 sm:p-6 lg:p-8">

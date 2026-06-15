@@ -7,6 +7,8 @@ import { AppShell } from "@/components/app/app-shell";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { Modal } from "@/components/ui/modal";
+import { TopAppBar } from "@/components/app/top-app-bar";
+
 import { AddToShortlistButton } from "@/components/candidate/add-to-shortlist-button";
 import { MessageCandidate } from "@/components/candidate/message-candidate";
 import { DownloadPdfButton } from "@/components/candidate/download-pdf-button";
@@ -125,30 +127,25 @@ export default function CandidateProfilePage() {
   return (
     <AppShell>
       <main className="font-body-md text-body-md bg-bg-cream flex flex-1 flex-col min-h-screen selection:bg-tertiary-fixed selection:text-on-tertiary-fixed">
-        {/* TopAppBar */}
-        <header className="sticky top-0 z-40 bg-surface/80 dark:bg-surface-container/80 backdrop-blur-md flex flex-wrap gap-3 justify-between items-center px-4 sm:px-6 py-4 border-b border-border-low-alpha">
-          <div className="flex items-center text-on-surface-variant">
-            <Link className="p-2 rounded-full hover:bg-surface-container-low transition-colors text-on-surface-variant" href="/candidates">
-              <span className="material-symbols-outlined" data-icon="arrow_back">arrow_back</span>
-            </Link>
-            <div className="h-4 w-px bg-border-low-alpha mx-4"></div>
-            <div className="relative flex items-center">
-              <span className="material-symbols-outlined absolute left-3 text-outline">search</span>
-              <input className="pl-10 pr-4 py-2 rounded-full bg-surface-white border border-border-low-alpha focus:outline-none focus:ring-1 focus:ring-primary w-full sm:w-64 font-body-md text-body-md shadow-sm transition-all sm:focus:w-80 placeholder:text-outline" placeholder="Search profiles..." type="text" />
+        <TopAppBar
+          leftContent={
+            <div className="flex items-center text-on-surface-variant w-full">
+              <Link className="p-2 rounded-full hover:bg-surface-container-low transition-colors text-on-surface-variant flex items-center justify-center" href="/candidates">
+                <span className="material-symbols-outlined" data-icon="arrow_back">arrow_back</span>
+              </Link>
+              <div className="h-4 w-px bg-border-low-alpha mx-4"></div>
+              <div className="relative flex items-center flex-1 sm:flex-none">
+                <span className="material-symbols-outlined absolute left-3 text-outline">search</span>
+                <input className="pl-10 pr-4 py-2 rounded-full bg-surface-white border border-border-low-alpha focus:outline-none focus:ring-1 focus:ring-primary w-full sm:w-64 font-body-md text-body-md shadow-sm transition-all sm:focus:w-80 placeholder:text-outline" placeholder="Search profiles..." type="text" />
+              </div>
             </div>
-          </div>
-          <div className="flex items-center space-x-4">
-            <button type="button" className="p-2 rounded-full hover:bg-surface-container-low transition-colors text-on-surface-variant">
-              <span className="material-symbols-outlined" data-icon="history">history</span>
-            </button>
-            <button type="button" className="p-2 rounded-full hover:bg-surface-container-low transition-colors text-on-surface-variant">
-              <span className="material-symbols-outlined" data-icon="notifications">notifications</span>
-            </button>
-            <Link className="px-4 py-2 bg-surface-white border border-border-low-alpha rounded-full font-label-md text-label-md text-primary hover:bg-surface-container-low shadow-sm transition-colors flex items-center space-x-2" href="/upload">
+          }
+          rightContent={
+            <Link className="px-5 py-2.5 bg-white border border-border-low-alpha rounded-xl font-label-md text-label-md text-primary hover:bg-surface-container-low shadow-sm transition-colors flex items-center space-x-2" href="/upload">
               <span>+ Upload résumés</span>
             </Link>
-          </div>
-        </header>
+          }
+        />
 
         {/* Breadcrumb */}
         <div className="px-4 sm:px-6 lg:px-12 pt-6 max-w-[1440px] mx-auto w-full">

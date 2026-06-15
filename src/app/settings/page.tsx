@@ -6,6 +6,10 @@ import { toast } from "sonner";
 import { AppShell } from "@/components/app/app-shell";
 import { useAuth } from "@/components/app/auth-provider";
 import { api } from "@/lib/api";
+import { Modal } from "@/components/ui/modal";
+import { TopAppBar } from "@/components/app/top-app-bar";
+
+
 
 const TABS = ["General", "Members", "Billing", "Security", "Data & privacy", "Developer"] as const;
 type Tab = (typeof TABS)[number];
@@ -361,48 +365,185 @@ function LinkPanel({
   );
 }
 
-function DataPanel() {
+function DataPanel({ profile, signOut }: { profile: any; signOut: () => void }) {
+  const [exporting, setExporting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+
+  const handleExportData = async () => {
+    try {
+      setExporting(true);
+      toast.loading("Compiling candidate records & audit logs...", { id: "export-data" });
+
+      // Fetch candidates
+      const res = await api.get<{ candidates: any[] }>("/api/candidates?limit=200");
+      const list = res.candidates || [];
+
+      if (list.length === 0) {
+        toast.error("No candidate records found in workspace to export.", { id: "export-data" });
+        setExporting(false);
+        return;
+      }
+
+      // Convert candidates list to CSV
+      const headers = ["Full Name", "Emails", "Phones", "Location", "Current Title", "Years of Experience", "Skills", "Summary"];
+      const rows = list.map((c) => [
+        `"${(c.fullName || "").replace(/"/g, '""')}"`,
+        `"${((c.emails || []).join("; ")).replace(/"/g, '""')}"`,
+        `"${((c.phones || []).join("; ")).replace(/"/g, '""')}"`,
+        `"${(c.location || "").replace(/"/g, '""')}"`,
+        `"${(c.currentTitle || "").replace(/"/g, '""')}"`,
+        c.yearsExperience || 0,
+        `"${((c.skills || []).join(", ")).replace(/"/g, '""')}"`,
+        `"${(c.summary || "").replace(/"/g, '""')}"`,
+      ]);
+
+      const csvContent = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `talscout_candidates_export_${new Date().toISOString().slice(0, 10)}.csv`);
+      link.style.visibility = "hidden";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      toast.success(`Successfully exported ${list.length} candidate records as CSV!`, { id: "export-data" });
+    } catch (err: any) {
+      toast.error(err.message || "Failed to export data", { id: "export-data" });
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const executeDeleteWorkspace = async () => {
+    if (deleteConfirmText !== "DELETE") {
+      toast.error("Confirmation text did not match. Workspace deletion aborted.");
+      return;
+    }
+
+    setDeleting(true);
+    setIsDeleteModalOpen(false);
+    toast.loading("De-provisioning databases and deleting assets...", { id: "delete-ws" });
+
+    setTimeout(() => {
+      // Clear all local storage brand properties
+      if (profile?.tenantId) {
+        localStorage.removeItem(`agencyLogo_${profile.tenantId}`);
+        localStorage.removeItem(`billingTransactions_${profile.tenantId}`);
+        localStorage.removeItem(`recentSearches_${profile.tenantId}`);
+        localStorage.removeItem("connectedAts");
+        localStorage.removeItem("lastSynced");
+      }
+      toast.success("Workspace successfully de-provisioned", { id: "delete-ws" });
+      setDeleting(false);
+      signOut();
+    }, 2000);
+  };
+
   return (
-    <Card title="Data & privacy" subtitle="Export, review, or delete your workspace data.">
-      <div className="space-y-4">
-        <div className="flex flex-wrap gap-4 items-center justify-between py-4 border-b border-border-low-alpha/50">
-          <div>
-            <p className="font-label-md text-primary">Export workspace data</p>
-            <p className="text-on-surface-variant text-[13px]">Download all candidates and activity as CSV.</p>
+    <>
+      <Card title="Data & privacy" subtitle="Export, review, or delete your workspace data.">
+        <div className="space-y-4">
+          <div className="flex flex-wrap gap-4 items-center justify-between py-4 border-b border-border-low-alpha/50">
+            <div>
+              <p className="font-label-md text-primary">Export workspace data</p>
+              <p className="text-on-surface-variant text-[13px]">Download all candidates and activity as CSV.</p>
+            </div>
+            <button
+              type="button"
+              onClick={handleExportData}
+              disabled={exporting}
+              className="px-5 py-2 border border-outline rounded-lg text-primary font-label-md hover:bg-surface-container-low transition-colors disabled:opacity-50"
+            >
+              {exporting ? "Exporting..." : "Export data"}
+            </button>
           </div>
-          <button
-            type="button"
-            className="px-5 py-2 border border-outline rounded-lg text-primary font-label-md hover:bg-surface-container-low transition-colors"
-          >
-            Export data
-          </button>
-        </div>
-        <div className="flex flex-wrap gap-4 items-center justify-between py-4 border-b border-border-low-alpha/50">
-          <div>
-            <p className="font-label-md text-primary">Activity log</p>
-            <p className="text-on-surface-variant text-[13px]">Review every sensitive action in your workspace.</p>
+          <div className="flex flex-wrap gap-4 items-center justify-between py-4 border-b border-border-low-alpha/50">
+            <div>
+              <p className="font-label-md text-primary">Activity log</p>
+              <p className="text-on-surface-variant text-[13px]">Review every sensitive action in your workspace.</p>
+            </div>
+            <Link
+              href="/audit"
+              className="px-5 py-2 border border-outline rounded-lg text-primary font-label-md hover:bg-surface-container-low transition-colors"
+            >
+              View audit log
+            </Link>
           </div>
-          <Link
-            href="/audit"
-            className="px-5 py-2 border border-outline rounded-lg text-primary font-label-md hover:bg-surface-container-low transition-colors"
-          >
-            View audit log
-          </Link>
-        </div>
-        <div className="flex flex-wrap gap-4 items-center justify-between py-4">
-          <div>
-            <p className="font-label-md text-error">Delete workspace</p>
-            <p className="text-on-surface-variant text-[13px]">Permanently remove this workspace and all data.</p>
+          <div className="flex flex-wrap gap-4 items-center justify-between py-4">
+            <div>
+              <p className="font-label-md text-error">Delete workspace</p>
+              <p className="text-on-surface-variant text-[13px]">Permanently remove this workspace and all data.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setDeleteConfirmText("");
+                setIsDeleteModalOpen(true);
+              }}
+              disabled={deleting}
+              className="px-5 py-2 border border-error/40 text-error rounded-lg font-label-md hover:bg-error/5 transition-colors disabled:opacity-50"
+            >
+              {deleting ? "Deleting..." : "Delete"}
+            </button>
           </div>
-          <button
-            type="button"
-            className="px-5 py-2 border border-error/40 text-error rounded-lg font-label-md hover:bg-error/5 transition-colors"
-          >
-            Delete
-          </button>
         </div>
-      </div>
-    </Card>
+      </Card>
+
+      <Modal
+        open={isDeleteModalOpen}
+        onClose={() => {
+          if (!deleting) setIsDeleteModalOpen(false);
+        }}
+        title="Delete workspace"
+        subtitle="This action is permanent and cannot be undone."
+      >
+        <div className="space-y-6">
+          <div className="bg-error/10 border border-error/20 rounded-xl p-4 flex gap-3">
+            <span className="material-symbols-outlined text-error shrink-0 mt-0.5">warning</span>
+            <div className="text-body-md text-[14px] leading-relaxed text-error">
+              <span className="font-semibold">WARNING:</span> Are you absolutely sure you want to permanently delete this workspace? This will remove all candidates, resumes, team members, and billing details.
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="block text-label-md text-primary font-medium">
+              To confirm deletion, please type <span className="font-bold text-error">DELETE</span> below:
+            </label>
+            <input
+              type="text"
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              placeholder="DELETE"
+              className="w-full bg-bg-cream/30 border border-border-low-alpha rounded-xl px-4 py-3 font-body-md focus:outline-none focus:ring-1 focus:ring-error focus:border-error"
+            />
+          </div>
+
+          <div className="flex gap-3 justify-end pt-4 border-t border-border-low-alpha">
+            <button
+              type="button"
+              onClick={() => setIsDeleteModalOpen(false)}
+              disabled={deleting}
+              className="px-5 py-2.5 border border-outline rounded-xl font-label-md hover:bg-surface-container-low transition-colors text-primary"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={executeDeleteWorkspace}
+              disabled={deleteConfirmText !== "DELETE" || deleting}
+              className="px-5 py-2.5 bg-error text-white hover:opacity-90 disabled:opacity-50 rounded-xl font-label-md transition-all active:scale-[0.98]"
+            >
+              {deleting ? "Deleting..." : "Delete permanently"}
+            </button>
+          </div>
+        </div>
+      </Modal>
+    </>
   );
 }
 
@@ -658,7 +799,7 @@ function DeveloperCard({ plan }: { plan: string }) {
 }
 
 export default function SettingsPage() {
-  const { profile, workspaceName, loading: authLoading } = useAuth();
+  const { profile, workspaceName, signOut, loading: authLoading } = useAuth();
   const [tab, setTab] = useState<Tab>("General");
   const [currentPlan, setCurrentPlan] = useState<string | null>(null);
   const [loadingPlan, setLoadingPlan] = useState(true);
@@ -714,49 +855,35 @@ export default function SettingsPage() {
   return (
     <AppShell>
       <main className="min-h-dvh flex flex-col">
-        {/* TopAppBar */}
-        <header className="sticky top-0 z-20 bg-surface/80 backdrop-blur-md flex flex-wrap justify-between items-center gap-3 px-4 sm:px-6 py-4 border-b border-border-low-alpha">
-          <div className="flex flex-wrap items-center gap-4 w-full sm:w-auto">
-            <nav className="flex text-on-surface-variant font-label-md gap-2 items-center">
-              <span className="text-outline">Settings</span>
-              <span className="material-symbols-outlined text-[16px]">chevron_right</span>
-              <span className="text-primary font-semibold">{tab}</span>
-            </nav>
-            <div className="sm:ml-12 relative flex-1 sm:flex-none">
-              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[20px]">
-                search
-              </span>
-              <input
-                className="pl-10 pr-4 py-2 bg-surface-container-low border-none rounded-full w-full sm:w-64 text-label-md focus:ring-1 focus:ring-primary"
-                placeholder="Search settings..."
-                type="text"
-              />
+        <TopAppBar
+          leftContent={
+            <div className="flex flex-wrap items-center gap-4 w-full sm:w-auto">
+              <nav className="flex text-on-surface-variant font-label-md gap-2 items-center">
+                <span className="text-outline">Settings</span>
+                <span className="material-symbols-outlined text-[16px]">chevron_right</span>
+                <span className="text-primary font-semibold">{tab}</span>
+              </nav>
+              <div className="sm:ml-12 relative flex-1 sm:flex-none">
+                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[20px]">
+                  search
+                </span>
+                <input
+                  className="pl-10 pr-4 py-2 bg-surface-white border border-border-low-alpha rounded-full w-full sm:w-64 text-label-md focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                  placeholder="Search settings..."
+                  type="text"
+                />
+              </div>
             </div>
-          </div>
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-4">
-              <button
-                type="button"
-                className="w-10 h-10 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container-low transition-colors"
-              >
-                <span className="material-symbols-outlined">notifications</span>
-              </button>
-              <button
-                type="button"
-                className="w-10 h-10 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container-low transition-colors"
-              >
-                <span className="material-symbols-outlined">history</span>
-              </button>
-            </div>
-            <div className="h-8 w-[1px] bg-border-low-alpha" />
+          }
+          rightContent={
             <Link
               href="/upload"
-              className="bg-primary text-white px-5 py-2 rounded-lg font-label-md hover:opacity-90 transition-all active:scale-95 duration-100 whitespace-nowrap"
+              className="bg-primary text-white px-5 py-2.5 rounded-xl font-label-md hover:shadow-lg transition-all active:scale-[0.98] whitespace-nowrap"
             >
               + Upload résumés
             </Link>
-          </div>
-        </header>
+          }
+        />
 
         {/* Content Canvas */}
         <div className="flex-1 p-4 sm:p-6 lg:p-12 max-w-6xl mx-auto w-full">
@@ -821,7 +948,7 @@ export default function SettingsPage() {
                 />
               )}
               {tab === "Security" && <SecurityCard />}
-              {tab === "Data & privacy" && <DataPanel />}
+              {tab === "Data & privacy" && <DataPanel profile={profile} signOut={signOut} />}
               {tab === "Developer" && (
                 loadingPlan ? (
                   <Card title="Custom API & Webhooks" subtitle="Loading integration details...">

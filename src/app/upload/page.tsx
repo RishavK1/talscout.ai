@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/app/app-shell";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
+import { TopAppBar } from "@/components/app/top-app-bar";
+
 
 interface UploadingFile {
   id: string;
@@ -288,45 +290,28 @@ export default function UploadPage() {
           aria-label="Upload files hidden input"
         />
 
-        {/* TopAppBar */}
-        <header className="sticky top-0 z-40 bg-surface/80 backdrop-blur-md flex flex-wrap justify-between items-center gap-3 px-4 sm:px-6 py-4 border-b border-border-low-alpha">
-          <div className="flex items-center gap-4 flex-1 min-w-[180px]">
-            <div className="relative w-full max-w-md">
-              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline">
-                search
-              </span>
+        <TopAppBar
+          leftContent={
+            <div className="relative w-full">
+              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline">search</span>
               <input
-                className="w-full bg-surface-container-low border-none rounded-full pl-10 pr-4 py-2 text-body-md focus:ring-1 focus:ring-primary outline-none"
+                className="w-full bg-surface-white border border-border-low-alpha rounded-full pl-10 pr-4 py-2 text-body-md focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
                 placeholder="Search files or candidates..."
                 type="text"
                 onClick={() => router.push("/candidates")}
               />
             </div>
-          </div>
-          <div className="flex items-center gap-4 sm:gap-6">
-            <div className="flex items-center gap-4 text-on-surface-variant">
-              <button
-                type="button"
-                className="material-symbols-outlined hover:bg-surface-container-low p-2 rounded-full transition-colors"
-              >
-                notifications
-              </button>
-              <button
-                type="button"
-                className="material-symbols-outlined hover:bg-surface-container-low p-2 rounded-full transition-colors"
-              >
-                history
-              </button>
-            </div>
+          }
+          rightContent={
             <button
               type="button"
               onClick={triggerBrowse}
-              className="bg-primary text-white px-4 sm:px-6 py-2 rounded-full font-label-md text-label-md hover:shadow-lg transition-all scale-95 active:opacity-80 whitespace-nowrap cursor-pointer"
+              className="bg-primary text-white px-5 py-2.5 rounded-xl font-label-md text-label-md hover:shadow-lg transition-all active:scale-[0.98] whitespace-nowrap cursor-pointer"
             >
               + Upload résumés
             </button>
-          </div>
-        </header>
+          }
+        />
 
         {/* Canvas Area */}
         <div className="flex-1 max-w-5xl mx-auto w-full px-4 sm:px-6 lg:px-12 py-8 sm:py-10 lg:py-12">

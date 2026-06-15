@@ -1,30 +1,25 @@
 import Link from "next/link";
 import { AppShell } from "@/components/app/app-shell";
+import { TopAppBar } from "@/components/app/top-app-bar";
 
 export default function DashboardEmptyPage() {
   return (
     <AppShell>
       <main className="flex min-h-dvh flex-col text-on-surface font-body-md">
         {/* TopAppBar */}
-        <header className="sticky top-0 z-20 bg-surface/80 backdrop-blur-md px-4 sm:px-6 py-4 border-b border-border-low-alpha flex flex-wrap gap-3 justify-between items-center">
-          <div className="flex items-center gap-2">
-            <span className="text-text-muted font-label-md">Dashboard</span>
-          </div>
-          <div className="flex items-center gap-4">
-            <Link href="/upload" className="flex items-center gap-2 bg-primary text-on-primary px-5 py-2.5 rounded-full font-label-md hover:opacity-90 transition-all active:scale-95">
+        <TopAppBar
+          leftContent={
+            <div className="flex items-center gap-2">
+              <span className="text-text-muted font-label-md">Dashboard</span>
+            </div>
+          }
+          rightContent={
+            <Link href="/upload" className="flex items-center gap-2 bg-primary text-white px-5 py-2.5 rounded-xl font-label-md hover:shadow-lg transition-all active:scale-[0.98]">
               <span className="material-symbols-outlined text-sm" data-icon="add">add</span>
               <span>Upload résumés</span>
             </Link>
-            <div className="flex items-center gap-3 pl-4 border-l border-border-low-alpha">
-              <button type="button" className="w-10 h-10 flex items-center justify-center text-outline hover:bg-surface-container-low rounded-full transition-all">
-                <span className="material-symbols-outlined" data-icon="notifications">notifications</span>
-              </button>
-              <button type="button" className="w-10 h-10 flex items-center justify-center text-outline hover:bg-surface-container-low rounded-full transition-all">
-                <span className="material-symbols-outlined" data-icon="history">history</span>
-              </button>
-            </div>
-          </div>
-        </header>
+          }
+        />
         {/* Scrollable Canvas */}
         <div className="flex-grow px-4 sm:px-6 lg:px-12 py-8 sm:py-12 max-w-[1440px] mx-auto w-full">
           {/* Empty State Card */}

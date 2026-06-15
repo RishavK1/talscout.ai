@@ -7,6 +7,8 @@ import { InviteMemberButton } from "@/components/team/invite-member-button";
 import { useAuth } from "@/components/app/auth-provider";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
+import { TopAppBar } from "@/components/app/top-app-bar";
+
 
 type Member = {
   id: string;
@@ -137,29 +139,21 @@ export default function TeamSeatsPage() {
     <AppShell>
       {/* Content Area */}
       <main className="min-h-screen">
-        {/* TopAppBar Component */}
-        <header className="sticky top-0 z-40 bg-surface/80 backdrop-blur-md flex flex-wrap gap-3 justify-between items-center px-4 sm:px-6 lg:px-12 py-4 border-b border-border-low-alpha">
-          <div className="flex items-center gap-2 text-on-surface-variant">
-            <span className="font-label-md text-label-md cursor-pointer hover:text-primary transition-colors">Settings</span>
-            <span className="material-symbols-outlined text-[16px]">chevron_right</span>
-            <span className="font-label-md text-label-md text-primary font-semibold">Team &amp; seats</span>
-          </div>
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-4">
-              <button type="button" className="p-2 text-on-surface-variant hover:bg-surface-container-low rounded-full transition-all">
-                <span className="material-symbols-outlined">notifications</span>
-              </button>
-              <button type="button" className="p-2 text-on-surface-variant hover:bg-surface-container-low rounded-full transition-all">
-                <span className="material-symbols-outlined">history</span>
-              </button>
+        <TopAppBar
+          leftContent={
+            <div className="flex items-center gap-2 text-on-surface-variant">
+              <span className="font-label-md text-label-md cursor-pointer hover:text-primary transition-colors">Settings</span>
+              <span className="material-symbols-outlined text-[16px]">chevron_right</span>
+              <span className="font-label-md text-label-md text-primary font-semibold">Team &amp; seats</span>
             </div>
-            <div className="h-8 w-[1px] bg-border-low-alpha"></div>
-            <Link href="/upload" className="px-4 py-2 bg-primary text-white rounded-lg font-label-md text-label-md flex items-center gap-2 hover:opacity-90 transition-all active:scale-95">
+          }
+          rightContent={
+            <Link href="/upload" className="px-5 py-2.5 bg-primary text-white rounded-xl font-label-md text-label-md flex items-center gap-2 hover:shadow-lg transition-all active:scale-[0.98]">
               <span className="material-symbols-outlined text-[18px]">upload_file</span>
               + Upload résumés
             </Link>
-          </div>
-        </header>
+          }
+        />
 
         {/* Main Content */}
         <section className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-12 py-12">

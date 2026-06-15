@@ -7,6 +7,8 @@ import { useAuth } from "@/components/app/auth-provider";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { Modal } from "@/components/ui/modal";
+import { TopAppBar } from "@/components/app/top-app-bar";
+
 
 interface BillingInfo {
   plan: string;
@@ -21,7 +23,7 @@ export default function BillingPage() {
   const { profile, loading: authLoading } = useAuth();
   const [billingInfo, setBillingInfo] = useState<BillingInfo | null>(null);
   const [loading, setLoading] = useState(true);
-  const [invoices, setInvoices] = useState<{ id: string; date: string; amount: string; status: string }[]>([]);
+  const [invoices, setInvoices] = useState<{ id: string; date: string; amount: string; status: string; plan?: string; seats?: number }[]>([]);
 
   const [showModal, setShowModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState("starter");
@@ -73,34 +75,67 @@ export default function BillingPage() {
   }, [billingInfo, showModal]);
 
   useEffect(() => {
-    if (billingInfo && billingInfo.status === "active") {
+    if (billingInfo && profile?.tenantId) {
+      if (billingInfo.status !== "active") {
+        setInvoices([]);
+        return;
+      }
+
+      const tenantId = profile.tenantId;
+      const key = `billingTransactions_${tenantId}`;
+      const saved = localStorage.getItem(key);
       const totalMonthlyPrice = billingInfo.pricePerSeat * billingInfo.seats;
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setInvoices([
-        {
-          id: "INV-2026-003",
-          date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
-          amount: `$${totalMonthlyPrice.toLocaleString()}`,
-          status: "Paid",
-        },
-        {
-          id: "INV-2026-002",
-          date: new Date(Date.now() - 30 * 24 * 3600 * 1000).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
-          amount: `$${totalMonthlyPrice.toLocaleString()}`,
-          status: "Paid",
-        },
-        {
-          id: "INV-2026-001",
-          date: new Date(Date.now() - 60 * 24 * 3600 * 1000).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
-          amount: `$${totalMonthlyPrice.toLocaleString()}`,
-          status: "Paid",
-        },
-      ]);
-    } else {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setInvoices([]);
+      const todayStr = new Date().toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+
+      let list: any[] = [];
+      if (saved) {
+        try {
+          list = JSON.parse(saved);
+        } catch (_) {}
+      }
+
+      if (list.length === 0) {
+        list = [
+          {
+            id: "INV-2026-001",
+            date: todayStr,
+            plan: billingInfo.plan,
+            seats: billingInfo.seats,
+            amount: `$${totalMonthlyPrice.toLocaleString()}`,
+            status: "Paid",
+          },
+        ];
+        localStorage.setItem(key, JSON.stringify(list));
+      } else {
+        const lastTx = list[list.length - 1];
+        const lastPlan = lastTx.plan.toLowerCase();
+        const lastSeats = lastTx.seats;
+        
+        const planUpgrade = planRank(billingInfo.plan) > planRank(lastPlan);
+        const seatUpgrade = planRank(billingInfo.plan) === planRank(lastPlan) && billingInfo.seats > lastSeats;
+
+        if (planUpgrade || seatUpgrade) {
+          const nextInvNum = String(list.length + 1).padStart(3, "0");
+          list.push({
+            id: `INV-2026-${nextInvNum}`,
+            date: todayStr,
+            plan: billingInfo.plan,
+            seats: billingInfo.seats,
+            amount: `$${totalMonthlyPrice.toLocaleString()}`,
+            status: "Paid",
+          });
+          localStorage.setItem(key, JSON.stringify(list));
+        }
+      }
+
+      const sorted = [...list].reverse();
+      setInvoices(sorted);
     }
-  }, [billingInfo]);
+  }, [billingInfo, profile]);
 
   const handleUpdateSubscription = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -179,26 +214,19 @@ export default function BillingPage() {
 
   return (
     <AppShell>
-      {/* TopAppBar */}
-      <header className="sticky top-0 z-40 bg-surface/80 dark:bg-surface-container/80 backdrop-blur-md border-b border-border-low-alpha flex flex-wrap justify-between items-center gap-3 px-4 sm:px-6 py-4">
-        <div className="flex items-center gap-4 bg-surface-container-low px-4 py-2 rounded-full hairline-border w-full sm:w-96">
-          <span className="material-symbols-outlined text-outline text-[20px]">search</span>
-          <input className="bg-transparent border-none focus:ring-0 text-label-md w-full placeholder:text-outline" placeholder="Search settings, invoices..." type="text" />
-        </div>
-        <div className="flex items-center gap-4">
-          <button type="button" className="p-2 text-on-surface-variant hover:bg-surface-container-low rounded-full transition-colors">
-            <span className="material-symbols-outlined">history</span>
-          </button>
-          <button type="button" className="p-2 text-on-surface-variant hover:bg-surface-container-low rounded-full transition-colors relative">
-            <span className="material-symbols-outlined">notifications</span>
-            <span className="absolute top-2 right-2 w-2 h-2 bg-error rounded-full"></span>
-          </button>
-          <div className="h-8 w-[1px] bg-border-low-alpha mx-2"></div>
-          <Link href="/upload" className="bg-primary text-white px-5 py-2 rounded-lg font-label-md text-label-md hover:opacity-90 transition-all active:scale-95 duration-100">
+      <TopAppBar
+        leftContent={
+          <div className="relative w-full">
+            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline">search</span>
+            <input className="w-full pl-10 pr-4 py-2 bg-surface-white border border-border-low-alpha rounded-full font-body-md text-body-md text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all placeholder:text-outline" placeholder="Search settings, invoices..." type="text" />
+          </div>
+        }
+        rightContent={
+          <Link href="/upload" className="bg-primary text-white px-5 py-2.5 rounded-xl font-label-md text-label-md hover:shadow-lg transition-all active:scale-[0.98] whitespace-nowrap">
             + Upload résumés
           </Link>
-        </div>
-      </header>
+        }
+      />
 
       {/* Main Content Area */}
       <main className="pt-8 sm:pt-12 lg:pt-24 px-4 sm:px-6 lg:px-12 pb-12 sm:pb-16 lg:pb-24 max-w-[1440px] mx-auto">
@@ -296,7 +324,14 @@ export default function BillingPage() {
                         invoices.map((inv) => (
                           <tr key={inv.id} className="hover:bg-bg-secondary/30 transition-colors group">
                             <td className="px-8 py-5 font-data-mono text-data-mono text-on-surface">{inv.date}</td>
-                            <td className="px-8 py-5 font-label-md text-label-md text-on-surface-variant">{inv.id}</td>
+                            <td className="px-8 py-5 font-label-md text-label-md text-on-surface-variant flex items-center flex-wrap gap-2">
+                              <span>{inv.id}</span>
+                              {inv.plan && (
+                                <span className="text-[10px] uppercase font-bold text-text-muted bg-bg-cream border border-border-low-alpha/50 px-2 py-0.5 rounded">
+                                  {inv.plan} • {inv.seats} {inv.seats === 1 ? "seat" : "seats"}
+                                </span>
+                              )}
+                            </td>
                             <td className="px-8 py-5 font-data-mono text-data-mono text-on-surface">{inv.amount}</td>
                             <td className="px-8 py-5">
                               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-tertiary-fixed-dim/20 text-tertiary font-label-md text-[12px]">
