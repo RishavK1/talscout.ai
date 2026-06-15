@@ -859,16 +859,16 @@ export default function SettingsPage() {
           leftContent={
             <div className="flex flex-wrap items-center gap-4 w-full sm:w-auto">
               <nav className="flex text-on-surface-variant font-label-md gap-2 items-center">
-                <span className="text-outline">Settings</span>
+                <span className="text-on-surface-variant">Settings</span>
                 <span className="material-symbols-outlined text-[16px]">chevron_right</span>
                 <span className="text-primary font-semibold">{tab}</span>
               </nav>
               <div className="sm:ml-12 relative flex-1 sm:flex-none">
-                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[20px]">
+                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[20px]">
                   search
                 </span>
                 <input
-                  className="pl-10 pr-4 py-2 bg-surface-white border border-border-low-alpha rounded-full w-full sm:w-64 text-label-md focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                  className="pl-10 pr-4 py-2 bg-surface-white border border-border-low-alpha rounded-full w-full sm:w-64 font-body-md text-body-md text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
                   placeholder="Search settings..."
                   type="text"
                 />
@@ -878,7 +878,7 @@ export default function SettingsPage() {
           rightContent={
             <Link
               href="/upload"
-              className="bg-primary text-white px-5 py-2.5 rounded-xl font-label-md hover:shadow-lg transition-all active:scale-[0.98] whitespace-nowrap"
+              className="bg-primary text-white px-5 py-2.5 rounded-xl font-label-md text-label-md hover:shadow-lg transition-all active:scale-[0.98] whitespace-nowrap"
             >
               + Upload résumés
             </Link>

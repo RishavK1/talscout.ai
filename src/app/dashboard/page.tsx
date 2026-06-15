@@ -27,20 +27,8 @@ export default function DashboardPage() {
   const [recentCandidates, setRecentCandidates] = useState<SimpleCandidate[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const displayName = user?.user_metadata?.full_name || user?.email?.split("@")[0] || "Recruiter";
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
-
-  useEffect(() => {
-    const handleAvatarUpdate = () => {
-      if (profile?.userId) {
-        const stored = localStorage.getItem(`profileAvatar_${profile.userId}`);
-        setAvatarUrl(stored);
-      }
-    };
-    handleAvatarUpdate();
-    window.addEventListener("profileAvatarUpdated", handleAvatarUpdate);
-    return () => window.removeEventListener("profileAvatarUpdated", handleAvatarUpdate);
-  }, [profile?.userId]);
 
   useEffect(() => {
     if (profile?.tenantId) {
@@ -50,9 +38,6 @@ export default function DashboardPage() {
       }
     }
   }, [profile?.tenantId]);
-
-  const displayName = user?.user_metadata?.full_name || user?.email?.split("@")[0] || "Recruiter";
-  const userInitials = displayName.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2) || "R";
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -125,27 +110,14 @@ export default function DashboardPage() {
             >
               <div className="relative">
                 <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
-                <input className="w-full pl-10 pr-4 py-2 bg-white border border-outline-variant rounded-full font-body-md text-body-md text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all" placeholder="Search across organization..." type="text" />
+                <input className="w-full pl-10 pr-4 py-2 bg-surface-white border border-border-low-alpha rounded-full font-body-md text-body-md text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all" placeholder="Search across organization..." type="text" />
               </div>
             </form>
           }
           rightContent={
-            <div className="flex items-center gap-4">
-              <Link href="/upload" className="bg-primary text-white px-5 py-2.5 rounded-xl font-label-md text-label-md hover:shadow-lg transition-all active:scale-[0.98] whitespace-nowrap">
-                + Upload résumés
-              </Link>
-              <div
-                onClick={() => router.push("/settings")}
-                className="w-8 h-8 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center font-headline-md text-[14px] leading-none ml-2 cursor-pointer select-none active:scale-95 transition-transform overflow-hidden shadow-sm"
-              >
-                {avatarUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
-                ) : (
-                  userInitials
-                )}
-              </div>
-            </div>
+            <Link href="/upload" className="bg-primary text-white px-5 py-2.5 rounded-xl font-label-md text-label-md hover:shadow-lg transition-all active:scale-[0.98] whitespace-nowrap">
+              + Upload résumés
+            </Link>
           }
         />
         {/* Main Canvas */}

@@ -135,14 +135,14 @@ export default function CandidateProfilePage() {
               </Link>
               <div className="h-4 w-px bg-border-low-alpha mx-4"></div>
               <div className="relative flex items-center flex-1 sm:flex-none">
-                <span className="material-symbols-outlined absolute left-3 text-outline">search</span>
-                <input className="pl-10 pr-4 py-2 rounded-full bg-surface-white border border-border-low-alpha focus:outline-none focus:ring-1 focus:ring-primary w-full sm:w-64 font-body-md text-body-md shadow-sm transition-all sm:focus:w-80 placeholder:text-outline" placeholder="Search profiles..." type="text" />
+                <span className="material-symbols-outlined absolute left-3 text-on-surface-variant">search</span>
+                <input className="pl-10 pr-4 py-2 rounded-full bg-surface-white border border-border-low-alpha focus:outline-none focus:ring-1 focus:ring-primary w-full sm:w-64 font-body-md text-body-md text-on-surface placeholder:text-on-surface-variant/60 shadow-sm transition-all sm:focus:w-80" placeholder="Search profiles..." type="text" />
               </div>
             </div>
           }
           rightContent={
-            <Link className="px-5 py-2.5 bg-white border border-border-low-alpha rounded-xl font-label-md text-label-md text-primary hover:bg-surface-container-low shadow-sm transition-colors flex items-center space-x-2" href="/upload">
-              <span>+ Upload résumés</span>
+            <Link href="/upload" className="bg-primary text-white px-5 py-2.5 rounded-xl font-label-md text-label-md hover:shadow-lg transition-all active:scale-[0.98] whitespace-nowrap">
+              + Upload résumés
             </Link>
           }
         />
