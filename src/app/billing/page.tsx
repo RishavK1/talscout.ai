@@ -73,7 +73,7 @@ export default function BillingPage() {
   }, [billingInfo, showModal]);
 
   useEffect(() => {
-    if (billingInfo) {
+    if (billingInfo && billingInfo.status === "active") {
       const totalMonthlyPrice = billingInfo.pricePerSeat * billingInfo.seats;
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setInvoices([
@@ -96,6 +96,9 @@ export default function BillingPage() {
           status: "Paid",
         },
       ]);
+    } else {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setInvoices([]);
     }
   }, [billingInfo]);
 
@@ -283,18 +286,26 @@ export default function BillingPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border-low-alpha">
-                      {invoices.map((inv) => (
-                        <tr key={inv.id} className="hover:bg-bg-secondary/30 transition-colors group">
-                          <td className="px-8 py-5 font-data-mono text-data-mono text-on-surface">{inv.date}</td>
-                          <td className="px-8 py-5 font-label-md text-label-md text-on-surface-variant">{inv.id}</td>
-                          <td className="px-8 py-5 font-data-mono text-data-mono text-on-surface">{inv.amount}</td>
-                          <td className="px-8 py-5">
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-tertiary-fixed-dim/20 text-tertiary font-label-md text-[12px]">
-                              <span className="w-1.5 h-1.5 rounded-full bg-tertiary"></span> {inv.status}
-                            </span>
+                      {invoices.length === 0 ? (
+                        <tr>
+                          <td colSpan={4} className="px-8 py-12 text-center text-text-muted font-body-md">
+                            No invoices found. Billed history is generated after checkout.
                           </td>
                         </tr>
-                      ))}
+                      ) : (
+                        invoices.map((inv) => (
+                          <tr key={inv.id} className="hover:bg-bg-secondary/30 transition-colors group">
+                            <td className="px-8 py-5 font-data-mono text-data-mono text-on-surface">{inv.date}</td>
+                            <td className="px-8 py-5 font-label-md text-label-md text-on-surface-variant">{inv.id}</td>
+                            <td className="px-8 py-5 font-data-mono text-data-mono text-on-surface">{inv.amount}</td>
+                            <td className="px-8 py-5">
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-tertiary-fixed-dim/20 text-tertiary font-label-md text-[12px]">
+                                <span className="w-1.5 h-1.5 rounded-full bg-tertiary"></span> {inv.status}
+                              </span>
+                            </td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>

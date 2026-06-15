@@ -49,7 +49,7 @@ export const tenantRepo = {
         .returning();
       await tx.insert(subscriptions).values({
         tenantId: tenant.id,
-        status: "trialing",
+        status: "incomplete",
         seats: tenant.seatLimit,
       });
       return { tenant, user };

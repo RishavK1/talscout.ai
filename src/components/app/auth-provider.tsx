@@ -11,6 +11,8 @@ export interface UserProfile {
   tenantId: string;
   role: string;
   email: string;
+  subscriptionStatus: string;
+  plan: string;
 }
 
 interface AuthContextType {
@@ -50,6 +52,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         role: string;
         email: string;
         workspaceName?: string;
+        subscriptionStatus?: string;
+        plan?: string;
       }>("/api/auth/session");
 
       setProfile({
@@ -57,14 +61,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         tenantId: data.tenantId,
         role: data.role,
         email: data.email,
+        subscriptionStatus: data.subscriptionStatus ?? "incomplete",
+        plan: data.plan ?? "starter",
       });
       // The session route might return workspaceName or we can query it later
       setWorkspaceName(data.workspaceName ?? "Workspace");
       
-      // If we are on login, signup, or onboarding/workspace, redirect to dashboard now that they have a workspace.
+      // If we are on login, signup, or onboarding/workspace, redirect accordingly.
       if (!skipRedirect) {
+        const isActive = ["active", "trialing"].includes(data.subscriptionStatus ?? "incomplete");
         if (pathname === "/onboarding/workspace" || pathname === "/login" || pathname === "/signup") {
-          router.push("/dashboard");
+          if (isActive) {
+            router.push("/dashboard");
+          } else {
+            router.push("/onboarding/plan");
+          }
         }
       }
     } catch (err) {
@@ -173,8 +184,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     } else {
       if (profile) {
-        if (pathname === "/login" || pathname === "/signup" || pathname === "/onboarding/workspace") {
-          router.push("/dashboard");
+        const isActive = ["active", "trialing"].includes(profile.subscriptionStatus);
+        if (!isActive) {
+          // If subscription is incomplete, they MUST go through onboarding plan/checkout
+          if (!isOnboardingPath && !isPublicPath) {
+            router.push("/onboarding/plan");
+          }
+        } else {
+          // If subscription is active, redirect them away from auth/onboarding paths to dashboard
+          if (pathname === "/login" || pathname === "/signup" || pathname === "/onboarding/workspace" || pathname === "/onboarding/plan") {
+            router.push("/dashboard");
+          }
         }
       } else {
         if (!isPublicPath && !isOnboardingPath) {
