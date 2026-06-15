@@ -6,6 +6,7 @@ import { getServices } from "@/server/container";
 import { tenantRepo } from "@/server/repositories/tenant.repo";
 import { MAX_UPLOAD_BYTES, extensionFor } from "@/server/ingestion/file-type";
 import { PARSE_RESUME_JOB } from "@/server/jobs/parse-resume";
+import { uploadsPerMonth } from "@/lib/plans";
 import {
   PayloadTooLarge,
   PaymentRequired,
@@ -28,16 +29,12 @@ export const ingestionService = {
     const used = await usageRepo.getCount(ctx, "uploads", window);
 
     const tenant = await tenantRepo.getByIdAdmin(ctx.tenantId);
-    const plan = tenant?.plan || "starter";
-    let uploadLimit = 50; // Starter limit: 50 resume uploads per month
-    if (plan === "growth") {
-      uploadLimit = 500; // Growth limit: 500 uploads per month
-    } else if (plan === "scale") {
-      uploadLimit = 5000; // Scale limit: 5000 uploads per month
-    }
+    const uploadLimit = uploadsPerMonth(tenant?.plan || "starter"); // per-plan, shared catalog
 
     if (used >= uploadLimit) {
-      throw new PaymentRequired("Monthly upload quota reached"); // UP-06
+      throw new PaymentRequired(
+        "Monthly upload quota reached for your plan — upgrade to upload more.",
+      ); // UP-06
     }
 
     const candidate = await candidateRepo.create(ctx, { status: "processing" });

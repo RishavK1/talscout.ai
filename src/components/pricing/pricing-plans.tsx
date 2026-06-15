@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useAuth } from "@/components/app/auth-provider";
 import { api } from "@/lib/api";
+import { PLANS, PLAN_ORDER } from "@/lib/plans";
 
 type BillingCycle = "monthly" | "annual";
 
@@ -16,45 +17,24 @@ interface Plan {
   features: { icon: string; label: string; emphasized?: boolean }[];
 }
 
-const plans: Plan[] = [
-  {
-    name: "Starter",
-    description: "For small teams starting out.",
-    monthly: 99,
-    annual: 79,
-    features: [
-      { icon: "check_circle", label: "1 Recruiter seat limit" },
-      { icon: "check_circle", label: "50 resume uploads / mo" },
-      { icon: "check_circle", label: "Simple keyword search" },
-      { icon: "check_circle", label: "Up to 3 custom shortlists" },
-    ],
-  },
-  {
-    name: "Growth",
-    description: "Scale your hiring with AI.",
-    monthly: 199,
-    annual: 159,
-    highlighted: true,
-    features: [
-      { icon: "check_circle", label: "Up to 5 Recruiter seats" },
-      { icon: "check_circle", label: "500 resume uploads / mo" },
-      { icon: "stars", label: "Full Semantic AI Search", emphasized: true },
-      { icon: "check_circle", label: "Unlimited custom shortlists" },
-    ],
-  },
-  {
-    name: "Scale",
-    description: "Enterprise-grade power.",
-    monthly: 399,
-    annual: 319,
-    features: [
-      { icon: "check_circle", label: "Everything in Growth" },
-      { icon: "check_circle", label: "5,000 resume uploads / mo" },
-      { icon: "check_circle", label: "Priority email & chat support" },
-      { icon: "check_circle", label: "Custom API & webhook access" },
-    ],
-  },
-];
+// Single source of truth: derive cards from the shared plan catalog so the UI
+// and the backend quotas never drift. Semantic search + AI parsing are on every
+// plan (the core product); tiers differ by quota/seats/extras.
+const plans: Plan[] = PLAN_ORDER.map((id) => {
+  const p = PLANS[id];
+  return {
+    name: p.name,
+    description: p.tagline,
+    monthly: p.monthlyPrice,
+    annual: Math.round(p.monthlyPrice * 0.8),
+    highlighted: p.recommended,
+    features: p.features.map((label) => ({
+      icon: /semantic|parsing|everything/i.test(label) ? "stars" : "check_circle",
+      label,
+      emphasized: /semantic|parsing/i.test(label),
+    })),
+  };
+});
 
 const PLAN_RANK: Record<string, number> = { starter: 0, growth: 1, scale: 2 };
 const planRank = (name?: string) => (name ? PLAN_RANK[name.toLowerCase()] ?? 0 : 0);

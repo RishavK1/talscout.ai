@@ -4,50 +4,28 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
+import { PLANS as PLAN_CATALOG, PLAN_ORDER, type PlanId } from "@/lib/plans";
 
-type PlanId = "starter" | "growth" | "scale";
-
+// Derived from the shared catalog so onboarding, pricing and backend agree.
 const PLANS: {
   id: PlanId;
   name: string;
   price: number;
   popular: boolean;
   features: { label: string; emphasized?: boolean }[];
-}[] = [
-  {
-    id: "starter",
-    name: "Starter",
-    price: 99,
-    popular: false,
-    features: [
-      { label: "Basic parsing" },
-      { label: "500 candidates" },
-      { label: "Email support" },
-    ],
-  },
-  {
-    id: "growth",
-    name: "Growth",
-    price: 199,
-    popular: true,
-    features: [
-      { label: "Full Semantic Search", emphasized: true },
-      { label: "Unlimited parsing" },
-      { label: "Priority support" },
-    ],
-  },
-  {
-    id: "scale",
-    name: "Scale",
-    price: 399,
-    popular: false,
-    features: [
-      { label: "Custom API" },
-      { label: "Dedicated manager" },
-      { label: "Advanced analytics" },
-    ],
-  },
-];
+}[] = PLAN_ORDER.map((id) => {
+  const p = PLAN_CATALOG[id];
+  return {
+    id: p.id,
+    name: p.name,
+    price: p.monthlyPrice,
+    popular: !!p.recommended,
+    features: p.features.map((label) => ({
+      label,
+      emphasized: /semantic|parsing/i.test(label),
+    })),
+  };
+});
 
 const PLAN_RANK: Record<string, number> = { starter: 0, growth: 1, scale: 2 };
 const planRank = (name?: string) => (name ? PLAN_RANK[name.toLowerCase()] ?? 0 : 0);
