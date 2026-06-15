@@ -13,6 +13,8 @@ export interface UserProfile {
   email: string;
   subscriptionStatus: string;
   plan: string;
+  logo: string | null;
+  avatar: string | null;
 }
 
 interface AuthContextType {
@@ -35,15 +37,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
 
-  // Helper to set/delete session cookie for Next.js Middleware
-  const setSessionCookie = (token?: string, expiresSec?: number) => {
-    if (token && expiresSec) {
-      document.cookie = `sb-access-token=${token}; path=/; max-age=${expiresSec}; SameSite=Lax; Secure`;
-    } else {
-      document.cookie = `sb-access-token=; path=/; max-age=0; SameSite=Lax; Secure`;
-    }
-  };
-
   const fetchProfile = async (skipRedirect = false) => {
     try {
       const data = await api.get<{
@@ -54,6 +47,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         workspaceName?: string;
         subscriptionStatus?: string;
         plan?: string;
+        logo?: string | null;
+        avatar?: string | null;
       }>("/api/auth/session");
 
       setProfile({
@@ -63,6 +58,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         email: data.email,
         subscriptionStatus: data.subscriptionStatus ?? "incomplete",
         plan: data.plan ?? "starter",
+        logo: data.logo ?? null,
+        avatar: data.avatar ?? null,
       });
       // The session route might return workspaceName or we can query it later
       setWorkspaceName(data.workspaceName ?? "Workspace");
@@ -89,7 +86,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else {
         // General error or token invalid
         setProfile(null);
-        setSessionCookie();
         if (!["/", "/login", "/signup", "/pricing", "/privacy", "/terms"].includes(pathname)) {
           router.push("/login");
         }
@@ -106,7 +102,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = async () => {
     setLoading(true);
     await supabase.auth.signOut();
-    setSessionCookie();
     setUser(null);
     setProfile(null);
     setWorkspaceName(null);
@@ -125,12 +120,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (session) {
           setUser(session.user);
-          setSessionCookie(session.access_token, session.expires_in);
           await fetchProfile(true); // skip redirect here, handle in the routing effect
         } else {
           setUser(null);
           setProfile(null);
-          setSessionCookie();
         }
       } catch (err) {
         console.error("Error during initAuth:", err);
@@ -149,7 +142,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (session) {
         setUser(session.user);
-        setSessionCookie(session.access_token, session.expires_in);
         if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
           await fetchProfile(true); // skip redirect here
         }
@@ -157,7 +149,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(null);
         setProfile(null);
         setWorkspaceName(null);
-        setSessionCookie();
       }
       
       if (initializedRef.current) {
@@ -169,6 +160,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       mounted = false;
       subscription.unsubscribe();
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // 2. Handle redirection logic when auth state or path changes
@@ -177,6 +169,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const isPublicPath = ["/", "/login", "/signup", "/pricing", "/privacy", "/terms"].includes(pathname);
     const isOnboardingPath = pathname.startsWith("/onboarding");
+    const hasSessionId = typeof window !== "undefined" && new URLSearchParams(window.location.search).has("session_id");
 
     if (!user) {
       if (!isPublicPath) {
@@ -187,7 +180,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const isActive = ["active", "trialing"].includes(profile.subscriptionStatus);
         if (!isActive) {
           // If subscription is incomplete, they MUST go through onboarding plan/checkout
-          if (!isOnboardingPath && !isPublicPath) {
+          if (!isOnboardingPath && !isPublicPath && !(pathname === "/billing" && hasSessionId)) {
             router.push("/onboarding/plan");
           }
         } else {

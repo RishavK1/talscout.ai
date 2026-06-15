@@ -27,19 +27,7 @@ export default function ShortlistsPage() {
   const [newShortlistName, setNewShortlistName] = useState("");
   const [creating, setCreating] = useState(false);
 
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    const handleAvatarUpdate = () => {
-      if (profile?.userId) {
-        const stored = localStorage.getItem(`profileAvatar_${profile.userId}`);
-        setAvatarUrl(stored);
-      }
-    };
-    handleAvatarUpdate();
-    window.addEventListener("profileAvatarUpdated", handleAvatarUpdate);
-    return () => window.removeEventListener("profileAvatarUpdated", handleAvatarUpdate);
-  }, [profile?.userId]);
+  const avatarUrl = profile?.avatar;
 
   const userInitials = user?.user_metadata?.full_name?.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2) || "JD";
 

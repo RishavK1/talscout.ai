@@ -20,7 +20,7 @@ export const tenantRepo = {
   /** Webhook path: keep tenant plan/seatLimit in sync with the subscription. */
   async updateAdmin(
     id: string,
-    patch: { plan?: string; seatLimit?: number },
+    patch: { plan?: string; seatLimit?: number; logo?: string | null },
   ) {
     await adminDb()
       .update(tenants)

@@ -1,6 +1,7 @@
 import { withAuth } from "@/server/http/with-api";
 import { tenantRepo } from "@/server/repositories/tenant.repo";
 import { subscriptionRepo } from "@/server/repositories/subscription.repo";
+import { userRepo } from "@/server/repositories/user.repo";
 
 /**
  * GET /api/auth/session — returns the current user/tenant/role (DB truth).
@@ -8,6 +9,7 @@ import { subscriptionRepo } from "@/server/repositories/subscription.repo";
 export const GET = withAuth(async ({ session }) => {
   const tenant = await tenantRepo.getByIdAdmin(session.tenantId);
   const sub = await subscriptionRepo.getByTenantAdmin(session.tenantId);
+  const user = await userRepo.getByAuthUserIdAdmin(session.authUserId);
   return {
     data: {
       userId: session.userId,
@@ -17,6 +19,8 @@ export const GET = withAuth(async ({ session }) => {
       workspaceName: tenant?.name || "Workspace",
       subscriptionStatus: sub?.status || "incomplete",
       plan: tenant?.plan || "starter",
+      logo: tenant?.logo || null,
+      avatar: user?.avatar || null,
     },
   };
 });

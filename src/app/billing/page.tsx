@@ -17,10 +17,11 @@ interface BillingInfo {
   seats: number;
   seatsUsed: number;
   renewsAt: string | null;
+  invoices?: { id: string; date: string; amount: string; status: string; plan?: string; seats?: number }[];
 }
 
 export default function BillingPage() {
-  const { profile, loading: authLoading } = useAuth();
+  const { profile, loading: authLoading, refreshProfile } = useAuth();
   const [billingInfo, setBillingInfo] = useState<BillingInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [invoices, setInvoices] = useState<{ id: string; date: string; amount: string; status: string; plan?: string; seats?: number }[]>([]);
@@ -47,8 +48,17 @@ export default function BillingPage() {
   const loadBilling = async () => {
     try {
       setLoading(true);
-      const res = await api.get<BillingInfo>("/api/billing");
+      const search = typeof window !== "undefined" ? window.location.search : "";
+      const res = await api.get<BillingInfo>(`/api/billing${search}`);
       setBillingInfo(res);
+      setInvoices(res.invoices || []);
+
+      if (search.includes("session_id=")) {
+        await refreshProfile(true);
+        if (typeof window !== "undefined") {
+          window.history.replaceState(null, "", window.location.pathname);
+        }
+      }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to load billing details";
       toast.error(msg);
@@ -64,7 +74,8 @@ export default function BillingPage() {
     } else if (profile) {
       setLoading(false);
     }
-  }, [profile]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.role]);
 
   useEffect(() => {
     if (billingInfo && showModal) {
@@ -74,68 +85,7 @@ export default function BillingPage() {
     }
   }, [billingInfo, showModal]);
 
-  useEffect(() => {
-    if (billingInfo && profile?.tenantId) {
-      if (billingInfo.status !== "active") {
-        setInvoices([]);
-        return;
-      }
-
-      const tenantId = profile.tenantId;
-      const key = `billingTransactions_${tenantId}`;
-      const saved = localStorage.getItem(key);
-      const totalMonthlyPrice = billingInfo.pricePerSeat * billingInfo.seats;
-      const todayStr = new Date().toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      });
-
-      let list: any[] = [];
-      if (saved) {
-        try {
-          list = JSON.parse(saved);
-        } catch (_) {}
-      }
-
-      if (list.length === 0) {
-        list = [
-          {
-            id: "INV-2026-001",
-            date: todayStr,
-            plan: billingInfo.plan,
-            seats: billingInfo.seats,
-            amount: `$${totalMonthlyPrice.toLocaleString()}`,
-            status: "Paid",
-          },
-        ];
-        localStorage.setItem(key, JSON.stringify(list));
-      } else {
-        const lastTx = list[list.length - 1];
-        const lastPlan = lastTx.plan.toLowerCase();
-        const lastSeats = lastTx.seats;
-        
-        const planUpgrade = planRank(billingInfo.plan) > planRank(lastPlan);
-        const seatUpgrade = planRank(billingInfo.plan) === planRank(lastPlan) && billingInfo.seats > lastSeats;
-
-        if (planUpgrade || seatUpgrade) {
-          const nextInvNum = String(list.length + 1).padStart(3, "0");
-          list.push({
-            id: `INV-2026-${nextInvNum}`,
-            date: todayStr,
-            plan: billingInfo.plan,
-            seats: billingInfo.seats,
-            amount: `$${totalMonthlyPrice.toLocaleString()}`,
-            status: "Paid",
-          });
-          localStorage.setItem(key, JSON.stringify(list));
-        }
-      }
-
-      const sorted = [...list].reverse();
-      setInvoices(sorted);
-    }
-  }, [billingInfo, profile]);
+  // Invoice list is loaded directly from API in loadBilling effect
 
   const handleUpdateSubscription = async (e: React.FormEvent) => {
     e.preventDefault();

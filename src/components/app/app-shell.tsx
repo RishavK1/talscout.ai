@@ -68,20 +68,7 @@ function SidebarContent({
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(href + "/");
 
-  const [logoUrl, setLogoUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    const handleLogoUpdate = () => {
-      if (profile?.tenantId) {
-        const stored = localStorage.getItem(`agencyLogo_${profile.tenantId}`);
-        setLogoUrl(stored);
-      }
-    };
-
-    handleLogoUpdate();
-    window.addEventListener("agencyLogoUpdated", handleLogoUpdate);
-    return () => window.removeEventListener("agencyLogoUpdated", handleLogoUpdate);
-  }, [profile?.tenantId]);
+  const logoUrl = profile?.logo;
 
   return (
     <div className="flex h-full flex-col p-6">
@@ -212,20 +199,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [invite, setInvite] = useState(false);
   const pathname = usePathname();
 
-  const [logoUrl, setLogoUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    const handleLogoUpdate = () => {
-      if (profile?.tenantId) {
-        const stored = localStorage.getItem(`agencyLogo_${profile.tenantId}`);
-        setLogoUrl(stored);
-      }
-    };
-
-    handleLogoUpdate();
-    window.addEventListener("agencyLogoUpdated", handleLogoUpdate);
-    return () => window.removeEventListener("agencyLogoUpdated", handleLogoUpdate);
-  }, [profile?.tenantId]);
+  const logoUrl = profile?.logo;
 
   // Close the drawer whenever the route changes.
   useEffect(() => {

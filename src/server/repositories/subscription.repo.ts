@@ -31,8 +31,17 @@ export const subscriptionRepo = {
       stripeCustomerId?: string;
       stripeSubId?: string;
       renewsAt?: Date | null;
+      eventTimestamp?: Date;
     },
   ) {
+    const existing = await this.getByTenantAdmin(tenantId);
+    if (existing && patch.eventTimestamp && existing.updatedAt >= patch.eventTimestamp) {
+      // SEC-007: Ignore older out-of-order events.
+      return;
+    }
+
+    const updatedAt = patch.eventTimestamp || new Date();
+
     await adminDb()
       .insert(subscriptions)
       .values({
@@ -42,7 +51,7 @@ export const subscriptionRepo = {
         stripeCustomerId: patch.stripeCustomerId,
         stripeSubId: patch.stripeSubId,
         renewsAt: patch.renewsAt ?? null,
-        updatedAt: new Date(),
+        updatedAt,
       })
       .onConflictDoUpdate({
         target: subscriptions.tenantId,
@@ -54,7 +63,7 @@ export const subscriptionRepo = {
             : {}),
           ...(patch.stripeSubId ? { stripeSubId: patch.stripeSubId } : {}),
           ...(patch.renewsAt !== undefined ? { renewsAt: patch.renewsAt } : {}),
-          updatedAt: new Date(),
+          updatedAt,
         },
       });
   },

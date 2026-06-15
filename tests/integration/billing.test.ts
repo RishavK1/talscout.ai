@@ -88,16 +88,18 @@ describe("PAY — webhook security & idempotency", () => {
     await postWebhook({
       id: "evt_upd",
       type: "customer.subscription.updated",
+      created: 1700000200, // Newer event timestamp
       data: { tenantId: tenant.id, seats: 3 },
     });
     await postWebhook({
       id: "evt_cre",
       type: "customer.subscription.created",
+      created: 1700000100, // Older event timestamp
       data: { tenantId: tenant.id, seats: 5 },
     });
     const sub = await readSub(tenant.id);
     expect(["active"]).toContain(sub.status);
-    expect(sub.seats).toBe(5);
+    expect(sub.seats).toBe(3); // Newer event (seats: 3) wins, older one (seats: 5) ignored
   });
 
   it("PAY-04: unknown event type is acknowledged and ignored", async () => {

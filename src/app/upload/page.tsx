@@ -19,6 +19,11 @@ interface UploadingFile {
   errorMsg?: string;
 }
 
+const atsCache: { connectedAts: string | null; lastSynced: string | null } = {
+  connectedAts: null,
+  lastSynced: null,
+};
+
 export default function UploadPage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -36,13 +41,13 @@ export default function UploadPage() {
   const [lastSynced, setLastSynced] = useState<string | null>(null);
 
   useEffect(() => {
-    setConnectedAts(localStorage.getItem("connectedAts"));
-    setLastSynced(localStorage.getItem("lastSynced"));
+    setConnectedAts(atsCache.connectedAts);
+    setLastSynced(atsCache.lastSynced);
   }, []);
 
   const handleDisconnect = () => {
-    localStorage.removeItem("connectedAts");
-    localStorage.removeItem("lastSynced");
+    atsCache.connectedAts = null;
+    atsCache.lastSynced = null;
     setConnectedAts(null);
     setLastSynced(null);
     toast.success("Disconnected from ATS integration");
@@ -108,8 +113,8 @@ export default function UploadPage() {
         setTimeout(() => {
           const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
           const atsName = selectedAts || "ATS";
-          localStorage.setItem("connectedAts", atsName);
-          localStorage.setItem("lastSynced", nowStr);
+          atsCache.connectedAts = atsName;
+          atsCache.lastSynced = nowStr;
           setConnectedAts(atsName);
           setLastSynced(nowStr);
 

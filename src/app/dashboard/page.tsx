@@ -7,6 +7,7 @@ import { AppShell } from "@/components/app/app-shell";
 import { useAuth } from "@/components/app/auth-provider";
 import { api } from "@/lib/api";
 import { TopAppBar } from "@/components/app/top-app-bar";
+import { getRecentSearches } from "@/lib/recent-searches";
 
 
 interface SimpleCandidate {
@@ -32,10 +33,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (profile?.tenantId) {
-      const stored = localStorage.getItem(`recentSearches_${profile.tenantId}`);
-      if (stored) {
-        setRecentSearches(JSON.parse(stored));
-      }
+      setRecentSearches(getRecentSearches(profile.tenantId));
     }
   }, [profile?.tenantId]);
 

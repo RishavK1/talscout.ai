@@ -13,7 +13,12 @@ function LoginPageContent() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const redirectPath = searchParams.get("redirect") || "/dashboard";
+  const rawRedirect = searchParams.get("redirect") || "/dashboard";
+  const redirectPath = (
+    rawRedirect.startsWith("/") &&
+    !rawRedirect.startsWith("//") &&
+    !/:|javascript|data/i.test(rawRedirect)
+  ) ? rawRedirect : "/dashboard";
 
   const handleEmailSignIn = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -152,7 +152,9 @@ export function withPublic<B = undefined, Q = undefined>(
     const requestId = newRequestId();
     try {
       if (options.rateLimit) {
-        const ip = req.headers.get("x-forwarded-for") ?? "127.0.0.1";
+        const rawIp = req.headers.get("x-forwarded-for") ?? "127.0.0.1";
+        const trimmedIp = rawIp.split(",")[0].trim();
+        const ip = /^[0-9a-fA-F.:%_\-]+$/.test(trimmedIp) ? trimmedIp : "127.0.0.1";
         const key = `rl:ip:${ip}:${options.rateLimit.keyPrefix ?? "default"}`;
         const rl = await getServices().limiter.limit(
           key,

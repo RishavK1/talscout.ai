@@ -3,6 +3,7 @@ import { db } from "@/server/db/client";
 import { shortlists, shortlistItems, candidates } from "@/server/db/schema";
 import { eq, and } from "drizzle-orm";
 import { uuidOr404 } from "@/server/validation/common";
+import { billingService } from "@/server/services/billing.service";
 import { z } from "zod";
 import { NotFound, Conflict } from "@/server/http/errors";
 
@@ -12,6 +13,7 @@ const addSchema = z.object({
 
 export const POST = withAuth<z.infer<typeof addSchema>>(
   async ({ ctx, params, body }) => {
+    await billingService.assertActiveSubscription(ctx);
     const shortlistId = uuidOr404(params.id, "Shortlist not found");
     const candidateId = body.candidateId;
 

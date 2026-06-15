@@ -60,6 +60,7 @@ export interface CheckoutSession {
 export interface WebhookEvent {
   id: string;
   type: string;
+  created?: number;
   data: {
     tenantId?: string;
     seats?: number;

@@ -118,4 +118,13 @@ export const userRepo = {
       .returning({ id: users.id });
     return rows.length > 0;
   },
+
+  async updateAvatar(ctx: TenantContext, userId: string, avatar: string | null) {
+    const rows = await ctx.tx
+      .update(users)
+      .set({ avatar })
+      .where(and(eq(users.tenantId, ctx.tenantId), eq(users.id, userId)))
+      .returning({ id: users.id });
+    return rows.length > 0;
+  },
 };

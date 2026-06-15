@@ -39,6 +39,7 @@ export const tenants = pgTable("tenants", {
   plan: text("plan").notNull().default("starter"),
   seatLimit: integer("seat_limit").notNull().default(1),
   status: text("status").notNull().default("active"), // active | suspended
+  logo: text("logo"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -56,6 +57,7 @@ export const users = pgTable(
     email: text("email").notNull(),
     role: userRole("role").notNull().default("recruiter"),
     status: text("status").notNull().default("active"), // active | removed
+    avatar: text("avatar"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [

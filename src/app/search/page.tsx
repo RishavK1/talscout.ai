@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { addRecentSearch } from "@/lib/recent-searches";
 import { toast } from "sonner";
 import { AppShell } from "@/components/app/app-shell";
 import { api } from "@/lib/api";
@@ -63,15 +64,8 @@ function SearchPageContent() {
       const res = await api.post<{ results: SearchedCandidate[]; count: number }>("/api/search", payload);
       setResults(res.results);
 
-      if (q.trim()) {
-        const tenantId = profile?.tenantId || "default";
-        const storageKey = `recentSearches_${tenantId}`;
-        const existing = localStorage.getItem(storageKey);
-        let list: string[] = existing ? JSON.parse(existing) : [];
-        list = list.filter((item) => item.toLowerCase() !== q.trim().toLowerCase());
-        list.unshift(q.trim());
-        list = list.slice(0, 5);
-        localStorage.setItem(storageKey, JSON.stringify(list));
+      if (q.trim() && profile?.tenantId) {
+        addRecentSearch(profile.tenantId, q);
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to execute semantic search";

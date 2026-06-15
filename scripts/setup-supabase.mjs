@@ -8,7 +8,7 @@ import { join } from "node:path";
 const url = process.env.DATABASE_ADMIN_URL;
 if (!url) throw new Error("DATABASE_ADMIN_URL not set (load .env.live)");
 const role = process.env.APP_DB_ROLE || "talscout_app";
-const IGNORABLE = new Set(["42710", "42P07", "42P06", "42723", "42P16", "42704", "42P01"]);
+const IGNORABLE = new Set(["42710", "42P07", "42P06", "42723", "42P16", "42704", "42P01", "42701"]);
 
 async function run(label, sqlText, { tolerant = true } = {}) {
   const c = new pg.Client({ connectionString: url, ssl: { rejectUnauthorized: false }, connectionTimeoutMillis: 15000 });

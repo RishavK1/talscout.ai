@@ -17,7 +17,7 @@ afterAll(async () => {
 
 describe("PAY-05: entitlement gating", () => {
   it("no subscription → invite blocked (402)", async () => {
-    const { token } = await makeUser("admin"); // no subscription seeded
+    const { token } = await makeUser("admin", { withSubscription: false }); // no subscription seeded
     const res = await call(invitePOST, {
       token,
       body: { email: "new@x.com", role: "recruiter" },
@@ -26,7 +26,7 @@ describe("PAY-05: entitlement gating", () => {
   });
 
   it("canceled subscription → invite blocked (402)", async () => {
-    const { tenant, token } = await makeUser("admin");
+    const { tenant, token } = await makeUser("admin", { withSubscription: false });
     await seedSubscription(tenant.id, { status: "canceled", seats: 10 });
     const res = await call(invitePOST, {
       token,

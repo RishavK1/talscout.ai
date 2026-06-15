@@ -1,6 +1,7 @@
 import { withAuth } from "@/server/http/with-api";
 import { shortlistRepo } from "@/server/repositories/shortlist.repo";
 import { tenantRepo } from "@/server/repositories/tenant.repo";
+import { billingService } from "@/server/services/billing.service";
 import { BadRequest } from "@/server/http/errors";
 import { z } from "zod";
 
@@ -9,11 +10,13 @@ const createSchema = z.object({
 });
 
 export const GET = withAuth(async ({ ctx }) => {
+  await billingService.assertActiveSubscription(ctx);
   return { data: { shortlists: await shortlistRepo.getByTenant(ctx) } };
 });
 
 export const POST = withAuth(
   async ({ ctx, body }) => {
+    await billingService.assertActiveSubscription(ctx);
     const tenant = await tenantRepo.getByIdAdmin(ctx.tenantId);
     const plan = tenant?.plan || "starter";
 

@@ -15,8 +15,15 @@ let _appDb: NodePgDatabase<typeof schema> | null = null;
 let _adminDb: NodePgDatabase<typeof schema> | null = null;
 
 /** Local Postgres needs no SSL; remote (Supabase) requires it. */
-function sslFor(url: string): false | { rejectUnauthorized: boolean } {
-  return /localhost|127\.0\.0\.1/.test(url) ? false : { rejectUnauthorized: false };
+function sslFor(url: string): false | { rejectUnauthorized: boolean; ca?: string } {
+  if (/localhost|127\.0\.0\.1/.test(url)) return false;
+  
+  const ca = process.env.DATABASE_CA_CERT;
+  if (ca) {
+    return { rejectUnauthorized: true, ca };
+  }
+  
+  return { rejectUnauthorized: false };
 }
 
 export function appPool(): Pool {

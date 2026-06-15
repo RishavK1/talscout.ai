@@ -54,6 +54,13 @@ export async function seedSubscription(
       status: opts.status ?? "active",
       seats: opts.seats ?? 1,
     })
+    .onConflictDoUpdate({
+      target: subscriptions.tenantId,
+      set: {
+        status: opts.status ?? "active",
+        seats: opts.seats ?? 1,
+      },
+    })
     .returning();
   return row;
 }

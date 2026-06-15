@@ -9,6 +9,12 @@ import { api } from "@/lib/api";
 import { Modal } from "@/components/ui/modal";
 import { TopAppBar } from "@/components/app/top-app-bar";
 
+const developerCache = {
+  webhookUrl: "",
+  webhookTriggers: [] as string[],
+  apiKey: "",
+};
+
 
 
 const TABS = ["General", "Members", "Billing", "Security", "Data & privacy", "Developer"] as const;
@@ -39,15 +45,14 @@ function Card({
 }
 
 function WorkspaceCard({ workspaceName, tenantId }: { workspaceName: string; tenantId: string }) {
-  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const { profile, refreshProfile } = useAuth();
+  const [logoUrl, setLogoUrl] = useState<string | null>(profile?.logo || null);
+  const [name, setName] = useState(workspaceName);
   const logoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (tenantId) {
-      const stored = localStorage.getItem(`agencyLogo_${tenantId}`);
-      if (stored) setLogoUrl(stored);
-    }
-  }, [tenantId]);
+    setLogoUrl(profile?.logo || null);
+  }, [profile?.logo]);
 
   const handleLogoClick = () => {
     logoInputRef.current?.click();
@@ -63,16 +68,28 @@ function WorkspaceCard({ workspaceName, tenantId }: { workspaceName: string; ten
     }
 
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       const base64 = reader.result as string;
       setLogoUrl(base64);
-      if (tenantId) {
-        localStorage.setItem(`agencyLogo_${tenantId}`, base64);
-        window.dispatchEvent(new Event("agencyLogoUpdated"));
+      try {
+        await api.patch("/api/settings", { logo: base64 });
+        await refreshProfile(true);
         toast.success("Logo uploaded successfully");
+      } catch (err: any) {
+        toast.error("Failed to upload logo: " + err.message);
       }
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleSave = async () => {
+    try {
+      await api.patch("/api/settings", { workspaceName: name });
+      await refreshProfile(true);
+      toast.success("Workspace name updated successfully");
+    } catch (err: any) {
+      toast.error("Failed to update workspace name: " + err.message);
+    }
   };
 
   return (
@@ -84,7 +101,8 @@ function WorkspaceCard({ workspaceName, tenantId }: { workspaceName: string; ten
             <input
               className="w-full bg-bg-cream/30 border border-border-low-alpha rounded-xl px-4 py-3 font-body-md"
               type="text"
-              defaultValue={workspaceName}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
             />
           </div>
           <div>
@@ -96,7 +114,8 @@ function WorkspaceCard({ workspaceName, tenantId }: { workspaceName: string; ten
               <input
                 className="flex-1 min-w-0 border border-border-low-alpha rounded-r-xl px-4 py-3 font-body-md focus:ring-primary"
                 type="text"
-                defaultValue={workspaceName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}
+                disabled
+                value={name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}
               />
             </div>
           </div>
@@ -132,7 +151,7 @@ function WorkspaceCard({ workspaceName, tenantId }: { workspaceName: string; ten
       <div className="mt-10 flex justify-end">
         <button
           type="button"
-          onClick={() => toast.success("Changes saved")}
+          onClick={handleSave}
           className="bg-primary text-white px-8 py-3 rounded-xl font-label-md hover:shadow-lg transition-all active:scale-[0.98]"
         >
           Save changes
@@ -143,16 +162,13 @@ function WorkspaceCard({ workspaceName, tenantId }: { workspaceName: string; ten
 }
 
 function ProfileCard({ email, userId }: { email: string; userId: string }) {
-  const { signOut } = useAuth();
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const { profile, refreshProfile, signOut } = useAuth();
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(profile?.avatar || null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (userId) {
-      const stored = localStorage.getItem(`profileAvatar_${userId}`);
-      if (stored) setAvatarUrl(stored);
-    }
-  }, [userId]);
+    setAvatarUrl(profile?.avatar || null);
+  }, [profile?.avatar]);
 
   const handleAvatarClick = () => {
     avatarInputRef.current?.click();
@@ -168,13 +184,15 @@ function ProfileCard({ email, userId }: { email: string; userId: string }) {
     }
 
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       const base64 = reader.result as string;
       setAvatarUrl(base64);
-      if (userId) {
-        localStorage.setItem(`profileAvatar_${userId}`, base64);
-        window.dispatchEvent(new Event("profileAvatarUpdated"));
+      try {
+        await api.patch("/api/settings", { avatar: base64 });
+        await refreshProfile(true);
         toast.success("Profile picture updated successfully");
+      } catch (err: any) {
+        toast.error("Failed to update profile picture: " + err.message);
       }
     };
     reader.readAsDataURL(file);
@@ -224,7 +242,8 @@ function ProfileCard({ email, userId }: { email: string; userId: string }) {
             <input
               className="w-full bg-bg-cream/30 border border-border-low-alpha rounded-xl px-4 py-3 font-body-md"
               type="text"
-              defaultValue={name}
+              disabled
+              value={name}
             />
           </div>
           <div>
@@ -245,13 +264,6 @@ function ProfileCard({ email, userId }: { email: string; userId: string }) {
           className="text-error border border-error/20 px-6 py-3 rounded-xl font-label-md hover:bg-error/5 transition-all active:scale-[0.98]"
         >
           Log out
-        </button>
-        <button
-          type="button"
-          onClick={() => toast.success("Changes saved")}
-          className="bg-primary text-white px-8 py-3 rounded-xl font-label-md hover:shadow-lg transition-all active:scale-[0.98]"
-        >
-          Save changes
         </button>
       </div>
     </Card>
@@ -386,17 +398,26 @@ function DataPanel({ profile, signOut }: { profile: any; signOut: () => void }) 
         return;
       }
 
+      // SEC-009: Sanitize cell values to prevent spreadsheet formula injection.
+      // If a cell begins with standard formula triggers (=, +, -, @) or tabs/returns, prefix it with a single quote.
+      const sanitizeCsvCell = (val: string): string => {
+        if (/^[=+\-@\t\r]/.test(val)) {
+          return `'${val}`;
+        }
+        return val;
+      };
+
       // Convert candidates list to CSV
       const headers = ["Full Name", "Emails", "Phones", "Location", "Current Title", "Years of Experience", "Skills", "Summary"];
       const rows = list.map((c) => [
-        `"${(c.fullName || "").replace(/"/g, '""')}"`,
-        `"${((c.emails || []).join("; ")).replace(/"/g, '""')}"`,
-        `"${((c.phones || []).join("; ")).replace(/"/g, '""')}"`,
-        `"${(c.location || "").replace(/"/g, '""')}"`,
-        `"${(c.currentTitle || "").replace(/"/g, '""')}"`,
-        c.yearsExperience || 0,
-        `"${((c.skills || []).join(", ")).replace(/"/g, '""')}"`,
-        `"${(c.summary || "").replace(/"/g, '""')}"`,
+        `"${sanitizeCsvCell(c.fullName || "").replace(/"/g, '""')}"`,
+        `"${sanitizeCsvCell((c.emails || []).join("; ")).replace(/"/g, '""')}"`,
+        `"${sanitizeCsvCell((c.phones || []).join("; ")).replace(/"/g, '""')}"`,
+        `"${sanitizeCsvCell(c.location || "").replace(/"/g, '""')}"`,
+        `"${sanitizeCsvCell(c.currentTitle || "").replace(/"/g, '""')}"`,
+        `"${sanitizeCsvCell(String(c.yearsExperience || 0)).replace(/"/g, '""')}"`,
+        `"${sanitizeCsvCell((c.skills || []).join(", ")).replace(/"/g, '""')}"`,
+        `"${sanitizeCsvCell(c.summary || "").replace(/"/g, '""')}"`,
       ]);
 
       const csvContent = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
@@ -430,14 +451,6 @@ function DataPanel({ profile, signOut }: { profile: any; signOut: () => void }) 
     toast.loading("De-provisioning databases and deleting assets...", { id: "delete-ws" });
 
     setTimeout(() => {
-      // Clear all local storage brand properties
-      if (profile?.tenantId) {
-        localStorage.removeItem(`agencyLogo_${profile.tenantId}`);
-        localStorage.removeItem(`billingTransactions_${profile.tenantId}`);
-        localStorage.removeItem(`recentSearches_${profile.tenantId}`);
-        localStorage.removeItem("connectedAts");
-        localStorage.removeItem("lastSynced");
-      }
       toast.success("Workspace successfully de-provisioned", { id: "delete-ws" });
       setDeleting(false);
       signOut();
@@ -556,23 +569,14 @@ function DeveloperCard({ plan }: { plan: string }) {
   const [sendingTest, setSendingTest] = useState(false);
 
   useEffect(() => {
-    const savedUrl = localStorage.getItem("developerWebhookUrl");
-    if (savedUrl) setWebhookUrl(savedUrl);
-
-    const savedTriggers = localStorage.getItem("developerWebhookTriggers");
-    if (savedTriggers) {
-      try {
-        setTriggers(JSON.parse(savedTriggers));
-      } catch (_) {}
-    }
-
-    const savedApiKey = localStorage.getItem("developerApiKey");
-    if (savedApiKey) setApiKey(savedApiKey);
+    setWebhookUrl(developerCache.webhookUrl);
+    setTriggers(developerCache.webhookTriggers);
+    setApiKey(developerCache.apiKey);
   }, []);
 
   const handleGenerateKey = () => {
     const newKey = `sk_talscout_scale_${Math.random().toString(36).substring(2, 10)}${Math.random().toString(36).substring(2, 10)}`;
-    localStorage.setItem("developerApiKey", newKey);
+    developerCache.apiKey = newKey;
     setApiKey(newKey);
     toast.success("New API key generated successfully");
   };
@@ -587,8 +591,8 @@ function DeveloperCard({ plan }: { plan: string }) {
   };
 
   const handleSaveWebhook = () => {
-    localStorage.setItem("developerWebhookUrl", webhookUrl);
-    localStorage.setItem("developerWebhookTriggers", JSON.stringify(triggers));
+    developerCache.webhookUrl = webhookUrl;
+    developerCache.webhookTriggers = triggers;
     toast.success("Webhook configurations saved");
   };
 

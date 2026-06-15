@@ -44,7 +44,7 @@ export class StripePaymentProvider implements PaymentProvider {
       mode: "subscription",
       line_items: [{ price, quantity: args.seats }],
       customer: args.customerId,
-      success_url: `${env.APP_URL}/billing?status=success`,
+      success_url: `${env.APP_URL}/billing?status=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${env.APP_URL}/billing?status=cancelled`,
       metadata,
       subscription_data: { metadata },
@@ -65,7 +65,7 @@ export class StripePaymentProvider implements PaymentProvider {
 }
 
 function translate(event: Stripe.Event): WebhookEvent {
-  const base = { id: event.id, type: event.type };
+  const base = { id: event.id, type: event.type, created: event.created };
 
   if (event.type === "checkout.session.completed") {
     const s = event.data.object as Stripe.Checkout.Session;
@@ -108,6 +108,7 @@ function translate(event: Stripe.Event): WebhookEvent {
         stripeCustomerId:
           typeof sub.customer === "string" ? sub.customer : sub.customer?.id,
         stripeSubId: sub.id,
+        renewsAt: item?.current_period_end ? new Date(item.current_period_end * 1000).toISOString() : undefined,
       },
     };
   }

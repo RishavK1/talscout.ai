@@ -40,19 +40,9 @@ export const billingService = {
       customerId: sub?.stripeCustomerId ?? undefined,
     });
     
-    // HACK for local testing without Stripe CLI webhooks: 
-    // Synchronously mark the subscription as active so the user sees the UI update.
-    if (process.env.NODE_ENV === "development") {
-      await subscriptionRepo.upsertByTenantAdmin(ctx.tenantId, {
-        status: "active",
-        seats: body.seats,
-      });
-      await tenantRepo.updateAdmin(ctx.tenantId, {
-        seatLimit: body.seats,
-        plan: body.plan,
-      });
-    }
-
+    // Subscription state is ONLY set by the Stripe webhook (handleWebhook) after
+    // payment is confirmed. Never activate here — even in development.
+    // For local testing, run: stripe listen --forward-to localhost:3000/api/webhooks/stripe
     await auditRepo.log(ctx, { action: "billing.checkout", metadata: { plan: body.plan, seats: body.seats } });
     return { url: session.url };
   },
@@ -72,30 +62,40 @@ export const billingService = {
     const tenantId = event.data.tenantId;
     if (!tenantId) return { received: true, ignored: "no_tenant" };
 
-    switch (event.type) {
-      case "checkout.session.completed":
-      case "customer.subscription.created":
-      case "customer.subscription.updated": {
-        const seats = event.data.seats ?? 1;
-        await subscriptionRepo.upsertByTenantAdmin(tenantId, {
-          status: (event.data.status as "active") ?? "active",
-          seats,
-          stripeCustomerId: event.data.stripeCustomerId,
-          stripeSubId: event.data.stripeSubId,
-          renewsAt: event.data.renewsAt ? new Date(event.data.renewsAt) : null,
-        });
-        await tenantRepo.updateAdmin(tenantId, {
-          seatLimit: seats,
-          plan: event.data.plan,
-        });
-        return { received: true };
+    try {
+      switch (event.type) {
+        case "checkout.session.completed":
+        case "customer.subscription.created":
+        case "customer.subscription.updated": {
+          const seats = event.data.seats ?? 1;
+          await subscriptionRepo.upsertByTenantAdmin(tenantId, {
+            status: (event.data.status as "active") ?? "active",
+            seats,
+            stripeCustomerId: event.data.stripeCustomerId,
+            stripeSubId: event.data.stripeSubId,
+            renewsAt: event.data.renewsAt ? new Date(event.data.renewsAt) : null,
+            eventTimestamp: event.created ? new Date(event.created * 1000) : undefined,
+          });
+          await tenantRepo.updateAdmin(tenantId, {
+            seatLimit: seats,
+            plan: event.data.plan,
+          });
+          return { received: true };
+        }
+        case "customer.subscription.deleted": {
+          await subscriptionRepo.upsertByTenantAdmin(tenantId, {
+            status: "canceled",
+            eventTimestamp: event.created ? new Date(event.created * 1000) : undefined,
+          });
+          return { received: true };
+        }
+        default:
+          return { received: true, ignored: event.type }; // PAY-04
       }
-      case "customer.subscription.deleted": {
-        await subscriptionRepo.upsertByTenantAdmin(tenantId, { status: "canceled" });
-        return { received: true };
-      }
-      default:
-        return { received: true, ignored: event.type }; // PAY-04
+    } catch (err) {
+      // SEC-006: Delete processed marker on failure to allow Stripe to retry
+      await webhookRepo.deleteProcessed(event.id);
+      throw err;
     }
   },
 
