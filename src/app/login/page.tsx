@@ -1,6 +1,59 @@
-import Link from "next/link";
+"use client";
 
-export default function LoginPage() {
+import Link from "next/link";
+import { useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { supabase } from "@/lib/supabase";
+import { toast } from "sonner";
+
+function LoginPageContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const redirectPath = searchParams.get("redirect") || "/dashboard";
+
+  const handleEmailSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email || !password) {
+      toast.error("Please fill in all fields");
+      return;
+    }
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (error) throw error;
+      toast.success("Signed in successfully!");
+      router.push(redirectPath);
+      router.refresh();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to sign in";
+      toast.error(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
+      if (error) throw error;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to initialize Google login";
+      toast.error(msg);
+    }
+  };
+
   return (
     <div className="bg-bg-cream text-on-background min-h-screen flex items-center justify-center p-0 sm:p-6 lg:p-12 font-body-md text-body-md overflow-x-hidden">
       <div className="max-w-[1440px] w-full h-full lg:h-[800px] flex flex-col lg:flex-row bg-surface-white rounded-none sm:rounded-2xl overflow-hidden shadow-warm">
@@ -18,7 +71,11 @@ export default function LoginPage() {
               <p className="font-body-lg text-body-lg text-on-surface-variant">Log in to continue transforming your recruitment process.</p>
             </div>
             {/* Google Auth */}
-            <button type="button" className="w-full flex items-center justify-center space-x-3 py-3 px-4 border border-outline-variant rounded-lg hover:bg-surface-container-lowest transition-colors text-on-surface font-label-md text-label-md group relative overflow-hidden">
+            <button
+              type="button"
+              onClick={handleGoogleSignIn}
+              className="w-full flex items-center justify-center space-x-3 py-3 px-4 border border-outline-variant rounded-lg hover:bg-surface-container-lowest transition-colors text-on-surface font-label-md text-label-md group relative overflow-hidden"
+            >
               <span className="material-symbols-outlined text-xl z-10">login</span>
               <span className="z-10">Continue with Google</span>
               <div className="absolute inset-0 bg-surface-container opacity-0 group-hover:opacity-100 transition-opacity z-0"></div>
@@ -30,22 +87,42 @@ export default function LoginPage() {
               <div className="flex-grow border-t border-border-low-alpha"></div>
             </div>
             {/* Form */}
-            <form className="space-y-6">
+            <form onSubmit={handleEmailSignIn} className="space-y-6">
               <div className="space-y-2">
                 <label className="block font-label-md text-label-md text-on-surface" htmlFor="email">Email address</label>
-                <input className="w-full px-4 py-3 bg-surface-bright border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors text-on-surface placeholder-outline" id="email" placeholder="name@company.com" type="email" />
+                <input
+                  className="w-full px-4 py-3 bg-surface-bright border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors text-on-surface placeholder-outline"
+                  id="email"
+                  placeholder="name@company.com"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  disabled={loading}
+                />
               </div>
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
                   <label className="block font-label-md text-label-md text-on-surface" htmlFor="password">Password</label>
                   <a className="font-label-md text-label-md text-primary hover:text-primary-container transition-colors" href="#">Forgot password?</a>
                 </div>
-                <input className="w-full px-4 py-3 bg-surface-bright border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors text-on-surface placeholder-outline" id="password" placeholder="••••••••" type="password" />
+                <input
+                  className="w-full px-4 py-3 bg-surface-bright border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors text-on-surface placeholder-outline"
+                  id="password"
+                  placeholder="••••••••"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={loading}
+                />
               </div>
-              <Link href="/dashboard" className="w-full py-3 px-4 bg-primary text-on-primary rounded-lg font-label-md text-label-md hover:bg-primary-container transition-colors shadow-sm flex items-center justify-center space-x-2 group">
-                <span>Sign In</span>
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-3 px-4 bg-primary text-on-primary rounded-lg font-label-md text-label-md hover:bg-primary-container transition-colors shadow-sm flex items-center justify-center space-x-2 group disabled:opacity-50"
+              >
+                <span>{loading ? "Signing In..." : "Sign In"}</span>
                 <span className="material-symbols-outlined text-sm group-hover:translate-x-1 transition-transform">arrow_forward</span>
-              </Link>
+              </button>
             </form>
             <div className="text-center">
               <p className="font-body-md text-body-md text-on-surface-variant">Don&apos;t have an account? <Link className="text-primary font-label-md text-label-md hover:underline decoration-secondary underline-offset-4" href="/signup">Request access</Link></p>
@@ -87,5 +164,17 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-bg-cream">
+        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    }>
+      <LoginPageContent />
+    </Suspense>
   );
 }

@@ -13,6 +13,23 @@ const ACTIVE_STATUSES = new Set(["trialing", "active"]);
 export const billingService = {
   async createCheckout(ctx: TenantContext, body: CheckoutBody) {
     const sub = await subscriptionRepo.getByTenant(ctx);
+    
+    // Validate that the request is a plan/seat upgrade (no downgrades allowed via self-serve checkout)
+    const tenant = await tenantRepo.getByIdAdmin(ctx.tenantId);
+    if (tenant) {
+      const PLAN_RANK: Record<string, number> = { starter: 0, growth: 1, scale: 2 };
+      const currentRank = PLAN_RANK[tenant.plan] ?? 0;
+      const requestedRank = PLAN_RANK[body.plan] ?? 0;
+
+      if (requestedRank < currentRank) {
+        throw new BadRequest(`Downgrading to a smaller plan (${body.plan}) is not supported via self-serve. Please contact support.`);
+      }
+
+      if (requestedRank === currentRank && body.seats <= tenant.seatLimit) {
+        throw new BadRequest(`You are already subscribed to the ${body.plan} plan with ${tenant.seatLimit} seats. To update, please select more seats.`);
+      }
+    }
+
     // Amount is computed from the server price book — never from the client.
     const amount = PLAN_PRICES[body.plan] * body.seats;
     const session = await getServices().payment.createCheckoutSession({
@@ -22,6 +39,20 @@ export const billingService = {
       amount,
       customerId: sub?.stripeCustomerId ?? undefined,
     });
+    
+    // HACK for local testing without Stripe CLI webhooks: 
+    // Synchronously mark the subscription as active so the user sees the UI update.
+    if (process.env.NODE_ENV === "development") {
+      await subscriptionRepo.upsertByTenantAdmin(ctx.tenantId, {
+        status: "active",
+        seats: body.seats,
+      });
+      await tenantRepo.updateAdmin(ctx.tenantId, {
+        seatLimit: body.seats,
+        plan: body.plan,
+      });
+    }
+
     await auditRepo.log(ctx, { action: "billing.checkout", metadata: { plan: body.plan, seats: body.seats } });
     return { url: session.url };
   },

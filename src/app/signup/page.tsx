@@ -1,6 +1,56 @@
+"use client";
+
 import Link from "next/link";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
+import { api } from "@/lib/api";
+import { toast } from "sonner";
 
 export default function SignUpPage() {
+  const router = useRouter();
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const handleSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name || !email || !password) {
+      toast.error("Please fill in all fields");
+      return;
+    }
+    setLoading(true);
+    try {
+      // Server creates a confirmed user (works regardless of email-confirm setting)…
+      await api.post("/api/auth/register", { name, email, password });
+      // …then sign in to establish the session.
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      toast.success("Account created successfully!");
+      router.push("/onboarding/workspace");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to create account");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleSignUp = async () => {
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
+      if (error) throw error;
+    } catch (err: any) {
+      toast.error(err.message || "Failed to initialize Google signup");
+    }
+  };
+
   return (
     // Split Screen Container
     <main className="flex min-h-screen w-full overflow-hidden">
@@ -21,7 +71,11 @@ export default function SignUpPage() {
             <p className="font-body-md text-body-md text-on-surface-variant">Start finding talent in minutes.</p>
           </div>
           {/* Social Auth */}
-          <button type="button" className="w-full flex items-center justify-center gap-3 py-3 px-4 border border-outline-variant rounded-lg font-label-md text-label-md text-on-background hover:bg-surface-container-low transition-all duration-200">
+          <button
+            type="button"
+            onClick={handleGoogleSignUp}
+            className="w-full flex items-center justify-center gap-3 py-3 px-4 border border-outline-variant rounded-lg font-label-md text-label-md text-on-background hover:bg-surface-container-low transition-all duration-200"
+          >
             <svg height="18" viewBox="0 0 18 18" width="18">
               <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z" fill="#4285F4" />
               <path d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853" />
@@ -40,27 +94,60 @@ export default function SignUpPage() {
             </div>
           </div>
           {/* Form */}
-          <form className="space-y-5">
+          <form onSubmit={handleSignUp} className="space-y-5">
             <div className="space-y-1.5">
               <label className="block font-label-md text-label-md text-on-surface-variant" htmlFor="name">Full name</label>
-              <input className="w-full px-4 py-3 bg-surface-container-low border-none rounded-lg focus:ring-2 focus:ring-primary transition-all font-body-md" id="name" placeholder="John Doe" type="text" />
+              <input
+                className="w-full px-4 py-3 bg-surface-container-low border-none rounded-lg focus:ring-2 focus:ring-primary transition-all font-body-md"
+                id="name"
+                placeholder="John Doe"
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                disabled={loading}
+              />
             </div>
             <div className="space-y-1.5">
               <label className="block font-label-md text-label-md text-on-surface-variant" htmlFor="email">Work email</label>
-              <input className="w-full px-4 py-3 bg-surface-container-low border-none rounded-lg focus:ring-2 focus:ring-primary transition-all font-body-md" id="email" placeholder="name@company.com" type="email" />
+              <input
+                className="w-full px-4 py-3 bg-surface-container-low border-none rounded-lg focus:ring-2 focus:ring-primary transition-all font-body-md"
+                id="email"
+                placeholder="name@company.com"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={loading}
+              />
             </div>
             <div className="space-y-1.5">
               <label className="block font-label-md text-label-md text-on-surface-variant" htmlFor="password">Password</label>
               <div className="relative">
-                <input className="w-full px-4 py-3 bg-surface-container-low border-none rounded-lg focus:ring-2 focus:ring-primary transition-all font-body-md" id="password" placeholder="••••••••" type="password" />
-                <button className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-primary transition-colors" id="password-toggle" type="button">
-                  <span className="material-symbols-outlined text-[20px]">visibility</span>
+                <input
+                  className="w-full px-4 py-3 bg-surface-container-low border-none rounded-lg focus:ring-2 focus:ring-primary transition-all font-body-md pr-10"
+                  id="password"
+                  placeholder="••••••••"
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={loading}
+                />
+                <button
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-primary transition-colors"
+                  id="password-toggle"
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  <span className="material-symbols-outlined text-[20px]">{showPassword ? "visibility_off" : "visibility"}</span>
                 </button>
               </div>
             </div>
-            <Link href="/onboarding/workspace" className="w-full block text-center py-4 bg-primary text-white font-label-md text-label-md rounded-lg shadow-sm hover:opacity-90 active:scale-[0.98] transition-all duration-200 mt-2">
-              Create account
-            </Link>
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full text-center py-4 bg-primary text-white font-label-md text-label-md rounded-lg shadow-sm hover:opacity-90 active:scale-[0.98] transition-all duration-200 mt-2 disabled:opacity-50"
+            >
+              {loading ? "Creating account..." : "Create account"}
+            </button>
           </form>
           {/* Footer Links */}
           <div className="mt-8 text-center space-y-4">

@@ -29,6 +29,8 @@ export const metadata: Metadata = {
     "Transform chaotic PDFs into a structured, searchable candidate database in seconds. Built for high-volume recruitment teams who demand precision and speed.",
 };
 
+import { AuthProvider } from "@/components/app/auth-provider";
+
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
@@ -44,7 +46,9 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-dvh bg-bg-cream text-on-surface">
-        {children}
+        <AuthProvider>
+          {children}
+        </AuthProvider>
         <Toaster
           position="bottom-right"
           toastOptions={{

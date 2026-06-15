@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { easeDrawer } from "@/lib/motion";
 import { Modal } from "@/components/ui/modal";
+import { useAuth } from "@/components/app/auth-provider";
 
 type Item = { href: string; icon: string; label: string };
 
@@ -62,19 +63,40 @@ function SidebarContent({
   onNavigate?: () => void;
   onInvite?: () => void;
 }) {
+  const { workspaceName, profile } = useAuth();
   const pathname = usePathname();
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(href + "/");
+
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handleLogoUpdate = () => {
+      if (profile?.tenantId) {
+        const stored = localStorage.getItem(`agencyLogo_${profile.tenantId}`);
+        setLogoUrl(stored);
+      }
+    };
+
+    handleLogoUpdate();
+    window.addEventListener("agencyLogoUpdated", handleLogoUpdate);
+    return () => window.removeEventListener("agencyLogoUpdated", handleLogoUpdate);
+  }, [profile?.tenantId]);
 
   return (
     <div className="flex h-full flex-col p-6">
       {/* Brand */}
       <Link href="/dashboard" onClick={onNavigate} className="mb-8 flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded bg-primary text-on-primary">
-          <span className="material-symbols-outlined">work</span>
-        </div>
+        {logoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={logoUrl} alt="Logo" className="h-10 w-10 rounded object-cover border border-border-low-alpha" />
+        ) : (
+          <div className="flex h-10 w-10 items-center justify-center rounded bg-primary text-on-primary">
+            <span className="material-symbols-outlined">work</span>
+          </div>
+        )}
         <div>
-          <h2 className="font-headline-md text-headline-md text-primary">Acme Corp</h2>
+          <h2 className="font-headline-md text-headline-md text-primary truncate max-w-[160px]">{workspaceName || "Workspace"}</h2>
           <p className="font-label-md text-label-md text-on-surface-variant">
             Recruitment Team
           </p>
@@ -116,6 +138,7 @@ function SidebarContent({
 }
 
 function InviteForm({ onDone }: { onDone: () => void }) {
+  const { workspaceName } = useAuth();
   const [sent, setSent] = useState(false);
   if (sent) {
     return (
@@ -125,7 +148,7 @@ function InviteForm({ onDone }: { onDone: () => void }) {
         </div>
         <p className="font-headline-md text-[18px] text-primary serif-text">Invitations sent</p>
         <p className="mt-1 font-body-md text-[14px] text-on-surface-variant">
-          Your teammates will get an email to join Acme Corp.
+          Your teammates will get an email to join {workspaceName || "Workspace"}.
         </p>
         <button
           type="button"
@@ -184,9 +207,25 @@ function InviteForm({ onDone }: { onDone: () => void }) {
 }
 
 export function AppShell({ children }: { children: React.ReactNode }) {
+  const { workspaceName, profile } = useAuth();
   const [open, setOpen] = useState(false);
   const [invite, setInvite] = useState(false);
   const pathname = usePathname();
+
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handleLogoUpdate = () => {
+      if (profile?.tenantId) {
+        const stored = localStorage.getItem(`agencyLogo_${profile.tenantId}`);
+        setLogoUrl(stored);
+      }
+    };
+
+    handleLogoUpdate();
+    window.addEventListener("agencyLogoUpdated", handleLogoUpdate);
+    return () => window.removeEventListener("agencyLogoUpdated", handleLogoUpdate);
+  }, [profile?.tenantId]);
 
   // Close the drawer whenever the route changes.
   useEffect(() => {
@@ -220,10 +259,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <span className="material-symbols-outlined">menu</span>
         </button>
         <Link href="/dashboard" className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded bg-primary text-on-primary">
-            <span className="material-symbols-outlined text-[18px]">work</span>
-          </div>
-          <span className="font-headline-md text-[18px] text-primary">Acme Corp</span>
+          {logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={logoUrl} alt="Logo" className="h-7 w-7 rounded object-cover border border-border-low-alpha" />
+          ) : (
+            <div className="flex h-7 w-7 items-center justify-center rounded bg-primary text-on-primary">
+              <span className="material-symbols-outlined text-[18px]">work</span>
+            </div>
+          )}
+          <span className="font-headline-md text-[18px] text-primary truncate max-w-[120px]">{workspaceName || "Workspace"}</span>
         </Link>
       </header>
 
@@ -266,7 +310,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         open={invite}
         onClose={() => setInvite(false)}
         title="Invite your team"
-        subtitle="Add recruiters to your Acme Corp workspace."
+        subtitle={`Add recruiters to your ${workspaceName || "Workspace"} workspace.`}
       >
         <InviteForm onDone={() => setInvite(false)} />
       </Modal>

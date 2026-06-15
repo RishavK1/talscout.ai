@@ -54,3 +54,8 @@ next-env.d.ts
 # AI assistant instruction files (never commit)
 AGENTS.md
 CLAUDE.md
+
+# custom testing scripts (never commit)
+/scripts/*.mjs
+/scripts/*.ts
+

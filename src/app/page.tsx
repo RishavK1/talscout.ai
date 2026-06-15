@@ -1,7 +1,10 @@
+"use client";
+
 import Link from "next/link";
 import { Reveal } from "@/components/motion/reveal";
 import { SiteFooter } from "@/components/marketing/site-footer";
 import { LandingNav } from "@/components/marketing/landing-nav";
+import { useAuth } from "@/components/app/auth-provider";
 import { LandingFaq } from "@/components/marketing/landing-faq";
 import { PointerGlow } from "@/components/marketing/pointer-glow";
 import { SpotlightCard } from "@/components/marketing/spotlight-card";
@@ -42,6 +45,8 @@ const STEPS = [
 ];
 
 export default function LandingPage() {
+  const { user } = useAuth();
+
   return (
     <div className="flex min-h-dvh flex-col bg-bg-cream text-on-surface antialiased">
       <LandingNav />
@@ -86,10 +91,10 @@ export default function LandingPage() {
 
               <div className="flex flex-col gap-4 sm:flex-row">
                 <Link
-                  href="/signup"
+                  href={user ? "/dashboard" : "/signup"}
                   className="group flex items-center justify-center gap-2 rounded-lg bg-primary-container px-6 py-3.5 font-label-md text-label-md text-on-primary shadow-floating transition-all hover:bg-primary active:scale-[0.97]"
                 >
-                  Start free
+                  {user ? "Go to dashboard" : "Get started"}
                   <span className="material-symbols-outlined text-[18px] transition-transform group-hover:translate-x-1">
                     arrow_forward
                   </span>
@@ -105,7 +110,7 @@ export default function LandingPage() {
                 </Link>
               </div>
               <p className="mt-4 font-data-mono text-data-mono text-text-muted opacity-70">
-                No credit card · Set up in minutes
+                Set up in minutes
               </p>
             </Reveal>
 
@@ -371,7 +376,7 @@ export default function LandingPage() {
                 database.
               </p>
               <Link
-                href="/signup"
+                href={user ? "/dashboard" : "/signup"}
                 className="group inline-flex items-center gap-2 rounded-lg bg-tertiary-fixed px-6 py-3.5 font-label-md text-label-md text-on-tertiary-fixed shadow-floating transition-transform hover:-translate-y-0.5 active:scale-[0.97]"
               >
                 See it in action
@@ -677,14 +682,14 @@ export default function LandingPage() {
                     {tier.note}
                   </p>
                   <Link
-                    href="/pricing"
+                    href={user ? "/billing" : "/pricing"}
                     className={`mt-6 flex items-center justify-center gap-2 rounded-lg px-5 py-3 font-label-md text-label-md transition-all active:scale-[0.97] ${
                       tier.featured
                         ? "bg-tertiary-fixed text-on-tertiary-fixed hover:-translate-y-0.5"
                         : "border border-primary-container/25 text-primary hover:bg-primary-container/5"
                     }`}
                   >
-                    Start free
+                    Choose plan
                   </Link>
                 </div>
               ))}
@@ -729,10 +734,10 @@ export default function LandingPage() {
               </p>
               <div className="flex flex-col gap-4 sm:flex-row">
                 <Link
-                  href="/signup"
+                  href={user ? "/dashboard" : "/signup"}
                   className="group flex items-center justify-center gap-2 rounded-lg bg-primary-container px-7 py-3.5 font-label-md text-label-md text-on-primary shadow-floating transition-transform hover:-translate-y-0.5 active:scale-[0.97]"
                 >
-                  Start free
+                  Get started
                   <span className="material-symbols-outlined text-[18px] transition-transform group-hover:translate-x-1">
                     arrow_forward
                   </span>

@@ -12,10 +12,6 @@ const faqs = [
     a: "A seat refers to a single user account with login credentials. Typically, each recruiter on your team will require their own seat.",
   },
   {
-    q: "How does the 14-day free trial work?",
-    a: "Our free trial gives you full access to the Growth plan features for 14 days. No credit card is required to start.",
-  },
-  {
     q: "Do you offer discounts for non-profits?",
     a: "Yes, we support organizations making a difference. Contact our sales team to discuss non-profit and educational pricing.",
   },

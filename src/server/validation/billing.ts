@@ -11,5 +11,6 @@ export const PLAN_PRICES: Record<string, number> = {
 export const checkoutSchema = z.object({
   plan: z.enum(["starter", "growth", "scale"]),
   seats: z.number().int().min(1).max(1000),
+  billingCycle: z.enum(["monthly", "annual"]).optional(),
 });
 export type CheckoutBody = z.infer<typeof checkoutSchema>;

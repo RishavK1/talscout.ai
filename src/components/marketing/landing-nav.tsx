@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
+import { useAuth } from "@/components/app/auth-provider";
 
 const LINKS = [
   { label: "Product", href: "/#features" },
@@ -14,6 +15,7 @@ const LINKS = [
 export function LandingNav() {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
+  const { user } = useAuth();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12);
@@ -53,18 +55,29 @@ export function LandingNav() {
         </nav>
 
         <div className="flex items-center gap-3">
-          <Link
-            href="/login"
-            className="hidden font-label-md text-label-md text-on-surface transition-colors hover:text-primary sm:block"
-          >
-            Log in
-          </Link>
-          <Link
-            href="/signup"
-            className="rounded-lg bg-primary-container px-5 py-2.5 font-label-md text-label-md text-on-primary shadow-sm transition-all hover:bg-primary active:scale-[0.97]"
-          >
-            Start free
-          </Link>
+          {user ? (
+            <Link
+              href="/dashboard"
+              className="rounded-lg bg-primary-container px-5 py-2.5 font-label-md text-label-md text-on-primary shadow-sm transition-all hover:bg-primary active:scale-[0.97]"
+            >
+              Dashboard
+            </Link>
+          ) : (
+            <>
+              <Link
+                href="/login"
+                className="hidden font-label-md text-label-md text-on-surface transition-colors hover:text-primary sm:block"
+              >
+                Log in
+              </Link>
+              <Link
+                href="/signup"
+                className="rounded-lg bg-primary-container px-5 py-2.5 font-label-md text-label-md text-on-primary shadow-sm transition-all hover:bg-primary active:scale-[0.97]"
+              >
+                Get started
+              </Link>
+            </>
+          )}
           <button
             type="button"
             aria-label="Open menu"
@@ -96,13 +109,32 @@ export function LandingNav() {
                   {l.label}
                 </a>
               ))}
-              <Link
-                href="/login"
-                onClick={() => setOpen(false)}
-                className="rounded-lg px-3 py-3 font-label-md text-label-md text-on-surface-variant transition-colors hover:bg-surface-container-high hover:text-primary"
-              >
-                Log in
-              </Link>
+              {user ? (
+                <Link
+                  href="/dashboard"
+                  onClick={() => setOpen(false)}
+                  className="rounded-lg px-3 py-3 font-label-md text-label-md text-on-surface-variant transition-colors hover:bg-surface-container-high hover:text-primary"
+                >
+                  Dashboard
+                </Link>
+              ) : (
+                <>
+                  <Link
+                    href="/login"
+                    onClick={() => setOpen(false)}
+                    className="rounded-lg px-3 py-3 font-label-md text-label-md text-on-surface-variant transition-colors hover:bg-surface-container-high hover:text-primary"
+                  >
+                    Log in
+                  </Link>
+                  <Link
+                    href="/signup"
+                    onClick={() => setOpen(false)}
+                    className="rounded-lg px-3 py-3 font-label-md text-label-md text-on-surface-variant transition-colors hover:bg-surface-container-high hover:text-primary"
+                  >
+                    Get started
+                  </Link>
+                </>
+              )}
             </div>
           </motion.nav>
         )}

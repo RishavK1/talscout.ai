@@ -3,6 +3,7 @@ import { resumeFileRepo } from "@/server/repositories/resume-file.repo";
 import { usageRepo, currentMonthStart } from "@/server/repositories/usage.repo";
 import { auditRepo } from "@/server/repositories/audit.repo";
 import { getServices } from "@/server/container";
+import { tenantRepo } from "@/server/repositories/tenant.repo";
 import { MAX_UPLOAD_BYTES, extensionFor } from "@/server/ingestion/file-type";
 import { PARSE_RESUME_JOB } from "@/server/jobs/parse-resume";
 import {
@@ -17,8 +18,6 @@ import type {
   CompleteUploadBody,
 } from "@/server/validation/upload";
 
-const MONTHLY_UPLOAD_LIMIT = 1000; // abuse guardrail (plan-tiered in B6)
-
 export const ingestionService = {
   async requestUpload(ctx: TenantContext, body: RequestUploadBody) {
     if (body.sizeBytes > MAX_UPLOAD_BYTES) {
@@ -27,7 +26,17 @@ export const ingestionService = {
 
     const window = currentMonthStart();
     const used = await usageRepo.getCount(ctx, "uploads", window);
-    if (used >= MONTHLY_UPLOAD_LIMIT) {
+
+    const tenant = await tenantRepo.getByIdAdmin(ctx.tenantId);
+    const plan = tenant?.plan || "starter";
+    let uploadLimit = 50; // Starter limit: 50 resume uploads per month
+    if (plan === "growth") {
+      uploadLimit = 500; // Growth limit: 500 uploads per month
+    } else if (plan === "scale") {
+      uploadLimit = 5000; // Scale limit: 5000 uploads per month
+    }
+
+    if (used >= uploadLimit) {
       throw new PaymentRequired("Monthly upload quota reached"); // UP-06
     }
 

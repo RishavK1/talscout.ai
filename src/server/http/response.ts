@@ -32,6 +32,7 @@ export function okResponse(data: unknown, status = 200): Response {
 /** Map any thrown value to a safe Response. */
 export function errorResponse(err: unknown, requestId: string): Response {
   if (err instanceof AppError) {
+    console.log("AppError Thrown:", err.code, err.message);
     const extra: Record<string, string> = {};
     if (err instanceof TooManyRequests && err.retryAfter != null) {
       extra["Retry-After"] = String(err.retryAfter);

@@ -1,14 +1,129 @@
+"use client";
+
 import Link from "next/link";
+import { useState, useEffect } from "react";
+import { useRouter, useParams } from "next/navigation";
 import { AppShell } from "@/components/app/app-shell";
-import { MessageCandidate } from "@/components/candidate/message-candidate";
-import { EditProfile } from "@/components/candidate/edit-profile";
+import { api } from "@/lib/api";
+import { toast } from "sonner";
+import { Modal } from "@/components/ui/modal";
 import { AddToShortlistButton } from "@/components/candidate/add-to-shortlist-button";
+import { MessageCandidate } from "@/components/candidate/message-candidate";
 import { DownloadPdfButton } from "@/components/candidate/download-pdf-button";
+import { EditProfile } from "@/components/candidate/edit-profile";
+
+interface Job {
+  company?: string;
+  title?: string;
+  startDate?: string;
+  endDate?: string;
+  responsibilities?: string[];
+  description?: string;
+}
+
+interface CandidateDetails {
+  id: string;
+  fullName: string | null;
+  emails: string[] | null;
+  phones: string[] | null;
+  location: string | null;
+  currentTitle: string | null;
+  yearsExperience: string | null;
+  skills: string[] | null;
+  summary: string | null;
+  workHistory: Job[] | any;
+  education: any;
+  status: "ready" | "processing" | "error";
+}
 
 export default function CandidateProfilePage() {
+  const router = useRouter();
+  const { id } = useParams();
+  
+  const [candidate, setCandidate] = useState<CandidateDetails | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  useEffect(() => {
+    if (!id) return;
+    const fetchCandidate = async () => {
+      try {
+        const data = await api.get<CandidateDetails>(`/api/candidates/${id}`);
+        setCandidate(data);
+      } catch (err: any) {
+        toast.error(err.message || "Failed to load candidate details");
+        router.push("/candidates");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchCandidate();
+  }, [id, router]);
+
+  const handleCandidateUpdate = (updated: CandidateDetails) => {
+    setCandidate(updated);
+  };
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    try {
+      await api.delete(`/api/candidates/${id}`);
+      toast.success("Candidate deleted successfully");
+      router.push("/candidates");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete candidate");
+    } finally {
+      setDeleting(false);
+      setDeleteModalOpen(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <AppShell>
+        <div className="min-h-screen flex items-center justify-center bg-bg-cream">
+          <div className="flex flex-col items-center gap-3">
+            <span className="material-symbols-outlined animate-spin text-primary text-3xl">sync</span>
+            <p className="font-body-md text-on-surface-variant">Loading profile details...</p>
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
+
+  if (!candidate) {
+    return (
+      <AppShell>
+        <div className="min-h-screen flex items-center justify-center bg-bg-cream">
+          <p className="font-body-md text-on-surface-variant">Candidate not found.</p>
+        </div>
+      </AppShell>
+    );
+  }
+
+  const name = candidate.fullName || "Unnamed Draft";
+  const initials = name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2) || "C";
+
+  // Parse work history if it's stored as JSON or string
+  let jobs: Job[] = [];
+  if (Array.isArray(candidate.workHistory)) {
+    jobs = candidate.workHistory as Job[];
+  } else if (typeof candidate.workHistory === "string") {
+    try {
+      jobs = JSON.parse(candidate.workHistory);
+    } catch {
+      jobs = [];
+    }
+  }
+
   return (
     <AppShell>
-      {/* Main Content Area */}
       <main className="font-body-md text-body-md bg-bg-cream flex flex-1 flex-col min-h-screen selection:bg-tertiary-fixed selection:text-on-tertiary-fixed">
         {/* TopAppBar */}
         <header className="sticky top-0 z-40 bg-surface/80 dark:bg-surface-container/80 backdrop-blur-md flex flex-wrap gap-3 justify-between items-center px-4 sm:px-6 py-4 border-b border-border-low-alpha">
@@ -34,150 +149,217 @@ export default function CandidateProfilePage() {
             </Link>
           </div>
         </header>
+
         {/* Breadcrumb */}
         <div className="px-4 sm:px-6 lg:px-12 pt-6 max-w-[1440px] mx-auto w-full">
           <nav className="flex items-center space-x-2 font-label-md text-label-md text-on-surface-variant">
             <Link className="hover:text-primary transition-colors" href="/candidates">Candidates</Link>
             <span className="material-symbols-outlined text-[18px] text-outline">chevron_right</span>
-            <span className="text-primary font-semibold">Elena Rodriguez</span>
+            <span className="text-primary font-semibold truncate max-w-[160px]">{name}</span>
           </nav>
         </div>
+
         {/* Profile Canvas */}
         <div className="flex-1 p-4 sm:p-6 lg:p-12 max-w-[1440px] mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           {/* Left Column: Main Profile (8 cols) */}
           <div className="lg:col-span-8 space-y-8">
             {/* Header Card */}
-            <div className="glass-card rounded-xl p-8 flex flex-col md:flex-row gap-8 items-start relative overflow-hidden">
+            <div className="glass-card rounded-xl p-8 flex flex-col md:flex-row gap-8 items-start relative overflow-hidden bg-white border border-border-low-alpha shadow-sm">
               <div className="absolute top-0 right-0 w-64 h-64 bg-tertiary-fixed/20 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
               <div className="w-32 h-32 rounded-full flex items-center justify-center border-4 border-surface-white ambient-shadow z-10 shrink-0 bg-surface-container-high text-primary font-headline-lg text-headline-lg">
-                ER
+                {initials}
               </div>
               <div className="flex-1 z-10">
-                <div className="flex items-center space-x-3 mb-2">
-                  <h2 className="font-headline-lg text-headline-lg text-primary">Elena Rodriguez</h2>
+                <div className="flex flex-wrap items-center gap-3 mb-2">
+                  <h2 className="font-headline-lg text-headline-lg text-primary">{name}</h2>
                   <span className="px-2 py-1 bg-tertiary-fixed/30 text-on-tertiary-fixed-variant rounded-md font-label-md text-[12px] flex items-center shadow-sm">
-                    <span className="material-symbols-outlined text-[14px] mr-1" data-icon="verified">verified</span> AI Match: 94%
+                    <span className="material-symbols-outlined text-[14px] mr-1" data-icon="verified">verified</span> AI Scanned
                   </span>
                 </div>
-                <p className="font-body-lg text-body-lg text-on-surface-variant mb-4">Senior Product Designer specializing in Design Systems &amp; AI UX</p>
+                <p className="font-body-lg text-body-lg text-on-surface-variant mb-4">
+                  {candidate.currentTitle || "Title not parsed"}
+                </p>
                 <div className="flex flex-wrap gap-4 font-label-md text-label-md text-outline">
                   <div className="flex items-center">
                     <span className="material-symbols-outlined text-[18px] mr-1.5" data-icon="location_on">location_on</span>
-                    San Francisco, CA (Open to Remote)
+                    {candidate.location || "Unknown Location"}
                   </div>
                   <div className="flex items-center">
                     <span className="material-symbols-outlined text-[18px] mr-1.5" data-icon="work">work</span>
-                    8+ Years Experience
+                    {candidate.yearsExperience ? `${Math.round(parseFloat(candidate.yearsExperience))} Yrs Experience` : "Exp not parsed"}
                   </div>
-                  <div className="flex items-center">
-                    <span className="material-symbols-outlined text-[18px] mr-1.5" data-icon="mail">mail</span>
-                    elena.rodriguez@example.com
-                  </div>
+                  {candidate.emails && candidate.emails.length > 0 && (
+                    <div className="flex items-center">
+                      <span className="material-symbols-outlined text-[18px] mr-1.5" data-icon="mail">mail</span>
+                      {candidate.emails[0]}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
+
             {/* AI Summary */}
-            <div className="glass-card rounded-xl p-8">
+            <div className="glass-card rounded-xl p-8 bg-white border border-border-low-alpha shadow-sm">
               <h3 className="font-headline-md text-headline-md text-primary mb-4 flex items-center">
                 <span className="material-symbols-outlined mr-2 text-tertiary-fixed-dim" data-icon="auto_awesome">auto_awesome</span>
                 Executive Summary
               </h3>
               <p className="font-body-md text-body-md text-on-surface-variant leading-relaxed">
-                Elena is a highly analytical product designer with a proven track record of scaling design systems at enterprise SaaS companies. Her recent work integrating conversational UI patterns into complex workflows makes her a <span className="bg-secondary-fixed/40 px-1 rounded text-on-secondary-fixed">strong semantic match</span> for the open Lead Product Designer role. She demonstrates exceptional cross-functional leadership and a nuanced understanding of accessibility standards.
+                {candidate.summary || "No profile summary generated yet. The AI is still analyzing this candidate's background."}
               </p>
             </div>
+
             {/* Experience Timeline */}
-            <div className="glass-card rounded-xl p-8">
+            <div className="glass-card rounded-xl p-8 bg-white border border-border-low-alpha shadow-sm">
               <h3 className="font-headline-md text-headline-md text-primary mb-6">Experience</h3>
-              <div className="space-y-8 relative">
-                {/* Role 1 */}
-                <div className="timeline-item relative pl-8">
-                  <div className="timeline-line absolute left-0 top-0 h-full w-6 flex justify-center">
-                    <div className="w-2.5 h-2.5 rounded-full bg-primary mt-2 border-2 border-surface-white ring-2 ring-primary-fixed z-10"></div>
-                  </div>
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <h4 className="font-label-md text-[16px] text-on-surface font-semibold">Staff Product Designer</h4>
-                      <p className="font-body-md text-[14px] text-outline">TechNova Solutions</p>
+              {jobs.length === 0 ? (
+                <p className="font-body-md text-on-surface-variant">No work history parsed for this candidate.</p>
+              ) : (
+                <div className="space-y-8 relative">
+                  {jobs.map((job, idx) => (
+                    <div key={idx} className="timeline-item relative pl-8">
+                      <div className="timeline-line absolute left-0 top-0 h-full w-6 flex justify-center">
+                        <div className={`w-2.5 h-2.5 rounded-full mt-2 border-2 border-surface-white z-10 ${idx === 0 ? "bg-primary ring-2 ring-primary-fixed" : "bg-surface-tint"}`}></div>
+                      </div>
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <h4 className="font-label-md text-[16px] text-on-surface font-semibold">{job.title || "Job Title"}</h4>
+                          <p className="font-body-md text-[14px] text-outline">{job.company || "Company"}</p>
+                        </div>
+                        <span className="font-data-mono text-data-mono text-outline">
+                          {job.startDate || "?"} - {job.endDate || "Present"}
+                        </span>
+                      </div>
+                      {job.responsibilities && Array.isArray(job.responsibilities) && (
+                        <ul className="list-disc list-inside font-body-md text-[14px] text-on-surface-variant space-y-1.5 ml-1 marker:text-outline-variant">
+                          {job.responsibilities.map((resp, rIdx) => (
+                            <li key={rIdx}>{resp}</li>
+                          ))}
+                        </ul>
+                      )}
+                      {(!job.responsibilities || job.responsibilities.length === 0) && job.description && (
+                        <p className="font-body-md text-[14px] text-on-surface-variant">{job.description}</p>
+                      )}
                     </div>
-                    <span className="font-data-mono text-data-mono text-outline">2021 - Present</span>
-                  </div>
-                  <ul className="list-disc list-inside font-body-md text-[14px] text-on-surface-variant space-y-1.5 ml-1 marker:text-outline-variant">
-                    <li>Led the complete overhaul of the enterprise design system, reducing design-to-dev handoff time by 40%.</li>
-                    <li>Mentored a team of 4 junior designers, establishing a new critique framework.</li>
-                    <li>Designed the <span className="bg-secondary-fixed/40 px-1 rounded text-on-secondary-fixed">core AI chat interface</span> that increased user engagement by 22% in Q3.</li>
-                  </ul>
+                  ))}
                 </div>
-                {/* Role 2 */}
-                <div className="timeline-item relative pl-8">
-                  <div className="timeline-line absolute left-0 top-0 h-full w-6 flex justify-center">
-                    <div className="w-2.5 h-2.5 rounded-full bg-surface-tint mt-2 border-2 border-surface-white z-10"></div>
-                  </div>
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <h4 className="font-label-md text-[16px] text-on-surface font-semibold">Senior UX Designer</h4>
-                      <p className="font-body-md text-[14px] text-outline">CreativeCloud Inc.</p>
-                    </div>
-                    <span className="font-data-mono text-data-mono text-outline">2018 - 2021</span>
-                  </div>
-                  <ul className="list-disc list-inside font-body-md text-[14px] text-on-surface-variant space-y-1.5 ml-1 marker:text-outline-variant">
-                    <li>Spearheaded user research initiatives for the flagship analytics dashboard.</li>
-                    <li>Collaborated closely with engineering to implement accessible, WCAG AA compliant components.</li>
-                  </ul>
-                </div>
-              </div>
+              )}
             </div>
           </div>
+
           {/* Right Column: Sidebar Actions (4 cols) */}
           <div className="lg:col-span-4 space-y-6">
             {/* Primary Actions */}
-            <div className="glass-card rounded-xl p-6 flex flex-col gap-3">
-              <AddToShortlistButton name="Elena Rodriguez" />
-              <MessageCandidate
-                name="Elena Rodriguez"
-                email="elena.rodriguez@example.com"
-              />
-              <div className="flex gap-3 mt-2">
+            <div className="glass-card rounded-xl p-6 flex flex-col gap-3 bg-white border border-border-low-alpha shadow-sm">
+              <AddToShortlistButton candidateId={candidate.id} name={name} />
+              
+              <MessageCandidate name={name} email={candidate.emails?.[0] || ""} />
+              
+              <div className="flex gap-3 pt-2">
                 <DownloadPdfButton />
-                <EditProfile />
+                <EditProfile candidate={candidate} onUpdate={handleCandidateUpdate} />
               </div>
+              <button
+                type="button"
+                onClick={() => setDeleteModalOpen(true)}
+                className="w-full mt-2 flex items-center justify-center gap-2 py-3 px-4 bg-error text-white rounded-lg font-label-md text-label-md hover:bg-error/90 transition-colors shadow-sm cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-sm">delete</span>
+                Delete Candidate
+              </button>
             </div>
+
             {/* Status & Details */}
-            <div className="glass-card rounded-xl p-6">
+            <div className="glass-card rounded-xl p-6 bg-white border border-border-low-alpha shadow-sm">
               <h4 className="font-label-md text-label-md text-outline mb-4 uppercase tracking-wider text-[12px]">Profile Details</h4>
               <div className="space-y-4">
                 <div>
                   <span className="block font-label-md text-[12px] text-outline mb-1">Current Status</span>
-                  <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-secondary-fixed/30 text-on-secondary-fixed font-label-md text-[13px]">
-                    <div className="w-1.5 h-1.5 rounded-full bg-secondary mr-2"></div>
-                    Interviewing
-                  </span>
+                  {candidate.status === "ready" ? (
+                    <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-tertiary-fixed/30 text-on-tertiary-fixed-variant font-label-md text-[13px]">
+                      <div className="w-1.5 h-1.5 rounded-full bg-tertiary mr-2"></div>
+                      Parsed
+                    </span>
+                  ) : candidate.status === "processing" ? (
+                    <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-surface-container-high text-on-surface-variant font-label-md text-[13px]">
+                      <div className="w-1.5 h-1.5 rounded-full bg-outline-variant mr-2 animate-pulse"></div>
+                      Processing
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-error/10 text-error font-label-md text-[13px]">
+                      <div className="w-1.5 h-1.5 rounded-full bg-error mr-2"></div>
+                      Error
+                    </span>
+                  )}
                 </div>
                 <div className="h-px w-full bg-border-low-alpha"></div>
                 <div>
                   <span className="block font-label-md text-[12px] text-outline mb-1">Source</span>
-                  <span className="font-body-md text-[14px] text-on-surface">LinkedIn Sourcing (Oct 12)</span>
+                  <span className="font-body-md text-[14px] text-on-surface">PDF Resume Upload</span>
                 </div>
-                <div className="h-px w-full bg-border-low-alpha"></div>
-                <div>
-                  <span className="block font-label-md text-[12px] text-outline mb-1">Salary Expectation</span>
-                  <span className="font-data-mono text-data-mono text-on-surface">$160k - $180k</span>
-                </div>
+                {candidate.phones && candidate.phones.length > 0 && (
+                  <>
+                    <div className="h-px w-full bg-border-low-alpha"></div>
+                    <div>
+                      <span className="block font-label-md text-[12px] text-outline mb-1">Phone</span>
+                      <span className="font-body-md text-[14px] text-on-surface">{candidate.phones[0]}</span>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
+
             {/* Skills */}
-            <div className="glass-card rounded-xl p-6">
+            <div className="glass-card rounded-xl p-6 bg-white border border-border-low-alpha shadow-sm">
               <h4 className="font-label-md text-label-md text-outline mb-4 uppercase tracking-wider text-[12px]">Top Skills</h4>
-              <div className="flex flex-wrap gap-2">
-                <span className="px-3 py-1 bg-surface-container-high rounded-full font-label-md text-[13px] text-on-surface-variant border border-border-low-alpha">Design Systems</span>
-                <span className="px-3 py-1 bg-surface-container-high rounded-full font-label-md text-[13px] text-on-surface-variant border border-border-low-alpha">Figma</span>
-                <span className="px-3 py-1 bg-surface-container-high rounded-full font-label-md text-[13px] text-on-surface-variant border border-border-low-alpha">User Research</span>
-                <span className="px-3 py-1 bg-tertiary-fixed/20 rounded-full font-label-md text-[13px] text-on-tertiary-fixed border border-tertiary-fixed/30">AI UX</span>
-                <span className="px-3 py-1 bg-surface-container-high rounded-full font-label-md text-[13px] text-on-surface-variant border border-border-low-alpha">Prototyping</span>
-              </div>
+              {candidate.skills && candidate.skills.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {candidate.skills.map((skill, sIdx) => (
+                    <span
+                      key={sIdx}
+                      className={`px-3 py-1 rounded-full font-label-md text-[13px] border border-border-low-alpha ${
+                        sIdx % 3 === 0
+                          ? "bg-tertiary-fixed/20 text-on-tertiary-fixed border-tertiary-fixed/30"
+                          : "bg-surface-container-high text-on-surface-variant"
+                      }`}
+                    >
+                      {skill}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="font-body-md text-on-surface-variant text-sm">No skills listed.</p>
+              )}
             </div>
           </div>
         </div>
+
+        {/* Delete Confirmation Modal */}
+        <Modal
+          open={deleteModalOpen}
+          onClose={() => setDeleteModalOpen(false)}
+          title="Delete Candidate"
+          subtitle={`Are you sure you want to delete ${name}? This action cannot be undone.`}
+        >
+          <div className="flex justify-end gap-3 pt-4">
+            <button
+              type="button"
+              onClick={() => setDeleteModalOpen(false)}
+              className="rounded-lg border border-outline px-5 py-2.5 font-label-md text-primary hover:bg-surface-container-low transition-colors cursor-pointer"
+              disabled={deleting}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleDelete}
+              className="rounded-lg bg-error text-white px-5 py-2.5 font-label-md transition-colors hover:bg-error/90 active:scale-[0.98] cursor-pointer"
+              disabled={deleting}
+            >
+              {deleting ? "Deleting..." : "Delete Permanently"}
+            </button>
+          </div>
+        </Modal>
       </main>
     </AppShell>
   );

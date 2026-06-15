@@ -1,8 +1,44 @@
 import { userRepo } from "@/server/repositories/user.repo";
 import { tenantRepo } from "@/server/repositories/tenant.repo";
+import { supabaseAdmin } from "@/server/auth/supabase-admin";
+import { Conflict, BadRequest } from "@/server/http/errors";
 
 function isUniqueViolation(e: unknown): boolean {
-  return typeof e === "object" && e !== null && "code" in e && (e as { code: string }).code === "23505";
+  if (typeof e === "object" && e !== null) {
+    if ("code" in e && (e as { code: string }).code === "23505") {
+      return true;
+    }
+    if ("cause" in e) {
+      return isUniqueViolation((e as { cause: unknown }).cause);
+    }
+  }
+  return false;
+}
+
+/**
+ * Create a Supabase auth user server-side (email pre-confirmed) so browser
+ * signup works without depending on the project's email-confirmation toggle.
+ * The client then signs in to get a session; workspace provisioning happens
+ * separately at onboarding via provisionWorkspace().
+ */
+export async function registerUser(input: {
+  name: string;
+  email: string;
+  password: string;
+}): Promise<{ userId: string; email: string }> {
+  const { data, error } = await supabaseAdmin().auth.admin.createUser({
+    email: input.email,
+    password: input.password,
+    email_confirm: true,
+    user_metadata: { full_name: input.name },
+  });
+  if (error) {
+    if (/already|exist|registered/i.test(error.message)) {
+      throw new Conflict("An account with that email already exists");
+    }
+    throw new BadRequest(error.message);
+  }
+  return { userId: data.user!.id, email: input.email };
 }
 
 export interface ProvisionResult {

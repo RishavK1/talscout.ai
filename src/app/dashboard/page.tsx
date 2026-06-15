@@ -1,13 +1,105 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/app/app-shell";
+import { useAuth } from "@/components/app/auth-provider";
+import { api } from "@/lib/api";
+
+interface SimpleCandidate {
+  id: string;
+  fullName: string | null;
+  currentTitle: string | null;
+  status: string;
+  createdAt: string;
+}
 
 export default function DashboardPage() {
   const router = useRouter();
+  const { user, profile } = useAuth();
   const [semanticQuery, setSemanticQuery] = useState("");
+  const [totalCandidates, setTotalCandidates] = useState(0);
+  const [processedCandidates, setProcessedCandidates] = useState(0);
+  const [shortlistedCount, setShortlistedCount] = useState(0);
+  const [recentCandidates, setRecentCandidates] = useState<SimpleCandidate[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
+
+  useEffect(() => {
+    const handleAvatarUpdate = () => {
+      if (profile?.userId) {
+        const stored = localStorage.getItem(`profileAvatar_${profile.userId}`);
+        setAvatarUrl(stored);
+      }
+    };
+    handleAvatarUpdate();
+    window.addEventListener("profileAvatarUpdated", handleAvatarUpdate);
+    return () => window.removeEventListener("profileAvatarUpdated", handleAvatarUpdate);
+  }, [profile?.userId]);
+
+  useEffect(() => {
+    if (profile?.tenantId) {
+      const stored = localStorage.getItem(`recentSearches_${profile.tenantId}`);
+      if (stored) {
+        setRecentSearches(JSON.parse(stored));
+      }
+    }
+  }, [profile?.tenantId]);
+
+  const displayName = user?.user_metadata?.full_name || user?.email?.split("@")[0] || "Recruiter";
+  const userInitials = displayName.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2) || "R";
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        // Fetch stats
+        const totalRes = await api.get<{ total: number }>("/api/candidates?limit=1");
+        setTotalCandidates(totalRes.total);
+
+        const processedRes = await api.get<{ total: number }>("/api/candidates?status=ready&limit=1");
+        setProcessedCandidates(processedRes.total);
+
+        // Fetch recent candidates
+        const listRes = await api.get<{ candidates: SimpleCandidate[] }>("/api/candidates?limit=5");
+        setRecentCandidates(listRes.candidates);
+
+        // Fetch shortlists to count them
+        const shortlistsRes = await api.get<{ shortlists: any[] }>("/api/shortlists");
+        const totalShortlisted = shortlistsRes.shortlists.reduce((acc: number, curr: any) => acc + curr.candidateCount, 0);
+        setShortlistedCount(totalShortlisted);
+      } catch (err) {
+        console.error("Error loading dashboard data:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, []);
+
+  const formatUploadedDate = (dateStr: string) => {
+    try {
+      const date = new Date(dateStr);
+      return date.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } catch {
+      return "Just now";
+    }
+  };
+
+  const handleSemanticSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (semanticQuery.trim()) {
+      router.push(`/search?q=${encodeURIComponent(semanticQuery.trim())}`);
+    }
+  };
 
   return (
     <AppShell>
@@ -20,7 +112,13 @@ export default function DashboardPage() {
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                router.push("/search");
+                const target = e.currentTarget as HTMLFormElement;
+                const input = target.querySelector("input") as HTMLInputElement;
+                if (input.value.trim()) {
+                  router.push(`/search?q=${encodeURIComponent(input.value.trim())}`);
+                } else {
+                  router.push("/search");
+                }
               }}
             >
               <div className="relative">
@@ -40,8 +138,16 @@ export default function DashboardPage() {
             <Link href="/upload" className="bg-primary text-on-primary px-4 py-2 rounded-lg font-label-md text-label-md hover:bg-primary-container transition-colors duration-200 shadow-sm">
               + Upload résumés
             </Link>
-            <div className="w-8 h-8 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center font-headline-md text-[14px] leading-none ml-2 cursor-pointer">
-              R
+            <div
+              onClick={() => router.push("/settings")}
+              className="w-8 h-8 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center font-headline-md text-[14px] leading-none ml-2 cursor-pointer select-none active:scale-95 transition-transform overflow-hidden"
+            >
+              {avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+              ) : (
+                userInitials
+              )}
             </div>
           </div>
         </header>
@@ -49,23 +155,20 @@ export default function DashboardPage() {
         <main className="flex-1 p-4 sm:p-6 lg:p-12 max-w-[1440px] mx-auto w-full">
           {/* Greeting Section */}
           <section className="mb-12">
-            <h1 className="font-headline-lg text-headline-lg text-primary mb-2">Good morning, Rishav.</h1>
+            <h1 className="font-headline-lg text-headline-lg text-primary mb-2">Good morning, {displayName}.</h1>
             <p className="font-body-lg text-body-lg text-text-muted">Here is the latest intelligence on your recruitment pipeline.</p>
           </section>
           {/* Semantic Search Bar (Central) */}
           <section className="mb-16">
             <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                router.push("/search");
-              }}
+              onSubmit={handleSemanticSearchSubmit}
               className="bg-white p-2 rounded-2xl ambient-shadow border border-border-low-alpha flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-0 focus-within:border-primary transition-colors"
             >
               <div className="hidden sm:block pl-4 pr-2 text-primary">
                 <span className="material-symbols-outlined text-[28px]">robot_2</span>
               </div>
               <input value={semanticQuery} onChange={(e) => setSemanticQuery(e.target.value)} className="flex-1 bg-transparent border-none py-4 px-2 font-body-lg text-body-lg text-on-surface placeholder:text-outline-variant focus:outline-none focus:ring-0" placeholder="Try semantic search: 'Senior Python developers in Berlin with FinTech experience...'" type="text" />
-              <button type="submit" className="bg-tertiary-fixed text-on-tertiary-fixed px-6 py-4 rounded-xl font-label-md text-label-md hover:bg-tertiary-fixed-dim transition-colors flex items-center justify-center gap-2">
+              <button type="submit" className="bg-tertiary-fixed text-on-tertiary-fixed px-6 py-4 rounded-xl font-label-md text-label-md hover:bg-tertiary-fixed-dim transition-colors flex items-center justify-center gap-2 cursor-pointer">
                 <span className="material-symbols-outlined text-[20px]">magic_button</span>
                 Find Candidates
               </button>
@@ -79,14 +182,12 @@ export default function DashboardPage() {
                 <div className="p-2 bg-surface-container rounded-lg text-primary">
                   <span className="material-symbols-outlined">folder_shared</span>
                 </div>
-                <div className="flex items-center text-tertiary-container bg-tertiary-fixed/20 px-2 py-1 rounded font-label-md text-[12px]">
-                  <span className="material-symbols-outlined text-[14px] mr-1">trending_up</span>
-                  12%
-                </div>
               </div>
               <div>
                 <p className="font-label-md text-label-md text-on-surface-variant mb-1">Total Candidates</p>
-                <p className="font-data-mono text-display-lg text-primary tracking-tight">12,450</p>
+                <p className="font-data-mono text-display-lg text-primary tracking-tight">
+                  {loading ? "..." : totalCandidates.toLocaleString()}
+                </p>
               </div>
             </div>
             {/* Processed Resumes */}
@@ -95,14 +196,12 @@ export default function DashboardPage() {
                 <div className="p-2 bg-surface-container rounded-lg text-primary">
                   <span className="material-symbols-outlined">document_scanner</span>
                 </div>
-                <div className="flex items-center text-tertiary-container bg-tertiary-fixed/20 px-2 py-1 rounded font-label-md text-[12px]">
-                  <span className="material-symbols-outlined text-[14px] mr-1">trending_up</span>
-                  8%
-                </div>
               </div>
               <div>
-                <p className="font-label-md text-label-md text-on-surface-variant mb-1">Processed Resumes (30d)</p>
-                <p className="font-data-mono text-display-lg text-primary tracking-tight">1,204</p>
+                <p className="font-label-md text-label-md text-on-surface-variant mb-1">Parsed / Ready Candidates</p>
+                <p className="font-data-mono text-display-lg text-primary tracking-tight">
+                  {loading ? "..." : processedCandidates.toLocaleString()}
+                </p>
               </div>
             </div>
             {/* Active Searches */}
@@ -114,7 +213,7 @@ export default function DashboardPage() {
               </div>
               <div>
                 <p className="font-label-md text-label-md text-on-surface-variant mb-1">Active AI Searches</p>
-                <p className="font-data-mono text-display-lg text-primary tracking-tight">42</p>
+                <p className="font-data-mono text-display-lg text-primary tracking-tight">{loading ? "..." : "0"}</p>
               </div>
             </div>
             {/* Shortlisted */}
@@ -126,7 +225,7 @@ export default function DashboardPage() {
               </div>
               <div>
                 <p className="font-label-md text-label-md text-on-surface-variant mb-1">Shortlisted</p>
-                <p className="font-data-mono text-display-lg text-primary tracking-tight">318</p>
+                <p className="font-data-mono text-display-lg text-primary tracking-tight">{loading ? "..." : shortlistedCount.toLocaleString()}</p>
               </div>
             </div>
           </section>
@@ -149,36 +248,52 @@ export default function DashboardPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    <tr className="border-b border-border-low-alpha hover:bg-surface-container-lowest transition-colors">
-                      <td className="p-4 font-body-md text-body-md text-on-surface font-medium">Sarah Jenkins</td>
-                      <td className="p-4 font-body-md text-body-md text-on-surface-variant">Lead Product Designer</td>
-                      <td className="p-4 font-data-mono text-data-mono text-on-surface-variant">Oct 24, 09:41</td>
-                      <td className="p-4">
-                        <span className="inline-flex items-center px-2 py-1 bg-tertiary-fixed/20 text-tertiary-container rounded-full font-label-md text-[12px]">
-                          <span className="material-symbols-outlined text-[14px] mr-1">check_circle</span> Parsed
-                        </span>
-                      </td>
-                    </tr>
-                    <tr className="border-b border-border-low-alpha hover:bg-surface-container-lowest transition-colors">
-                      <td className="p-4 font-body-md text-body-md text-on-surface font-medium">Michael Chang</td>
-                      <td className="p-4 font-body-md text-body-md text-on-surface-variant">Backend Engineer</td>
-                      <td className="p-4 font-data-mono text-data-mono text-on-surface-variant">Oct 24, 08:12</td>
-                      <td className="p-4">
-                        <span className="inline-flex items-center px-2 py-1 bg-tertiary-fixed/20 text-tertiary-container rounded-full font-label-md text-[12px]">
-                          <span className="material-symbols-outlined text-[14px] mr-1">check_circle</span> Parsed
-                        </span>
-                      </td>
-                    </tr>
-                    <tr className="hover:bg-surface-container-lowest transition-colors">
-                      <td className="p-4 font-body-md text-body-md text-on-surface font-medium">Elena Rostova</td>
-                      <td className="p-4 font-body-md text-body-md text-on-surface-variant">Data Scientist</td>
-                      <td className="p-4 font-data-mono text-data-mono text-on-surface-variant">Oct 23, 16:55</td>
-                      <td className="p-4">
-                        <span className="inline-flex items-center px-2 py-1 bg-tertiary-fixed/20 text-tertiary-container rounded-full font-label-md text-[12px]">
-                          <span className="material-symbols-outlined text-[14px] mr-1">check_circle</span> Parsed
-                        </span>
-                      </td>
-                    </tr>
+                    {loading ? (
+                      <tr>
+                        <td colSpan={4} className="p-8 text-center text-on-surface-variant">
+                          Loading candidates...
+                        </td>
+                      </tr>
+                    ) : recentCandidates.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="p-8 text-center text-on-surface-variant">
+                          No candidates found. Upload some résumés to get started!
+                        </td>
+                      </tr>
+                    ) : (
+                      recentCandidates.map((c) => (
+                        <tr
+                          key={c.id}
+                          onClick={() => router.push(`/candidates/${c.id}`)}
+                          className="border-b border-border-low-alpha hover:bg-surface-container-lowest transition-colors cursor-pointer"
+                        >
+                          <td className="p-4 font-body-md text-body-md text-on-surface font-medium">
+                            {c.fullName || "Unnamed Draft"}
+                          </td>
+                          <td className="p-4 font-body-md text-body-md text-on-surface-variant">
+                            {c.currentTitle || "Not Parsed Yet"}
+                          </td>
+                          <td className="p-4 font-data-mono text-data-mono text-on-surface-variant">
+                            {formatUploadedDate(c.createdAt)}
+                          </td>
+                          <td className="p-4">
+                            {c.status === "ready" ? (
+                              <span className="inline-flex items-center px-2 py-1 bg-tertiary-fixed/20 text-tertiary-container rounded-full font-label-md text-[12px]">
+                                <span className="material-symbols-outlined text-[14px] mr-1">check_circle</span> Parsed
+                              </span>
+                            ) : c.status === "processing" ? (
+                              <span className="inline-flex items-center px-2 py-1 bg-surface-container-high text-on-surface-variant rounded-full font-label-md text-[12px]">
+                                <span className="material-symbols-outlined text-[14px] mr-1 animate-spin">sync</span> In Progress
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-2 py-1 bg-error/10 text-error rounded-full font-label-md text-[12px]">
+                                <span className="material-symbols-outlined text-[14px] mr-1">error</span> Error
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -188,28 +303,26 @@ export default function DashboardPage() {
               <div className="p-6 border-b border-border-low-alpha">
                 <h3 className="font-headline-md text-headline-md text-primary">Recent Searches</h3>
               </div>
-              <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                <div className="group flex items-start gap-3 p-3 hover:bg-bg-cream rounded-xl transition-colors cursor-pointer border border-transparent hover:border-border-low-alpha">
-                  <span className="material-symbols-outlined text-outline mt-1 group-hover:text-primary transition-colors">history</span>
-                  <div>
-                    <p className="font-body-md text-body-md text-on-surface line-clamp-2">&quot;Senior Frontend React developers in London willing to relocate&quot;</p>
-                    <p className="font-data-mono text-[12px] text-text-muted mt-1">42 results • 2 hrs ago</p>
+              <div className="flex-grow p-4 space-y-2">
+                {recentSearches.length > 0 ? (
+                  recentSearches.map((searchQuery, index) => (
+                    <button
+                      key={index}
+                      onClick={() => router.push(`/search?q=${encodeURIComponent(searchQuery)}`)}
+                      className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-surface-container-low transition-colors text-left"
+                    >
+                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/5 text-primary">
+                        <span className="material-symbols-outlined text-[18px]">history</span>
+                      </div>
+                      <span className="font-body-md text-on-surface truncate flex-1">{searchQuery}</span>
+                      <span className="material-symbols-outlined text-outline-variant text-[16px]">chevron_right</span>
+                    </button>
+                  ))
+                ) : (
+                  <div className="flex items-center justify-center h-full min-h-[150px]">
+                    <p className="font-body-md text-text-muted">No recent searches yet.</p>
                   </div>
-                </div>
-                <div className="group flex items-start gap-3 p-3 hover:bg-bg-cream rounded-xl transition-colors cursor-pointer border border-transparent hover:border-border-low-alpha">
-                  <span className="material-symbols-outlined text-outline mt-1 group-hover:text-primary transition-colors">history</span>
-                  <div>
-                    <p className="font-body-md text-body-md text-on-surface line-clamp-2">&quot;Machine learning engineer with NLP experience and PyTorch&quot;</p>
-                    <p className="font-data-mono text-[12px] text-text-muted mt-1">18 results • Yesterday</p>
-                  </div>
-                </div>
-                <div className="group flex items-start gap-3 p-3 hover:bg-bg-cream rounded-xl transition-colors cursor-pointer border border-transparent hover:border-border-low-alpha">
-                  <span className="material-symbols-outlined text-outline mt-1 group-hover:text-primary transition-colors">history</span>
-                  <div>
-                    <p className="font-body-md text-body-md text-on-surface line-clamp-2">&quot;VP of Sales SaaS B2B Enterprise&quot;</p>
-                    <p className="font-data-mono text-[12px] text-text-muted mt-1">5 results • Oct 22</p>
-                  </div>
-                </div>
+                )}
               </div>
             </div>
           </section>

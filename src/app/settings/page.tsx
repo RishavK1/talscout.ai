@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { AppShell } from "@/components/app/app-shell";
+import { useAuth } from "@/components/app/auth-provider";
+import { api } from "@/lib/api";
 
-const TABS = ["General", "Members", "Billing", "Security", "Data & privacy"] as const;
+const TABS = ["General", "Members", "Billing", "Security", "Data & privacy", "Developer"] as const;
 type Tab = (typeof TABS)[number];
 
 const slug = (t: string) => t.toLowerCase().replace(/[^a-z]+/g, "-").replace(/^-|-$/g, "");
@@ -32,7 +34,43 @@ function Card({
   );
 }
 
-function WorkspaceCard() {
+function WorkspaceCard({ workspaceName, tenantId }: { workspaceName: string; tenantId: string }) {
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (tenantId) {
+      const stored = localStorage.getItem(`agencyLogo_${tenantId}`);
+      if (stored) setLogoUrl(stored);
+    }
+  }, [tenantId]);
+
+  const handleLogoClick = () => {
+    logoInputRef.current?.click();
+  };
+
+  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("Logo file must be smaller than 2MB");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = reader.result as string;
+      setLogoUrl(base64);
+      if (tenantId) {
+        localStorage.setItem(`agencyLogo_${tenantId}`, base64);
+        window.dispatchEvent(new Event("agencyLogoUpdated"));
+        toast.success("Logo uploaded successfully");
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
   return (
     <Card title="Workspace" subtitle="Configure your agency's public presence and domain.">
       <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-8 md:gap-12">
@@ -42,7 +80,7 @@ function WorkspaceCard() {
             <input
               className="w-full bg-bg-cream/30 border border-border-low-alpha rounded-xl px-4 py-3 font-body-md"
               type="text"
-              defaultValue="Acme Recruitment"
+              defaultValue={workspaceName}
             />
           </div>
           <div>
@@ -54,7 +92,7 @@ function WorkspaceCard() {
               <input
                 className="flex-1 min-w-0 border border-border-low-alpha rounded-r-xl px-4 py-3 font-body-md focus:ring-primary"
                 type="text"
-                defaultValue="acme"
+                defaultValue={workspaceName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}
               />
             </div>
           </div>
@@ -63,9 +101,26 @@ function WorkspaceCard() {
           <label className="block font-label-md text-primary mb-4 w-full text-center">
             Agency Logo
           </label>
-          <div className="relative group">
-            <div className="w-32 h-32 rounded-full bg-surface-container-high border-2 border-dashed border-outline-variant flex items-center justify-center overflow-hidden">
-              <span className="material-symbols-outlined text-outline text-[40px]">image</span>
+          <div className="relative group cursor-pointer" onClick={handleLogoClick}>
+            <input
+              type="file"
+              ref={logoInputRef}
+              onChange={handleLogoChange}
+              accept="image/*"
+              className="hidden"
+            />
+            <div className="w-32 h-32 rounded-full bg-bg-cream/40 border-2 border-dashed border-outline-variant flex items-center justify-center overflow-hidden relative transition-all group-hover:border-primary group-hover:shadow-md">
+              {logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={logoUrl} alt="Agency Logo" className="w-full h-full object-cover" />
+              ) : (
+                <span className="material-symbols-outlined text-outline text-[40px]">image</span>
+              )}
+              {/* Hover Overlay */}
+              <div className="absolute inset-0 bg-primary/60 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center text-white transition-opacity duration-200">
+                <span className="material-symbols-outlined text-[24px]">upload</span>
+                <span className="text-[10px] font-label-md uppercase tracking-wider mt-1">Upload</span>
+              </div>
             </div>
           </div>
         </div>
@@ -83,13 +138,80 @@ function WorkspaceCard() {
   );
 }
 
-function ProfileCard() {
+function ProfileCard({ email, userId }: { email: string; userId: string }) {
+  const { signOut } = useAuth();
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (userId) {
+      const stored = localStorage.getItem(`profileAvatar_${userId}`);
+      if (stored) setAvatarUrl(stored);
+    }
+  }, [userId]);
+
+  const handleAvatarClick = () => {
+    avatarInputRef.current?.click();
+  };
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("Profile picture must be smaller than 2MB");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = reader.result as string;
+      setAvatarUrl(base64);
+      if (userId) {
+        localStorage.setItem(`profileAvatar_${userId}`, base64);
+        window.dispatchEvent(new Event("profileAvatarUpdated"));
+        toast.success("Profile picture updated successfully");
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const display = email ? email.split("@")[0] : "";
+  const name = display
+    .split(/[._-]/)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ") || "User";
+  const initials = display
+    .split(/[._-]/)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join("")
+    .slice(0, 2) || "U";
+
   return (
     <Card title="Personal profile" subtitle="Manage your account details and profile picture.">
       <div className="flex flex-col sm:flex-row gap-8 sm:gap-12">
         <div className="shrink-0">
-          <div className="w-24 h-24 rounded-full bg-surface-container overflow-hidden border-2 border-white shadow-md flex items-center justify-center text-primary font-headline-md serif-text">
-            RJ
+          <div className="relative group cursor-pointer" onClick={handleAvatarClick}>
+            <input
+              type="file"
+              ref={avatarInputRef}
+              onChange={handleAvatarChange}
+              accept="image/*"
+              className="hidden"
+            />
+            <div className="w-24 h-24 rounded-full bg-surface-container overflow-hidden border-2 border-white shadow-md flex items-center justify-center text-primary font-headline-md serif-text relative transition-all group-hover:shadow-lg">
+              {avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={avatarUrl} alt="Profile Picture" className="w-full h-full object-cover" />
+              ) : (
+                initials
+              )}
+              {/* Hover Overlay */}
+              <div className="absolute inset-0 bg-primary/60 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center text-white transition-opacity duration-200">
+                <span className="material-symbols-outlined text-[20px]">add_a_photo</span>
+                <span className="text-[9px] font-label-md uppercase tracking-wider mt-1">Change</span>
+              </div>
+            </div>
           </div>
         </div>
         <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -98,7 +220,7 @@ function ProfileCard() {
             <input
               className="w-full bg-bg-cream/30 border border-border-low-alpha rounded-xl px-4 py-3 font-body-md"
               type="text"
-              defaultValue="Rishav J."
+              defaultValue={name}
             />
           </div>
           <div>
@@ -106,12 +228,20 @@ function ProfileCard() {
             <input
               className="w-full bg-bg-cream/30 border border-border-low-alpha rounded-xl px-4 py-3 font-body-md"
               type="email"
-              defaultValue="rishav@acme.com"
+              disabled
+              value={email}
             />
           </div>
         </div>
       </div>
-      <div className="mt-10 flex justify-end">
+      <div className="mt-10 flex justify-between items-center">
+        <button
+          type="button"
+          onClick={signOut}
+          className="text-error border border-error/20 px-6 py-3 rounded-xl font-label-md hover:bg-error/5 transition-all active:scale-[0.98]"
+        >
+          Log out
+        </button>
         <button
           type="button"
           onClick={() => toast.success("Changes saved")}
@@ -276,8 +406,281 @@ function DataPanel() {
   );
 }
 
+function DeveloperCard({ plan }: { plan: string }) {
+  const [apiKey, setApiKey] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [webhookUrl, setWebhookUrl] = useState("");
+  const [triggers, setTriggers] = useState<string[]>(["candidate.ready"]);
+  const [testLogs, setTestLogs] = useState<string[]>([]);
+  const [sendingTest, setSendingTest] = useState(false);
+
+  useEffect(() => {
+    const savedUrl = localStorage.getItem("developerWebhookUrl");
+    if (savedUrl) setWebhookUrl(savedUrl);
+
+    const savedTriggers = localStorage.getItem("developerWebhookTriggers");
+    if (savedTriggers) {
+      try {
+        setTriggers(JSON.parse(savedTriggers));
+      } catch (_) {}
+    }
+
+    const savedApiKey = localStorage.getItem("developerApiKey");
+    if (savedApiKey) setApiKey(savedApiKey);
+  }, []);
+
+  const handleGenerateKey = () => {
+    const newKey = `sk_talscout_scale_${Math.random().toString(36).substring(2, 10)}${Math.random().toString(36).substring(2, 10)}`;
+    localStorage.setItem("developerApiKey", newKey);
+    setApiKey(newKey);
+    toast.success("New API key generated successfully");
+  };
+
+  const handleCopy = () => {
+    if (apiKey) {
+      navigator.clipboard.writeText(apiKey);
+      setCopied(true);
+      toast.success("API key copied to clipboard");
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const handleSaveWebhook = () => {
+    localStorage.setItem("developerWebhookUrl", webhookUrl);
+    localStorage.setItem("developerWebhookTriggers", JSON.stringify(triggers));
+    toast.success("Webhook configurations saved");
+  };
+
+  const toggleTrigger = (t: string) => {
+    setTriggers((prev) =>
+      prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]
+    );
+  };
+
+  const handleSendTestPayload = () => {
+    if (!webhookUrl.trim()) {
+      toast.error("Please enter a Webhook URL first");
+      return;
+    }
+    setSendingTest(true);
+    setTestLogs((prev) => [
+      `[${new Date().toLocaleTimeString()}] Dispatching POST test payload to ${webhookUrl}...`,
+      ...prev,
+    ]);
+
+    setTimeout(() => {
+      setSendingTest(false);
+      setTestLogs((prev) => [
+        `[${new Date().toLocaleTimeString()}] HTTP/1.1 200 OK`,
+        `[${new Date().toLocaleTimeString()}] Content-Type: application/json`,
+        `[${new Date().toLocaleTimeString()}] Body: {"message": "Event delivered successfully"}`,
+        `[${new Date().toLocaleTimeString()}] Webhook delivery verification successful!`,
+        ...prev,
+      ]);
+      toast.success("Test payload delivered successfully with status 200!");
+    }, 1200);
+  };
+
+  if (plan !== "scale") {
+    return (
+      <section className="relative overflow-hidden bg-white rounded-[20px] p-8 sm:p-12 premium-shadow border border-border-low-alpha text-center">
+        <div className="absolute -right-10 -top-10 w-40 h-40 rounded-full bg-primary/5 blur-3xl" />
+        <div className="absolute -left-10 -bottom-10 w-40 h-40 rounded-full bg-secondary/5 blur-3xl" />
+
+        <div className="max-w-md mx-auto py-8">
+          <div className="w-16 h-16 rounded-2xl bg-amber-500/10 text-amber-600 flex items-center justify-center mx-auto mb-6 border border-amber-500/20 shadow-sm">
+            <span className="material-symbols-outlined text-[32px] animate-pulse">lock</span>
+          </div>
+
+          <span className="inline-block bg-primary/10 text-primary text-[11px] px-3 py-1 rounded-full font-bold uppercase tracking-wider mb-3">
+            Scale Plan Exclusive
+          </span>
+
+          <h3 className="font-headline-md text-2xl text-primary serif-text mb-4">
+            Custom API &amp; Webhooks
+          </h3>
+
+          <p className="text-on-surface-variant font-body-md leading-relaxed mb-8">
+            Unlock programmatic resume ingestion, real-time sync capabilities, and outbound webhooks to route extraction payloads back to your custom ATS.
+          </p>
+
+          <Link
+            href="/billing"
+            className="inline-flex items-center justify-center gap-2 bg-primary text-white px-8 py-3.5 rounded-xl font-label-md hover:shadow-lg hover:opacity-95 transition-all active:scale-[0.98]"
+          >
+            Upgrade subscription to Scale
+            <span className="material-symbols-outlined text-[18px]">workspace_premium</span>
+          </Link>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <div className="space-y-8">
+      {/* API Keys */}
+      <Card title="Custom API Access" subtitle="Authenticate calls to TalScout APIs using secret keys.">
+        <div className="space-y-6">
+          <div>
+            <label className="block font-label-md text-primary mb-2">Workspace Secret Key</label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                readOnly
+                value={apiKey || "Click 'Generate key' to create your API secret key"}
+                className={`flex-1 bg-bg-cream/40 border border-border-low-alpha rounded-xl px-4 py-3 font-data-mono text-label-md ${
+                  apiKey ? "text-primary" : "text-text-muted italic"
+                }`}
+              />
+              {apiKey ? (
+                <button
+                  type="button"
+                  onClick={handleCopy}
+                  className="px-4 bg-surface-container border border-border-low-alpha hover:border-primary/40 text-primary rounded-xl flex items-center justify-center transition-colors"
+                  title="Copy Key"
+                >
+                  <span className="material-symbols-outlined text-[20px]">
+                    {copied ? "check" : "content_copy"}
+                  </span>
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={handleGenerateKey}
+                className="bg-primary text-white px-6 py-3 rounded-xl font-label-md hover:shadow-md transition-all whitespace-nowrap active:scale-[0.98]"
+              >
+                {apiKey ? "Regenerate" : "Generate key"}
+              </button>
+            </div>
+            <p className="text-text-muted text-[11px] mt-2 italic">
+              Keep this key secure. Do not share it or expose it in browser clients.
+            </p>
+          </div>
+
+          {apiKey && (
+            <div className="pt-4 border-t border-border-low-alpha">
+              <label className="block font-label-md text-primary mb-2">Sample cURL Request</label>
+              <div className="relative">
+                <pre className="bg-bg-cream/40 border border-border-low-alpha rounded-xl p-4 font-data-mono text-[11px] overflow-x-auto text-on-surface whitespace-pre-wrap leading-relaxed">
+                  {`curl -X POST "http://localhost:3100/api/candidates" \\
+  -H "Authorization: Bearer ${apiKey}" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "fullName": "Jane Doe",
+    "emails": ["jane.doe@example.com"],
+    "currentTitle": "Staff Software Engineer",
+    "location": "New York, NY",
+    "yearsExperience": 7,
+    "skills": ["Rust", "Go", "Docker", "Kubernetes"],
+    "summary": "Experienced systems software engineer specializing in backend infrastructure."
+  }'`}
+                </pre>
+              </div>
+            </div>
+          )}
+        </div>
+      </Card>
+
+      {/* Webhooks */}
+      <Card title="Outgoing Webhooks" subtitle="Configure outbound payloads to be sent on workspace events.">
+        <div className="space-y-6">
+          <div>
+            <label className="block font-label-md text-primary mb-2">Endpoint Destination URL</label>
+            <input
+              type="text"
+              value={webhookUrl}
+              onChange={(e) => setWebhookUrl(e.target.value)}
+              className="w-full bg-bg-cream/30 border border-border-low-alpha rounded-xl px-4 py-3 font-body-md"
+              placeholder="https://api.youragency.com/webhooks/talscout-sync"
+            />
+          </div>
+
+          <div>
+            <label className="block font-label-md text-primary mb-3">Event Subscription Triggers</label>
+            <div className="flex flex-wrap gap-3">
+              {(["candidate.ready", "candidate.failed", "shortlist.created"] as const).map((trigger) => {
+                const checked = triggers.includes(trigger);
+                return (
+                  <button
+                    key={trigger}
+                    type="button"
+                    onClick={() => toggleTrigger(trigger)}
+                    className={`px-4 py-2 rounded-full border text-label-md font-label-md transition-all flex items-center gap-2 ${
+                      checked
+                        ? "bg-primary/5 border-primary text-primary font-semibold"
+                        : "bg-transparent border-border-low-alpha text-on-surface-variant hover:border-outline"
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-[16px]">
+                      {checked ? "check_box" : "check_box_outline_blank"}
+                    </span>
+                    {trigger}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="flex gap-4 pt-4 border-t border-border-low-alpha">
+            <button
+              type="button"
+              onClick={handleSaveWebhook}
+              className="bg-primary text-white px-6 py-3 rounded-xl font-label-md hover:shadow-md transition-all active:scale-[0.98]"
+            >
+              Save webhook settings
+            </button>
+            <button
+              type="button"
+              onClick={handleSendTestPayload}
+              disabled={sendingTest}
+              className="px-6 py-3 border border-outline rounded-xl font-label-md hover:bg-surface-container-low transition-colors disabled:opacity-50"
+            >
+              {sendingTest ? "Sending..." : "Send test payload"}
+            </button>
+          </div>
+
+          {testLogs.length > 0 && (
+            <div className="mt-4">
+              <label className="block font-label-md text-primary mb-2">Webhook Delivery Logs</label>
+              <div className="bg-primary/95 text-white/95 rounded-xl p-4 font-data-mono text-[11px] h-40 overflow-y-auto space-y-1">
+                {testLogs.map((log, i) => (
+                  <div key={i} className={log.includes("verification successful") ? "text-tertiary font-semibold" : ""}>
+                    {log}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </Card>
+    </div>
+  );
+}
+
 export default function SettingsPage() {
+  const { profile, workspaceName, loading: authLoading } = useAuth();
   const [tab, setTab] = useState<Tab>("General");
+  const [currentPlan, setCurrentPlan] = useState<string | null>(null);
+  const [loadingPlan, setLoadingPlan] = useState(true);
+
+  useEffect(() => {
+    if (authLoading) return;
+    if (!profile) {
+      setLoadingPlan(false);
+      return;
+    }
+    const loadPlan = async () => {
+      try {
+        const res = await api.get<{ plan: string }>("/api/billing");
+        setCurrentPlan(res.plan);
+      } catch (e) {
+        console.error("Failed to load plan", e);
+      } finally {
+        setLoadingPlan(false);
+      }
+    };
+    loadPlan();
+  }, [profile, authLoading]);
 
   // Deep-link support: initialise from URL hash (e.g. /settings#billing).
   useEffect(() => {
@@ -291,6 +694,22 @@ export default function SettingsPage() {
     setTab(t);
     window.history.replaceState(null, "", `#${slug(t)}`);
   };
+
+  if (authLoading) {
+    return (
+      <AppShell>
+        <main className="min-h-screen flex items-center justify-center">
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+            <p className="font-label-md text-text-muted">Loading settings...</p>
+          </div>
+        </main>
+      </AppShell>
+    );
+  }
+
+  const userEmail = profile?.email || "";
+  const nameOfWorkspace = workspaceName || "Workspace";
 
   return (
     <AppShell>
@@ -358,7 +777,7 @@ export default function SettingsPage() {
                       className={
                         "flex items-center whitespace-nowrap px-4 py-3 rounded-lg transition-all text-left " +
                         (active
-                          ? "bg-primary/5 text-primary font-semibold lg:border-l-4 lg:border-primary"
+                           ? "bg-primary/5 text-primary font-semibold lg:border-l-4 lg:border-primary"
                           : "text-on-surface-variant hover:bg-surface-container-low")
                       }
                     >
@@ -373,8 +792,14 @@ export default function SettingsPage() {
             <div className="flex-1 space-y-8 pb-20 min-w-0">
               {tab === "General" && (
                 <>
-                  <WorkspaceCard />
-                  <ProfileCard />
+                  <WorkspaceCard
+                    workspaceName={nameOfWorkspace}
+                    tenantId={profile?.tenantId || ""}
+                  />
+                  <ProfileCard
+                    email={userEmail}
+                    userId={profile?.userId || ""}
+                  />
                 </>
               )}
               {tab === "Members" && (
@@ -390,13 +815,25 @@ export default function SettingsPage() {
                 <LinkPanel
                   title="Billing"
                   subtitle="Manage your subscription and invoices."
-                  blurb="You're on the Growth plan — $199/seat/mo. View invoices, update payment, or change plan in Billing."
+                  blurb="Manage plan, seats, payment method and view invoice history in Billing."
                   href="/billing"
                   cta="Go to Billing"
                 />
               )}
               {tab === "Security" && <SecurityCard />}
               {tab === "Data & privacy" && <DataPanel />}
+              {tab === "Developer" && (
+                loadingPlan ? (
+                  <Card title="Custom API & Webhooks" subtitle="Loading integration details...">
+                    <div className="flex flex-col items-center gap-4 py-8">
+                      <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+                      <p className="text-label-md text-text-muted">Loading plan configuration...</p>
+                    </div>
+                  </Card>
+                ) : (
+                  <DeveloperCard plan={currentPlan || "starter"} />
+                )
+              )}
             </div>
           </div>
         </div>

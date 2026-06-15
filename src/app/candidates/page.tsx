@@ -1,11 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/app/app-shell";
+import { api } from "@/lib/api";
+import { toast } from "sonner";
 
-type Candidate = {
-  id: number;
+interface ApiCandidate {
+  id: string;
+  fullName: string | null;
+  emails: string[] | null;
+  currentTitle: string | null;
+  location: string | null;
+  yearsExperience: string | null;
+  skills: string[] | null;
+  status: "ready" | "processing" | "error";
+  createdAt: string;
+}
+
+interface Candidate {
+  id: string;
   name: string;
   email: string;
   title: string;
@@ -13,14 +28,9 @@ type Candidate = {
   experience: number;
   expLabel: string;
   skills: string[];
-  status: "Ready" | "Processing";
-  // Presentation details preserved exactly from the original hard-coded rows.
+  status: "Ready" | "Processing" | "Error";
   initials: string;
-  rowClassName: string;
-  avatarClassName: string;
-  // Per-skill class names, index-aligned with `skills`.
-  skillClassNames: string[];
-};
+}
 
 const SKILL_PLAIN =
   "px-2 py-0.5 rounded bg-surface-container text-on-surface-variant border border-border-low-alpha font-label-md text-[12px]";
@@ -31,78 +41,11 @@ const SKILL_TERTIARY =
 
 const ROW_BASE = "hover:bg-bg-cream/30 transition-colors group cursor-pointer";
 
-const CANDIDATES: Candidate[] = [
-  {
-    id: 1,
-    name: "Sarah Jenkins",
-    email: "sarah.j@example.com",
-    title: "Senior Frontend Engineer",
-    location: "San Francisco, CA",
-    experience: 8,
-    expLabel: "08",
-    skills: ["React", "TypeScript", "GraphQL"],
-    status: "Ready",
-    initials: "SJ",
-    rowClassName: ROW_BASE,
-    avatarClassName:
-      "w-10 h-10 rounded-full flex items-center justify-center bg-surface-container-high text-primary font-headline-md border border-border-low-alpha",
-    skillClassNames: [SKILL_SECONDARY, SKILL_PLAIN, SKILL_PLAIN],
-  },
-  {
-    id: 2,
-    name: "Marcus Chen",
-    email: "marcus.c@example.com",
-    title: "Principal Architect",
-    location: "New York, NY",
-    experience: 12,
-    expLabel: "12",
-    skills: ["System Design", "Go", "AWS"],
-    status: "Processing",
-    initials: "MC",
-    rowClassName: `${ROW_BASE} bg-tertiary-fixed/5`,
-    avatarClassName:
-      "w-10 h-10 rounded-full bg-primary-container/10 flex items-center justify-center font-headline-md text-primary-container border border-primary-container/20",
-    skillClassNames: [SKILL_TERTIARY, SKILL_PLAIN, SKILL_PLAIN],
-  },
-  {
-    id: 3,
-    name: "David Miller",
-    email: "d.miller@example.com",
-    title: "Data Scientist",
-    location: "Remote (Austin, TX)",
-    experience: 5,
-    expLabel: "05",
-    skills: ["Python", "PyTorch", "SQL"],
-    status: "Ready",
-    initials: "DM",
-    rowClassName: ROW_BASE,
-    avatarClassName:
-      "w-10 h-10 rounded-full flex items-center justify-center bg-surface-container-high text-primary font-headline-md border border-border-low-alpha",
-    skillClassNames: [SKILL_PLAIN, SKILL_PLAIN, SKILL_PLAIN],
-  },
-  {
-    id: 4,
-    name: "Amanda Lewis",
-    email: "alewis.dev@example.com",
-    title: "Full Stack Engineer",
-    location: "Seattle, WA",
-    experience: 6,
-    expLabel: "06",
-    skills: ["Node.js", "React", "MongoDB"],
-    status: "Ready",
-    initials: "AL",
-    rowClassName: ROW_BASE,
-    avatarClassName:
-      "w-10 h-10 rounded-full bg-secondary-container/10 flex items-center justify-center font-headline-md text-secondary-container border border-secondary-container/20",
-    skillClassNames: [SKILL_SECONDARY, SKILL_PLAIN, SKILL_PLAIN],
-  },
-];
-
 const EXPERIENCE_OPTIONS = [
   { label: "All", value: "All" },
-  { label: "0–2", value: "0-2" },
-  { label: "3–5", value: "3-5" },
-  { label: "6+", value: "6+" },
+  { label: "0–2 yrs", value: "0-2" },
+  { label: "3–5 yrs", value: "3-5" },
+  { label: "6+ yrs", value: "6+" },
 ] as const;
 
 function matchesExperience(years: number, range: string): boolean {
@@ -119,13 +62,62 @@ function matchesExperience(years: number, range: string): boolean {
 }
 
 export default function CandidatesPage() {
+  const router = useRouter();
+  const [candidates, setCandidates] = useState<Candidate[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("All");
   const [experience, setExperience] = useState("All");
   const [roleFilter, setRoleFilter] = useState("");
   const [view, setView] = useState<"list" | "grid">("list");
+  const [loading, setLoading] = useState(true);
 
-  const filtered = CANDIDATES.filter((c) => {
+  // Fetch candidates from API
+  const fetchCandidates = async () => {
+    setLoading(true);
+    try {
+      // Get up to 100 candidates to enable rich client-side search & filtering experience
+      const res = await api.get<{ candidates: ApiCandidate[]; total: number }>(
+        `/api/candidates?limit=100`
+      );
+      
+      const mapped = res.candidates.map((item): Candidate => {
+        const name = item.fullName || "Unnamed Candidate";
+        const initials = name
+          .split(" ")
+          .map((n) => n[0])
+          .join("")
+          .toUpperCase()
+          .slice(0, 2) || "C";
+          
+        return {
+          id: item.id,
+          name,
+          email: (item.emails && item.emails[0]) || "no-email@example.com",
+          title: item.currentTitle || "Unnamed Role",
+          location: item.location || "Unknown",
+          experience: item.yearsExperience ? parseFloat(item.yearsExperience) : 0,
+          expLabel: item.yearsExperience ? String(Math.round(parseFloat(item.yearsExperience))).padStart(2, "0") : "00",
+          skills: item.skills || [],
+          status: item.status === "ready" ? "Ready" : item.status === "processing" ? "Processing" : "Error",
+          initials,
+        };
+      });
+
+      setCandidates(mapped);
+      setTotalCount(res.total);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to load candidates");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCandidates();
+  }, []);
+
+  const filtered = candidates.filter((c) => {
     const matchesQ =
       q.trim() === "" ||
       [c.name, c.title, c.location, c.email, ...c.skills]
@@ -139,6 +131,12 @@ export default function CandidatesPage() {
       [c.title, ...c.skills].join(" ").toLowerCase().includes(roleFilter.toLowerCase());
     return matchesQ && matchesStatus && matchesExp && matchesRole;
   });
+
+  const getSkillBadgeClass = (index: number) => {
+    if (index % 3 === 0) return SKILL_SECONDARY;
+    if (index % 3 === 1) return SKILL_TERTIARY;
+    return SKILL_PLAIN;
+  };
 
   return (
     <AppShell>
@@ -229,12 +227,13 @@ export default function CandidatesPage() {
                   <option value="All">All</option>
                   <option value="Ready">Ready</option>
                   <option value="Processing">Processing</option>
+                  <option value="Error">Error</option>
                 </select>
               </label>
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <span className="font-label-md text-[13px] text-on-surface-variant">Showing {filtered.length} of {CANDIDATES.length}</span>
+            <span className="font-label-md text-[13px] text-on-surface-variant">Showing {filtered.length} of {totalCount}</span>
             <div className="flex gap-1 border border-border-low-alpha rounded-lg p-1 bg-bg-cream">
               <button
                 type="button"
@@ -270,73 +269,92 @@ export default function CandidatesPage() {
 
         {/* Data Table Canvas */}
         <div className="bg-surface-white border-x border-b border-border-low-alpha rounded-b-xl overflow-hidden shadow-[0_4px_12px_rgba(44,35,34,0.03)] overflow-x-auto">
-          {view === "list" ? (
-          <table className="w-full min-w-[720px] text-left border-collapse">
-            <thead>
-              <tr className="border-b border-border-low-alpha bg-bg-cream/50">
-                <th className="py-4 pl-6 pr-3 w-12">
-                  <input className="w-4 h-4 rounded border-outline-variant text-primary focus:ring-primary/20 bg-surface-white" type="checkbox" />
-                </th>
-                <th className="py-4 px-3 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-[11px] font-semibold">Candidate</th>
-                <th className="py-4 px-3 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-[11px] font-semibold">Title</th>
-                <th className="py-4 px-3 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-[11px] font-semibold">Location</th>
-                <th className="py-4 px-3 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-[11px] font-semibold">Exp (Yrs)</th>
-                <th className="py-4 px-3 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-[11px] font-semibold">Top Skills</th>
-                <th className="py-4 pr-6 pl-3 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-[11px] font-semibold">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border-low-alpha">
-              {filtered.map((c) => (
-                <tr key={c.id} className={c.rowClassName}>
-                  <td className="py-4 pl-6 pr-3">
+          {loading ? (
+            <div className="flex items-center justify-center py-24 text-on-surface-variant font-body-md">
+              <span className="material-symbols-outlined animate-spin mr-2">sync</span> Loading candidate database...
+            </div>
+          ) : view === "list" ? (
+            <table className="w-full min-w-[720px] text-left border-collapse">
+              <thead>
+                <tr className="border-b border-border-low-alpha bg-bg-cream/50">
+                  <th className="py-4 pl-6 pr-3 w-12">
                     <input className="w-4 h-4 rounded border-outline-variant text-primary focus:ring-primary/20 bg-surface-white" type="checkbox" />
-                  </td>
-                  <td className="py-4 px-3">
-                    <Link href="/candidates/1" className="flex items-center gap-3">
-                      <div className={c.avatarClassName}>{c.initials}</div>
-                      <div>
-                        <div className="font-label-md text-label-md font-semibold text-primary group-hover:text-tertiary-container transition-colors">{c.name}</div>
-                        <div className="font-body-md text-[13px] text-on-surface-variant">{c.email}</div>
-                      </div>
-                    </Link>
-                  </td>
-                  <td className="py-4 px-3 font-body-md text-[14px] text-on-surface">{c.title}</td>
-                  <td className="py-4 px-3 font-body-md text-[14px] text-on-surface-variant">{c.location}</td>
-                  <td className="py-4 px-3 font-data-mono text-data-mono text-on-surface">{c.expLabel}</td>
-                  <td className="py-4 px-3">
-                    <div className="flex gap-1.5 flex-wrap">
-                      {c.skills.map((skill, i) => (
-                        <span key={skill} className={c.skillClassNames[i]}>{skill}</span>
-                      ))}
-                    </div>
-                  </td>
-                  <td className="py-4 pr-6 pl-3">
-                    {c.status === "Ready" ? (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-tertiary-fixed/20 text-on-tertiary-fixed-variant font-label-md text-[12px]">
-                        <span className="w-1.5 h-1.5 rounded-full bg-tertiary"></span> Ready
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-container-high text-on-surface-variant font-label-md text-[12px]">
-                        <span className="material-symbols-outlined text-[14px] animate-spin">sync</span> AI Processing
-                      </span>
-                    )}
-                  </td>
+                  </th>
+                  <th className="py-4 px-3 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-[11px] font-semibold">Candidate</th>
+                  <th className="py-4 px-3 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-[11px] font-semibold">Title</th>
+                  <th className="py-4 px-3 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-[11px] font-semibold">Location</th>
+                  <th className="py-4 px-3 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-[11px] font-semibold">Exp (Yrs)</th>
+                  <th className="py-4 px-3 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-[11px] font-semibold">Top Skills</th>
+                  <th className="py-4 pr-6 pl-3 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-[11px] font-semibold">Status</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-border-low-alpha">
+                {filtered.map((c) => (
+                  <tr
+                    key={c.id}
+                    onClick={() => router.push(`/candidates/${c.id}`)}
+                    className={`${ROW_BASE} ${c.status === "Processing" ? "bg-tertiary-fixed/5" : ""}`}
+                  >
+                    <td className="py-4 pl-6 pr-3" onClick={(e) => e.stopPropagation()}>
+                      <input className="w-4 h-4 rounded border-outline-variant text-primary focus:ring-primary/20 bg-surface-white" type="checkbox" />
+                    </td>
+                    <td className="py-4 px-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full flex items-center justify-center bg-surface-container-high text-primary font-headline-md border border-border-low-alpha">
+                          {c.initials}
+                        </div>
+                        <div>
+                          <div className="font-label-md text-label-md font-semibold text-primary group-hover:text-tertiary-container transition-colors">{c.name}</div>
+                          <div className="font-body-md text-[13px] text-on-surface-variant">{c.email}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="py-4 px-3 font-body-md text-[14px] text-on-surface">{c.title}</td>
+                    <td className="py-4 px-3 font-body-md text-[14px] text-on-surface-variant">{c.location}</td>
+                    <td className="py-4 px-3 font-data-mono text-data-mono text-on-surface">{c.expLabel}</td>
+                    <td className="py-4 px-3">
+                      <div className="flex gap-1.5 flex-wrap">
+                        {c.skills.slice(0, 3).map((skill, i) => (
+                          <span key={skill} className={getSkillBadgeClass(i)}>{skill}</span>
+                        ))}
+                        {c.skills.length > 3 && (
+                          <span className={SKILL_PLAIN}>+{c.skills.length - 3}</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="py-4 pr-6 pl-3">
+                      {c.status === "Ready" ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-tertiary-fixed/20 text-on-tertiary-fixed-variant font-label-md text-[12px]">
+                          <span className="w-1.5 h-1.5 rounded-full bg-tertiary"></span> Ready
+                        </span>
+                      ) : c.status === "Processing" ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-container-high text-on-surface-variant font-label-md text-[12px]">
+                          <span className="material-symbols-outlined text-[14px] animate-spin">sync</span> AI Processing
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-error/10 text-error font-label-md text-[12px]">
+                          <span className="w-1.5 h-1.5 rounded-full bg-error"></span> Error
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           ) : (
             <div className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 xl:grid-cols-3">
               {filtered.map((c) => (
-                <Link
+                <div
                   key={c.id}
-                  href="/candidates/1"
-                  className="block rounded-xl border border-border-low-alpha bg-surface-white p-4 transition-shadow hover:shadow-[0_4px_20px_rgba(44,35,34,0.06)]"
+                  onClick={() => router.push(`/candidates/${c.id}`)}
+                  className="block rounded-xl border border-border-low-alpha bg-surface-white p-4 transition-shadow hover:shadow-[0_4px_20px_rgba(44,35,34,0.06)] cursor-pointer group"
                 >
                   <div className="mb-3 flex items-center gap-3">
-                    <div className={c.avatarClassName}>{c.initials}</div>
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center bg-surface-container-high text-primary font-headline-md border border-border-low-alpha">
+                      {c.initials}
+                    </div>
                     <div className="min-w-0">
-                      <div className="truncate font-label-md text-label-md font-semibold text-primary">{c.name}</div>
+                      <div className="truncate font-label-md text-label-md font-semibold text-primary group-hover:text-tertiary-container transition-colors">{c.name}</div>
                       <div className="truncate font-body-md text-[13px] text-on-surface-variant">{c.title}</div>
                     </div>
                   </div>
@@ -349,47 +367,55 @@ export default function CandidatesPage() {
                     <span className="font-data-mono text-data-mono">{c.expLabel} yrs</span>
                   </div>
                   <div className="mb-4 flex flex-wrap gap-1.5">
-                    {c.skills.map((skill, i) => (
-                      <span key={skill} className={c.skillClassNames[i]}>{skill}</span>
+                    {c.skills.slice(0, 3).map((skill, i) => (
+                      <span key={skill} className={getSkillBadgeClass(i)}>{skill}</span>
                     ))}
+                    {c.skills.length > 3 && (
+                      <span className={SKILL_PLAIN}>+{c.skills.length - 3}</span>
+                    )}
                   </div>
                   {c.status === "Ready" ? (
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-tertiary-fixed/20 text-on-tertiary-fixed-variant font-label-md text-[12px]">
                       <span className="w-1.5 h-1.5 rounded-full bg-tertiary"></span> Ready
                     </span>
-                  ) : (
+                  ) : c.status === "Processing" ? (
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-container-high text-on-surface-variant font-label-md text-[12px]">
                       <span className="material-symbols-outlined text-[14px] animate-spin">sync</span> AI Processing
+                  </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-error/10 text-error font-label-md text-[12px]">
+                      <span className="w-1.5 h-1.5 rounded-full bg-error"></span> Error
                     </span>
                   )}
-                </Link>
+                </div>
               ))}
             </div>
           )}
 
-          {filtered.length === 0 && (
+          {!loading && filtered.length === 0 && (
             <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
               <span className="material-symbols-outlined text-[40px] text-on-surface-variant/40 mb-3">person_search</span>
               <p className="font-body-md text-body-md text-on-surface-variant">No candidates match your filters.</p>
             </div>
           )}
 
-          {/* Pagination */}
-          <div className="px-6 py-4 border-t border-border-low-alpha bg-surface-white flex items-center justify-between">
-            <span className="font-body-md text-[13px] text-on-surface-variant">Showing 1 to 4 of 24 results</span>
-            <div className="flex items-center gap-2">
-              <button type="button" className="w-8 h-8 rounded border border-border-low-alpha flex items-center justify-center text-on-surface-variant hover:bg-bg-cream disabled:opacity-50" disabled>
-                <span className="material-symbols-outlined text-[18px]">chevron_left</span>
-              </button>
-              <button type="button" className="w-8 h-8 rounded bg-primary text-on-primary font-label-md text-[13px] flex items-center justify-center">1</button>
-              <button type="button" className="w-8 h-8 rounded border border-border-low-alpha text-on-surface-variant font-label-md text-[13px] flex items-center justify-center hover:bg-bg-cream">2</button>
-              <button type="button" className="w-8 h-8 rounded border border-border-low-alpha text-on-surface-variant font-label-md text-[13px] flex items-center justify-center hover:bg-bg-cream">3</button>
-              <span className="text-on-surface-variant">...</span>
-              <button type="button" className="w-8 h-8 rounded border border-border-low-alpha flex items-center justify-center text-on-surface-variant hover:bg-bg-cream">
-                <span className="material-symbols-outlined text-[18px]">chevron_right</span>
-              </button>
+          {/* Simple Client Side Pagination */}
+          {!loading && filtered.length > 0 && (
+            <div className="px-6 py-4 border-t border-border-low-alpha bg-surface-white flex items-center justify-between">
+              <span className="font-body-md text-[13px] text-on-surface-variant">
+                Showing {filtered.length} of {totalCount} results
+              </span>
+              <div className="flex items-center gap-2">
+                <button type="button" className="w-8 h-8 rounded border border-border-low-alpha flex items-center justify-center text-on-surface-variant hover:bg-bg-cream disabled:opacity-50" disabled>
+                  <span className="material-symbols-outlined text-[18px]">chevron_left</span>
+                </button>
+                <button type="button" className="w-8 h-8 rounded bg-primary text-on-primary font-label-md text-[13px] flex items-center justify-center">1</button>
+                <button type="button" className="w-8 h-8 rounded border border-border-low-alpha flex items-center justify-center text-on-surface-variant hover:bg-bg-cream disabled:opacity-50" disabled>
+                  <span className="material-symbols-outlined text-[18px]">chevron_right</span>
+                </button>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </main>
     </AppShell>

@@ -1,6 +1,66 @@
+"use client";
+
 import Link from "next/link";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { api } from "@/lib/api";
+import { toast } from "sonner";
 
 export default function InviteTeamOnboardingPage() {
+  const router = useRouter();
+  const [invites, setInvites] = useState<{ email: string; role: string }[]>([
+    { email: "", role: "recruiter" },
+  ]);
+  const [seats, setSeats] = useState({ total: 10, used: 1, plan: "growth" });
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const loadBilling = async () => {
+      try {
+        const res = await api.get<{ plan: string; seats: number; seatsUsed: number }>("/api/billing");
+        setSeats({ total: res.seats, used: res.seatsUsed, plan: res.plan });
+      } catch (err) {
+        console.error("Failed to load billing", err);
+      }
+    };
+    loadBilling();
+  }, []);
+
+  const handleAddRow = () => {
+    if (seats.used + invites.length >= seats.total) {
+      toast.error("No more seats available on your current plan.");
+      return;
+    }
+    setInvites([...invites, { email: "", role: "recruiter" }]);
+  };
+
+  const handleUpdateInvite = (index: number, field: string, value: string) => {
+    const newInvites = [...invites];
+    newInvites[index] = { ...newInvites[index], [field]: value };
+    setInvites(newInvites);
+  };
+
+  const handleSubmit = async () => {
+    const validInvites = invites.filter(inv => inv.email.trim() !== "");
+    if (validInvites.length === 0) {
+      router.push("/dashboard");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await Promise.all(
+        validInvites.map(inv => 
+          api.post("/api/team", { email: inv.email, role: inv.role.toLowerCase() })
+        )
+      );
+      toast.success("Invites sent successfully!");
+      router.push("/dashboard");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to send invites");
+      setLoading(false);
+    }
+  };
   return (
     <div className="min-h-screen flex flex-col font-body-md text-body-md overflow-x-hidden">
       {/* Top Logo Section */}
@@ -33,81 +93,50 @@ export default function InviteTeamOnboardingPage() {
 
           {/* Invite Rows */}
           <div className="w-full space-y-4 mb-8">
-            {/* Row 1 (Pre-filled) */}
-            <div className="flex flex-col sm:flex-row gap-4 sm:items-end">
-              <div className="flex-grow text-left">
-                <label className="font-label-md text-label-md text-on-surface-variant block mb-1.5">
-                  Email address
-                </label>
-                <input
-                  className="w-full px-4 py-3 bg-bg-cream border border-border-low-alpha rounded-lg focus:ring-1 focus:ring-primary focus:border-primary transition-all outline-none font-body-md"
-                  placeholder="name@company.com"
-                  type="email"
-                  defaultValue="m.chen@apex-staffing.com"
-                />
+            {invites.map((inv, idx) => (
+              <div key={idx} className="flex flex-col sm:flex-row gap-4 sm:items-end">
+                <div className="flex-grow text-left">
+                  {idx === 0 && (
+                    <label className="font-label-md text-label-md text-on-surface-variant block mb-1.5">
+                      Email address
+                    </label>
+                  )}
+                  <input
+                    className="w-full px-4 py-3 bg-bg-cream border border-border-low-alpha rounded-lg focus:ring-1 focus:ring-primary focus:border-primary transition-all outline-none font-body-md"
+                    placeholder="name@company.com"
+                    type="email"
+                    value={inv.email}
+                    onChange={(e) => handleUpdateInvite(idx, "email", e.target.value)}
+                    disabled={loading}
+                  />
+                </div>
+                <div className="w-full sm:w-40 text-left">
+                  {idx === 0 && (
+                    <label className="font-label-md text-label-md text-on-surface-variant block mb-1.5">
+                      Role
+                    </label>
+                  )}
+                  <select
+                    className="w-full px-4 py-3 bg-bg-cream border border-border-low-alpha rounded-lg focus:ring-1 focus:ring-primary focus:border-primary transition-all outline-none font-body-md cursor-pointer"
+                    value={inv.role}
+                    onChange={(e) => handleUpdateInvite(idx, "role", e.target.value)}
+                    disabled={loading}
+                  >
+                    <option value="admin">Admin</option>
+                    <option value="recruiter">Recruiter</option>
+                    <option value="viewer">Viewer</option>
+                  </select>
+                </div>
               </div>
-              <div className="w-full sm:w-40 text-left">
-                <label className="font-label-md text-label-md text-on-surface-variant block mb-1.5">
-                  Role
-                </label>
-                <select
-                  className="w-full px-4 py-3 bg-bg-cream border border-border-low-alpha rounded-lg focus:ring-1 focus:ring-primary focus:border-primary transition-all outline-none font-body-md cursor-pointer"
-                  defaultValue="Recruiter"
-                >
-                  <option>Admin</option>
-                  <option>Recruiter</option>
-                  <option>Viewer</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Row 2 */}
-            <div className="flex flex-col sm:flex-row gap-4 sm:items-end">
-              <div className="flex-grow text-left">
-                <input
-                  className="w-full px-4 py-3 bg-white border border-border-low-alpha rounded-lg focus:ring-1 focus:ring-primary focus:border-primary transition-all outline-none font-body-md"
-                  placeholder="name@company.com"
-                  type="email"
-                />
-              </div>
-              <div className="w-full sm:w-40 text-left">
-                <select
-                  className="w-full px-4 py-3 bg-white border border-border-low-alpha rounded-lg focus:ring-1 focus:ring-primary focus:border-primary transition-all outline-none font-body-md cursor-pointer"
-                  defaultValue="Recruiter"
-                >
-                  <option>Admin</option>
-                  <option>Recruiter</option>
-                  <option>Viewer</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Row 3 */}
-            <div className="flex flex-col sm:flex-row gap-4 sm:items-end">
-              <div className="flex-grow text-left">
-                <input
-                  className="w-full px-4 py-3 bg-white border border-border-low-alpha rounded-lg focus:ring-1 focus:ring-primary focus:border-primary transition-all outline-none font-body-md"
-                  placeholder="name@company.com"
-                  type="email"
-                />
-              </div>
-              <div className="w-full sm:w-40 text-left">
-                <select
-                  className="w-full px-4 py-3 bg-white border border-border-low-alpha rounded-lg focus:ring-1 focus:ring-primary focus:border-primary transition-all outline-none font-body-md cursor-pointer"
-                  defaultValue="Recruiter"
-                >
-                  <option>Admin</option>
-                  <option>Recruiter</option>
-                  <option>Viewer</option>
-                </select>
-              </div>
-            </div>
+            ))}
           </div>
 
           {/* Add Another Button */}
           <button
             type="button"
-            className="flex items-center gap-2 text-primary font-label-md text-label-md hover:opacity-80 transition-opacity mb-8 group"
+            onClick={handleAddRow}
+            disabled={loading}
+            className="flex items-center gap-2 text-primary font-label-md text-label-md hover:opacity-80 transition-opacity mb-8 group disabled:opacity-50"
           >
             <span className="material-symbols-outlined text-[20px]">add</span>
             <span>Add another</span>
@@ -118,9 +147,9 @@ export default function InviteTeamOnboardingPage() {
             <p className="font-label-md text-label-md text-secondary">
               You have{" "}
               <span className="font-data-mono text-secondary-container bg-primary px-1.5 py-0.5 rounded text-white">
-                3 of 10
+                {Math.max(0, seats.total - seats.used - invites.filter(i => i.email).length)} of {seats.total}
               </span>{" "}
-              seats remaining on your Growth plan.
+              seats remaining on your {seats.plan} plan.
             </p>
           </div>
 
@@ -132,12 +161,13 @@ export default function InviteTeamOnboardingPage() {
             >
               Skip for now
             </Link>
-            <Link
-              href="/dashboard"
-              className="px-8 py-3 bg-primary text-white font-label-md text-label-md rounded-lg hover:shadow-lg active:scale-95 transition-all"
+            <button
+              onClick={handleSubmit}
+              disabled={loading}
+              className="px-8 py-3 bg-primary text-white font-label-md text-label-md rounded-lg hover:shadow-lg active:scale-95 transition-all disabled:opacity-50"
             >
-              Send invites &amp; finish
-            </Link>
+              {loading ? "Sending..." : "Send invites & finish"}
+            </button>
           </div>
         </div>
 

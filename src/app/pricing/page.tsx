@@ -1,8 +1,12 @@
+"use client";
+
 import Link from "next/link";
 import { FaqAccordion } from "@/components/pricing/faq-accordion";
 import { PricingPlans } from "@/components/pricing/pricing-plans";
+import { useAuth } from "@/components/app/auth-provider";
 
 export default function PricingPage() {
+  const { user } = useAuth();
   return (
     <div className="font-body-md text-on-surface selection:bg-secondary-container bg-bg-cream">
       {/* TopNavBar */}
@@ -41,18 +45,29 @@ export default function PricingPage() {
             </Link>
           </div>
           <div className="flex items-center space-x-3 sm:space-x-6">
-            <Link
-              className="text-on-surface-variant font-label-md text-label-md hover:text-primary transition-colors cursor-pointer"
-              href="/login"
-            >
-              Log in
-            </Link>
-            <Link
-              className="bg-primary text-white px-6 py-2 rounded-lg font-label-md text-label-md hover:opacity-90 transition-all cursor-pointer"
-              href="/signup"
-            >
-              Start free
-            </Link>
+            {user ? (
+              <Link
+                className="bg-primary text-white px-6 py-2 rounded-lg font-label-md text-label-md hover:opacity-90 transition-all cursor-pointer"
+                href="/dashboard"
+              >
+                Dashboard
+              </Link>
+            ) : (
+              <>
+                <Link
+                  className="text-on-surface-variant font-label-md text-label-md hover:text-primary transition-colors cursor-pointer"
+                  href="/login"
+                >
+                  Log in
+                </Link>
+                <Link
+                  className="bg-primary text-white px-6 py-2 rounded-lg font-label-md text-label-md hover:opacity-90 transition-all cursor-pointer"
+                  href="/signup"
+                >
+                  Get started
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </nav>

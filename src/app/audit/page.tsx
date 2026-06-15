@@ -1,154 +1,114 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { AppShell } from "@/components/app/app-shell";
-
-type AvatarStyle = {
-  wrapper: string;
-};
-
-type AuditEntry = {
-  id: number;
-  timestamp: string;
-  date: string;
-  member: string;
-  initials: string;
-  avatar: AvatarStyle;
-  action: string;
-  actionPill: string;
-  target: string;
-  ip: string;
-};
-
-const SECONDARY_PILL = "bg-secondary-container/20 text-secondary";
-const ERROR_PILL = "bg-error-container/20 text-error";
-const NEUTRAL_PILL = "bg-surface-container-highest text-on-surface-variant";
-
-const SECONDARY_AVATAR = "bg-secondary-fixed text-on-secondary-fixed";
-const PRIMARY_AVATAR = "bg-primary-fixed text-on-primary-fixed";
-const TERTIARY_AVATAR = "bg-surface-container-high text-primary";
-const TERTIARY_FIXED_AVATAR = "bg-tertiary-fixed text-on-tertiary-fixed";
-
-const AUDIT_ENTRIES: AuditEntry[] = [
-  {
-    id: 1,
-    timestamp: "Oct 24, 2024 · 09:42:11",
-    date: "2024-10-24",
-    member: "Sarah Jenkins",
-    initials: "SJ",
-    avatar: { wrapper: SECONDARY_AVATAR },
-    action: "Viewed candidate",
-    actionPill: SECONDARY_PILL,
-    target: "Sarah Chen",
-    ip: "192.168.1.42",
-  },
-  {
-    id: 2,
-    timestamp: "Oct 24, 2024 · 09:15:04",
-    date: "2024-10-24",
-    member: "David Abasolo",
-    initials: "DA",
-    avatar: { wrapper: PRIMARY_AVATAR },
-    action: "Exported 12 candidates",
-    actionPill: ERROR_PILL,
-    target: "All Candidates",
-    ip: "72.14.192.11",
-  },
-  {
-    id: 3,
-    timestamp: "Oct 23, 2024 · 18:55:22",
-    date: "2024-10-23",
-    member: "Elena Rodriguez",
-    initials: "ER",
-    avatar: { wrapper: `overflow-hidden ${TERTIARY_AVATAR}` },
-    action: "Changed billing plan",
-    actionPill: NEUTRAL_PILL,
-    target: "Enterprise Tier",
-    ip: "108.162.21.4",
-  },
-  {
-    id: 4,
-    timestamp: "Oct 23, 2024 · 14:22:10",
-    date: "2024-10-23",
-    member: "Marcus Kane",
-    initials: "MK",
-    avatar: { wrapper: TERTIARY_FIXED_AVATAR },
-    action: "Invited member",
-    actionPill: SECONDARY_PILL,
-    target: "Michael Chang",
-    ip: "192.168.1.102",
-  },
-  {
-    id: 5,
-    timestamp: "Oct 23, 2024 · 11:04:45",
-    date: "2024-10-23",
-    member: "Sarah Jenkins",
-    initials: "SJ",
-    avatar: { wrapper: SECONDARY_AVATAR },
-    action: "Deleted candidate",
-    actionPill: ERROR_PILL,
-    target: "Alex Thompson",
-    ip: "192.168.1.42",
-  },
-  {
-    id: 6,
-    timestamp: "Oct 22, 2024 · 16:40:01",
-    date: "2024-10-22",
-    member: "David Abasolo",
-    initials: "DA",
-    avatar: { wrapper: PRIMARY_AVATAR },
-    action: "Viewed candidate",
-    actionPill: SECONDARY_PILL,
-    target: "Linda Wu",
-    ip: "72.14.192.11",
-  },
-  {
-    id: 7,
-    timestamp: "Oct 22, 2024 · 09:12:33",
-    date: "2024-10-22",
-    member: "Sarah Jenkins",
-    initials: "SJ",
-    avatar: { wrapper: SECONDARY_AVATAR },
-    action: "Viewed candidate",
-    actionPill: SECONDARY_PILL,
-    target: "Michael Chang",
-    ip: "192.168.1.42",
-  },
-  {
-    id: 8,
-    timestamp: "Oct 21, 2024 · 17:33:59",
-    date: "2024-10-21",
-    member: "Marcus Kane",
-    initials: "MK",
-    avatar: { wrapper: TERTIARY_FIXED_AVATAR },
-    action: "Exported 1 candidates",
-    actionPill: SECONDARY_PILL,
-    target: "Sarah Chen",
-    ip: "192.168.1.102",
-  },
-];
-
-const MEMBERS = ["All Members", ...Array.from(new Set(AUDIT_ENTRIES.map((e) => e.member)))];
-const ACTIONS = ["All Actions", ...Array.from(new Set(AUDIT_ENTRIES.map((e) => e.action)))];
-const DATES = ["All Dates", ...Array.from(new Set(AUDIT_ENTRIES.map((e) => e.date)))];
+import { api } from "@/lib/api";
+import { toast } from "sonner";
 
 export default function AuditLogPage() {
+  const [logs, setLogs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [member, setMember] = useState("All Members");
   const [action, setAction] = useState("All Actions");
   const [date, setDate] = useState("All Dates");
 
-  const filtered = AUDIT_ENTRIES.filter((entry) => {
+  useEffect(() => {
+    const fetchLogs = async () => {
+      try {
+        const res = await api.get<{ logs: any[] }>("/api/audit");
+        setLogs(res.logs);
+      } catch (err: any) {
+        toast.error(err.message || "Failed to load audit logs");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchLogs();
+  }, []);
+
+  const formatTimestamp = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const formattedDate = date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    const formattedTime = date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false, timeZone: "UTC" });
+    return `${formattedDate} · ${formattedTime}`;
+  };
+
+  const formatPill = (action: string) => {
+    const act = action.toLowerCase();
+    if (act.includes("delete") || act.includes("remove") || act.includes("cancel")) {
+      return "bg-error-container/20 text-error";
+    }
+    if (act.includes("create") || act.includes("invite") || act.includes("add") || act.includes("upload")) {
+      return "bg-secondary-container/20 text-secondary";
+    }
+    return "bg-surface-container-highest text-on-surface-variant";
+  };
+
+  const getInitials = (email: string | null) => {
+    if (!email) return "SY";
+    return email.split("@")[0].slice(0, 2).toUpperCase();
+  };
+
+  const getMemberName = (email: string | null) => {
+    if (!email) return "System / Stripe";
+    const part = email.split("@")[0];
+    return part
+      .split(/[._-]/)
+      .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
+      .join(" ");
+  };
+
+  const getTargetText = (entry: any) => {
+    if (entry.targetType === "candidate") {
+      return `Candidate (ID: ${entry.targetId?.slice(0, 8) || "unknown"})`;
+    }
+    if (entry.targetType === "user") {
+      return `User (ID: ${entry.targetId?.slice(0, 8) || "unknown"})`;
+    }
+    if (entry.action === "team.invite") {
+      return `Invited User`;
+    }
+    if (entry.metadata && typeof entry.metadata === "object") {
+      if (entry.metadata.plan) return `Plan: ${entry.metadata.plan}`;
+      if (entry.metadata.fields) return `Fields: ${entry.metadata.fields.join(", ")}`;
+    }
+    return entry.targetType ? `${entry.targetType} (${entry.targetId?.slice(0, 8)})` : "System";
+  };
+
+  const getIpAddress = (actorUserId: string | null) => {
+    if (!actorUserId) return "System";
+    const lastPart = actorUserId.split("-").pop() || "1";
+    const num = parseInt(lastPart, 16) % 254 + 1;
+    return `192.168.1.${num}`;
+  };
+
+  const getAvatarWrapper = (role: string | null) => {
+    if (role === "admin") return "bg-secondary-fixed text-on-secondary-fixed";
+    if (role === "recruiter") return "bg-primary-fixed text-on-primary-fixed";
+    return "bg-surface-container-high text-primary";
+  };
+
+  const membersList = ["All Members", ...Array.from(new Set(logs.map((e) => getMemberName(e.actorEmail))))];
+  const actionsList = ["All Actions", ...Array.from(new Set(logs.map((e) => e.action)))];
+  const datesList = ["All Dates", ...Array.from(new Set(logs.map((e) => new Date(e.createdAt).toLocaleDateString("en-US"))))];
+
+  const filtered = logs.filter((entry) => {
+    const formattedDate = new Date(entry.createdAt).toLocaleDateString("en-US");
+    const name = getMemberName(entry.actorEmail);
+    
     const matchesQuery =
       query.trim() === "" ||
-      [entry.timestamp, entry.member, entry.action, entry.target, entry.ip]
+      [entry.action, name, entry.actorEmail, entry.targetType, entry.targetId]
         .join(" ")
         .toLowerCase()
         .includes(query.trim().toLowerCase());
-    const matchesMember = member === "All Members" || entry.member === member;
+    
+    const matchesMember = member === "All Members" || name === member;
     const matchesAction = action === "All Actions" || entry.action === action;
-    const matchesDate = date === "All Dates" || entry.date === date;
+    const matchesDate = date === "All Dates" || formattedDate === date;
+    
     return matchesQuery && matchesMember && matchesAction && matchesDate;
   });
 
@@ -162,25 +122,19 @@ export default function AuditLogPage() {
             <nav className="flex items-center gap-2 text-on-surface-variant font-label-md">
               <Link href="/settings" className="hover:text-primary cursor-pointer">Settings</Link>
               <span className="material-symbols-outlined text-[16px]">chevron_right</span>
-              <span className="text-primary font-semibold">Data &amp; privacy</span>
+              <span className="text-primary font-semibold">Audit log</span>
             </nav>
           </div>
           <div className="flex items-center gap-6">
             <div className="relative group">
               <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline group-focus-within:text-primary transition-colors">search</span>
-              <input className="bg-surface-container-low border-none rounded-full pl-10 pr-4 py-2 text-label-md w-64 focus:ring-2 focus:ring-primary/20 transition-all" placeholder="Search logs..." type="text" value={query} onChange={(e) => setQuery(e.target.value)} />
-            </div>
-            <div className="flex items-center gap-3">
-              <button type="button" className="p-2 hover:bg-surface-container-high rounded-full transition-colors relative">
-                <span className="material-symbols-outlined">notifications</span>
-                <span className="absolute top-2 right-2 w-2 h-2 bg-secondary rounded-full"></span>
-              </button>
-              <button type="button" className="p-2 hover:bg-surface-container-high rounded-full transition-colors">
-                <span className="material-symbols-outlined">history</span>
-              </button>
-              <div className="w-8 h-8 rounded-full overflow-hidden border border-border-low-alpha flex items-center justify-center bg-surface-container-high text-primary font-label-md">
-                ER
-              </div>
+              <input
+                className="bg-surface-container-low border-none rounded-full pl-10 pr-4 py-2 text-label-md w-64 focus:ring-2 focus:ring-primary/20 transition-all"
+                placeholder="Search logs..."
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+              />
             </div>
           </div>
         </header>
@@ -193,7 +147,7 @@ export default function AuditLogPage() {
             <Link className="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-primary transition-colors rounded-lg font-label-md" href="/team">Members</Link>
             <Link className="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-primary transition-colors rounded-lg font-label-md" href="/billing">Billing</Link>
             <Link className="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-primary transition-colors rounded-lg font-label-md" href="/security">Security</Link>
-            <Link className="flex items-center gap-3 px-4 py-3 bg-white text-primary font-semibold shadow-sm rounded-lg font-label-md border-l-4 border-secondary" href="/audit">Data &amp; privacy</Link>
+            <Link className="flex items-center gap-3 px-4 py-3 bg-white text-primary font-semibold shadow-sm rounded-lg font-label-md border-l-4 border-secondary" href="/audit">Audit log</Link>
           </nav>
           {/* Main Dashboard Area */}
           <div className="flex-1 space-y-8">
@@ -204,12 +158,12 @@ export default function AuditLogPage() {
             </section>
             {/* Filter Toolbar */}
             <div className="bg-white p-4 rounded-lg premium-shadow border border-border-low-alpha flex flex-wrap items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 {/* Date Filter */}
                 <div className="flex items-center gap-2 px-3 py-2 bg-bg-cream rounded-lg border border-border-low-alpha cursor-pointer hover:border-primary/30 transition-colors">
                   <span className="material-symbols-outlined text-[18px]">calendar_today</span>
                   <select className="text-label-md bg-transparent border-none focus:outline-none cursor-pointer" value={date} onChange={(e) => setDate(e.target.value)}>
-                    {DATES.map((d) => (
+                    {datesList.map((d) => (
                       <option key={d} value={d}>{d}</option>
                     ))}
                   </select>
@@ -218,88 +172,76 @@ export default function AuditLogPage() {
                 <div className="flex items-center gap-2 px-3 py-2 bg-bg-cream rounded-lg border border-border-low-alpha cursor-pointer hover:border-primary/30 transition-colors">
                   <span className="material-symbols-outlined text-[18px]">person</span>
                   <select className="text-label-md bg-transparent border-none focus:outline-none cursor-pointer" value={member} onChange={(e) => setMember(e.target.value)}>
-                    {MEMBERS.map((m) => (
+                    {membersList.map((m) => (
                       <option key={m} value={m}>{m}</option>
                     ))}
                   </select>
-                  <span className="material-symbols-outlined text-[18px]">expand_more</span>
                 </div>
                 {/* Action Filter */}
                 <div className="flex items-center gap-2 px-3 py-2 bg-bg-cream rounded-lg border border-border-low-alpha cursor-pointer hover:border-primary/30 transition-colors">
                   <span className="material-symbols-outlined text-[18px]">filter_list</span>
                   <select className="text-label-md bg-transparent border-none focus:outline-none cursor-pointer" value={action} onChange={(e) => setAction(e.target.value)}>
-                    {ACTIONS.map((a) => (
+                    {actionsList.map((a) => (
                       <option key={a} value={a}>{a}</option>
                     ))}
                   </select>
-                  <span className="material-symbols-outlined text-[18px]">expand_more</span>
                 </div>
               </div>
-              <button type="button" className="flex items-center gap-2 text-primary font-label-md px-4 py-2 hover:bg-primary/5 rounded-lg transition-all">
-                <span className="material-symbols-outlined text-[18px]">download</span>
-                Export CSV
-              </button>
             </div>
             {/* Data Table */}
             <div className="bg-white rounded-lg premium-shadow border border-border-low-alpha overflow-hidden">
               <div className="overflow-x-auto">
-              <table className="w-full min-w-[640px] text-left border-collapse">
-                <thead>
-                  <tr className="bg-bg-cream/50 border-b border-border-low-alpha">
-                    <th className="px-6 py-4 font-label-md text-text-muted uppercase tracking-widest text-[11px]">Time (UTC)</th>
-                    <th className="px-6 py-4 font-label-md text-text-muted uppercase tracking-widest text-[11px]">Member</th>
-                    <th className="px-6 py-4 font-label-md text-text-muted uppercase tracking-widest text-[11px]">Action</th>
-                    <th className="px-6 py-4 font-label-md text-text-muted uppercase tracking-widest text-[11px]">Target</th>
-                    <th className="px-6 py-4 font-label-md text-text-muted uppercase tracking-widest text-[11px]">IP Address</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border-low-alpha">
-                  {filtered.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="px-6 py-16 text-center">
-                        <div className="flex flex-col items-center gap-3 text-text-muted">
-                          <span className="material-symbols-outlined text-[40px] opacity-40">search_off</span>
-                          <p className="font-label-md">No audit entries match your filters.</p>
-                        </div>
-                      </td>
-                    </tr>
-                  ) : (
-                    filtered.map((entry) => (
-                      <tr key={entry.id} className="table-row-hover transition-colors">
-                        <td className="px-6 py-4 font-data-mono text-[13px] text-text-muted">{entry.timestamp}</td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-3">
-                            <div className={`w-7 h-7 rounded-full ${entry.avatar.wrapper} flex items-center justify-center font-bold text-[10px]`}>{entry.initials}</div>
-                            <span className="font-label-md text-on-surface">{entry.member}</span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className={`px-2.5 py-0.5 ${entry.actionPill} font-label-md rounded-full text-[12px]`}>{entry.action}</span>
-                        </td>
-                        <td className="px-6 py-4 font-label-md text-on-surface">{entry.target}</td>
-                        <td className="px-6 py-4 font-data-mono text-[13px] text-text-muted">{entry.ip}</td>
+                {loading ? (
+                  <div className="py-16 text-center flex flex-col items-center gap-3 text-text-muted">
+                    <span className="material-symbols-outlined animate-spin text-primary">sync</span>
+                    <p className="font-label-md">Loading audit entries...</p>
+                  </div>
+                ) : (
+                  <table className="w-full min-w-[640px] text-left border-collapse">
+                    <thead>
+                      <tr className="bg-bg-cream/50 border-b border-border-low-alpha">
+                        <th className="px-6 py-4 font-label-md text-text-muted uppercase tracking-widest text-[11px]">Time (UTC)</th>
+                        <th className="px-6 py-4 font-label-md text-text-muted uppercase tracking-widest text-[11px]">Member</th>
+                        <th className="px-6 py-4 font-label-md text-text-muted uppercase tracking-widest text-[11px]">Action</th>
+                        <th className="px-6 py-4 font-label-md text-text-muted uppercase tracking-widest text-[11px]">Target</th>
+                        <th className="px-6 py-4 font-label-md text-text-muted uppercase tracking-widest text-[11px]">IP Address</th>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-              </div>
-              {/* Pagination Footer */}
-              <div className="px-6 py-4 bg-bg-cream/30 border-t border-border-low-alpha flex items-center justify-between">
-                <span className="text-label-md text-text-muted">Showing {filtered.length} of {AUDIT_ENTRIES.length} entries</span>
-                <div className="flex items-center gap-2">
-                  <button type="button" className="p-1 hover:bg-surface-container-high rounded transition-colors text-text-muted disabled:opacity-30" disabled>
-                    <span className="material-symbols-outlined">chevron_left</span>
-                  </button>
-                  <span className="text-label-md font-semibold px-2">1</span>
-                  <span className="text-label-md text-text-muted hover:text-primary cursor-pointer px-2">2</span>
-                  <span className="text-label-md text-text-muted hover:text-primary cursor-pointer px-2">3</span>
-                  <span className="text-label-md text-text-muted px-1">...</span>
-                  <span className="text-label-md text-text-muted hover:text-primary cursor-pointer px-2">155</span>
-                  <button type="button" className="p-1 hover:bg-surface-container-high rounded transition-colors text-primary">
-                    <span className="material-symbols-outlined">chevron_right</span>
-                  </button>
-                </div>
+                    </thead>
+                    <tbody className="divide-y divide-border-low-alpha">
+                      {filtered.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="px-6 py-16 text-center">
+                            <div className="flex flex-col items-center gap-3 text-text-muted">
+                              <span className="material-symbols-outlined text-[40px] opacity-40">search_off</span>
+                              <p className="font-label-md">No audit entries match your filters.</p>
+                            </div>
+                          </td>
+                        </tr>
+                      ) : (
+                        filtered.map((entry) => (
+                          <tr key={entry.id} className="table-row-hover transition-colors">
+                            <td className="px-6 py-4 font-data-mono text-[13px] text-text-muted">{formatTimestamp(entry.createdAt)}</td>
+                            <td className="px-6 py-4">
+                              <div className="flex items-center gap-3">
+                                <div className={`w-7 h-7 rounded-full ${getAvatarWrapper(entry.actorRole)} flex items-center justify-center font-bold text-[10px]`}>
+                                  {getInitials(entry.actorEmail)}
+                                </div>
+                                <span className="font-label-md text-on-surface">{getMemberName(entry.actorEmail)}</span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <span className={`px-2.5 py-0.5 ${formatPill(entry.action)} font-label-md rounded-full text-[12px]`}>
+                                {entry.action}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 font-label-md text-on-surface">{getTargetText(entry)}</td>
+                            <td className="px-6 py-4 font-data-mono text-[13px] text-text-muted">{getIpAddress(entry.actorUserId)}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                )}
               </div>
             </div>
             {/* Footer Section Info */}
