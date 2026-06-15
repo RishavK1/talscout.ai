@@ -31,6 +31,15 @@ export default function DashboardPage() {
   const displayName = user?.user_metadata?.full_name || user?.email?.split("@")[0] || "Recruiter";
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
 
+  // Time-of-day greeting (local time). Avoids hydration mismatch by computing
+  // after mount rather than during the initial server render.
+  const [greeting, setGreeting] = useState("Hello");
+  useEffect(() => {
+    const h = new Date().getHours();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setGreeting(h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening");
+  }, []);
+
   useEffect(() => {
     if (profile?.tenantId) {
       setRecentSearches(getRecentSearches(profile.tenantId));
@@ -40,20 +49,23 @@ export default function DashboardPage() {
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        // Fetch stats
-        const totalRes = await api.get<{ total: number }>("/api/candidates?limit=1");
-        setTotalCandidates(totalRes.total);
+        // Fire all requests in parallel instead of awaiting each in series.
+        // The recent-candidates list (limit=5) already returns `total`, so we
+        // reuse it for the Total Candidates stat — one fewer round-trip.
+        const [recentRes, processedRes, shortlistsRes] = await Promise.all([
+          api.get<{ candidates: SimpleCandidate[]; total: number }>("/api/candidates?limit=5"),
+          api.get<{ total: number }>("/api/candidates?status=ready&limit=1"),
+          api.get<{ shortlists: any[] }>("/api/shortlists"),
+        ]);
 
-        const processedRes = await api.get<{ total: number }>("/api/candidates?status=ready&limit=1");
+        setTotalCandidates(recentRes.total);
+        setRecentCandidates(recentRes.candidates);
         setProcessedCandidates(processedRes.total);
 
-        // Fetch recent candidates
-        const listRes = await api.get<{ candidates: SimpleCandidate[] }>("/api/candidates?limit=5");
-        setRecentCandidates(listRes.candidates);
-
-        // Fetch shortlists to count them
-        const shortlistsRes = await api.get<{ shortlists: any[] }>("/api/shortlists");
-        const totalShortlisted = shortlistsRes.shortlists.reduce((acc: number, curr: any) => acc + curr.candidateCount, 0);
+        const totalShortlisted = shortlistsRes.shortlists.reduce(
+          (acc: number, curr: any) => acc + curr.candidateCount,
+          0,
+        );
         setShortlistedCount(totalShortlisted);
       } catch (err) {
         console.error("Error loading dashboard data:", err);
@@ -122,7 +134,7 @@ export default function DashboardPage() {
         <main className="flex-1 p-4 sm:p-6 lg:p-12 max-w-[1440px] mx-auto w-full">
           {/* Greeting Section */}
           <section className="mb-12">
-            <h1 className="font-headline-lg text-headline-lg text-primary mb-2">Good morning, {displayName}.</h1>
+            <h1 className="font-headline-lg text-headline-lg text-primary mb-2">{greeting}, {displayName}.</h1>
             <p className="font-body-lg text-body-lg text-text-muted">Here is the latest intelligence on your recruitment pipeline.</p>
           </section>
           {/* Semantic Search Bar (Central) */}

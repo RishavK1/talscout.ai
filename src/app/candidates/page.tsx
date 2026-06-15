@@ -73,6 +73,8 @@ export default function CandidatesPage() {
   const [roleFilter, setRoleFilter] = useState("");
   const [view, setView] = useState<"list" | "grid">("list");
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 10;
 
   // Fetch candidates from API
   const fetchCandidates = async () => {
@@ -133,6 +135,20 @@ export default function CandidatesPage() {
       [c.title, ...c.skills].join(" ").toLowerCase().includes(roleFilter.toLowerCase());
     return matchesQ && matchesStatus && matchesExp && matchesRole;
   });
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  // Guard against a stale page after filters shrink the list.
+  const currentPage = Math.min(page, totalPages);
+  const paged = filtered.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE,
+  );
+
+  // Any change to the filters returns to the first page.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setPage(1);
+  }, [q, status, experience, roleFilter]);
 
   const getSkillBadgeClass = (index: number) => {
     if (index % 3 === 0) return SKILL_SECONDARY;
@@ -282,7 +298,7 @@ export default function CandidatesPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border-low-alpha">
-                {filtered.map((c) => (
+                {paged.map((c) => (
                   <tr
                     key={c.id}
                     onClick={() => router.push(`/candidates/${c.id}`)}
@@ -336,7 +352,7 @@ export default function CandidatesPage() {
             </table>
           ) : (
             <div className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 xl:grid-cols-3">
-              {filtered.map((c) => (
+              {paged.map((c) => (
                 <div
                   key={c.id}
                   onClick={() => router.push(`/candidates/${c.id}`)}
@@ -392,18 +408,47 @@ export default function CandidatesPage() {
             </div>
           )}
 
-          {/* Simple Client Side Pagination */}
+          {/* Client-side pagination over the filtered list */}
           {!loading && filtered.length > 0 && (
             <div className="px-6 py-4 border-t border-border-low-alpha bg-surface-white flex items-center justify-between">
               <span className="font-body-md text-[13px] text-on-surface-variant">
-                Showing {filtered.length} of {totalCount} results
+                Showing {(currentPage - 1) * PAGE_SIZE + 1}–
+                {Math.min(currentPage * PAGE_SIZE, filtered.length)} of {filtered.length}
+                {filtered.length !== totalCount ? ` (filtered from ${totalCount})` : ""}
               </span>
               <div className="flex items-center gap-2">
-                <button type="button" className="w-8 h-8 rounded border border-border-low-alpha flex items-center justify-center text-on-surface-variant hover:bg-bg-cream disabled:opacity-50" disabled>
+                <button
+                  type="button"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage <= 1}
+                  aria-label="Previous page"
+                  className="w-8 h-8 rounded border border-border-low-alpha flex items-center justify-center text-on-surface-variant hover:bg-bg-cream disabled:opacity-50 disabled:cursor-not-allowed"
+                >
                   <span className="material-symbols-outlined text-[18px]">chevron_left</span>
                 </button>
-                <button type="button" className="w-8 h-8 rounded bg-primary text-on-primary font-label-md text-[13px] flex items-center justify-center">1</button>
-                <button type="button" className="w-8 h-8 rounded border border-border-low-alpha flex items-center justify-center text-on-surface-variant hover:bg-bg-cream disabled:opacity-50" disabled>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => setPage(p)}
+                    aria-current={p === currentPage ? "page" : undefined}
+                    className={
+                      "w-8 h-8 rounded font-label-md text-[13px] flex items-center justify-center transition-colors " +
+                      (p === currentPage
+                        ? "bg-primary text-on-primary"
+                        : "border border-border-low-alpha text-on-surface-variant hover:bg-bg-cream")
+                    }
+                  >
+                    {p}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage >= totalPages}
+                  aria-label="Next page"
+                  className="w-8 h-8 rounded border border-border-low-alpha flex items-center justify-center text-on-surface-variant hover:bg-bg-cream disabled:opacity-50 disabled:cursor-not-allowed"
+                >
                   <span className="material-symbols-outlined text-[18px]">chevron_right</span>
                 </button>
               </div>

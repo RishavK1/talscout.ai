@@ -7,6 +7,7 @@ import { AppShell } from "@/components/app/app-shell";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { TopAppBar } from "@/components/app/top-app-bar";
+import { useAuth } from "@/components/app/auth-provider";
 
 
 interface UploadingFile {
@@ -26,6 +27,13 @@ const atsCache: { connectedAts: string | null; lastSynced: string | null } = {
 
 export default function UploadPage() {
   const router = useRouter();
+  const { can } = useAuth();
+  // ATS import/export is a Growth+ capability — gated server-side via plan
+  // capabilities; the UI mirrors that so it can't be used on Starter.
+  const canAtsExport = can("ats_export");
+  // Bulk upload (many résumés at once) is also Growth+. On Starter we still
+  // allow uploads, just one file at a time.
+  const canBulkUpload = can("bulk_upload");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadList, setUploadList] = useState<UploadingFile[]>([]);
   const [dragging, setDragging] = useState(false);
@@ -172,7 +180,13 @@ export default function UploadPage() {
     fileInputRef.current?.click();
   };
 
-  const handleFiles = (files: File[]) => {
+  const handleFiles = (incoming: File[]) => {
+    // Bulk upload is Growth+. On Starter, only the first file is accepted.
+    let files = incoming;
+    if (!canBulkUpload && incoming.length > 1) {
+      toast.error("Bulk upload is a Growth feature. Uploading the first file only — upgrade to upload in bulk.");
+      files = incoming.slice(0, 1);
+    }
     // Filter out disallowed types or sizes > 10MB
     const validFiles = files.filter((file) => {
       const allowedTypes = [
@@ -290,7 +304,7 @@ export default function UploadPage() {
           ref={fileInputRef}
           onChange={handleFileChange}
           accept=".pdf,.docx,.txt"
-          multiple
+          multiple={canBulkUpload}
           className="hidden"
           aria-label="Upload files hidden input"
         />
@@ -429,15 +443,17 @@ export default function UploadPage() {
             </section>
           )}
 
-          {/* Footer Card: ATS Import */}
+          {/* Footer Card: ATS Import — Growth+ feature (ats_export capability) */}
           <div className="bg-surface-white/50 border border-border-low-alpha rounded-lg p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 custom-shadow">
             <div className="flex items-center gap-4">
-              <div className={`w-12 h-12 rounded-full flex items-center justify-center ${connectedAts ? "bg-tertiary/10 text-tertiary" : "bg-bg-cream text-primary"}`}>
-                <span className="material-symbols-outlined">{connectedAts ? "check_circle" : "sync"}</span>
+              <div className={`w-12 h-12 rounded-full flex items-center justify-center ${!canAtsExport ? "bg-bg-cream text-on-surface-variant/50" : connectedAts ? "bg-tertiary/10 text-tertiary" : "bg-bg-cream text-primary"}`}>
+                <span className="material-symbols-outlined">{!canAtsExport ? "lock" : connectedAts ? "check_circle" : "sync"}</span>
               </div>
               <div>
                 <h4 className="font-label-md text-body-md text-on-surface font-semibold flex items-center gap-2">
-                  {connectedAts ? (
+                  {!canAtsExport ? (
+                    "ATS import & export"
+                  ) : connectedAts ? (
                     <>
                       <span className="capitalize">{connectedAts}</span> Connected
                     </>
@@ -446,7 +462,9 @@ export default function UploadPage() {
                   )}
                 </h4>
                 <p className="text-label-md text-text-muted">
-                  {connectedAts ? (
+                  {!canAtsExport ? (
+                    "Sync with Bullhorn, Greenhouse, or Lever — available on Growth and Scale plans."
+                  ) : connectedAts ? (
                     `Directly synced 3 candidates. Last updated ${lastSynced || "just now"}.`
                   ) : (
                     "Directly sync with Bullhorn, Greenhouse, or Lever."
@@ -454,7 +472,16 @@ export default function UploadPage() {
                 </p>
               </div>
             </div>
-            {connectedAts ? (
+            {!canAtsExport ? (
+              <Link
+                href="/billing"
+                title="Upgrade to Growth to connect your ATS"
+                className="px-6 py-2 border border-primary text-primary rounded-lg font-label-md text-label-md hover:bg-primary/5 transition-colors w-full sm:w-auto text-center flex items-center justify-center gap-2"
+              >
+                <span className="material-symbols-outlined text-[16px]">lock</span>
+                Upgrade to unlock
+              </Link>
+            ) : connectedAts ? (
               <button
                 type="button"
                 onClick={handleDisconnect}
@@ -482,7 +509,7 @@ export default function UploadPage() {
         </div>
 
         {/* ATS Import Modal */}
-        {showAtsModal && (
+        {canAtsExport && showAtsModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 transition-opacity duration-300">
             <div className="bg-white rounded-2xl w-full max-w-lg p-6 sm:p-8 premium-shadow border border-border-low-alpha relative flex flex-col">
               <button
