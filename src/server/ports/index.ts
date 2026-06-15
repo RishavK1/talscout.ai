@@ -20,13 +20,41 @@ export interface Storage {
   deleteObject(key: string): Promise<void>;
 }
 
+export interface WorkHistoryItem {
+  company?: string;
+  title?: string;
+  startDate?: string;
+  endDate?: string;
+  description?: string;
+  highlights?: string[];
+}
+export interface EducationItem {
+  institution?: string;
+  degree?: string;
+  field?: string;
+  startYear?: string;
+  endYear?: string;
+}
+export interface ProjectItem {
+  name?: string;
+  description?: string;
+  technologies?: string[];
+}
+
 export interface ExtractedProfile {
   fullName?: string;
   emails?: string[];
+  phones?: string[];
   currentTitle?: string;
   location?: string;
-  skills?: string[];
+  yearsExperience?: number;
   summary?: string;
+  skills?: string[];
+  languages?: string[];
+  certifications?: string[];
+  workHistory?: WorkHistoryItem[];
+  education?: EducationItem[];
+  projects?: ProjectItem[];
 }
 
 export interface ResumeExtractor {

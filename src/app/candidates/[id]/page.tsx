@@ -20,7 +20,22 @@ interface Job {
   startDate?: string;
   endDate?: string;
   responsibilities?: string[];
+  highlights?: string[];
   description?: string;
+}
+
+interface Edu {
+  institution?: string;
+  degree?: string;
+  field?: string;
+  startYear?: string;
+  endYear?: string;
+}
+
+interface Project {
+  name?: string;
+  description?: string;
+  technologies?: string[];
 }
 
 interface CandidateDetails {
@@ -32,10 +47,26 @@ interface CandidateDetails {
   currentTitle: string | null;
   yearsExperience: string | null;
   skills: string[] | null;
+  languages: string[] | null;
+  certifications: string[] | null;
   summary: string | null;
   workHistory: Job[] | any;
-  education: any;
+  education: Edu[] | any;
+  projects: Project[] | any;
   status: "ready" | "processing" | "error";
+}
+
+function asArray<T>(v: unknown): T[] {
+  if (Array.isArray(v)) return v as T[];
+  if (typeof v === "string") {
+    try {
+      const p = JSON.parse(v);
+      return Array.isArray(p) ? p : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
 }
 
 export default function CandidateProfilePage() {
@@ -112,17 +143,12 @@ export default function CandidateProfilePage() {
     .toUpperCase()
     .slice(0, 2) || "C";
 
-  // Parse work history if it's stored as JSON or string
-  let jobs: Job[] = [];
-  if (Array.isArray(candidate.workHistory)) {
-    jobs = candidate.workHistory as Job[];
-  } else if (typeof candidate.workHistory === "string") {
-    try {
-      jobs = JSON.parse(candidate.workHistory);
-    } catch {
-      jobs = [];
-    }
-  }
+  // Parse rich profile sections (stored as JSON/arrays)
+  const jobs = asArray<Job>(candidate.workHistory);
+  const education = asArray<Edu>(candidate.education);
+  const projects = asArray<Project>(candidate.projects);
+  const certifications = candidate.certifications ?? [];
+  const languages = candidate.languages ?? [];
 
   return (
     <AppShell>
@@ -227,21 +253,75 @@ export default function CandidateProfilePage() {
                           {job.startDate || "?"} - {job.endDate || "Present"}
                         </span>
                       </div>
-                      {job.responsibilities && Array.isArray(job.responsibilities) && (
-                        <ul className="list-disc list-inside font-body-md text-[14px] text-on-surface-variant space-y-1.5 ml-1 marker:text-outline-variant">
-                          {job.responsibilities.map((resp, rIdx) => (
-                            <li key={rIdx}>{resp}</li>
-                          ))}
-                        </ul>
-                      )}
-                      {(!job.responsibilities || job.responsibilities.length === 0) && job.description && (
-                        <p className="font-body-md text-[14px] text-on-surface-variant">{job.description}</p>
-                      )}
+                      {(() => {
+                        const bullets = job.highlights?.length
+                          ? job.highlights
+                          : job.responsibilities?.length
+                            ? job.responsibilities
+                            : null;
+                        if (bullets) {
+                          return (
+                            <ul className="list-disc list-inside font-body-md text-[14px] text-on-surface-variant space-y-1.5 ml-1 marker:text-outline-variant">
+                              {bullets.map((b, rIdx) => (
+                                <li key={rIdx}>{b}</li>
+                              ))}
+                            </ul>
+                          );
+                        }
+                        if (job.description) {
+                          return (
+                            <p className="font-body-md text-[14px] text-on-surface-variant">{job.description}</p>
+                          );
+                        }
+                        return null;
+                      })()}
                     </div>
                   ))}
                 </div>
               )}
             </div>
+
+            {/* Education */}
+            {education.length > 0 && (
+              <div className="glass-card rounded-xl p-8 bg-white border border-border-low-alpha shadow-sm">
+                <h3 className="font-headline-md text-headline-md text-primary mb-6">Education</h3>
+                <div className="space-y-5">
+                  {education.map((e, i) => (
+                    <div key={i} className="flex justify-between items-start gap-4">
+                      <div>
+                        <h4 className="font-label-md text-[16px] text-on-surface font-semibold">{e.degree || e.field || "Qualification"}</h4>
+                        <p className="font-body-md text-[14px] text-outline">{[e.institution, e.degree && e.field ? e.field : null].filter(Boolean).join(" · ")}</p>
+                      </div>
+                      {(e.startYear || e.endYear) && (
+                        <span className="font-data-mono text-data-mono text-outline whitespace-nowrap">{[e.startYear, e.endYear].filter(Boolean).join(" - ")}</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Projects */}
+            {projects.length > 0 && (
+              <div className="glass-card rounded-xl p-8 bg-white border border-border-low-alpha shadow-sm">
+                <h3 className="font-headline-md text-headline-md text-primary mb-6">Projects</h3>
+                <div className="space-y-6">
+                  {projects.map((p, i) => (
+                    <div key={i}>
+                      <h4 className="font-label-md text-[16px] text-on-surface font-semibold">{p.name || "Project"}</h4>
+                      {p.description && <p className="font-body-md text-[14px] text-on-surface-variant mt-1 leading-relaxed">{p.description}</p>}
+                      {p.technologies && p.technologies.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {p.technologies.map((t, ti) => (
+                            <span key={ti} className="px-2 py-0.5 rounded-full bg-surface-container-high text-on-surface-variant font-data-mono text-[11px]">{t}</span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Right Column: Sidebar Actions (4 cols) */}
@@ -328,6 +408,33 @@ export default function CandidateProfilePage() {
                 <p className="font-body-md text-on-surface-variant text-sm">No skills listed.</p>
               )}
             </div>
+
+            {/* Certifications */}
+            {certifications.length > 0 && (
+              <div className="glass-card rounded-xl p-6 bg-white border border-border-low-alpha shadow-sm">
+                <h4 className="font-label-md text-label-md text-outline mb-4 uppercase tracking-wider text-[12px]">Certifications</h4>
+                <ul className="space-y-2">
+                  {certifications.map((c, i) => (
+                    <li key={i} className="flex items-start gap-2 font-body-md text-[14px] text-on-surface">
+                      <span className="material-symbols-outlined text-[16px] text-tertiary-fixed-dim mt-0.5">workspace_premium</span>
+                      <span>{c}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Languages */}
+            {languages.length > 0 && (
+              <div className="glass-card rounded-xl p-6 bg-white border border-border-low-alpha shadow-sm">
+                <h4 className="font-label-md text-label-md text-outline mb-4 uppercase tracking-wider text-[12px]">Languages</h4>
+                <div className="flex flex-wrap gap-2">
+                  {languages.map((l, i) => (
+                    <span key={i} className="px-3 py-1 rounded-full bg-surface-container-high text-on-surface-variant font-label-md text-[13px] border border-border-low-alpha">{l}</span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

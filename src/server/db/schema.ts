@@ -85,6 +85,8 @@ export const candidates = pgTable(
     workHistory: jsonb("work_history"),
     education: jsonb("education"),
     certifications: text("certifications").array(),
+    projects: jsonb("projects"),
+    languages: text("languages").array(),
     summary: text("summary"),
     embedding: vector("embedding", { dimensions: 1024 }),
     errorReason: text("error_reason"),

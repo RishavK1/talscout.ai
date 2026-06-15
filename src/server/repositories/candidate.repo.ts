@@ -37,6 +37,8 @@ export interface CreateCandidateInput {
   workHistory?: unknown;
   education?: unknown;
   certifications?: string[] | null;
+  projects?: unknown;
+  languages?: string[] | null;
   summary?: string | null;
   embedding?: number[] | null;
 }
