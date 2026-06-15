@@ -8,7 +8,7 @@ import { easeDrawer } from "@/lib/motion";
 import { Modal } from "@/components/ui/modal";
 import { useAuth } from "@/components/app/auth-provider";
 
-type Item = { href: string; icon: string; label: string };
+type Item = { href: string; icon: string; label: string; capability?: string };
 
 const mainNav: Item[] = [
   { href: "/dashboard", icon: "dashboard", label: "Dashboard" },
@@ -22,18 +22,35 @@ const footerNav: Item[] = [
   { href: "/team", icon: "groups", label: "Team & seats" },
   { href: "/billing", icon: "credit_card", label: "Billing" },
   { href: "/settings", icon: "settings", label: "Settings" },
-  { href: "/audit", icon: "receipt_long", label: "Audit log" },
+  { href: "/audit", icon: "receipt_long", label: "Audit log", capability: "audit_log" },
 ];
 
 function NavLink({
   item,
   active,
+  locked,
   onClick,
 }: {
   item: Item;
   active: boolean;
+  locked?: boolean;
   onClick?: () => void;
 }) {
+  // Locked (plan doesn't include it): route to billing/upgrade, show a lock.
+  if (locked) {
+    return (
+      <Link
+        href="/billing"
+        onClick={onClick}
+        title="Upgrade your plan to use this feature"
+        className="flex items-center gap-3 rounded-lg p-3 text-on-surface-variant/50 transition-colors hover:bg-white/40"
+      >
+        <span className="material-symbols-outlined">{item.icon}</span>
+        <span className="font-label-md text-label-md">{item.label}</span>
+        <span className="material-symbols-outlined ml-auto text-[16px] text-on-surface-variant/50">lock</span>
+      </Link>
+    );
+  }
   return (
     <Link
       href={item.href}
@@ -63,7 +80,7 @@ function SidebarContent({
   onNavigate?: () => void;
   onInvite?: () => void;
 }) {
-  const { workspaceName, profile } = useAuth();
+  const { workspaceName, profile, can } = useAuth();
   const pathname = usePathname();
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(href + "/");
@@ -116,6 +133,7 @@ function SidebarContent({
             key={item.href}
             item={item}
             active={isActive(item.href)}
+            locked={item.capability ? !can(item.capability) : false}
             onClick={onNavigate}
           />
         ))}

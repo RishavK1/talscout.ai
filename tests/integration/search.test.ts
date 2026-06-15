@@ -3,8 +3,14 @@ import { POST as searchPOST } from "../../src/app/api/search/route";
 import { resetDb, seedTenant, seedCandidate } from "../helpers/seed";
 import { makeUser } from "../helpers/auth-fixtures";
 import { call } from "../helpers/http";
-import { closePools } from "../../src/server/db/client";
+import { adminDb, closePools } from "../../src/server/db/client";
+import { tenants } from "../../src/server/db/schema";
+import { eq } from "drizzle-orm";
 import { MockEmbedder } from "../../src/server/adapters/mock.embedder";
+
+// Advanced (structured) filters require a Growth+ plan.
+const enableFilters = (tenantId: string) =>
+  adminDb().update(tenants).set({ plan: "scale" }).where(eq(tenants.id, tenantId));
 
 const embedder = new MockEmbedder();
 const embed = (t: string) => embedder.embed(t);
@@ -126,6 +132,7 @@ describe("SRCH — edge cases", () => {
 describe("hybrid filters", () => {
   it("location filter narrows results", async () => {
     const { tenant, token } = await makeUser("viewer");
+    await enableFilters(tenant.id);
     const austin = await seedCandidate(tenant.id, {
       location: "Austin, TX",
       summary: "nurse",
@@ -145,6 +152,7 @@ describe("hybrid filters", () => {
 
   it("minExperience filter narrows results", async () => {
     const { tenant, token } = await makeUser("viewer");
+    await enableFilters(tenant.id);
     const senior = await seedCandidate(tenant.id, {
       yearsExperience: 8,
       summary: "engineer",

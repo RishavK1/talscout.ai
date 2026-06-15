@@ -28,8 +28,9 @@ interface SearchedCandidate {
 
 function SearchPageContent() {
   const searchParams = useSearchParams();
-  const { profile } = useAuth();
-  
+  const { profile, can } = useAuth();
+  const advancedFilters = can("advanced_filters");
+
   const [q, setQ] = useState(searchParams.get("q") || "");
   const [locationFilter, setLocationFilter] = useState<string | null>(null);
   const [experienceFilter, setExperienceFilter] = useState<string | null>(null);
@@ -204,6 +205,16 @@ function SearchPageContent() {
                   </div>
                 )}
                 <div className="relative ml-2">
+                  {!advancedFilters ? (
+                    <Link
+                      href="/billing"
+                      title="Advanced filters are a Growth feature — upgrade to use them"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-on-surface-variant/60 font-label-md text-[13px] hover:bg-surface-container-low rounded-full transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">lock</span>
+                      Filters (Growth)
+                    </Link>
+                  ) : (
                   <button
                     type="button"
                     onClick={() => setAddOpen((o) => !o)}
@@ -212,7 +223,8 @@ function SearchPageContent() {
                     <span className="material-symbols-outlined text-[16px]">add</span>
                     Add Filter
                   </button>
-                  {addOpen && (
+                  )}
+                  {advancedFilters && addOpen && (
                     <>
                       <div className="fixed inset-0 z-10" onClick={() => setAddOpen(false)} />
                       <div className="absolute left-0 top-full z-20 mt-2 w-52 rounded-xl border border-border-low-alpha bg-white p-1 shadow-floating">

@@ -13,6 +13,7 @@ export interface UserProfile {
   email: string;
   subscriptionStatus: string;
   plan: string;
+  capabilities: string[];
   logo: string | null;
   avatar: string | null;
 }
@@ -22,6 +23,8 @@ interface AuthContextType {
   profile: UserProfile | null;
   loading: boolean;
   workspaceName: string | null;
+  /** True if the current plan includes the given capability. */
+  can: (capability: string) => boolean;
   refreshProfile: (skipRedirect?: boolean) => Promise<void>;
   signOut: () => Promise<void>;
 }
@@ -47,6 +50,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         workspaceName?: string;
         subscriptionStatus?: string;
         plan?: string;
+        capabilities?: string[];
         logo?: string | null;
         avatar?: string | null;
       }>("/api/auth/session");
@@ -58,6 +62,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         email: data.email,
         subscriptionStatus: data.subscriptionStatus ?? "incomplete",
         plan: data.plan ?? "starter",
+        capabilities: data.capabilities ?? [],
         logo: data.logo ?? null,
         avatar: data.avatar ?? null,
       });
@@ -197,6 +202,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user, profile, loading, pathname, router]);
 
+  const can = (capability: string) =>
+    !!profile?.capabilities?.includes(capability);
+
   return (
     <AuthContext.Provider
       value={{
@@ -204,6 +212,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         profile,
         loading,
         workspaceName,
+        can,
         refreshProfile,
         signOut,
       }}

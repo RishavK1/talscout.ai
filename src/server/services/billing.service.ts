@@ -6,6 +6,12 @@ import { userRepo } from "@/server/repositories/user.repo";
 import { auditRepo } from "@/server/repositories/audit.repo";
 import { PLAN_PRICES, type CheckoutBody } from "@/server/validation/billing";
 import { BadRequest, PaymentRequired } from "@/server/http/errors";
+import {
+  planHasCapability,
+  capabilitiesForPlan,
+  CAPABILITY_LABEL,
+  type Capability,
+} from "@/lib/plans";
 import type { TenantContext } from "@/server/db/tx";
 
 const ACTIVE_STATUSES = new Set(["trialing", "active"]);
@@ -96,6 +102,22 @@ export const billingService = {
       // SEC-006: Delete processed marker on failure to allow Stripe to retry
       await webhookRepo.deleteProcessed(event.id);
       throw err;
+    }
+  },
+
+  /** Capabilities the tenant's current plan unlocks. */
+  async capabilities(ctx: TenantContext): Promise<Capability[]> {
+    const tenant = await tenantRepo.getByIdAdmin(ctx.tenantId);
+    return capabilitiesForPlan(tenant?.plan || "starter");
+  },
+
+  /** Hard gate: throw 402 if the tenant's plan doesn't include `cap`. */
+  async assertCapability(ctx: TenantContext, cap: Capability) {
+    const tenant = await tenantRepo.getByIdAdmin(ctx.tenantId);
+    if (!planHasCapability(tenant?.plan || "starter", cap)) {
+      throw new PaymentRequired(
+        `${CAPABILITY_LABEL[cap]} isn't included in your plan — upgrade to use it.`,
+      );
     }
   },
 

@@ -1,5 +1,7 @@
 import { candidateRepo } from "@/server/repositories/candidate.repo";
 import { getServices } from "@/server/container";
+import { tenantRepo } from "@/server/repositories/tenant.repo";
+import { planHasCapability } from "@/lib/plans";
 import type { TenantContext } from "@/server/db/tx";
 import type { SearchInput } from "@/server/validation/search";
 
@@ -7,17 +9,19 @@ export const searchService = {
   async search(ctx: TenantContext, input: SearchInput) {
     const q = (input.q ?? "").trim();
 
-    // Semantic search is the core product — embed the query whenever there is
-    // one (SRCH-01/02 still handle the empty-query fallback in the repo).
+    // Semantic search (core) is on every plan; structured filters are Growth+.
+    const tenant = await tenantRepo.getByIdAdmin(ctx.tenantId);
+    const advanced = planHasCapability(tenant?.plan || "starter", "advanced_filters");
+
     const queryVector =
       q.length > 0 ? await getServices().embedder.embed(q) : undefined;
 
     const rows = await candidateRepo.search(ctx, {
       queryVector,
       limit: input.limit,
-      location: input.location,
-      minExperience: input.minExperience,
-      skills: input.skills,
+      location: advanced ? input.location : undefined,
+      minExperience: advanced ? input.minExperience : undefined,
+      skills: advanced ? input.skills : undefined,
     });
 
     const qLower = q.toLowerCase();
@@ -30,6 +34,11 @@ export const searchService = {
       ),
     }));
 
-    return { results, count: results.length, query: q || null };
+    return {
+      results,
+      count: results.length,
+      query: q || null,
+      advancedFilters: advanced,
+    };
   },
 };

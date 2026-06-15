@@ -2,6 +2,7 @@ import { withAuth } from "@/server/http/with-api";
 import { tenantRepo } from "@/server/repositories/tenant.repo";
 import { subscriptionRepo } from "@/server/repositories/subscription.repo";
 import { userRepo } from "@/server/repositories/user.repo";
+import { capabilitiesForPlan } from "@/lib/plans";
 
 /**
  * GET /api/auth/session — returns the current user/tenant/role (DB truth).
@@ -19,6 +20,7 @@ export const GET = withAuth(async ({ session }) => {
       workspaceName: tenant?.name || "Workspace",
       subscriptionStatus: sub?.status || "incomplete",
       plan: tenant?.plan || "starter",
+      capabilities: capabilitiesForPlan(tenant?.plan || "starter"),
       logo: tenant?.logo || null,
       avatar: user?.avatar || null,
     },

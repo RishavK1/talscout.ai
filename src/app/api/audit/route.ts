@@ -1,11 +1,14 @@
 import { withAuth } from "@/server/http/with-api";
-import { db } from "@/server/db/client";
 import { auditLogs, users } from "@/server/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
+import { billingService } from "@/server/services/billing.service";
 
+/** GET /api/audit — workspace audit trail. Scale plan only; admin role. */
 export const GET = withAuth(
   async ({ ctx }) => {
-    const logs = await db()
+    await billingService.assertCapability(ctx, "audit_log"); // 402 if not on Scale
+
+    const logs = await ctx.tx
       .select({
         id: auditLogs.id,
         action: auditLogs.action,
@@ -17,12 +20,15 @@ export const GET = withAuth(
         actorRole: users.role,
       })
       .from(auditLogs)
-      .leftJoin(users, eq(auditLogs.actorUserId, users.authUserId))
+      .leftJoin(
+        users,
+        and(eq(auditLogs.actorUserId, users.id), eq(users.tenantId, ctx.tenantId)),
+      )
       .where(eq(auditLogs.tenantId, ctx.tenantId))
       .orderBy(desc(auditLogs.createdAt))
-      .limit(100); // safety boundary
+      .limit(100);
 
     return { data: { logs } };
   },
-  { role: "viewer" }
+  { role: "admin" },
 );
