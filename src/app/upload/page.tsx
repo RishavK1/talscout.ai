@@ -127,7 +127,7 @@ export default function UploadPage() {
           setLastSynced(nowStr);
 
           const prettyName = atsName.charAt(0).toUpperCase() + atsName.slice(1);
-          toast.success(`Successfully connected & imported 3 candidates from ${prettyName}!`);
+          toast.success(`Demo sync complete — imported 3 sample candidates (${prettyName} preview).`);
           setShowAtsModal(false);
           // reset state
           setSyncState("idle");
@@ -465,9 +465,9 @@ export default function UploadPage() {
                   {!canAtsExport ? (
                     "Sync with Bullhorn, Greenhouse, or Lever — available on Growth and Scale plans."
                   ) : connectedAts ? (
-                    `Directly synced 3 candidates. Last updated ${lastSynced || "just now"}.`
+                    `Demo import of 3 sample candidates completed at ${lastSynced || "just now"}.`
                   ) : (
-                    "Directly sync with Bullhorn, Greenhouse, or Lever."
+                    "Preview the Bullhorn / Greenhouse / Lever workflow (demo — native sync coming soon)."
                   )}
                 </p>
               </div>
@@ -528,6 +528,17 @@ export default function UploadPage() {
               <h3 className="font-headline-md text-headline-md text-primary serif-text mb-4">
                 Connect ATS Integration
               </h3>
+
+              {/* Honest demo disclosure — this flow does not contact any external ATS. */}
+              <div className="mb-5 flex items-start gap-3 rounded-xl border border-secondary/30 bg-secondary-container/15 p-3">
+                <span className="material-symbols-outlined text-secondary text-[20px] mt-0.5">science</span>
+                <p className="font-body-md text-[13px] leading-relaxed text-on-surface-variant">
+                  <span className="font-semibold text-on-surface">Demo preview.</span>{" "}
+                  Native Bullhorn / Greenhouse / Lever sync is on our roadmap. Connecting here
+                  contacts no external system — it imports 3 sample candidates into your
+                  workspace so you can explore the workflow.
+                </p>
+              </div>
 
               {syncState === "idle" ? (
                 <div className="space-y-6">
@@ -622,10 +633,10 @@ export default function UploadPage() {
                   </h4>
 
                   <p className="text-body-md text-text-muted max-w-xs mb-6">
-                    {syncState === "connecting" && `Contacting secure REST gateway at ${apiUrl}`}
-                    {syncState === "fetching" && "Downloading high-fidelity candidate profile metadata..."}
-                    {syncState === "syncing" && "Injecting candidates into your TalScout workspace."}
-                    {syncState === "completed" && "Your ATS workspace candidates are now fully synchronized!"}
+                    {syncState === "connecting" && "Preparing the demo import..."}
+                    {syncState === "fetching" && "Generating sample candidate profiles..."}
+                    {syncState === "syncing" && "Adding sample candidates to your TalScout workspace."}
+                    {syncState === "completed" && "Demo import finished — 3 sample candidates added to your workspace."}
                   </p>
 
                   <div className="w-full max-w-xs bg-surface-container rounded-full h-2 overflow-hidden mb-2">

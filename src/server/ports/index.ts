@@ -139,6 +139,18 @@ export interface PaymentProvider {
   verifyWebhook(rawBody: string, signature: string | null): WebhookEvent;
 }
 
+export interface MailMessage {
+  to: string;
+  subject: string;
+  text: string;
+  /** Replies go to the sending recruiter, not our transactional address. */
+  replyTo?: string;
+}
+
+export interface Mailer {
+  send(message: MailMessage): Promise<void>;
+}
+
 export interface RateLimitResult {
   success: boolean;
   limit: number;
@@ -158,4 +170,5 @@ export interface Services {
   queue: JobQueue;
   payment: PaymentProvider;
   limiter: RateLimiter;
+  mailer: Mailer;
 }

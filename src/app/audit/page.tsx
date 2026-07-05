@@ -77,11 +77,10 @@ export default function AuditLogPage() {
     return entry.targetType ? `${entry.targetType} (${entry.targetId?.slice(0, 8)})` : "System";
   };
 
-  const getIpAddress = (actorUserId: string | null) => {
-    if (!actorUserId) return "System";
-    const lastPart = actorUserId.split("-").pop() || "1";
-    const num = parseInt(lastPart, 16) % 254 + 1;
-    return `192.168.1.${num}`;
+  /** Real client IP recorded at audit-write time; older rows predate capture. */
+  const getIpAddress = (entry: any) => {
+    if (!entry.actorUserId) return "System";
+    return entry.metadata?.ip || "—";
   };
 
   const getAvatarWrapper = (role: string | null) => {
@@ -235,7 +234,7 @@ export default function AuditLogPage() {
                               </span>
                             </td>
                             <td className="px-6 py-4 font-label-md text-on-surface">{getTargetText(entry)}</td>
-                            <td className="px-6 py-4 font-data-mono text-[13px] text-text-muted">{getIpAddress(entry.actorUserId)}</td>
+                            <td className="px-6 py-4 font-data-mono text-[13px] text-text-muted">{getIpAddress(entry)}</td>
                           </tr>
                         ))
                       )}

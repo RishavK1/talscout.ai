@@ -14,6 +14,8 @@ export interface TenantContext {
   tx: Tx;
   tenantId: string;
   userId?: string;
+  /** Client IP from the request (x-forwarded-for), recorded on audit rows. */
+  ip?: string;
 }
 
 /**
@@ -25,7 +27,7 @@ export interface TenantContext {
  * so a pooled connection can never leak tenant context to the next request.
  */
 export async function withTenantTx<T>(
-  ctx: { tenantId: string; userId?: string },
+  ctx: { tenantId: string; userId?: string; ip?: string },
   fn: (c: TenantContext) => Promise<T>,
 ): Promise<T> {
   if (!ctx.tenantId) {
@@ -43,6 +45,6 @@ export async function withTenantTx<T>(
     await tx.execute(
       sql`select set_config('app.tenant_id', ${ctx.tenantId}, true)`,
     );
-    return fn({ tx, tenantId: ctx.tenantId, userId: ctx.userId });
+    return fn({ tx, tenantId: ctx.tenantId, userId: ctx.userId, ip: ctx.ip });
   });
 }

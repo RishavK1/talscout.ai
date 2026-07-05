@@ -116,46 +116,34 @@ export const GET = withAuth(async ({ req, ctx }) => {
   const plan = tenant?.plan || "starter";
   const pricePerSeat = PLAN_PRICES[plan] || 9900;
 
+  // Real invoice history from Stripe (live mode with a known customer).
+  // No customer / mock mode → empty list; the UI already renders that state.
   const invoices: { id: string; date: string; amount: string; status: string; plan?: string; seats?: number }[] = [];
-  if (sub && ["active", "trialing"].includes(sub.status)) {
-    const todayStr = sub.updatedAt.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-
-    if (sub.seats >= 7) {
-      // Dynamic history for upgraded seats
-      invoices.push({
-        id: "INV-2026-002",
-        date: todayStr,
-        plan: plan,
-        seats: sub.seats,
-        amount: `$${((pricePerSeat / 100) * sub.seats).toLocaleString()}`,
-        status: "Paid",
+  if (env.APP_MODE === "live" && env.STRIPE_SECRET_KEY && sub?.stripeCustomerId) {
+    try {
+      const stripe = new Stripe(env.STRIPE_SECRET_KEY);
+      const list = await stripe.invoices.list({
+        customer: sub.stripeCustomerId,
+        limit: 12,
       });
-      invoices.push({
-        id: "INV-2026-001",
-        date: new Date(sub.updatedAt.getTime() - 24 * 60 * 60 * 1000).toLocaleDateString("en-US", {
-          month: "short",
-          day: "numeric",
-          year: "numeric",
-        }),
-        plan: plan,
-        seats: 5,
-        amount: `$${((pricePerSeat / 100) * 5).toLocaleString()}`,
-        status: "Paid",
-      });
-    } else {
-      const totalMonthlyPrice = (pricePerSeat / 100) * sub.seats;
-      invoices.push({
-        id: "INV-2026-001",
-        date: todayStr,
-        plan: plan,
-        seats: sub.seats,
-        amount: `$${totalMonthlyPrice.toLocaleString()}`,
-        status: "Paid",
-      });
+      for (const inv of list.data) {
+        const cents = inv.amount_paid || inv.amount_due || 0;
+        const status = inv.status
+          ? inv.status.charAt(0).toUpperCase() + inv.status.slice(1)
+          : "Open";
+        invoices.push({
+          id: inv.number || inv.id || "—",
+          date: new Date(inv.created * 1000).toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          }),
+          amount: `$${(cents / 100).toLocaleString()}`,
+          status,
+        });
+      }
+    } catch (err) {
+      console.error("Failed to fetch Stripe invoices:", err);
     }
   }
 

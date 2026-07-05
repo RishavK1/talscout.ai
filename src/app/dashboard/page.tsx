@@ -24,6 +24,7 @@ export default function DashboardPage() {
   const [semanticQuery, setSemanticQuery] = useState("");
   const [totalCandidates, setTotalCandidates] = useState(0);
   const [processedCandidates, setProcessedCandidates] = useState(0);
+  const [processingCandidates, setProcessingCandidates] = useState(0);
   const [shortlistedCount, setShortlistedCount] = useState(0);
   const [recentCandidates, setRecentCandidates] = useState<SimpleCandidate[]>([]);
   const [loading, setLoading] = useState(true);
@@ -52,15 +53,17 @@ export default function DashboardPage() {
         // Fire all requests in parallel instead of awaiting each in series.
         // The recent-candidates list (limit=5) already returns `total`, so we
         // reuse it for the Total Candidates stat — one fewer round-trip.
-        const [recentRes, processedRes, shortlistsRes] = await Promise.all([
+        const [recentRes, processedRes, processingRes, shortlistsRes] = await Promise.all([
           api.get<{ candidates: SimpleCandidate[]; total: number }>("/api/candidates?limit=5"),
           api.get<{ total: number }>("/api/candidates?status=ready&limit=1"),
+          api.get<{ total: number }>("/api/candidates?status=processing&limit=1"),
           api.get<{ shortlists: any[] }>("/api/shortlists"),
         ]);
 
         setTotalCandidates(recentRes.total);
         setRecentCandidates(recentRes.candidates);
         setProcessedCandidates(processedRes.total);
+        setProcessingCandidates(processingRes.total);
 
         const totalShortlisted = shortlistsRes.shortlists.reduce(
           (acc: number, curr: any) => acc + curr.candidateCount,
@@ -183,16 +186,18 @@ export default function DashboardPage() {
                 </p>
               </div>
             </div>
-            {/* Active Searches */}
+            {/* In Processing */}
             <div className="bg-white p-6 rounded-[20px] ambient-shadow border border-border-low-alpha flex flex-col justify-between">
               <div className="flex justify-between items-start mb-4">
                 <div className="p-2 bg-surface-container rounded-lg text-primary">
-                  <span className="material-symbols-outlined">manage_search</span>
+                  <span className="material-symbols-outlined">hourglass_top</span>
                 </div>
               </div>
               <div>
-                <p className="font-label-md text-label-md text-on-surface-variant mb-1">Active AI Searches</p>
-                <p className="font-data-mono text-display-lg text-primary tracking-tight">{loading ? "..." : "0"}</p>
+                <p className="font-label-md text-label-md text-on-surface-variant mb-1">Résumés Processing</p>
+                <p className="font-data-mono text-display-lg text-primary tracking-tight">
+                  {loading ? "..." : processingCandidates.toLocaleString()}
+                </p>
               </div>
             </div>
             {/* Shortlisted */}

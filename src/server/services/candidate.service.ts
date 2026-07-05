@@ -1,4 +1,5 @@
 import { candidateRepo } from "@/server/repositories/candidate.repo";
+import { resumeFileRepo } from "@/server/repositories/resume-file.repo";
 import { auditRepo } from "@/server/repositories/audit.repo";
 import { NotFound } from "@/server/http/errors";
 import type { TenantContext } from "@/server/db/tx";
@@ -30,7 +31,11 @@ export const candidateService = {
   async get(ctx: TenantContext, id: string) {
     const candidate = await candidateRepo.getById(ctx, id);
     if (!candidate) throw new NotFound("Candidate not found"); // TEN-01
-    return candidate;
+    // Whether this profile came from an uploaded résumé (vs. manual entry /
+    // ATS import) — the UI derives the "Source" label from this instead of
+    // hardcoding "PDF Resume Upload" for everyone.
+    const file = await resumeFileRepo.getByCandidate(ctx, id);
+    return { ...candidate, hasResume: !!file };
   },
 
   async list(ctx: TenantContext, query: ListCandidatesQuery) {

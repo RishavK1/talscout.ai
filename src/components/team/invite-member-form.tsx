@@ -1,0 +1,114 @@
+"use client";
+
+import { useState } from "react";
+import { api } from "@/lib/api";
+import { toast } from "sonner";
+
+/**
+ * The actual invite form — shared by the /team page's InviteMemberButton and
+ * AppShell's sidebar "Invite Team" shortcut, so there's exactly one place that
+ * calls the real API instead of two invite UIs (one real, one that faked
+ * success locally). Only rendered while its parent <Modal> is open, so its
+ * state resets naturally on close — no manual timers needed.
+ */
+export function InviteMemberForm({
+  remainingSeats,
+  plan,
+  onSent,
+  onDone,
+}: {
+  remainingSeats: number;
+  plan: string;
+  /** Called once the invite actually succeeds (e.g. to refresh a member list). */
+  onSent?: () => void;
+  /** Called when the user is done — Cancel, or "Done" after success. */
+  onDone: () => void;
+}) {
+  const [sent, setSent] = useState(false);
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState<"admin" | "recruiter" | "viewer">("recruiter");
+  const [inviting, setInviting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) return;
+    try {
+      setInviting(true);
+      await api.post("/api/team", { email, role });
+      setSent(true);
+      setEmail("");
+      onSent?.();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to send invitation";
+      toast.error(msg);
+    } finally {
+      setInviting(false);
+    }
+  };
+
+  if (sent) {
+    return (
+      <div className="py-4 text-center">
+        <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-tertiary-fixed/20 text-tertiary-container">
+          <span className="material-symbols-outlined">check_circle</span>
+        </div>
+        <p className="font-headline-md text-[18px] text-primary serif-text">Invitation sent</p>
+        <p className="mt-1 font-body-md text-[14px] text-on-surface-variant">
+          They&apos;ll get an email to join your workspace.
+        </p>
+        <button
+          type="button"
+          onClick={onDone}
+          className="mt-5 rounded-lg bg-primary px-5 py-2.5 font-label-md text-on-primary transition-colors hover:bg-primary-container active:scale-[0.98]"
+        >
+          Done
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="flex flex-col gap-3 sm:flex-row">
+        <input
+          type="email"
+          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="name@company.com"
+          className="flex-1 min-w-0 rounded-xl border border-border-low-alpha bg-bg-cream/30 px-4 py-3 font-body-md focus:outline-none focus:ring-1 focus:ring-primary"
+        />
+        <select
+          value={role}
+          onChange={(e) => setRole(e.target.value as "admin" | "recruiter" | "viewer")}
+          className="rounded-xl border border-border-low-alpha bg-bg-cream/30 px-4 py-3 font-body-md focus:outline-none focus:ring-1 focus:ring-primary"
+        >
+          <option value="admin">Admin</option>
+          <option value="recruiter">Recruiter</option>
+          <option value="viewer">Viewer</option>
+        </select>
+      </div>
+      <p className="font-body-md text-[13px] text-on-surface-variant">
+        You have {remainingSeats} {remainingSeats === 1 ? "seat" : "seats"} remaining on your {plan} plan.
+      </p>
+      <div className="flex justify-end gap-3 pt-2">
+        <button
+          type="button"
+          onClick={onDone}
+          disabled={inviting}
+          className="rounded-lg border border-outline px-5 py-2.5 font-label-md text-primary transition-colors hover:bg-surface-container-low"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          disabled={inviting || remainingSeats <= 0}
+          title={remainingSeats <= 0 ? "No seats available — upgrade your plan" : undefined}
+          className="rounded-lg bg-primary px-5 py-2.5 font-label-md text-on-primary transition-colors hover:bg-primary-container active:scale-[0.98] flex items-center gap-2 disabled:opacity-50"
+        >
+          {inviting ? "Sending..." : "Send invitation"}
+        </button>
+      </div>
+    </form>
+  );
+}

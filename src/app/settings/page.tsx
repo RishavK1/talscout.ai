@@ -525,71 +525,6 @@ function DataPanel({ profile, signOut }: { profile: any; signOut: () => void }) 
 }
 
 function DeveloperCard({ plan }: { plan: string }) {
-  const [apiKey, setApiKey] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
-  const [webhookUrl, setWebhookUrl] = useState("");
-  const [triggers, setTriggers] = useState<string[]>(["candidate.ready"]);
-  const [testLogs, setTestLogs] = useState<string[]>([]);
-  const [sendingTest, setSendingTest] = useState(false);
-
-  useEffect(() => {
-    setWebhookUrl(developerCache.webhookUrl);
-    setTriggers(developerCache.webhookTriggers);
-    setApiKey(developerCache.apiKey);
-  }, []);
-
-  const handleGenerateKey = () => {
-    const newKey = `sk_talscout_scale_${Math.random().toString(36).substring(2, 10)}${Math.random().toString(36).substring(2, 10)}`;
-    developerCache.apiKey = newKey;
-    setApiKey(newKey);
-    toast.success("New API key generated successfully");
-  };
-
-  const handleCopy = () => {
-    if (apiKey) {
-      navigator.clipboard.writeText(apiKey);
-      setCopied(true);
-      toast.success("API key copied to clipboard");
-      setTimeout(() => setCopied(false), 2000);
-    }
-  };
-
-  const handleSaveWebhook = () => {
-    developerCache.webhookUrl = webhookUrl;
-    developerCache.webhookTriggers = triggers;
-    toast.success("Webhook configurations saved");
-  };
-
-  const toggleTrigger = (t: string) => {
-    setTriggers((prev) =>
-      prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]
-    );
-  };
-
-  const handleSendTestPayload = () => {
-    if (!webhookUrl.trim()) {
-      toast.error("Please enter a Webhook URL first");
-      return;
-    }
-    setSendingTest(true);
-    setTestLogs((prev) => [
-      `[${new Date().toLocaleTimeString()}] Dispatching POST test payload to ${webhookUrl}...`,
-      ...prev,
-    ]);
-
-    setTimeout(() => {
-      setSendingTest(false);
-      setTestLogs((prev) => [
-        `[${new Date().toLocaleTimeString()}] HTTP/1.1 200 OK`,
-        `[${new Date().toLocaleTimeString()}] Content-Type: application/json`,
-        `[${new Date().toLocaleTimeString()}] Body: {"message": "Event delivered successfully"}`,
-        `[${new Date().toLocaleTimeString()}] Webhook delivery verification successful!`,
-        ...prev,
-      ]);
-      toast.success("Test payload delivered successfully with status 200!");
-    }, 1200);
-  };
-
   if (plan !== "scale") {
     return (
       <section className="relative overflow-hidden bg-white rounded-[20px] p-8 sm:p-12 premium-shadow border border-border-low-alpha text-center">
@@ -625,144 +560,40 @@ function DeveloperCard({ plan }: { plan: string }) {
     );
   }
 
+  // Scale plan: API access & webhooks are part of the plan but the backend
+  // (key issuance/auth + outbound delivery) hasn't shipped yet. Say so plainly
+  // instead of showing a fake console that generates client-side keys.
   return (
-    <div className="space-y-8">
-      {/* API Keys */}
-      <Card title="Custom API Access" subtitle="Authenticate calls to TalScout APIs using secret keys.">
-        <div className="space-y-6">
-          <div>
-            <label className="block font-label-md text-primary mb-2">Workspace Secret Key</label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                readOnly
-                value={apiKey || "Click 'Generate key' to create your API secret key"}
-                className={`flex-1 bg-bg-cream/40 border border-border-low-alpha rounded-xl px-4 py-3 font-data-mono text-label-md ${
-                  apiKey ? "text-primary" : "text-text-muted italic"
-                }`}
-              />
-              {apiKey ? (
-                <button
-                  type="button"
-                  onClick={handleCopy}
-                  className="px-4 bg-surface-container border border-border-low-alpha hover:border-primary/40 text-primary rounded-xl flex items-center justify-center transition-colors"
-                  title="Copy Key"
-                >
-                  <span className="material-symbols-outlined text-[20px]">
-                    {copied ? "check" : "content_copy"}
-                  </span>
-                </button>
-              ) : null}
-              <button
-                type="button"
-                onClick={handleGenerateKey}
-                className="bg-primary text-white px-6 py-3 rounded-xl font-label-md hover:shadow-md transition-all whitespace-nowrap active:scale-[0.98]"
-              >
-                {apiKey ? "Regenerate" : "Generate key"}
-              </button>
-            </div>
-            <p className="text-text-muted text-[11px] mt-2 italic">
-              Keep this key secure. Do not share it or expose it in browser clients.
-            </p>
-          </div>
-
-          {apiKey && (
-            <div className="pt-4 border-t border-border-low-alpha">
-              <label className="block font-label-md text-primary mb-2">Sample cURL Request</label>
-              <div className="relative">
-                <pre className="bg-bg-cream/40 border border-border-low-alpha rounded-xl p-4 font-data-mono text-[11px] overflow-x-auto text-on-surface whitespace-pre-wrap leading-relaxed">
-                  {`curl -X POST "http://localhost:3100/api/candidates" \\
-  -H "Authorization: Bearer ${apiKey}" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "fullName": "Jane Doe",
-    "emails": ["jane.doe@example.com"],
-    "currentTitle": "Staff Software Engineer",
-    "location": "New York, NY",
-    "yearsExperience": 7,
-    "skills": ["Rust", "Go", "Docker", "Kubernetes"],
-    "summary": "Experienced systems software engineer specializing in backend infrastructure."
-  }'`}
-                </pre>
-              </div>
-            </div>
-          )}
+    <Card
+      title="Custom API & Webhooks"
+      subtitle="Programmatic access for your Scale workspace."
+    >
+      <div className="flex items-start gap-4">
+        <div className="w-12 h-12 shrink-0 rounded-xl bg-secondary-container/20 text-secondary flex items-center justify-center border border-secondary/20">
+          <span className="material-symbols-outlined text-[24px]">construction</span>
         </div>
-      </Card>
-
-      {/* Webhooks */}
-      <Card title="Outgoing Webhooks" subtitle="Configure outbound payloads to be sent on workspace events.">
-        <div className="space-y-6">
-          <div>
-            <label className="block font-label-md text-primary mb-2">Endpoint Destination URL</label>
-            <input
-              type="text"
-              value={webhookUrl}
-              onChange={(e) => setWebhookUrl(e.target.value)}
-              className="w-full bg-bg-cream/30 border border-border-low-alpha rounded-xl px-4 py-3 font-body-md"
-              placeholder="https://api.youragency.com/webhooks/talscout-sync"
-            />
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <p className="font-label-md text-primary font-semibold">In development</p>
+            <span className="bg-secondary-container/30 text-secondary text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
+              Included in Scale
+            </span>
           </div>
-
-          <div>
-            <label className="block font-label-md text-primary mb-3">Event Subscription Triggers</label>
-            <div className="flex flex-wrap gap-3">
-              {(["candidate.ready", "candidate.failed", "shortlist.created"] as const).map((trigger) => {
-                const checked = triggers.includes(trigger);
-                return (
-                  <button
-                    key={trigger}
-                    type="button"
-                    onClick={() => toggleTrigger(trigger)}
-                    className={`px-4 py-2 rounded-full border text-label-md font-label-md transition-all flex items-center gap-2 ${
-                      checked
-                        ? "bg-primary/5 border-primary text-primary font-semibold"
-                        : "bg-transparent border-border-low-alpha text-on-surface-variant hover:border-outline"
-                    }`}
-                  >
-                    <span className="material-symbols-outlined text-[16px]">
-                      {checked ? "check_box" : "check_box_outline_blank"}
-                    </span>
-                    {trigger}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="flex gap-4 pt-4 border-t border-border-low-alpha">
-            <button
-              type="button"
-              onClick={handleSaveWebhook}
-              className="bg-primary text-white px-6 py-3 rounded-xl font-label-md hover:shadow-md transition-all active:scale-[0.98]"
-            >
-              Save webhook settings
-            </button>
-            <button
-              type="button"
-              onClick={handleSendTestPayload}
-              disabled={sendingTest}
-              className="px-6 py-3 border border-outline rounded-xl font-label-md hover:bg-surface-container-low transition-colors disabled:opacity-50"
-            >
-              {sendingTest ? "Sending..." : "Send test payload"}
-            </button>
-          </div>
-
-          {testLogs.length > 0 && (
-            <div className="mt-4">
-              <label className="block font-label-md text-primary mb-2">Webhook Delivery Logs</label>
-              <div className="bg-primary/95 text-white/95 rounded-xl p-4 font-data-mono text-[11px] h-40 overflow-y-auto space-y-1">
-                {testLogs.map((log, i) => (
-                  <div key={i} className={log.includes("verification successful") ? "text-tertiary font-semibold" : ""}>
-                    {log}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          <p className="text-on-surface-variant font-body-md leading-relaxed mb-4">
+            Workspace API keys for programmatic résumé ingestion and outbound webhooks
+            (candidate.ready, candidate.failed, shortlist.created) are being finalized.
+            They&apos;ll appear here — at no extra cost — the moment they ship.
+          </p>
+          <a
+            href="mailto:support@talscout.ai?subject=API%20access%20early%20interest"
+            className="inline-flex items-center gap-2 font-label-md text-label-md text-secondary font-semibold hover:underline"
+          >
+            Get notified when it&apos;s live
+            <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+          </a>
         </div>
-      </Card>
-    </div>
+      </div>
+    </Card>
   );
 }
 

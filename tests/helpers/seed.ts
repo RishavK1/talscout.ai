@@ -74,6 +74,7 @@ export async function seedCandidate(
     currentTitle: string;
     summary: string;
     skills: string[];
+    emails: string[];
     yearsExperience: number;
     embedding: number[];
   }> = {},
@@ -88,6 +89,7 @@ export async function seedCandidate(
       currentTitle: overrides.currentTitle ?? "Engineer",
       summary: overrides.summary ?? null,
       skills: overrides.skills ?? null,
+      emails: overrides.emails ?? null,
       yearsExperience:
         overrides.yearsExperience == null
           ? null

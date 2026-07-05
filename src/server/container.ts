@@ -6,6 +6,8 @@ import { MockEmbedder } from "@/server/adapters/mock.embedder";
 import { MockReranker } from "@/server/adapters/mock.reranker";
 import { GeminiReranker } from "@/server/adapters/gemini.reranker";
 import { MockPaymentProvider } from "@/server/adapters/mock.payment";
+import { MockMailer } from "@/server/adapters/mock.mailer";
+import { ResendMailer } from "@/server/adapters/resend.mailer";
 import { InProcessQueue } from "@/server/adapters/inprocess.queue";
 import { ClaudeExtractor } from "@/server/adapters/claude.extractor";
 import { GeminiExtractor } from "@/server/adapters/gemini.extractor";
@@ -39,6 +41,7 @@ export function getServices(): Services {
       payment: new MockPaymentProvider(),
       queue,
       limiter: new MemoryRateLimiter(),
+      mailer: new MockMailer(),
     };
     queue.register(PARSE_RESUME_JOB, (payload) =>
       parseResume(payload as ParseResumePayload, services as Services),
@@ -70,6 +73,7 @@ export function getServices(): Services {
       payment: new StripePaymentProvider(),
       queue,
       limiter,
+      mailer: env.RESEND_API_KEY ? new ResendMailer() : new MockMailer(),
     };
 
     if (queue instanceof InProcessQueue) {

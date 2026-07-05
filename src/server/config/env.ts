@@ -48,6 +48,10 @@ const EnvSchema = z
     GEMINI_MODEL: z.string().default("gemini-2.5-flash"),
     GEMINI_FALLBACK_MODEL: z.string().default("gemini-2.5-pro"),
     VOYAGE_MODEL: z.string().default("voyage-3"),
+    /** Verified sender for outbound mail. Resend's shared onboarding sender is
+     *  the zero-config default (delivers only to the account owner's inbox
+     *  until a real domain is verified). */
+    RESEND_FROM: z.string().default("TalScout <onboarding@resend.dev>"),
     SUPABASE_STORAGE_BUCKET: z.string().default("resumes"),
     STRIPE_PRICE_STARTER: z.string().optional(),
     STRIPE_PRICE_GROWTH: z.string().optional(),

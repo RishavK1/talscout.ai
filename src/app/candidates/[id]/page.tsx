@@ -54,6 +54,7 @@ interface CandidateDetails {
   education: Edu[] | any;
   projects: Project[] | any;
   status: "ready" | "processing" | "error";
+  hasResume?: boolean;
 }
 
 function asArray<T>(v: unknown): T[] {
@@ -195,9 +196,15 @@ export default function CandidateProfilePage() {
               <div className="flex-1 z-10">
                 <div className="flex flex-wrap items-center gap-3 mb-2">
                   <h2 className="font-headline-lg text-headline-lg text-primary">{name}</h2>
-                  <span className="px-2 py-1 bg-tertiary-fixed/30 text-on-tertiary-fixed-variant rounded-md font-label-md text-[12px] flex items-center shadow-sm">
-                    <span className="material-symbols-outlined text-[14px] mr-1" data-icon="verified">verified</span> AI Scanned
-                  </span>
+                  {candidate.hasResume && candidate.status === "ready" ? (
+                    <span className="px-2 py-1 bg-tertiary-fixed/30 text-on-tertiary-fixed-variant rounded-md font-label-md text-[12px] flex items-center shadow-sm">
+                      <span className="material-symbols-outlined text-[14px] mr-1" data-icon="verified">verified</span> AI Scanned
+                    </span>
+                  ) : !candidate.hasResume ? (
+                    <span className="px-2 py-1 bg-surface-container-high text-on-surface-variant rounded-md font-label-md text-[12px] flex items-center shadow-sm">
+                      <span className="material-symbols-outlined text-[14px] mr-1" data-icon="edit_note">edit_note</span> Manual Entry
+                    </span>
+                  ) : null}
                 </div>
                 <p className="font-body-lg text-body-lg text-on-surface-variant mb-4">
                   {candidate.currentTitle || "Title not parsed"}
@@ -330,10 +337,10 @@ export default function CandidateProfilePage() {
             <div className="glass-card rounded-xl p-6 flex flex-col gap-3 bg-white border border-border-low-alpha shadow-sm">
               <AddToShortlistButton candidateId={candidate.id} name={name} />
               
-              <MessageCandidate name={name} email={candidate.emails?.[0] || ""} />
+              <MessageCandidate candidateId={candidate.id} name={name} email={candidate.emails?.[0] || ""} />
               
               <div className="flex gap-3 pt-2">
-                <DownloadPdfButton candidateId={candidate.id} />
+                {candidate.hasResume && <DownloadPdfButton candidateId={candidate.id} />}
                 <EditProfile candidate={candidate} onUpdate={handleCandidateUpdate} />
               </div>
               <button
@@ -372,7 +379,9 @@ export default function CandidateProfilePage() {
                 <div className="h-px w-full bg-border-low-alpha"></div>
                 <div>
                   <span className="block font-label-md text-[12px] text-outline mb-1">Source</span>
-                  <span className="font-body-md text-[14px] text-on-surface">PDF Resume Upload</span>
+                  <span className="font-body-md text-[14px] text-on-surface">
+                    {candidate.hasResume ? "Résumé upload" : "Manual entry"}
+                  </span>
                 </div>
                 {candidate.phones && candidate.phones.length > 0 && (
                   <>

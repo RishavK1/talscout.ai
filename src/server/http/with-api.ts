@@ -24,6 +24,14 @@ function newRequestId(): string {
   return globalThis.crypto.randomUUID();
 }
 
+/** Best-effort client IP from x-forwarded-for (sanitized), or undefined. */
+function clientIp(req: Request): string | undefined {
+  const raw = req.headers.get("x-forwarded-for");
+  if (!raw) return undefined;
+  const first = raw.split(",")[0].trim();
+  return /^[0-9a-fA-F.:%_\-]+$/.test(first) ? first : undefined;
+}
+
 function formatIssues(err: { issues: { path: PropertyKey[]; message: string }[] }) {
   return err.issues.map((i) => ({
     field: i.path.join(".") || "(root)",
@@ -115,7 +123,7 @@ export function withAuth<B = undefined, Q = undefined>(
       const params = await readParams(routeCtx);
 
       const result = await withTenantTx(
-        { tenantId: session.tenantId, userId: session.userId },
+        { tenantId: session.tenantId, userId: session.userId, ip: clientIp(req) },
         (ctx) => handler({ req, params, session, body, query, ctx }),
       );
       return okResponse(result.data ?? null, result.status ?? 200);
@@ -152,9 +160,7 @@ export function withPublic<B = undefined, Q = undefined>(
     const requestId = newRequestId();
     try {
       if (options.rateLimit) {
-        const rawIp = req.headers.get("x-forwarded-for") ?? "127.0.0.1";
-        const trimmedIp = rawIp.split(",")[0].trim();
-        const ip = /^[0-9a-fA-F.:%_\-]+$/.test(trimmedIp) ? trimmedIp : "127.0.0.1";
+        const ip = clientIp(req) ?? "127.0.0.1";
         const key = `rl:ip:${ip}:${options.rateLimit.keyPrefix ?? "default"}`;
         const rl = await getServices().limiter.limit(
           key,
