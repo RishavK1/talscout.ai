@@ -77,7 +77,7 @@ export function SiteFooter() {
       </div>
       <div className="mx-auto mt-12 max-w-[1440px] border-t border-border-low-alpha pt-8">
         <p className="font-body-md text-[14px] text-text-muted">
-          © 2026 TalScout AI. All rights reserved.
+          © {new Date().getFullYear()} TalScout AI. All rights reserved.
         </p>
       </div>
     </footer>

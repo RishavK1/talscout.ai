@@ -283,7 +283,7 @@ export default function PricingPage() {
         </div>
         <div className="max-w-[1440px] mx-auto mt-16 pt-8 border-t border-border-low-alpha text-center md:text-left">
           <p className="text-on-surface-variant font-label-md text-label-md">
-            © 2024 TalScout AI. All rights reserved.
+            © {new Date().getFullYear()} TalScout AI. All rights reserved.
           </p>
         </div>
       </footer>

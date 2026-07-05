@@ -179,7 +179,7 @@ export default function InviteTeamOnboardingPage() {
       {/* Simple Footer Copyright */}
       <footer className="w-full text-center pb-8">
         <p className="font-label-md text-label-md text-text-muted/60">
-          © 2024 TalScout AI. Premium intelligence for human-centric hiring.
+          © {new Date().getFullYear()} TalScout AI. Premium intelligence for human-centric hiring.
         </p>
       </footer>
     </div>

@@ -31,6 +31,7 @@ describe("POST /api/candidates/:id/message", () => {
       token,
       body: { subject: "Opportunity at Acme", message: "Hi Jane, interested?" },
       routeCtx: params(candidate.id),
+      headers: { "x-forwarded-for": "203.0.113.7" },
     });
     expect(res.status).toBe(200);
     expect(res.json.data.sent).toBe(true);
@@ -41,7 +42,7 @@ describe("POST /api/candidates/:id/message", () => {
     expect(mailer.sent[0].subject).toBe("Opportunity at Acme");
     expect(mailer.sent[0].replyTo).toBe(user.email);
 
-    // The send is audited.
+    // The send is audited, with the REAL client IP folded into metadata.
     const rows = await adminDb()
       .select()
       .from(auditLogs)
@@ -50,6 +51,7 @@ describe("POST /api/candidates/:id/message", () => {
       );
     expect(rows).toHaveLength(1);
     expect(rows[0].targetId).toBe(candidate.id);
+    expect((rows[0].metadata as { ip?: string })?.ip).toBe("203.0.113.7");
   });
 
   it("400s when the candidate has no email on file (and sends nothing)", async () => {

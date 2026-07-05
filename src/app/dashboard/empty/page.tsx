@@ -82,7 +82,7 @@ export default function DashboardEmptyPage() {
         {/* Footer (Using Shared Component Mapping) */}
         <footer className="bg-bg-cream py-6 px-4 sm:px-6 lg:px-12 border-t border-border-low-alpha mt-auto">
           <div className="max-w-[1440px] mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
-            <span className="text-body-md text-text-muted">© 2024 TalScout AI. All rights reserved.</span>
+            <span className="text-body-md text-text-muted">© {new Date().getFullYear()} TalScout AI. All rights reserved.</span>
             <div className="flex flex-wrap justify-center gap-6 sm:gap-8">
               <Link className="text-label-md text-outline hover:text-secondary transition-colors" href="/privacy">Privacy</Link>
               <Link className="text-label-md text-outline hover:text-secondary transition-colors" href="/terms">Terms</Link>

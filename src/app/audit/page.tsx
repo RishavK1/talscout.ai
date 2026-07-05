@@ -79,7 +79,7 @@ export default function AuditLogPage() {
 
   /** Real client IP recorded at audit-write time; older rows predate capture. */
   const getIpAddress = (entry: any) => {
-    if (!entry.actorUserId) return "System";
+    if (!entry.actorEmail) return "System";
     return entry.metadata?.ip || "—";
   };
 
@@ -275,7 +275,7 @@ export default function AuditLogPage() {
           <div className="max-w-[1440px] mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
             <div>
               <h3 className="font-headline-md text-primary text-[24px]">TalScout</h3>
-              <p className="font-label-md text-text-muted mt-2">© 2024 TalScout AI. All rights reserved.</p>
+              <p className="font-label-md text-text-muted mt-2">© {new Date().getFullYear()} TalScout AI. All rights reserved.</p>
             </div>
             <div className="flex flex-wrap justify-center gap-8 sm:gap-12">
               <div className="flex flex-col gap-3">

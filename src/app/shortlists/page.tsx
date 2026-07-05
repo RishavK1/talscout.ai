@@ -189,7 +189,7 @@ export default function ShortlistsPage() {
             </div>
           </div>
           <div className="max-w-[1440px] mx-auto pt-12 text-center text-text-muted font-label-md">
-            © 2024 TalScout AI. All rights reserved.
+            © {new Date().getFullYear()} TalScout AI. All rights reserved.
           </div>
         </footer>
       </main>

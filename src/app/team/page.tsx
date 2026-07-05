@@ -295,7 +295,7 @@ export default function TeamSeatsPage() {
             <div className="col-span-1 md:col-span-2">
               <h1 className="text-headline-md font-headline-md text-primary mb-4">TalScout</h1>
               <p className="text-on-surface-variant max-w-sm mb-6">Empowering global recruitment teams with precision intelligence and editorial-grade talent management.</p>
-              <p className="font-label-md text-label-md text-outline">© 2026 TalScout AI. All rights reserved.</p>
+              <p className="font-label-md text-label-md text-outline">© {new Date().getFullYear()} TalScout AI. All rights reserved.</p>
             </div>
             <div className="flex flex-col space-y-3">
               <p className="font-headline-md text-[16px] text-primary font-semibold mb-2">Product</p>

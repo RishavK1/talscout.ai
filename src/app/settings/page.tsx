@@ -6,16 +6,9 @@ import { toast } from "sonner";
 import { AppShell } from "@/components/app/app-shell";
 import { useAuth } from "@/components/app/auth-provider";
 import { api } from "@/lib/api";
+import { supabase } from "@/lib/supabase";
 import { Modal } from "@/components/ui/modal";
 import { TopAppBar } from "@/components/app/top-app-bar";
-
-const developerCache = {
-  webhookUrl: "",
-  webhookTriggers: [] as string[],
-  apiKey: "",
-};
-
-
 
 const TABS = ["General", "Security", "Data & privacy", "Developer"] as const;
 type Tab = (typeof TABS)[number];
@@ -257,82 +250,144 @@ function ProfileCard({ email, userId }: { email: string; userId: string }) {
 }
 
 function SecurityCard() {
-  const [twoFA, setTwoFA] = useState(true);
+  const { profile } = useAuth();
+  const [pwOpen, setPwOpen] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [changing, setChanging] = useState(false);
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPassword.length < 8) {
+      toast.error("Password must be at least 8 characters");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error("Passwords do not match");
+      return;
+    }
+    setChanging(true);
+    try {
+      // Real password update against the authenticated Supabase session.
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      toast.success("Password updated successfully");
+      setPwOpen(false);
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to update password";
+      toast.error(msg);
+    } finally {
+      setChanging(false);
+    }
+  };
+
   return (
-    <Card title="Security" subtitle="Protect your account with modern security standards.">
-      <div className="space-y-8">
-        <div className="flex flex-wrap gap-4 items-center justify-between py-4 border-b border-border-low-alpha/50">
-          <div>
-            <p className="font-label-md text-primary">Password</p>
-            <p className="text-on-surface-variant text-[13px]">Last changed 3 months ago</p>
-          </div>
-          <button
-            type="button"
-            className="px-5 py-2 border border-outline rounded-lg text-primary font-label-md hover:bg-surface-container-low transition-colors"
-          >
-            Change password
-          </button>
-        </div>
-        <div className="flex flex-wrap gap-4 items-center justify-between">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <p className="font-label-md text-primary">Two-factor authentication</p>
-              <span className="bg-secondary-container text-on-secondary-container text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
-                Recommended
-              </span>
+    <>
+      <Card title="Security" subtitle="Protect your account with modern security standards.">
+        <div className="space-y-8">
+          <div className="flex flex-wrap gap-4 items-center justify-between py-4 border-b border-border-low-alpha/50">
+            <div>
+              <p className="font-label-md text-primary">Password</p>
+              <p className="text-on-surface-variant text-[13px]">
+                Set a strong, unique password for {profile?.email || "your account"}.
+              </p>
             </div>
-            <p className="text-on-surface-variant text-[13px]">
-              Add an extra layer of security to your account.
+            <button
+              type="button"
+              onClick={() => setPwOpen(true)}
+              className="px-5 py-2 border border-outline rounded-lg text-primary font-label-md hover:bg-surface-container-low transition-colors"
+            >
+              Change password
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-4 items-center justify-between py-4 border-b border-border-low-alpha/50">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <p className="font-label-md text-primary">Two-factor authentication</p>
+                <span className="bg-surface-container-high text-on-surface-variant text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
+                  Coming soon
+                </span>
+              </div>
+              <p className="text-on-surface-variant text-[13px]">
+                TOTP-based 2FA is on our roadmap and will appear here when it ships.
+              </p>
+            </div>
+          </div>
+          <div>
+            <p className="font-label-md text-primary mb-4">Current session</p>
+            <div className="bg-bg-cream/40 rounded-xl p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <span className="material-symbols-outlined text-outline">devices</span>
+                  <div>
+                    <p className="text-label-md text-on-surface">
+                      This device — signed in as {profile?.email || "you"}
+                    </p>
+                    <p className="text-[11px] text-tertiary font-medium">Active now</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <p className="mt-2 text-[12px] text-on-surface-variant">
+              Signing out ends this session. Cross-device session management is coming soon.
             </p>
           </div>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={twoFA}
-            onClick={() => setTwoFA((v) => !v)}
-            className={
-              "w-12 h-6 rounded-full relative flex items-center transition-colors px-1 " +
-              (twoFA ? "bg-primary" : "bg-outline-variant")
-            }
-          >
-            <div
-              className={
-                "w-4 h-4 bg-white rounded-full transition-transform duration-200 ease-[var(--ease-out)] " +
-                (twoFA ? "translate-x-6" : "translate-x-0")
-              }
+        </div>
+      </Card>
+
+      <Modal
+        open={pwOpen}
+        onClose={() => !changing && setPwOpen(false)}
+        title="Change password"
+        subtitle="Choose a new password of at least 8 characters."
+      >
+        <form onSubmit={handleChangePassword} className="space-y-4">
+          <div>
+            <label className="block font-label-md text-primary mb-2">New password</label>
+            <input
+              type="password"
+              required
+              minLength={8}
+              autoComplete="new-password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              className="w-full bg-bg-cream/30 border border-border-low-alpha rounded-xl px-4 py-3 font-body-md focus:outline-none focus:ring-1 focus:ring-primary"
             />
-          </button>
-        </div>
-        <div>
-          <p className="font-label-md text-primary mb-4">Active sessions</p>
-          <div className="bg-bg-cream/40 rounded-xl p-4 space-y-4">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <span className="material-symbols-outlined text-outline">laptop_mac</span>
-                <div>
-                  <p className="text-label-md text-on-surface">MacBook Pro 16&quot; • San Francisco, USA</p>
-                  <p className="text-[11px] text-tertiary font-medium">Current session</p>
-                </div>
-              </div>
-              <span className="text-[11px] text-outline font-data-mono">192.168.1.1</span>
-            </div>
-            <div className="h-[1px] bg-border-low-alpha" />
-            <div className="flex items-center justify-between gap-3 opacity-60">
-              <div className="flex items-center gap-3">
-                <span className="material-symbols-outlined text-outline">smartphone</span>
-                <div>
-                  <p className="text-label-md text-on-surface">iPhone 15 Pro • London, UK</p>
-                  <p className="text-[11px] text-on-surface-variant">Last active: 2 hours ago</p>
-                </div>
-              </div>
-              <button type="button" className="text-error font-label-md text-[12px] hover:underline">
-                Revoke
-              </button>
-            </div>
           </div>
-        </div>
-      </div>
-    </Card>
+          <div>
+            <label className="block font-label-md text-primary mb-2">Confirm new password</label>
+            <input
+              type="password"
+              required
+              minLength={8}
+              autoComplete="new-password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              className="w-full bg-bg-cream/30 border border-border-low-alpha rounded-xl px-4 py-3 font-body-md focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+          </div>
+          <div className="flex justify-end gap-3 pt-2">
+            <button
+              type="button"
+              onClick={() => setPwOpen(false)}
+              disabled={changing}
+              className="rounded-lg border border-outline px-5 py-2.5 font-label-md text-primary transition-colors hover:bg-surface-container-low"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={changing}
+              className="rounded-lg bg-primary px-5 py-2.5 font-label-md text-on-primary transition-colors hover:bg-primary-container active:scale-[0.98] disabled:opacity-50"
+            >
+              {changing ? "Updating..." : "Update password"}
+            </button>
+          </div>
+        </form>
+      </Modal>
+    </>
   );
 }
 
@@ -772,7 +827,7 @@ export default function SettingsPage() {
                 <span className="material-symbols-outlined text-on-surface-variant cursor-pointer hover:text-primary transition-colors">language</span>
                 <span className="material-symbols-outlined text-on-surface-variant cursor-pointer hover:text-primary transition-colors">hub</span>
               </div>
-              <p className="text-on-surface-variant text-label-md opacity-60 mt-4 md:mt-0">© 2026 TalScout AI. All rights reserved.</p>
+              <p className="text-on-surface-variant text-label-md opacity-60 mt-4 md:mt-0">© {new Date().getFullYear()} TalScout AI. All rights reserved.</p>
             </div>
           </div>
         </footer>
