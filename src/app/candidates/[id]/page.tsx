@@ -333,7 +333,7 @@ export default function CandidateProfilePage() {
               <MessageCandidate name={name} email={candidate.emails?.[0] || ""} />
               
               <div className="flex gap-3 pt-2">
-                <DownloadPdfButton />
+                <DownloadPdfButton candidateId={candidate.id} />
                 <EditProfile candidate={candidate} onUpdate={handleCandidateUpdate} />
               </div>
               <button

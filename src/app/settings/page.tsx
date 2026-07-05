@@ -17,7 +17,7 @@ const developerCache = {
 
 
 
-const TABS = ["General", "Members", "Billing", "Security", "Data & privacy", "Developer"] as const;
+const TABS = ["General", "Security", "Data & privacy", "Developer"] as const;
 type Tab = (typeof TABS)[number];
 
 const slug = (t: string) => t.toLowerCase().replace(/[^a-z]+/g, "-").replace(/^-|-$/g, "");
@@ -104,20 +104,6 @@ function WorkspaceCard({ workspaceName, tenantId }: { workspaceName: string; ten
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
-          </div>
-          <div>
-            <label className="block font-label-md text-primary mb-2">Workspace URL</label>
-            <div className="flex items-center">
-              <span className="bg-bg-cream border border-r-0 border-border-low-alpha rounded-l-xl px-4 py-3 text-outline font-label-md">
-                talscout.app/
-              </span>
-              <input
-                className="flex-1 min-w-0 border border-border-low-alpha rounded-r-xl px-4 py-3 font-body-md focus:ring-primary"
-                type="text"
-                disabled
-                value={name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}
-              />
-            </div>
           </div>
         </div>
         <div className="flex flex-col items-center">
@@ -350,33 +336,6 @@ function SecurityCard() {
   );
 }
 
-function LinkPanel({
-  title,
-  subtitle,
-  blurb,
-  href,
-  cta,
-}: {
-  title: string;
-  subtitle: string;
-  blurb: string;
-  href: string;
-  cta: string;
-}) {
-  return (
-    <Card title={title} subtitle={subtitle}>
-      <p className="text-on-surface-variant font-body-md mb-6">{blurb}</p>
-      <Link
-        href={href}
-        className="inline-flex items-center gap-2 bg-primary text-white px-6 py-3 rounded-xl font-label-md hover:shadow-lg transition-all active:scale-[0.98]"
-      >
-        {cta}
-        <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
-      </Link>
-    </Card>
-  );
-}
-
 function DataPanel({ profile, signOut }: { profile: any; signOut: () => void }) {
   const [exporting, setExporting] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -450,11 +409,16 @@ function DataPanel({ profile, signOut }: { profile: any; signOut: () => void }) 
     setIsDeleteModalOpen(false);
     toast.loading("De-provisioning databases and deleting assets...", { id: "delete-ws" });
 
-    setTimeout(() => {
+    try {
+      await api.delete("/api/workspace", { confirm: "DELETE" });
       toast.success("Workspace successfully de-provisioned", { id: "delete-ws" });
+      await signOut();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to delete workspace";
+      toast.error(msg, { id: "delete-ws" });
+    } finally {
       setDeleting(false);
-      signOut();
-    }, 2000);
+    }
   };
 
   return (
@@ -827,7 +791,7 @@ export default function SettingsPage() {
     loadPlan();
   }, [profile, authLoading]);
 
-  // Deep-link support: initialise from URL hash (e.g. /settings#billing).
+  // Deep-link support: initialise from URL hash (e.g. /settings#data-privacy).
   useEffect(() => {
     const h = window.location.hash.replace("#", "");
     const found = TABS.find((t) => slug(t) === h);
@@ -932,24 +896,6 @@ export default function SettingsPage() {
                     userId={profile?.userId || ""}
                   />
                 </>
-              )}
-              {tab === "Members" && (
-                <LinkPanel
-                  title="Members"
-                  subtitle="Manage who can access this workspace."
-                  blurb="Invite recruiters, set roles, and manage seats in Team & seats."
-                  href="/team"
-                  cta="Manage team & seats"
-                />
-              )}
-              {tab === "Billing" && (
-                <LinkPanel
-                  title="Billing"
-                  subtitle="Manage your subscription and invoices."
-                  blurb="Manage plan, seats, payment method and view invoice history in Billing."
-                  href="/billing"
-                  cta="Go to Billing"
-                />
               )}
               {tab === "Security" && <SecurityCard />}
               {tab === "Data & privacy" && <DataPanel profile={profile} signOut={signOut} />}
