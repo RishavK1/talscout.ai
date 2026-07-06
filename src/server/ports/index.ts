@@ -154,6 +154,45 @@ export interface Mailer {
   send(message: MailMessage): Promise<void>;
 }
 
+/** Credentials for one connected sender account (see server/db/schema.ts's
+ *  `senderAccounts`), decrypted just-in-time by the caller — never persisted
+ *  in this shape. Gmail uses server-side OAuth with offline access (a
+ *  refresh token), not a browser-held access token, so sending works with
+ *  no tab open. */
+export type SenderAccountCredentials =
+  | {
+      type: "smtp";
+      host: string;
+      port: number;
+      secure: boolean;
+      username: string;
+      password: string;
+    }
+  | {
+      type: "gmail";
+      refreshToken: string;
+    };
+
+export interface OutreachSendArgs {
+  from: string;
+  fromName?: string;
+  to: string;
+  subject: string;
+  text: string;
+  /** Replies go back to the sending mailbox itself. */
+  replyTo?: string;
+}
+
+/**
+ * Separate from `Mailer` on purpose: `Mailer` assumes one fixed transactional
+ * sender (Resend), while bulk-fire rotates sends across many tenant-owned
+ * mailbox identities (Gmail/SMTP), each with its own credentials supplied
+ * per call.
+ */
+export interface OutreachMailer {
+  send(creds: SenderAccountCredentials, message: OutreachSendArgs): Promise<void>;
+}
+
 export interface RateLimitResult {
   success: boolean;
   limit: number;
@@ -174,4 +213,5 @@ export interface Services {
   payment: PaymentProvider;
   limiter: RateLimiter;
   mailer: Mailer;
+  outreachMailer: OutreachMailer;
 }

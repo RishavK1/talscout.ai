@@ -19,6 +19,7 @@ const mainNav: Item[] = [
   { href: "/candidates", icon: "group", label: "Candidates" },
   { href: "/upload", icon: "upload_file", label: "Upload" },
   { href: "/shortlists", icon: "star", label: "Shortlists" },
+  { href: "/outreach/bulk-fire", icon: "send", label: "Bulk Fire" },
 ];
 
 const footerNav: Item[] = [

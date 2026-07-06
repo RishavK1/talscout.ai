@@ -8,6 +8,8 @@ import { GeminiReranker } from "@/server/adapters/gemini.reranker";
 import { MockPaymentProvider } from "@/server/adapters/mock.payment";
 import { MockMailer } from "@/server/adapters/mock.mailer";
 import { ResendMailer } from "@/server/adapters/resend.mailer";
+import { MockOutreachMailer } from "@/server/adapters/mock.outreach-mailer";
+import { OutreachMailerAdapter } from "@/server/adapters/outreach.mailer";
 import { InProcessQueue } from "@/server/adapters/inprocess.queue";
 import { ClaudeExtractor } from "@/server/adapters/claude.extractor";
 import { GeminiExtractor } from "@/server/adapters/gemini.extractor";
@@ -22,6 +24,16 @@ import {
   PARSE_RESUME_JOB,
   type ParseResumePayload,
 } from "@/server/jobs/parse-resume";
+import {
+  parseLeadsDocxJob,
+  PARSE_LEADS_DOCX_JOB,
+  type ParseLeadsDocxPayload,
+} from "@/server/jobs/parse-leads-docx";
+import {
+  sendOutreachEmail,
+  SEND_OUTREACH_EMAIL_JOB,
+  type SendOutreachEmailPayload,
+} from "@/server/jobs/send-outreach-email";
 
 let services: Services | null = null;
 
@@ -42,10 +54,24 @@ export function getServices(): Services {
       queue,
       limiter: new MemoryRateLimiter(),
       mailer: new MockMailer(),
+      outreachMailer: new MockOutreachMailer(),
     };
     queue.register(PARSE_RESUME_JOB, (payload) =>
       parseResume(payload as ParseResumePayload, services as Services),
     );
+    queue.register(PARSE_LEADS_DOCX_JOB, (payload) =>
+      parseLeadsDocxJob(payload as ParseLeadsDocxPayload, services as Services),
+    );
+    // No sleepUntil here — InProcessQueue runs handlers inline for deterministic
+    // tests/dev, so a scheduled send just fires immediately instead of waiting
+    // for its block; the pacing delay only matters against a real Inngest queue.
+    queue.register(SEND_OUTREACH_EMAIL_JOB, (payload) => {
+      const data = payload as SendOutreachEmailPayload & { targetSendAt: string };
+      return sendOutreachEmail(
+        { tenantId: data.tenantId, sendId: data.sendId },
+        services as Services,
+      );
+    });
   } else {
     // APP_MODE=live — real services.
     // In serverless production, use InngestQueue to prevent background job freezing.
@@ -74,12 +100,23 @@ export function getServices(): Services {
       queue,
       limiter,
       mailer: env.RESEND_API_KEY ? new ResendMailer() : new MockMailer(),
+      outreachMailer: new OutreachMailerAdapter(),
     };
 
     if (queue instanceof InProcessQueue) {
       queue.register(PARSE_RESUME_JOB, (payload) =>
         parseResume(payload as ParseResumePayload, services as Services),
       );
+      queue.register(PARSE_LEADS_DOCX_JOB, (payload) =>
+        parseLeadsDocxJob(payload as ParseLeadsDocxPayload, services as Services),
+      );
+      queue.register(SEND_OUTREACH_EMAIL_JOB, (payload) => {
+        const data = payload as SendOutreachEmailPayload & { targetSendAt: string };
+        return sendOutreachEmail(
+          { tenantId: data.tenantId, sendId: data.sendId },
+          services as Services,
+        );
+      });
     }
   }
 
