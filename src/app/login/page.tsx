@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { authCallbackUrl } from "@/lib/auth-redirect";
 import { toast } from "sonner";
+import { Modal } from "@/components/ui/modal";
 
 function LoginPageContent() {
   const router = useRouter();
@@ -13,6 +14,9 @@ function LoginPageContent() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [forgotOpen, setForgotOpen] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [sendingReset, setSendingReset] = useState(false);
 
   const rawRedirect = searchParams.get("redirect") || "/dashboard";
   const redirectPath = (
@@ -42,6 +46,27 @@ function LoginPageContent() {
       toast.error(msg);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!forgotEmail) return;
+    setSendingReset(true);
+    try {
+      // The recovery link returns to /auth/callback?flow=recovery, which then
+      // routes the signed-in user to Settings → Security to set a new password.
+      const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
+        redirectTo: `${authCallbackUrl()}?flow=recovery`,
+      });
+      if (error) throw error;
+      toast.success(`Password reset link sent to ${forgotEmail} — check your inbox.`);
+      setForgotOpen(false);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to send reset email";
+      toast.error(msg);
+    } finally {
+      setSendingReset(false);
     }
   };
 
@@ -109,7 +134,16 @@ function LoginPageContent() {
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
                   <label className="block font-label-md text-label-md text-on-surface" htmlFor="password">Password</label>
-                  <a className="font-label-md text-label-md text-primary hover:text-primary-container transition-colors" href="#">Forgot password?</a>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setForgotEmail(email);
+                      setForgotOpen(true);
+                    }}
+                    className="font-label-md text-label-md text-primary hover:text-primary-container transition-colors"
+                  >
+                    Forgot password?
+                  </button>
                 </div>
                 <input
                   className="w-full px-4 py-3 bg-surface-bright border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors text-on-surface placeholder-outline"
@@ -169,6 +203,49 @@ function LoginPageContent() {
           </div>
         </div>
       </div>
+
+      {/* Forgot password */}
+      <Modal
+        open={forgotOpen}
+        onClose={() => !sendingReset && setForgotOpen(false)}
+        title="Reset your password"
+        subtitle="We'll email you a link to choose a new one."
+      >
+        <form onSubmit={handleForgotPassword} className="space-y-4">
+          <div>
+            <label className="block font-label-md text-[13px] text-primary mb-1.5" htmlFor="forgot-email">
+              Email address
+            </label>
+            <input
+              id="forgot-email"
+              type="email"
+              required
+              autoFocus
+              value={forgotEmail}
+              onChange={(e) => setForgotEmail(e.target.value)}
+              placeholder="name@company.com"
+              className="w-full rounded-xl border border-border-low-alpha bg-bg-cream/30 px-4 py-3 font-body-md focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+          </div>
+          <div className="flex justify-end gap-3 pt-2">
+            <button
+              type="button"
+              onClick={() => setForgotOpen(false)}
+              disabled={sendingReset}
+              className="rounded-lg border border-outline px-5 py-2.5 font-label-md text-primary transition-colors hover:bg-surface-container-low"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={sendingReset}
+              className="rounded-lg bg-primary px-5 py-2.5 font-label-md text-on-primary transition-colors hover:bg-primary-container active:scale-[0.98] disabled:opacity-50"
+            >
+              {sendingReset ? "Sending..." : "Send reset link"}
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }

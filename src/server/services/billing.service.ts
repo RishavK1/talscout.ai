@@ -17,7 +17,7 @@ import type { TenantContext } from "@/server/db/tx";
 const ACTIVE_STATUSES = new Set(["trialing", "active"]);
 
 export const billingService = {
-  async createCheckout(ctx: TenantContext, body: CheckoutBody) {
+  async createCheckout(ctx: TenantContext, body: CheckoutBody, appOrigin?: string) {
     const sub = await subscriptionRepo.getByTenant(ctx);
     
     // Validate that the request is a plan/seat upgrade (no downgrades allowed via self-serve checkout)
@@ -44,6 +44,7 @@ export const billingService = {
       seats: body.seats,
       amount,
       customerId: sub?.stripeCustomerId ?? undefined,
+      appOrigin,
     });
     
     // Subscription state is ONLY set by the Stripe webhook (handleWebhook) after

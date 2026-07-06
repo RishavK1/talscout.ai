@@ -112,6 +112,9 @@ export interface CheckoutArgs {
   seats: number;
   amount: number; // total in minor units (cents) — computed server-side
   customerId?: string;
+  /** Origin of the initiating request (e.g. https://app.example.com). Used for
+   *  success/cancel redirects so deployed checkouts never bounce to localhost. */
+  appOrigin?: string;
 }
 export interface CheckoutSession {
   url: string;

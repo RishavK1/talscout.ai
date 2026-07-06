@@ -35,6 +35,15 @@ export class StripePaymentProvider implements PaymentProvider {
     const price = priceForPlan(args.plan);
     if (!price) throw new Error(`No Stripe price configured for plan ${args.plan}`);
 
+    // Redirect base: prefer the initiating request's origin — correct on the
+    // deployed domain, preview deployments AND any local dev port — falling
+    // back to APP_URL (whose default is localhost) only when absent. This is
+    // what keeps post-payment redirects off localhost in production.
+    const base =
+      args.appOrigin && /^https?:\/\//.test(args.appOrigin)
+        ? args.appOrigin
+        : env.APP_URL;
+
     const metadata = {
       tenantId: args.tenantId,
       plan: args.plan,
@@ -44,8 +53,8 @@ export class StripePaymentProvider implements PaymentProvider {
       mode: "subscription",
       line_items: [{ price, quantity: args.seats }],
       customer: args.customerId,
-      success_url: `${env.APP_URL}/billing?status=success&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${env.APP_URL}/billing?status=cancelled`,
+      success_url: `${base}/billing?status=success&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${base}/billing?status=cancelled`,
       metadata,
       subscription_data: { metadata },
     });

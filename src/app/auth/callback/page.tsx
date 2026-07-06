@@ -17,14 +17,28 @@ export default function AuthCallbackPage() {
 
   useEffect(() => {
     let done = false;
-    const finish = () => {
+
+    const params = new URLSearchParams(window.location.search);
+    // Password-recovery links land here too (?flow=recovery, set by our
+    // resetPasswordForEmail call; type=recovery covers Supabase's implicit
+    // flow). Those users go straight to setting a new password.
+    const isRecovery =
+      params.get("flow") === "recovery" ||
+      params.get("type") === "recovery" ||
+      window.location.hash.includes("type=recovery");
+
+    const finish = (recovery = isRecovery) => {
       if (done) return;
       done = true;
-      router.replace("/dashboard");
+      if (recovery) {
+        toast.info("You're signed in — set your new password now.");
+        router.replace("/settings#security");
+      } else {
+        router.replace("/dashboard");
+      }
     };
 
     // OAuth provider returned an error?
-    const params = new URLSearchParams(window.location.search);
     const err = params.get("error_description") || params.get("error");
     if (err) {
       toast.error(decodeURIComponent(err));
@@ -38,8 +52,9 @@ export default function AuthCallbackPage() {
     });
     // …or arrive a moment later once the code exchange completes.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        if (session) finish();
+      (event, session) => {
+        if (event === "PASSWORD_RECOVERY") finish(true);
+        else if (session) finish();
       },
     );
 
