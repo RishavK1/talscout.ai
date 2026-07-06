@@ -23,10 +23,53 @@ const geistMono = Geist_Mono({
   display: "swap",
 });
 
+const SITE_URL = "https://talscout.rishavkamboj.online";
+const SITE_NAME = "TalScout";
+const TITLE = "TalScout — Stop typing résumés. Start finding talent.";
+const DESCRIPTION =
+  "Transform chaotic PDFs into a structured, searchable candidate database in seconds. Built for high-volume recruitment teams who demand precision and speed.";
+
 export const metadata: Metadata = {
-  title: "TalScout — Stop typing résumés. Start finding talent.",
-  description:
-    "Transform chaotic PDFs into a structured, searchable candidate database in seconds. Built for high-volume recruitment teams who demand precision and speed.",
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: TITLE,
+    template: "%s — TalScout",
+  },
+  description: DESCRIPTION,
+  keywords: [
+    "resume parsing",
+    "candidate database",
+    "semantic search",
+    "recruiting software",
+    "applicant tracking",
+    "AI recruiting",
+    "talent search",
+  ],
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    title: TITLE,
+    description: DESCRIPTION,
+    url: SITE_URL,
+    siteName: SITE_NAME,
+    type: "website",
+    locale: "en_US",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: TITLE,
+    description: DESCRIPTION,
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+    },
+  },
 };
 
 import { AuthProvider } from "@/components/app/auth-provider";
