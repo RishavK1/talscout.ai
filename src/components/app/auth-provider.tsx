@@ -40,7 +40,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
 
-  const fetchProfile = async (skipRedirect = false) => {
+  const fetchProfile = async (skipRedirect = false, isRetry = false) => {
     try {
       const data = await api.get<{
         userId: string;
@@ -68,7 +68,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
       // The session route might return workspaceName or we can query it later
       setWorkspaceName(data.workspaceName ?? "Workspace");
-      
+
       // If we are on login, signup, or onboarding/workspace, redirect accordingly.
       if (!skipRedirect) {
         const isActive = ["active", "trialing"].includes(data.subscriptionStatus ?? "incomplete");
@@ -81,17 +81,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
     } catch (err) {
+      // The silent boot-time fetch (initAuth, skipRedirect=true) can lose a race
+      // with token hydration right after a hard refresh. Give it one retry
+      // before treating the failure as real — avoids bouncing an already-
+      // onboarded user to /onboarding/workspace over a transient blip.
+      if (skipRedirect && !isRetry) {
+        await new Promise((resolve) => setTimeout(resolve, 800));
+        return fetchProfile(skipRedirect, true);
+      }
       if (err instanceof ApiError && err.status === 401 && err.message.includes("No account provisioned")) {
         // User exists in Supabase but no workspace provisioned in DB
         setProfile(null);
-        // Redirect to onboarding
-        if (!pathname.startsWith("/onboarding")) {
+        // Redirect to onboarding (skip if this was a silent call — the routing
+        // effect owns navigation decisions once loading settles).
+        if (!skipRedirect && !pathname.startsWith("/onboarding")) {
           router.push("/onboarding/workspace");
         }
       } else {
         // General error or token invalid
         setProfile(null);
-        if (!["/", "/login", "/signup", "/pricing", "/privacy", "/terms"].includes(pathname)) {
+        if (!skipRedirect && !["/", "/login", "/signup", "/pricing", "/privacy", "/terms"].includes(pathname)) {
           router.push("/login");
         }
       }

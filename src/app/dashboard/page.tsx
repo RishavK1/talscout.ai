@@ -20,7 +20,7 @@ interface SimpleCandidate {
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { user, profile } = useAuth();
+  const { user, profile, loading: authLoading } = useAuth();
   const [semanticQuery, setSemanticQuery] = useState("");
   const [totalCandidates, setTotalCandidates] = useState(0);
   const [processedCandidates, setProcessedCandidates] = useState(0);
@@ -48,6 +48,12 @@ export default function DashboardPage() {
   }, [profile?.tenantId]);
 
   useEffect(() => {
+    // AuthProvider resolves the session/profile on mount too; on a hard refresh
+    // both fire at once. Wait for it to settle so this fetch always has a
+    // confirmed-valid token instead of racing token hydration and silently
+    // stranding the stats at 0 with no retry.
+    if (authLoading) return;
+
     const fetchDashboardData = async () => {
       try {
         // Fire all requests in parallel instead of awaiting each in series.
@@ -78,7 +84,7 @@ export default function DashboardPage() {
     };
 
     fetchDashboardData();
-  }, []);
+  }, [authLoading]);
 
   const formatUploadedDate = (dateStr: string) => {
     try {
