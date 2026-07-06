@@ -121,6 +121,16 @@ export default function CandidatesPage() {
     fetchCandidates();
   }, []);
 
+  // Parsing runs in a background job, so rows can still be "Processing" right
+  // after upload. Poll until none are, instead of leaving stale rows forever.
+  useEffect(() => {
+    if (!candidates.some((c) => c.status === "Processing")) return;
+    const interval = setInterval(() => {
+      fetchCandidates();
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [candidates]);
+
   const filtered = candidates.filter((c) => {
     const matchesQ =
       q.trim() === "" ||

@@ -99,6 +99,22 @@ export default function CandidateProfilePage() {
     setCandidate(updated);
   };
 
+  // Parsing runs in a background job (Inngest), so a candidate opened right
+  // after upload can still be "processing". Poll until it lands on a terminal
+  // status instead of leaving the page stuck on a stale snapshot forever.
+  useEffect(() => {
+    if (!id || candidate?.status !== "processing") return;
+    const interval = setInterval(async () => {
+      try {
+        const data = await api.get<CandidateDetails>(`/api/candidates/${id}`);
+        setCandidate(data);
+      } catch {
+        // transient poll failure — next tick retries
+      }
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [id, candidate?.status]);
+
   const handleDelete = async () => {
     setDeleting(true);
     try {
