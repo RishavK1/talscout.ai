@@ -1,7 +1,4 @@
 import { withAuth } from "@/server/http/with-api";
-import { db } from "@/server/db/client";
-import { shortlists, shortlistItems, candidates } from "@/server/db/schema";
-import { eq, and } from "drizzle-orm";
 import { uuidOr404 } from "@/server/validation/common";
 import { billingService } from "@/server/services/billing.service";
 import { shortlistRepo } from "@/server/repositories/shortlist.repo";
@@ -54,63 +51,25 @@ export const POST = withAuth<z.infer<typeof addSchema>>(
     const candidateId = body.candidateId;
 
     // 1. Verify candidate exists and belongs to the tenant
-    const candidate = await db()
-      .select()
-      .from(candidates)
-      .where(
-        and(
-          eq(candidates.id, candidateId),
-          eq(candidates.tenantId, ctx.tenantId)
-        )
-      )
-      .limit(1);
-
-    if (candidate.length === 0) {
+    const candidate = await shortlistRepo.getCandidateById(ctx, candidateId);
+    if (!candidate) {
       throw new NotFound("Candidate not found");
     }
 
     // 2. Verify shortlist exists and belongs to the tenant
-    const shortlist = await db()
-      .select()
-      .from(shortlists)
-      .where(
-        and(
-          eq(shortlists.id, shortlistId),
-          eq(shortlists.tenantId, ctx.tenantId)
-        )
-      )
-      .limit(1);
-
-    if (shortlist.length === 0) {
+    const shortlist = await shortlistRepo.getById(ctx, shortlistId);
+    if (!shortlist) {
       throw new NotFound("Shortlist not found");
     }
 
     // 3. Check if already added
-    const existing = await db()
-      .select()
-      .from(shortlistItems)
-      .where(
-        and(
-          eq(shortlistItems.tenantId, ctx.tenantId),
-          eq(shortlistItems.shortlistId, shortlistId),
-          eq(shortlistItems.candidateId, candidateId)
-        )
-      )
-      .limit(1);
-
-    if (existing.length > 0) {
+    const existing = await shortlistRepo.getExistingItem(ctx, shortlistId, candidateId);
+    if (existing) {
       throw new Conflict("Candidate is already in this shortlist");
     }
 
     // 4. Insert shortlist item
-    const [inserted] = await db()
-      .insert(shortlistItems)
-      .values({
-        tenantId: ctx.tenantId,
-        shortlistId,
-        candidateId,
-      })
-      .returning();
+    const inserted = await shortlistRepo.addItem(ctx, shortlistId, candidateId);
 
     return { status: 201, data: inserted };
   },
