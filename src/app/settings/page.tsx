@@ -812,9 +812,8 @@ export default function SettingsPage() {
             </div>
             <div className="flex flex-col space-y-3">
               <p className="font-label-md text-primary uppercase text-[10px] tracking-widest mb-2">Platform</p>
-              <Link href="/#features" className="text-on-surface-variant font-body-md hover:text-secondary transition-colors">Solutions</Link>
+              <Link href="/#features" className="text-on-surface-variant font-body-md hover:text-secondary transition-colors">Features</Link>
               <Link href="/pricing" className="text-on-surface-variant font-body-md hover:text-secondary transition-colors">Pricing</Link>
-              <Link href="/#features" className="text-on-surface-variant font-body-md hover:text-secondary transition-colors">Resources</Link>
             </div>
             <div className="flex flex-col space-y-3">
               <p className="font-label-md text-primary uppercase text-[10px] tracking-widest mb-2">Legal</p>
@@ -823,10 +822,6 @@ export default function SettingsPage() {
               <Link href="/cookies" className="text-on-surface-variant font-body-md hover:text-secondary transition-colors">Cookie Policy</Link>
             </div>
             <div className="flex flex-col items-start md:items-end justify-between">
-              <div className="flex gap-4">
-                <span className="material-symbols-outlined text-on-surface-variant cursor-pointer hover:text-primary transition-colors">language</span>
-                <span className="material-symbols-outlined text-on-surface-variant cursor-pointer hover:text-primary transition-colors">hub</span>
-              </div>
               <p className="text-on-surface-variant text-label-md opacity-60 mt-4 md:mt-0">© {new Date().getFullYear()} TalScout AI. All rights reserved.</p>
             </div>
           </div>

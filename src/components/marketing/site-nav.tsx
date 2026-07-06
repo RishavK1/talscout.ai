@@ -11,9 +11,14 @@ export function SiteNav() {
         <div className="flex items-center gap-8">
           <Link
             href="/"
-            className="font-headline-lg text-headline-md tracking-tight text-primary"
+            className="flex items-center gap-2.5"
           >
-            TalScout
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-container text-on-primary shadow-sm">
+              <span className="material-symbols-outlined text-[20px]">travel_explore</span>
+            </span>
+            <span className="font-headline-lg text-headline-md tracking-tight text-primary">
+              TalScout
+            </span>
           </Link>
           <nav className="hidden items-center gap-6 md:flex">
             <Link

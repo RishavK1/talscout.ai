@@ -1,28 +1,14 @@
 "use client";
 
 import { useState } from "react";
-
-const faqs = [
-  {
-    q: "Can I change plans at any time?",
-    a: "Yes, you can upgrade or downgrade your plan at any time from your account settings. Changes to your billing will be prorated.",
-  },
-  {
-    q: 'What is a "seat"?',
-    a: "A seat refers to a single user account with login credentials. Typically, each recruiter on your team will require their own seat.",
-  },
-  {
-    q: "Do you offer discounts for non-profits?",
-    a: "Yes, we support organizations making a difference. Contact our sales team to discuss non-profit and educational pricing.",
-  },
-];
+import { FAQS } from "@/components/marketing/faq-data";
 
 export function FaqAccordion() {
   const [openIndex, setOpenIndex] = useState<number | null>(0);
 
   return (
     <div className="space-y-4">
-      {faqs.map((faq, i) => {
+      {FAQS.map((faq, i) => {
         const isActive = openIndex === i;
         return (
           <div

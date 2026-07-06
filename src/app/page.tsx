@@ -9,23 +9,6 @@ import { LandingFaq } from "@/components/marketing/landing-faq";
 import { PointerGlow } from "@/components/marketing/pointer-glow";
 import { SpotlightCard } from "@/components/marketing/spotlight-card";
 
-const TRUST_LOGOS = [
-  "Vertex Staffing",
-  "NorthBridge Talent",
-  "Apex Recruiting",
-  "Meridian Search",
-  "Summit Staffing",
-  "Caldera Talent",
-  "Hartwell Group",
-];
-
-const STATS = [
-  { value: "2.4M", label: "résumés parsed" },
-  { value: "< 1s", label: "average search" },
-  { value: "100%", label: "tenant-isolated data" },
-  { value: "8 hrs", label: "saved per recruiter / week" },
-];
-
 const STEPS = [
   {
     icon: "upload_file",
@@ -183,45 +166,6 @@ export default function LandingPage() {
             </Reveal>
           </div>
         </PointerGlow>
-
-        {/* ===================== TRUST STRIP ===================== */}
-        <section className="border-y border-border-low-alpha bg-surface-white py-10">
-          <p className="mb-6 text-center font-label-md text-label-md uppercase tracking-[0.18em] text-text-muted">
-            Trusted by modern staffing teams
-          </p>
-          <div className="relative overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_12%,black_88%,transparent)]">
-            <div className="flex w-max animate-marquee items-center gap-14 pr-14">
-              {[...TRUST_LOGOS, ...TRUST_LOGOS].map((logo, i) => (
-                <span
-                  key={`${logo}-${i}`}
-                  className="whitespace-nowrap font-headline-md text-[20px] text-on-surface-variant/40"
-                >
-                  {logo}
-                </span>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* ===================== STATS ===================== */}
-        <section className="bg-aurora-soft px-6 py-20 md:px-12">
-          <div className="mx-auto grid w-full max-w-[1440px] grid-cols-2 gap-8 lg:grid-cols-4">
-            {STATS.map((s, i) => (
-              <Reveal
-                key={s.label}
-                delay={i * 0.06}
-                className="text-center"
-              >
-                <div className="font-display-lg text-[44px] leading-none text-gradient-teal lg:text-[52px]">
-                  {s.value}
-                </div>
-                <p className="mt-2 font-label-md text-label-md text-text-muted">
-                  {s.label}
-                </p>
-              </Reveal>
-            ))}
-          </div>
-        </section>
 
         {/* ===================== THE PROBLEM ===================== */}
         <section className="bg-surface-white px-6 py-24 md:px-12">
@@ -557,61 +501,6 @@ export default function LandingPage() {
                   </div>
                 </div>
               </SpotlightCard>
-            </div>
-          </div>
-        </section>
-
-        {/* ===================== TESTIMONIALS ===================== */}
-        <section className="bg-bg-cream px-6 py-24 md:px-12">
-          <div className="mx-auto w-full max-w-[1440px]">
-            <Reveal className="mx-auto mb-14 max-w-2xl text-center">
-              <span className="mb-4 inline-block font-label-md text-label-md uppercase tracking-[0.18em] text-primary">
-                Loved by recruiters
-              </span>
-              <h2 className="font-headline-lg text-headline-lg text-on-surface lg:text-[40px] lg:leading-[1.1]">
-                Recruiters fill roles faster with TalScout.
-              </h2>
-            </Reveal>
-
-            <Reveal delay={0.08}>
-              <SpotlightCard className="mx-auto max-w-3xl rounded-3xl border border-border-low-alpha bg-surface-white p-8 shadow-floating md:p-12">
-                <div className="mb-5 flex gap-1 text-secondary-fixed-dim">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <span key={i} className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: '"FILL" 1' }}>
-                      star
-                    </span>
-                  ))}
-                </div>
-                <p className="mb-8 font-display-lg text-[24px] leading-snug text-on-surface lg:text-[28px]">
-                  &ldquo;We cut résumé processing from hours to minutes and
-                  actually find people we forgot we had. It paid for itself in
-                  week one.&rdquo;
-                </p>
-                <div className="flex items-center gap-4">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-surface-container-high font-headline-md text-primary">
-                    MA
-                  </div>
-                  <div>
-                    <p className="font-headline-md text-[16px] text-on-surface">
-                      Monica Alvarez
-                    </p>
-                    <p className="font-body-md text-[14px] text-text-muted">
-                      Director of Recruiting · Vertex Staffing
-                    </p>
-                  </div>
-                </div>
-              </SpotlightCard>
-            </Reveal>
-
-            <div className="mt-12 flex flex-wrap items-center justify-center gap-x-12 gap-y-4 opacity-50">
-              {TRUST_LOGOS.slice(0, 6).map((logo) => (
-                <span
-                  key={logo}
-                  className="font-headline-md text-[18px] text-on-surface-variant"
-                >
-                  {logo}
-                </span>
-              ))}
             </div>
           </div>
         </section>

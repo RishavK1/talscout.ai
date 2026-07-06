@@ -25,7 +25,6 @@ const columns: { heading: string; links: FootLink[] }[] = [
     links: [
       { label: "Contact Sales", href: "mailto:sales@talscout.ai", external: true },
       { label: "Support", href: "mailto:support@talscout.ai", external: true },
-      { label: "Twitter", href: "https://twitter.com", external: true },
     ],
   },
 ];

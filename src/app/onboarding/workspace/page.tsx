@@ -118,7 +118,7 @@ export default function SetUpWorkspacePage() {
           </form>
           {/* Contextual Help */}
           <div className="mt-8 text-center">
-            <a className="font-label-md text-label-md text-on-surface-variant hover:text-primary transition-colors inline-flex items-center gap-1" href="#">
+            <a className="font-label-md text-label-md text-on-surface-variant hover:text-primary transition-colors inline-flex items-center gap-1" href="mailto:support@talscout.ai">
               <span className="material-symbols-outlined" style={{ fontSize: "16px" }}>help</span>
               Need help setting up?
             </a>

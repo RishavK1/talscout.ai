@@ -134,7 +134,7 @@ export default function ShortlistsPage() {
                 Loading shortlists...
               </div>
             ) : filtered.map(s => (
-              <Link key={s.id} href="/candidates" className="bg-white rounded-[20px] p-8 soft-shadow border border-border-low-alpha group hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between">
+              <Link key={s.id} href={`/shortlists/${s.id}`} className="bg-white rounded-[20px] p-8 soft-shadow border border-border-low-alpha group hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between">
                 <div>
                   <div className="flex justify-between items-start mb-6">
                     <h3 className="font-headline-md text-[20px] text-on-surface leading-snug">{s.name}</h3>

@@ -134,7 +134,7 @@ export default function ChoosePlanPage() {
         <div className="text-center mb-10">
           <h2 className="font-headline-lg text-headline-lg text-on-surface mb-3">Choose your plan</h2>
           <p className="font-body-md text-body-md text-text-muted max-w-lg mx-auto">
-            Select the plan that fits your agency&apos;s scale. You can change this at any time.
+            Select the plan that fits your agency&apos;s scale. Upgrade or add seats any time — need to downgrade later? Just contact support.
           </p>
         </div>
         {/* Billing Toggle */}
@@ -312,15 +312,9 @@ export default function ChoosePlanPage() {
         </div>
       </section>
       {/* Trust Indicator */}
-      <div className="mt-8 text-center">
-        <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3 opacity-40 grayscale group-hover:grayscale-0 transition-all duration-700">
-          <div className="h-6 flex items-center font-headline-md text-headline-md text-on-surface">Stripe</div>
-          <div className="h-5 flex items-center font-headline-md text-on-surface">Revolut</div>
-          <div className="h-6 flex items-center font-headline-md text-headline-md text-on-surface">Attentive</div>
-        </div>
-        <p className="mt-6 font-body-md text-xs text-text-muted">
-          Trusted by 2,000+ recruitment teams worldwide
-        </p>
+      <div className="mt-8 flex items-center justify-center gap-2 text-center opacity-60">
+        <span className="material-symbols-outlined text-[16px] text-text-muted">lock</span>
+        <p className="font-body-md text-xs text-text-muted">Secure checkout powered by Stripe</p>
       </div>
     </main>
   );

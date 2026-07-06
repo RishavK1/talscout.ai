@@ -299,11 +299,13 @@ export default function TeamSeatsPage() {
             </div>
             <div className="flex flex-col space-y-3">
               <p className="font-headline-md text-[16px] text-primary font-semibold mb-2">Product</p>
-              <Link className="text-on-surface-variant hover:text-secondary transition-colors font-label-md" href="/privacy">Privacy</Link>
-              <Link className="text-on-surface-variant hover:text-secondary transition-colors font-label-md" href="/terms">Terms</Link>
+              <Link className="text-on-surface-variant hover:text-secondary transition-colors font-label-md" href="/#features">Features</Link>
+              <Link className="text-on-surface-variant hover:text-secondary transition-colors font-label-md" href="/pricing">Pricing</Link>
             </div>
             <div className="flex flex-col space-y-3">
-              <p className="font-headline-md text-[16px] text-primary font-semibold mb-2">Resources</p>
+              <p className="font-headline-md text-[16px] text-primary font-semibold mb-2">Legal</p>
+              <Link className="text-on-surface-variant hover:text-secondary transition-colors font-label-md" href="/privacy">Privacy</Link>
+              <Link className="text-on-surface-variant hover:text-secondary transition-colors font-label-md" href="/terms">Terms</Link>
               <Link className="text-on-surface-variant hover:text-secondary transition-colors font-label-md" href="/cookies">Cookie Policy</Link>
               <Link className="text-on-surface-variant hover:text-secondary transition-colors font-label-md" href="/security">Security</Link>
             </div>
