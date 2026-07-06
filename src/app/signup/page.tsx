@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { authCallbackUrl } from "@/lib/auth-redirect";
 import { toast } from "sonner";
 
 export default function SignUpPage() {
@@ -34,7 +35,7 @@ export default function SignUpPage() {
         password,
         options: {
           data: { full_name: name },
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          emailRedirectTo: authCallbackUrl(),
         },
       });
       if (error) throw error;
@@ -59,7 +60,7 @@ export default function SignUpPage() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: authCallbackUrl(),
         },
       });
       if (error) throw error;
