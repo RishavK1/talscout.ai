@@ -54,9 +54,17 @@ function toCredentials(
     if (!sender.gmailRefreshTokenEnc) {
       throw new Error("gmail_account_missing_refresh_token");
     }
-    return { type: "gmail", refreshToken: decryptSecret(sender.gmailRefreshTokenEnc) };
+    return {
+      type: "gmail",
+      refreshToken: decryptSecret(sender.gmailRefreshTokenEnc),
+    };
   }
-  if (!sender.smtpHost || !sender.smtpPort || !sender.smtpUsername || !sender.smtpPasswordEnc) {
+  if (
+    !sender.smtpHost ||
+    !sender.smtpPort ||
+    !sender.smtpUsername ||
+    !sender.smtpPasswordEnc
+  ) {
     throw new Error("smtp_account_missing_credentials");
   }
   return {
@@ -124,7 +132,11 @@ export async function sendOutreachEmail(
   }
 
   let errorReason: string | null = null;
-  const template = resolveTemplate(lead.notes, campaign.sequence, send.stepIndex);
+  const template = resolveTemplate(
+    lead.notes,
+    campaign.sequence,
+    send.stepIndex,
+  );
   if (!template) {
     errorReason = "missing_template";
   } else {

@@ -13,3 +13,15 @@ export const GET = withAuth(
   },
   { role: "viewer" },
 );
+
+/** DELETE /api/outreach/campaigns/[id] — permanently deletes the campaign and
+ *  (via FK cascade) its leads and sends. Destructive + irreversible, so
+ *  admin-only, matching the candidate-delete precedent. */
+export const DELETE = withAuth(
+  async ({ ctx, params }) => {
+    await billingService.assertActiveSubscription(ctx);
+    const campaignId = uuidOr404(params.id, "Campaign not found");
+    return { data: await outreachService.deleteCampaign(ctx, campaignId) };
+  },
+  { role: "admin" },
+);

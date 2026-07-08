@@ -47,7 +47,11 @@ export function resolveSpintaxAndPlaceholders(
   let iterations = 0;
   const maxIterations = 20;
 
-  while (current.includes("{") && current.includes("}") && iterations < maxIterations) {
+  while (
+    current.includes("{") &&
+    current.includes("}") &&
+    iterations < maxIterations
+  ) {
     iterations++;
     const nextRegex = /\{([^{}]+)\}/g;
     let replacedAny = false;
@@ -78,23 +82,38 @@ export function resolveSpintaxAndPlaceholders(
       ) {
         return lead.name || "";
       }
-      if (cleanContent === "niche" || cleanContent === "specialty" || cleanContent === "industry") {
+      if (
+        cleanContent === "niche" ||
+        cleanContent === "specialty" ||
+        cleanContent === "industry"
+      ) {
         return lead.niche || "";
       }
-      if (cleanContent === "location" || cleanContent === "locality" || cleanContent === "city") {
+      if (
+        cleanContent === "location" ||
+        cleanContent === "locality" ||
+        cleanContent === "city"
+      ) {
         return lead.location || "";
       }
       if (cleanContent === "rating") return lead.rating || "";
-      if (cleanContent === "reviews" || cleanContent === "review_count") return lead.reviews || "";
+      if (cleanContent === "reviews" || cleanContent === "review_count")
+        return lead.reviews || "";
       if (cleanContent === "domain") {
-        if (lead.email && lead.email.includes("@")) return lead.email.split("@")[1];
+        if (lead.email && lead.email.includes("@"))
+          return lead.email.split("@")[1];
         return lead.name || "";
       }
       if (cleanContent === "year") return new Date().getFullYear().toString();
-      if (cleanContent === "sendername" || cleanContent === "sender_name" || cleanContent === "sender") {
+      if (
+        cleanContent === "sendername" ||
+        cleanContent === "sender_name" ||
+        cleanContent === "sender"
+      ) {
         return senderName || "";
       }
-      if (cleanContent === "senderemail" || cleanContent === "sender_email") return senderEmail || "";
+      if (cleanContent === "senderemail" || cleanContent === "sender_email")
+        return senderEmail || "";
 
       // Unrecognized token — strip the braces rather than leak them into the send.
       return innerContent;
@@ -112,7 +131,9 @@ export interface SequenceTemplate {
 }
 
 export type SequenceStepKey = "day0" | "day3" | "day7";
-export type SequenceTemplates = Partial<Record<SequenceStepKey, SequenceTemplate>>;
+export type SequenceTemplates = Partial<
+  Record<SequenceStepKey, SequenceTemplate>
+>;
 
 const TEMPLATES_MARKER_START = "--- OUTREACH_TEMPLATES ---";
 const TEMPLATES_MARKER_END = "--------------------------";
@@ -123,7 +144,9 @@ const TEMPLATES_MARKER_END = "--------------------------";
  * lead's `notes` using this marker block — same convention as the CRM, so a
  * lead's personalized templates survive the import.
  */
-export function getOutreachTemplates(notes: string | null | undefined): SequenceTemplates | null {
+export function getOutreachTemplates(
+  notes: string | null | undefined,
+): SequenceTemplates | null {
   if (!notes) return null;
   const pattern = new RegExp(
     `${TEMPLATES_MARKER_START}\\r?\\n([\\s\\S]*?)\\r?\\n${TEMPLATES_MARKER_END}`,
@@ -138,7 +161,9 @@ export function getOutreachTemplates(notes: string | null | undefined): Sequence
 }
 
 /** Embeds parsed per-lead templates into `notes`, for the docx importer. */
-export function buildOutreachTemplatesBlock(templates: SequenceTemplates): string {
+export function buildOutreachTemplatesBlock(
+  templates: SequenceTemplates,
+): string {
   return `${TEMPLATES_MARKER_START}\n${JSON.stringify(templates, null, 2)}\n${TEMPLATES_MARKER_END}\n`;
 }
 
@@ -166,10 +191,13 @@ export function scheduleSends(params: {
 }): ScheduledSend[] {
   if (params.senderAccountIds.length === 0) return [];
   const blockMs = params.blockMinutes * 60_000;
-  const cursors = new Map<string, number>(params.senderAccountIds.map((id) => [id, 0]));
+  const cursors = new Map<string, number>(
+    params.senderAccountIds.map((id) => [id, 0]),
+  );
 
   return params.leadIds.map((leadId, i) => {
-    const senderAccountId = params.senderAccountIds[i % params.senderAccountIds.length];
+    const senderAccountId =
+      params.senderAccountIds[i % params.senderAccountIds.length];
     const blockIndex = cursors.get(senderAccountId) ?? 0;
     cursors.set(senderAccountId, blockIndex + 1);
 

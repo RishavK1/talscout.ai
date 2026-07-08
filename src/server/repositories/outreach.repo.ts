@@ -1,10 +1,11 @@
-import { and, eq, sql, inArray, isNull, isNotNull, ne } from "drizzle-orm";
+import { and, eq, sql, inArray, isNull, isNotNull, ne, asc } from "drizzle-orm";
 import {
   senderAccounts,
   outreachCampaigns,
   outreachLeads,
   outreachSends,
 } from "@/server/db/schema";
+import { clampLimit, clampOffset } from "@/server/repositories/candidate.repo";
 import type { TenantContext } from "@/server/db/tx";
 
 export interface SequenceStep {
@@ -28,7 +29,10 @@ export const senderAccountRepo = {
       .select()
       .from(senderAccounts)
       .where(
-        and(eq(senderAccounts.tenantId, ctx.tenantId), eq(senderAccounts.isActive, true)),
+        and(
+          eq(senderAccounts.tenantId, ctx.tenantId),
+          eq(senderAccounts.isActive, true),
+        ),
       )
       .orderBy(sql`${senderAccounts.createdAt} ASC`);
   },
@@ -37,7 +41,12 @@ export const senderAccountRepo = {
     const [row] = await ctx.tx
       .select()
       .from(senderAccounts)
-      .where(and(eq(senderAccounts.id, id), eq(senderAccounts.tenantId, ctx.tenantId)))
+      .where(
+        and(
+          eq(senderAccounts.id, id),
+          eq(senderAccounts.tenantId, ctx.tenantId),
+        ),
+      )
       .limit(1);
     return row ?? null;
   },
@@ -46,7 +55,12 @@ export const senderAccountRepo = {
     const [row] = await ctx.tx
       .select()
       .from(senderAccounts)
-      .where(and(eq(senderAccounts.email, email), eq(senderAccounts.tenantId, ctx.tenantId)))
+      .where(
+        and(
+          eq(senderAccounts.email, email),
+          eq(senderAccounts.tenantId, ctx.tenantId),
+        ),
+      )
       .limit(1);
     return row ?? null;
   },
@@ -115,13 +129,23 @@ export const senderAccountRepo = {
     await ctx.tx
       .update(senderAccounts)
       .set({ isActive, updatedAt: new Date() })
-      .where(and(eq(senderAccounts.id, id), eq(senderAccounts.tenantId, ctx.tenantId)));
+      .where(
+        and(
+          eq(senderAccounts.id, id),
+          eq(senderAccounts.tenantId, ctx.tenantId),
+        ),
+      );
   },
 
   async remove(ctx: TenantContext, id: string) {
     const deleted = await ctx.tx
       .delete(senderAccounts)
-      .where(and(eq(senderAccounts.id, id), eq(senderAccounts.tenantId, ctx.tenantId)))
+      .where(
+        and(
+          eq(senderAccounts.id, id),
+          eq(senderAccounts.tenantId, ctx.tenantId),
+        ),
+      )
       .returning({ id: senderAccounts.id });
     return deleted.length > 0;
   },
@@ -140,7 +164,12 @@ export const outreachCampaignRepo = {
     const [row] = await ctx.tx
       .select()
       .from(outreachCampaigns)
-      .where(and(eq(outreachCampaigns.id, id), eq(outreachCampaigns.tenantId, ctx.tenantId)))
+      .where(
+        and(
+          eq(outreachCampaigns.id, id),
+          eq(outreachCampaigns.tenantId, ctx.tenantId),
+        ),
+      )
       .limit(1);
     return row ?? null;
   },
@@ -157,7 +186,12 @@ export const outreachCampaignRepo = {
     await ctx.tx
       .update(outreachCampaigns)
       .set({ sequence, updatedAt: new Date() })
-      .where(and(eq(outreachCampaigns.id, id), eq(outreachCampaigns.tenantId, ctx.tenantId)));
+      .where(
+        and(
+          eq(outreachCampaigns.id, id),
+          eq(outreachCampaigns.tenantId, ctx.tenantId),
+        ),
+      );
   },
 
   async setStatus(
@@ -169,7 +203,27 @@ export const outreachCampaignRepo = {
     await ctx.tx
       .update(outreachCampaigns)
       .set({ status, errorReason: errorReason ?? null, updatedAt: new Date() })
-      .where(and(eq(outreachCampaigns.id, id), eq(outreachCampaigns.tenantId, ctx.tenantId)));
+      .where(
+        and(
+          eq(outreachCampaigns.id, id),
+          eq(outreachCampaigns.tenantId, ctx.tenantId),
+        ),
+      );
+  },
+
+  /** Cascades to `outreach_leads` / `outreach_sends` via FK `onDelete: "cascade"`
+   *  (see server/db/schema.ts) — no separate cleanup needed for those rows. */
+  async remove(ctx: TenantContext, id: string) {
+    const deleted = await ctx.tx
+      .delete(outreachCampaigns)
+      .where(
+        and(
+          eq(outreachCampaigns.id, id),
+          eq(outreachCampaigns.tenantId, ctx.tenantId),
+        ),
+      )
+      .returning({ id: outreachCampaigns.id });
+    return deleted.length > 0;
   },
 };
 
@@ -206,14 +260,43 @@ export const outreachLeadRepo = {
       .returning();
   },
 
-  async listByCampaign(ctx: TenantContext, campaignId: string) {
-    return await ctx.tx
+  /** Paginated — defaults/caps mirror candidateRepo.list (PAGE-02/03), so this
+   *  is never an unbounded list endpoint even for a campaign with thousands
+   *  of imported leads. */
+  async listByCampaign(
+    ctx: TenantContext,
+    campaignId: string,
+    params: { limit?: number; offset?: number } = {},
+  ) {
+    const limit = clampLimit(params.limit);
+    const offset = clampOffset(params.offset);
+    const rows = await ctx.tx
       .select()
       .from(outreachLeads)
       .where(
-        and(eq(outreachLeads.tenantId, ctx.tenantId), eq(outreachLeads.campaignId, campaignId)),
+        and(
+          eq(outreachLeads.tenantId, ctx.tenantId),
+          eq(outreachLeads.campaignId, campaignId),
+        ),
       )
-      .orderBy(sql`${outreachLeads.createdAt} ASC`);
+      // stable ordering with a tiebreak so pages don't drift (PAGE-05)
+      .orderBy(asc(outreachLeads.createdAt), asc(outreachLeads.id))
+      .limit(limit)
+      .offset(offset);
+    return { rows, limit, offset };
+  },
+
+  async countByCampaign(ctx: TenantContext, campaignId: string) {
+    const [row] = await ctx.tx
+      .select({ n: sql<number>`count(*)::int` })
+      .from(outreachLeads)
+      .where(
+        and(
+          eq(outreachLeads.tenantId, ctx.tenantId),
+          eq(outreachLeads.campaignId, campaignId),
+        ),
+      );
+    return row?.n ?? 0;
   },
 
   /** Leads with a usable email that haven't been scheduled/sent yet — the
@@ -240,7 +323,24 @@ export const outreachLeadRepo = {
    * got its day0 send is still eligible for day3, unlike `listPendingWithEmail`
    * (which only looks at the lead's single overall `status`).
    */
-  async listEligibleForStep(ctx: TenantContext, campaignId: string, stepIndex: number) {
+  async listEligibleForStep(
+    ctx: TenantContext,
+    campaignId: string,
+    stepIndex: number,
+    /** Optional — restricts eligibility to this subset (a user's row
+     *  selection in the leads table). Omitted/empty means "all eligible". */
+    leadIds?: string[],
+  ) {
+    const conds = [
+      eq(outreachLeads.tenantId, ctx.tenantId),
+      eq(outreachLeads.campaignId, campaignId),
+      isNotNull(outreachLeads.email),
+      ne(outreachLeads.status, "skipped"),
+      isNull(outreachSends.id),
+    ];
+    if (leadIds && leadIds.length > 0) {
+      conds.push(inArray(outreachLeads.id, leadIds));
+    }
     const rows = await ctx.tx
       .select({ lead: outreachLeads })
       .from(outreachLeads)
@@ -251,15 +351,7 @@ export const outreachLeadRepo = {
           eq(outreachSends.stepIndex, stepIndex),
         ),
       )
-      .where(
-        and(
-          eq(outreachLeads.tenantId, ctx.tenantId),
-          eq(outreachLeads.campaignId, campaignId),
-          isNotNull(outreachLeads.email),
-          ne(outreachLeads.status, "skipped"),
-          isNull(outreachSends.id),
-        ),
-      )
+      .where(and(...conds))
       .orderBy(sql`${outreachLeads.createdAt} ASC`);
     return rows.map((r) => r.lead);
   },
@@ -272,14 +364,18 @@ export const outreachLeadRepo = {
     await ctx.tx
       .update(outreachLeads)
       .set({ status, lastActionAt: new Date() })
-      .where(and(eq(outreachLeads.id, id), eq(outreachLeads.tenantId, ctx.tenantId)));
+      .where(
+        and(eq(outreachLeads.id, id), eq(outreachLeads.tenantId, ctx.tenantId)),
+      );
   },
 
   async getById(ctx: TenantContext, id: string) {
     const [row] = await ctx.tx
       .select()
       .from(outreachLeads)
-      .where(and(eq(outreachLeads.id, id), eq(outreachLeads.tenantId, ctx.tenantId)))
+      .where(
+        and(eq(outreachLeads.id, id), eq(outreachLeads.tenantId, ctx.tenantId)),
+      )
       .limit(1);
     return row ?? null;
   },
@@ -316,7 +412,9 @@ export const outreachSendRepo = {
     const [row] = await ctx.tx
       .select()
       .from(outreachSends)
-      .where(and(eq(outreachSends.id, id), eq(outreachSends.tenantId, ctx.tenantId)))
+      .where(
+        and(eq(outreachSends.id, id), eq(outreachSends.tenantId, ctx.tenantId)),
+      )
       .limit(1);
     return row ?? null;
   },
@@ -325,30 +423,42 @@ export const outreachSendRepo = {
     await ctx.tx
       .update(outreachSends)
       .set({ status: "sent", sentAt: new Date() })
-      .where(and(eq(outreachSends.id, id), eq(outreachSends.tenantId, ctx.tenantId)));
+      .where(
+        and(eq(outreachSends.id, id), eq(outreachSends.tenantId, ctx.tenantId)),
+      );
   },
 
   async markFailed(ctx: TenantContext, id: string, errorReason: string) {
     await ctx.tx
       .update(outreachSends)
       .set({ status: "failed", errorReason })
-      .where(and(eq(outreachSends.id, id), eq(outreachSends.tenantId, ctx.tenantId)));
+      .where(
+        and(eq(outreachSends.id, id), eq(outreachSends.tenantId, ctx.tenantId)),
+      );
   },
 
   async markSkipped(ctx: TenantContext, id: string, reason: string) {
     await ctx.tx
       .update(outreachSends)
       .set({ status: "skipped", errorReason: reason })
-      .where(and(eq(outreachSends.id, id), eq(outreachSends.tenantId, ctx.tenantId)));
+      .where(
+        and(eq(outreachSends.id, id), eq(outreachSends.tenantId, ctx.tenantId)),
+      );
   },
 
   /** Aggregate counts for the campaign progress panel, polled from the UI. */
   async countsByCampaign(ctx: TenantContext, campaignId: string) {
     const rows = await ctx.tx
-      .select({ status: outreachSends.status, count: sql<number>`count(*)::int` })
+      .select({
+        status: outreachSends.status,
+        count: sql<number>`count(*)::int`,
+      })
       .from(outreachSends)
       .where(
-        and(eq(outreachSends.tenantId, ctx.tenantId), eq(outreachSends.campaignId, campaignId)),
+        and(
+          eq(outreachSends.tenantId, ctx.tenantId),
+          eq(outreachSends.campaignId, campaignId),
+        ),
       )
       .groupBy(outreachSends.status);
 
@@ -360,7 +470,10 @@ export const outreachSendRepo = {
   },
 
   /** How many sends a sender account already has today — enforces `dailyLimit`. */
-  async countSentTodayForSenders(ctx: TenantContext, senderAccountIds: string[]) {
+  async countSentTodayForSenders(
+    ctx: TenantContext,
+    senderAccountIds: string[],
+  ) {
     if (senderAccountIds.length === 0) return new Map<string, number>();
     const rows = await ctx.tx
       .select({

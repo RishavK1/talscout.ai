@@ -15,7 +15,12 @@ import { auditRepo } from "@/server/repositories/audit.repo";
 import { MAX_UPLOAD_BYTES } from "@/server/ingestion/file-type";
 import { PARSE_LEADS_DOCX_JOB } from "@/server/jobs/parse-leads-docx";
 import { SEND_OUTREACH_EMAIL_JOB } from "@/server/jobs/send-outreach-email";
-import { NotFound, Conflict, BadRequest, PayloadTooLarge } from "@/server/http/errors";
+import {
+  NotFound,
+  Conflict,
+  BadRequest,
+  PayloadTooLarge,
+} from "@/server/http/errors";
 import type {
   CreateCampaignBody,
   SetSequenceBody,
@@ -34,7 +39,9 @@ const GMAIL_OAUTH_SCOPES = [
  *  round-trip to the client. `withAuth` serializes whatever a handler returns
  *  verbatim, so every method that surfaces a sender row maps through this
  *  first rather than relying on callers to remember to strip it. */
-function toPublicSender(row: Awaited<ReturnType<typeof senderAccountRepo.list>>[number]) {
+function toPublicSender(
+  row: Awaited<ReturnType<typeof senderAccountRepo.list>>[number],
+) {
   return {
     id: row.id,
     type: row.type,
@@ -70,11 +77,11 @@ export const outreachService = {
   async getCampaign(ctx: TenantContext, campaignId: string) {
     const campaign = await outreachCampaignRepo.getById(ctx, campaignId);
     if (!campaign) throw new NotFound("Campaign not found");
-    const [counts, leads] = await Promise.all([
+    const [counts, leadCount] = await Promise.all([
       outreachSendRepo.countsByCampaign(ctx, campaignId),
-      outreachLeadRepo.listByCampaign(ctx, campaignId),
+      outreachLeadRepo.countByCampaign(ctx, campaignId),
     ]);
-    return { campaign, counts, leadCount: leads.length };
+    return { campaign, counts, leadCount };
   },
 
   async createCampaign(ctx: TenantContext, body: CreateCampaignBody) {
@@ -87,7 +94,11 @@ export const outreachService = {
     return campaign;
   },
 
-  async setSequence(ctx: TenantContext, campaignId: string, body: SetSequenceBody) {
+  async setSequence(
+    ctx: TenantContext,
+    campaignId: string,
+    body: SetSequenceBody,
+  ) {
     const campaign = await outreachCampaignRepo.getById(ctx, campaignId);
     if (!campaign) throw new NotFound("Campaign not found");
     await outreachCampaignRepo.setSequence(ctx, campaignId, body.sequence);
@@ -99,10 +110,18 @@ export const outreachService = {
     return { id: campaignId, sequence: body.sequence };
   },
 
-  async listLeads(ctx: TenantContext, campaignId: string) {
+  async listLeads(
+    ctx: TenantContext,
+    campaignId: string,
+    query: { limit?: number; offset?: number } = {},
+  ) {
     const campaign = await outreachCampaignRepo.getById(ctx, campaignId);
     if (!campaign) throw new NotFound("Campaign not found");
-    return await outreachLeadRepo.listByCampaign(ctx, campaignId);
+    const [{ rows, limit, offset }, total] = await Promise.all([
+      outreachLeadRepo.listByCampaign(ctx, campaignId, query),
+      outreachLeadRepo.countByCampaign(ctx, campaignId),
+    ]);
+    return { leads: rows, total, limit, offset };
   },
 
   async requestLeadsUpload(
@@ -171,7 +190,11 @@ export const outreachService = {
     return {
       result: { id: campaignId, status: "importing" as const },
       afterCommit: () =>
-        getServices().queue.enqueue(PARSE_LEADS_DOCX_JOB, { tenantId, campaignId, fileKey }),
+        getServices().queue.enqueue(PARSE_LEADS_DOCX_JOB, {
+          tenantId,
+          campaignId,
+          fileKey,
+        }),
     };
   },
 
@@ -182,8 +205,18 @@ export const outreachService = {
    * Inngest job carrying its own `targetSendAt`, so pause/stop only need to
    * flip `campaign.status` — there's no in-memory queue state to lose, unlike
    * the old CRM's setTimeout loop.
+   *
+   * `leadIds` is optional — when the caller has selected specific rows in the
+   * leads table, only those (still intersected with step eligibility) fire;
+   * omitted/empty means "every eligible lead", preserving the original
+   * all-at-once behavior for anyone who doesn't bother selecting.
    */
-  async fireCampaign(ctx: TenantContext, campaignId: string, stepIndex: number) {
+  async fireCampaign(
+    ctx: TenantContext,
+    campaignId: string,
+    stepIndex: number,
+    leadIds?: string[],
+  ) {
     const campaign = await outreachCampaignRepo.getById(ctx, campaignId);
     if (!campaign) throw new NotFound("Campaign not found");
     if (campaign.status !== "ready" && campaign.status !== "running") {
@@ -197,7 +230,12 @@ export const outreachService = {
       throw new BadRequest("Connect at least one sender account before firing");
     }
 
-    const leads = await outreachLeadRepo.listEligibleForStep(ctx, campaignId, stepIndex);
+    const leads = await outreachLeadRepo.listEligibleForStep(
+      ctx,
+      campaignId,
+      stepIndex,
+      leadIds,
+    );
     if (leads.length === 0) {
       throw new Conflict("No eligible leads for this step");
     }
@@ -220,7 +258,9 @@ export const outreachService = {
       })),
     );
 
-    await Promise.all(leads.map((l) => outreachLeadRepo.setStatus(ctx, l.id, "scheduled")));
+    await Promise.all(
+      leads.map((l) => outreachLeadRepo.setStatus(ctx, l.id, "scheduled")),
+    );
     await outreachCampaignRepo.setStatus(ctx, campaignId, "running");
     await auditRepo.log(ctx, {
       action: "outreach.campaign.fire",
@@ -241,13 +281,35 @@ export const outreachService = {
     }));
 
     return {
-      result: { id: campaignId, status: "running" as const, scheduled: sends.length },
+      result: {
+        id: campaignId,
+        status: "running" as const,
+        scheduled: sends.length,
+      },
       afterCommit: async () => {
         for (const job of sendJobs) {
           await getServices().queue.enqueue(SEND_OUTREACH_EMAIL_JOB, job);
         }
       },
     };
+  },
+
+  /** Deletes a campaign and, via FK cascade, all of its leads and sends. No
+   *  storage cleanup needed — the imported leads docx is never persisted past
+   *  the parse job (unlike a resume's stored file). A campaign's in-flight
+   *  sends are already safe to orphan: `sendOutreachEmail` looks the send row
+   *  up by id first and no-ops if it's gone (see server/jobs/send-outreach-email.ts). */
+  async deleteCampaign(ctx: TenantContext, campaignId: string) {
+    const campaign = await outreachCampaignRepo.getById(ctx, campaignId);
+    if (!campaign) throw new NotFound("Campaign not found");
+    await outreachCampaignRepo.remove(ctx, campaignId);
+    await auditRepo.log(ctx, {
+      action: "outreach.campaign.delete",
+      targetType: "outreach_campaign",
+      targetId: campaignId,
+      metadata: { name: campaign.name },
+    });
+    return { deleted: true };
   },
 
   async pauseCampaign(ctx: TenantContext, campaignId: string) {
@@ -302,7 +364,8 @@ export const outreachService = {
 
   async createSmtpSender(ctx: TenantContext, body: CreateSmtpSenderBody) {
     const existing = await senderAccountRepo.getByEmail(ctx, body.email);
-    if (existing) throw new Conflict("A sender account with this email already exists");
+    if (existing)
+      throw new Conflict("A sender account with this email already exists");
 
     const sender = await senderAccountRepo.createSmtp(ctx, {
       label: body.label,
@@ -323,7 +386,11 @@ export const outreachService = {
     return toPublicSender(sender);
   },
 
-  async setSenderActive(ctx: TenantContext, senderId: string, isActive: boolean) {
+  async setSenderActive(
+    ctx: TenantContext,
+    senderId: string,
+    isActive: boolean,
+  ) {
     const sender = await senderAccountRepo.getById(ctx, senderId);
     if (!sender) throw new NotFound("Sender account not found");
     await senderAccountRepo.setActive(ctx, senderId, isActive);
@@ -344,7 +411,11 @@ export const outreachService = {
    *  redirects the browser to this URL. `state` carries who started the
    *  flow so the public callback (no bearer token, no session) can recover
    *  a trustworthy tenantId without one. */
-  buildGmailOAuthUrl(tenantId: string, userId: string | undefined, appOrigin: string): string {
+  buildGmailOAuthUrl(
+    tenantId: string,
+    userId: string | undefined,
+    appOrigin: string,
+  ): string {
     const client = gmailOAuthClient(appOrigin);
     const state = signOAuthState({ tenantId, userId: userId ?? "" });
     return client.generateAuthUrl({
@@ -357,7 +428,11 @@ export const outreachService = {
 
   /** Public callback half — verifies `state` itself (no session available),
    *  then opens its own tenant-scoped tx with the recovered tenantId. */
-  async completeGmailOAuth(params: { code: string; state: string; appOrigin: string }) {
+  async completeGmailOAuth(params: {
+    code: string;
+    state: string;
+    appOrigin: string;
+  }) {
     const claims = verifyOAuthState(params.state);
     if (!claims) throw new BadRequest("Invalid or expired OAuth state");
 
@@ -379,7 +454,8 @@ export const outreachService = {
       { tenantId: claims.tenantId, userId: claims.userId || undefined },
       async (ctx) => {
         const existing = await senderAccountRepo.getByEmail(ctx, email);
-        if (existing) throw new Conflict("This Gmail account is already connected");
+        if (existing)
+          throw new Conflict("This Gmail account is already connected");
         const sender = await senderAccountRepo.createGmail(ctx, {
           label: email,
           email,

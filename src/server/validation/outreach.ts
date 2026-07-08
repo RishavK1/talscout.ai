@@ -20,8 +20,19 @@ export type SetSequenceBody = z.infer<typeof setSequenceSchema>;
 
 export const fireCampaignSchema = z.object({
   stepIndex: z.number().int().min(0).max(2).default(0),
+  /** Optional — when provided, fires only these leads (intersected with
+   *  step eligibility server-side). Omitted/empty means "all eligible". */
+  leadIds: z.array(z.uuid()).max(5000).optional(),
 });
 export type FireCampaignBody = z.infer<typeof fireCampaignSchema>;
+
+/** List query for a campaign's leads table. Bad values fall back to repo
+ *  defaults rather than erroring, same convention as listCandidatesQuerySchema. */
+export const listLeadsQuerySchema = z.object({
+  limit: z.coerce.number().int().optional().catch(undefined),
+  offset: z.coerce.number().int().optional().catch(undefined),
+});
+export type ListLeadsQuery = z.infer<typeof listLeadsQuerySchema>;
 
 const LEADS_DOCX_CONTENT_TYPE =
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document";

@@ -14,7 +14,14 @@ import { stagger, item as itemVariants } from "@/lib/motion";
 interface Campaign {
   id: string;
   name: string;
-  status: "draft" | "importing" | "ready" | "running" | "paused" | "completed" | "error";
+  status:
+    | "draft"
+    | "importing"
+    | "ready"
+    | "running"
+    | "paused"
+    | "completed"
+    | "error";
   createdAt: string;
 }
 
@@ -46,6 +53,9 @@ export default function BulkFirePage() {
   const [newCampaignOpen, setNewCampaignOpen] = useState(false);
   const [newCampaignName, setNewCampaignName] = useState("");
   const [creatingCampaign, setCreatingCampaign] = useState(false);
+
+  const [deleteTarget, setDeleteTarget] = useState<Campaign | null>(null);
+  const [deletingCampaign, setDeletingCampaign] = useState(false);
 
   const [smtpOpen, setSmtpOpen] = useState(false);
   const [smtp, setSmtp] = useState({
@@ -90,14 +100,21 @@ export default function BulkFirePage() {
     const gmail = url.searchParams.get("gmail");
     if (!gmail) return;
     if (gmail === "connected") {
-      toast.success(`Connected ${url.searchParams.get("email") || "Gmail account"}`);
+      toast.success(
+        `Connected ${url.searchParams.get("email") || "Gmail account"}`,
+      );
     } else if (gmail === "error") {
-      toast.error(url.searchParams.get("message") || "Failed to connect Gmail account");
+      toast.error(
+        url.searchParams.get("message") || "Failed to connect Gmail account",
+      );
     }
     url.searchParams.delete("gmail");
     url.searchParams.delete("email");
     url.searchParams.delete("message");
-    router.replace(url.pathname + (url.searchParams.toString() ? `?${url.searchParams}` : ""));
+    router.replace(
+      url.pathname +
+        (url.searchParams.toString() ? `?${url.searchParams}` : ""),
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -120,10 +137,27 @@ export default function BulkFirePage() {
     }
   };
 
+  const handleDeleteCampaign = async () => {
+    if (!deleteTarget) return;
+    setDeletingCampaign(true);
+    try {
+      await api.delete(`/api/outreach/campaigns/${deleteTarget.id}`);
+      setCampaigns((prev) => prev.filter((c) => c.id !== deleteTarget.id));
+      toast.success(`"${deleteTarget.name}" deleted`);
+      setDeleteTarget(null);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete campaign");
+    } finally {
+      setDeletingCampaign(false);
+    }
+  };
+
   const handleConnectGmail = async () => {
     setConnectingGmail(true);
     try {
-      const { url } = await api.get<{ url: string }>("/api/outreach/senders/gmail/oauth/start");
+      const { url } = await api.get<{ url: string }>(
+        "/api/outreach/senders/gmail/oauth/start",
+      );
       window.location.href = url;
     } catch (err: any) {
       toast.error(err.message || "Failed to start Gmail connect");
@@ -168,9 +202,13 @@ export default function BulkFirePage() {
   const toggleSenderActive = async (sender: Sender) => {
     setSenderBusyId(sender.id);
     try {
-      await api.patch(`/api/outreach/senders/${sender.id}`, { isActive: !sender.isActive });
+      await api.patch(`/api/outreach/senders/${sender.id}`, {
+        isActive: !sender.isActive,
+      });
       setSenders((prev) =>
-        prev.map((s) => (s.id === sender.id ? { ...s, isActive: !s.isActive } : s)),
+        prev.map((s) =>
+          s.id === sender.id ? { ...s, isActive: !s.isActive } : s,
+        ),
       );
     } catch (err: any) {
       toast.error(err.message || "Failed to update sender");
@@ -198,7 +236,9 @@ export default function BulkFirePage() {
         leftContent={
           <div className="flex items-center gap-2 text-text-muted font-label-md">
             <span>Outreach</span>
-            <span className="material-symbols-outlined text-sm">chevron_right</span>
+            <span className="material-symbols-outlined text-sm">
+              chevron_right
+            </span>
             <span className="text-on-surface font-medium">Bulk Fire</span>
           </div>
         }
@@ -214,18 +254,22 @@ export default function BulkFirePage() {
       />
       <main className="mx-auto max-w-[1160px] p-4 sm:p-6 lg:p-12 min-h-screen">
         <section className="mb-10">
-          <h1 className="font-headline-lg text-headline-lg text-primary mb-2">Bulk Fire</h1>
+          <h1 className="font-headline-lg text-headline-lg text-primary mb-2">
+            Bulk Fire
+          </h1>
           <p className="font-body-md text-body-md text-text-muted max-w-2xl">
-            Import leads from a docx playbook, personalize with spintax, and send a paced,
-            multi-account cold-email sequence — durable server-side sends that keep going even
-            after you close this tab.
+            Import leads from a docx playbook, personalize with spintax, and
+            send a paced, multi-account cold-email sequence — durable
+            server-side sends that keep going even after you close this tab.
           </p>
         </section>
 
         {/* Sender accounts */}
         <section className="mb-12">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="font-headline-md text-headline-md text-on-surface">Sender accounts</h2>
+            <h2 className="font-headline-md text-headline-md text-on-surface">
+              Sender accounts
+            </h2>
             <div className="flex gap-2">
               <button
                 type="button"
@@ -247,12 +291,15 @@ export default function BulkFirePage() {
 
           {loading ? (
             <div className="flex items-center justify-center rounded-[20px] border border-border-low-alpha bg-white py-12 font-body-md text-on-surface-variant">
-              <span className="material-symbols-outlined mr-2 animate-spin">sync</span> Loading senders…
+              <span className="material-symbols-outlined mr-2 animate-spin">
+                sync
+              </span>{" "}
+              Loading senders…
             </div>
           ) : senders.length === 0 ? (
             <div className="rounded-[20px] border-2 border-dashed border-border-low-alpha p-8 text-center font-body-md text-on-surface-variant">
-              No sender accounts connected yet. Connect at least one Gmail or SMTP account before
-              firing a campaign.
+              No sender accounts connected yet. Connect at least one Gmail or
+              SMTP account before firing a campaign.
             </div>
           ) : (
             <motion.div
@@ -273,13 +320,19 @@ export default function BulkFirePage() {
                         {s.type === "gmail" ? "mail" : "dns"}
                       </span>
                       <div>
-                        <div className="font-label-md text-label-md font-semibold text-on-surface">{s.label}</div>
-                        <div className="font-body-md text-[13px] text-on-surface-variant">{s.email}</div>
+                        <div className="font-label-md text-label-md font-semibold text-on-surface">
+                          {s.label}
+                        </div>
+                        <div className="font-body-md text-[13px] text-on-surface-variant">
+                          {s.email}
+                        </div>
                       </div>
                     </div>
                     <span
                       className={`shrink-0 rounded-full px-2 py-0.5 font-label-md text-[11px] ${
-                        s.isActive ? "bg-tertiary/10 text-tertiary" : "bg-surface-container-high text-on-surface-variant"
+                        s.isActive
+                          ? "bg-tertiary/10 text-tertiary"
+                          : "bg-surface-container-high text-on-surface-variant"
                       }`}
                     >
                       {s.isActive ? "Active" : "Paused"}
@@ -314,10 +367,15 @@ export default function BulkFirePage() {
 
         {/* Campaigns */}
         <section>
-          <h2 className="mb-4 font-headline-md text-headline-md text-on-surface">Campaigns</h2>
+          <h2 className="mb-4 font-headline-md text-headline-md text-on-surface">
+            Campaigns
+          </h2>
           {loading ? (
             <div className="flex items-center justify-center rounded-[20px] border border-border-low-alpha bg-white py-12 font-body-md text-on-surface-variant">
-              <span className="material-symbols-outlined mr-2 animate-spin">sync</span> Loading campaigns…
+              <span className="material-symbols-outlined mr-2 animate-spin">
+                sync
+              </span>{" "}
+              Loading campaigns…
             </div>
           ) : (
             <motion.div
@@ -332,9 +390,13 @@ export default function BulkFirePage() {
                 className="group flex min-h-[180px] cursor-pointer flex-col items-center justify-center space-y-3 rounded-[20px] border-2 border-dashed border-border-low-alpha p-8 text-center transition-all duration-300 hover:border-primary/30 hover:bg-white/50"
               >
                 <div className="flex h-12 w-12 items-center justify-center rounded-full bg-surface-container-low transition-colors group-hover:bg-primary/10">
-                  <span className="material-symbols-outlined text-primary text-[28px]">add</span>
+                  <span className="material-symbols-outlined text-primary text-[28px]">
+                    add
+                  </span>
                 </div>
-                <h4 className="font-headline-md text-[16px] text-on-surface">New campaign</h4>
+                <h4 className="font-headline-md text-[16px] text-on-surface">
+                  New campaign
+                </h4>
               </motion.div>
 
               {campaigns.map((c) => (
@@ -345,17 +407,40 @@ export default function BulkFirePage() {
                   >
                     <div>
                       <div className="mb-3 flex items-start justify-between gap-2">
-                        <h3 className="font-headline-md text-[18px] text-on-surface leading-snug">{c.name}</h3>
-                        <span className={`shrink-0 rounded-full px-2.5 py-0.5 font-label-md text-[11px] capitalize ${STATUS_STYLE[c.status]}`}>
-                          {c.status}
-                        </span>
+                        <h3 className="font-headline-md text-[18px] text-on-surface leading-snug">
+                          {c.name}
+                        </h3>
+                        <div className="flex shrink-0 items-center gap-1.5">
+                          <span
+                            className={`rounded-full px-2.5 py-0.5 font-label-md text-[11px] capitalize ${STATUS_STYLE[c.status]}`}
+                          >
+                            {c.status}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setDeleteTarget(c);
+                            }}
+                            aria-label={`Delete ${c.name}`}
+                            title="Delete campaign"
+                            className="flex h-7 w-7 items-center justify-center rounded-full text-on-surface-variant/60 transition-colors hover:bg-error/10 hover:text-error active:scale-[0.94]"
+                          >
+                            <span className="material-symbols-outlined text-[16px]">
+                              delete
+                            </span>
+                          </button>
+                        </div>
                       </div>
                     </div>
                     <div className="flex items-center justify-between border-t border-border-low-alpha pt-3">
                       <span className="font-data-mono text-[12px] text-text-muted">
                         Created {new Date(c.createdAt).toLocaleDateString()}
                       </span>
-                      <span className="material-symbols-outlined text-[18px] text-primary">arrow_forward</span>
+                      <span className="material-symbols-outlined text-[18px] text-primary">
+                        arrow_forward
+                      </span>
                     </div>
                   </Link>
                 </motion.div>
@@ -373,7 +458,12 @@ export default function BulkFirePage() {
       >
         <form onSubmit={handleCreateCampaign} className="space-y-6">
           <div>
-            <label htmlFor="campaignName" className="block font-label-md text-primary mb-2">Campaign name</label>
+            <label
+              htmlFor="campaignName"
+              className="block font-label-md text-primary mb-2"
+            >
+              Campaign name
+            </label>
             <input
               id="campaignName"
               type="text"
@@ -416,51 +506,156 @@ export default function BulkFirePage() {
         <form onSubmit={handleAddSmtp} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block font-label-md text-primary mb-2">Label</label>
-              <input required value={smtp.label} onChange={(e) => setSmtp({ ...smtp, label: e.target.value })} placeholder="Sales inbox #1" className="w-full rounded-xl border border-border-low-alpha bg-bg-cream/30 px-4 py-2.5 font-body-md" />
+              <label className="block font-label-md text-primary mb-2">
+                Label
+              </label>
+              <input
+                required
+                value={smtp.label}
+                onChange={(e) => setSmtp({ ...smtp, label: e.target.value })}
+                placeholder="Sales inbox #1"
+                className="w-full rounded-xl border border-border-low-alpha bg-bg-cream/30 px-4 py-2.5 font-body-md"
+              />
             </div>
             <div>
-              <label className="block font-label-md text-primary mb-2">From name</label>
-              <input value={smtp.fromName} onChange={(e) => setSmtp({ ...smtp, fromName: e.target.value })} placeholder="Optional" className="w-full rounded-xl border border-border-low-alpha bg-bg-cream/30 px-4 py-2.5 font-body-md" />
+              <label className="block font-label-md text-primary mb-2">
+                From name
+              </label>
+              <input
+                value={smtp.fromName}
+                onChange={(e) => setSmtp({ ...smtp, fromName: e.target.value })}
+                placeholder="Optional"
+                className="w-full rounded-xl border border-border-low-alpha bg-bg-cream/30 px-4 py-2.5 font-body-md"
+              />
             </div>
           </div>
           <div>
-            <label className="block font-label-md text-primary mb-2">Email address</label>
-            <input required type="email" value={smtp.email} onChange={(e) => setSmtp({ ...smtp, email: e.target.value })} placeholder="you@yourdomain.com" className="w-full rounded-xl border border-border-low-alpha bg-bg-cream/30 px-4 py-2.5 font-body-md" />
+            <label className="block font-label-md text-primary mb-2">
+              Email address
+            </label>
+            <input
+              required
+              type="email"
+              value={smtp.email}
+              onChange={(e) => setSmtp({ ...smtp, email: e.target.value })}
+              placeholder="you@yourdomain.com"
+              className="w-full rounded-xl border border-border-low-alpha bg-bg-cream/30 px-4 py-2.5 font-body-md"
+            />
           </div>
           <div className="grid grid-cols-3 gap-4">
             <div className="col-span-2">
-              <label className="block font-label-md text-primary mb-2">SMTP host</label>
-              <input required value={smtp.smtpHost} onChange={(e) => setSmtp({ ...smtp, smtpHost: e.target.value })} placeholder="smtp.yourdomain.com" className="w-full rounded-xl border border-border-low-alpha bg-bg-cream/30 px-4 py-2.5 font-body-md" />
+              <label className="block font-label-md text-primary mb-2">
+                SMTP host
+              </label>
+              <input
+                required
+                value={smtp.smtpHost}
+                onChange={(e) => setSmtp({ ...smtp, smtpHost: e.target.value })}
+                placeholder="smtp.yourdomain.com"
+                className="w-full rounded-xl border border-border-low-alpha bg-bg-cream/30 px-4 py-2.5 font-body-md"
+              />
             </div>
             <div>
-              <label className="block font-label-md text-primary mb-2">Port</label>
-              <input required type="number" value={smtp.smtpPort} onChange={(e) => setSmtp({ ...smtp, smtpPort: e.target.value })} className="w-full rounded-xl border border-border-low-alpha bg-bg-cream/30 px-4 py-2.5 font-body-md" />
+              <label className="block font-label-md text-primary mb-2">
+                Port
+              </label>
+              <input
+                required
+                type="number"
+                value={smtp.smtpPort}
+                onChange={(e) => setSmtp({ ...smtp, smtpPort: e.target.value })}
+                className="w-full rounded-xl border border-border-low-alpha bg-bg-cream/30 px-4 py-2.5 font-body-md"
+              />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block font-label-md text-primary mb-2">Username</label>
-              <input required value={smtp.smtpUsername} onChange={(e) => setSmtp({ ...smtp, smtpUsername: e.target.value })} className="w-full rounded-xl border border-border-low-alpha bg-bg-cream/30 px-4 py-2.5 font-body-md" />
+              <label className="block font-label-md text-primary mb-2">
+                Username
+              </label>
+              <input
+                required
+                value={smtp.smtpUsername}
+                onChange={(e) =>
+                  setSmtp({ ...smtp, smtpUsername: e.target.value })
+                }
+                className="w-full rounded-xl border border-border-low-alpha bg-bg-cream/30 px-4 py-2.5 font-body-md"
+              />
             </div>
             <div>
-              <label className="block font-label-md text-primary mb-2">Password</label>
-              <input required type="password" value={smtp.smtpPassword} onChange={(e) => setSmtp({ ...smtp, smtpPassword: e.target.value })} className="w-full rounded-xl border border-border-low-alpha bg-bg-cream/30 px-4 py-2.5 font-body-md" />
+              <label className="block font-label-md text-primary mb-2">
+                Password
+              </label>
+              <input
+                required
+                type="password"
+                value={smtp.smtpPassword}
+                onChange={(e) =>
+                  setSmtp({ ...smtp, smtpPassword: e.target.value })
+                }
+                className="w-full rounded-xl border border-border-low-alpha bg-bg-cream/30 px-4 py-2.5 font-body-md"
+              />
             </div>
           </div>
           <label className="flex items-center gap-2 font-label-md text-[13px] text-on-surface-variant">
-            <input type="checkbox" checked={smtp.smtpSecure} onChange={(e) => setSmtp({ ...smtp, smtpSecure: e.target.checked })} className="rounded" />
+            <input
+              type="checkbox"
+              checked={smtp.smtpSecure}
+              onChange={(e) =>
+                setSmtp({ ...smtp, smtpSecure: e.target.checked })
+              }
+              className="rounded"
+            />
             Use TLS (usually on for port 465)
           </label>
           <div className="flex justify-end gap-3 pt-2">
-            <button type="button" onClick={() => setSmtpOpen(false)} disabled={savingSmtp} className="rounded-lg border border-outline px-5 py-2.5 font-label-md text-primary transition-colors hover:bg-surface-container-low">
+            <button
+              type="button"
+              onClick={() => setSmtpOpen(false)}
+              disabled={savingSmtp}
+              className="rounded-lg border border-outline px-5 py-2.5 font-label-md text-primary transition-colors hover:bg-surface-container-low"
+            >
               Cancel
             </button>
-            <button type="submit" disabled={savingSmtp} className="rounded-lg bg-primary px-5 py-2.5 font-label-md text-on-primary transition-colors hover:bg-primary-container active:scale-[0.98] disabled:opacity-50">
+            <button
+              type="submit"
+              disabled={savingSmtp}
+              className="rounded-lg bg-primary px-5 py-2.5 font-label-md text-on-primary transition-colors hover:bg-primary-container active:scale-[0.98] disabled:opacity-50"
+            >
               {savingSmtp ? "Connecting…" : "Connect sender"}
             </button>
           </div>
         </form>
+      </Modal>
+
+      <Modal
+        open={!!deleteTarget}
+        onClose={() => !deletingCampaign && setDeleteTarget(null)}
+        title="Delete campaign"
+        subtitle={
+          deleteTarget
+            ? `Are you sure you want to delete "${deleteTarget.name}"? This permanently removes its leads, sequence, and send history — including any sends still in flight. This action cannot be undone.`
+            : undefined
+        }
+      >
+        <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end">
+          <button
+            type="button"
+            onClick={() => setDeleteTarget(null)}
+            disabled={deletingCampaign}
+            className="w-full rounded-lg border border-outline px-5 py-2.5 font-label-md text-primary transition-colors hover:bg-surface-container-low disabled:opacity-50 sm:w-auto"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handleDeleteCampaign}
+            disabled={deletingCampaign}
+            className="w-full rounded-lg bg-error px-5 py-2.5 font-label-md text-white transition-colors hover:bg-error/90 active:scale-[0.98] disabled:opacity-50 sm:w-auto"
+          >
+            {deletingCampaign ? "Deleting…" : "Delete permanently"}
+          </button>
+        </div>
       </Modal>
     </AppShell>
   );
