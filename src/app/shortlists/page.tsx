@@ -8,6 +8,8 @@ import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { useAuth } from "@/components/app/auth-provider";
 
+import { TopAppBar } from "@/components/app/top-app-bar";
+
 interface Shortlist {
   id: string;
   name: string;
@@ -75,33 +77,37 @@ export default function ShortlistsPage() {
       {/* Main Content Area */}
       <main className="min-h-screen flex flex-col">
         {/* TopAppBar Shell */}
-        <header className="sticky top-0 z-40 bg-surface/80 backdrop-blur-md flex flex-wrap justify-between items-center gap-3 px-4 sm:px-6 lg:px-12 py-4 border-b border-border-low-alpha">
-          <div className="flex items-center gap-2 text-text-muted font-label-md">
-            <span>Shortlists</span>
-            <span className="material-symbols-outlined text-sm">chevron_right</span>
-            <span className="text-on-surface font-medium">All Shortlists</span>
-          </div>
-          <div className="flex flex-wrap items-center gap-3 sm:gap-6">
-            <div className="relative group w-full sm:w-auto">
-              <input value={search} onChange={e => setSearch(e.target.value)} className="bg-surface-container-low border-none rounded-full px-10 py-2 w-full sm:w-64 text-label-md focus:ring-1 focus:ring-primary transition-all" placeholder="Search shortlists..." type="text" />
-              <span className="material-symbols-outlined absolute left-3 top-2.5 text-outline text-[20px]">search</span>
+        <TopAppBar
+          leftContent={
+            <div className="flex items-center gap-2 text-text-muted font-label-md">
+              <span>Shortlists</span>
+              <span className="material-symbols-outlined text-sm">chevron_right</span>
+              <span className="text-on-surface font-medium">All Shortlists</span>
             </div>
-            <Link href="/upload" className="flex items-center gap-2 bg-primary text-white px-5 py-2.5 rounded-lg font-label-md hover:opacity-90 transition-all active:scale-95">
-              <span className="material-symbols-outlined text-sm">upload</span>
-              + Upload résumés
-            </Link>
-            <div className="flex items-center gap-3 pl-4 border-l border-border-low-alpha">
-              <div className="w-10 h-10 rounded-full overflow-hidden border border-border-low-alpha bg-surface-container-highest flex items-center justify-center text-primary font-headline-md">
-                {avatarUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
-                ) : (
-                  userInitials
-                )}
+          }
+          rightContent={
+            <>
+              <div className="relative group w-full sm:w-auto">
+                <input value={search} onChange={e => setSearch(e.target.value)} className="bg-surface-container-low border-none rounded-full px-10 py-2 w-full sm:w-64 text-label-md focus:ring-1 focus:ring-primary transition-all" placeholder="Search shortlists..." type="text" />
+                <span className="material-symbols-outlined absolute left-3 top-2.5 text-outline text-[20px]">search</span>
               </div>
-            </div>
-          </div>
-        </header>
+              <Link href="/upload" className="flex items-center gap-2 bg-primary text-white px-5 py-2.5 rounded-lg font-label-md hover:opacity-90 transition-all active:scale-95">
+                <span className="material-symbols-outlined text-sm">upload</span>
+                + Upload résumés
+              </Link>
+              <div className="flex items-center gap-3 pl-4 border-l border-border-low-alpha">
+                <div className="w-10 h-10 rounded-full overflow-hidden border border-border-low-alpha bg-surface-container-highest flex items-center justify-center text-primary font-headline-md">
+                  {avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                  ) : (
+                    userInitials
+                  )}
+                </div>
+              </div>
+            </>
+          }
+        />
         {/* Main Body */}
         <div className="p-4 sm:p-6 lg:p-12 max-w-[1440px] mx-auto w-full flex-1">
           {/* Page Header Section */}

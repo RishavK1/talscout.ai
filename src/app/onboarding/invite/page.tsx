@@ -96,8 +96,12 @@ export default function InviteTeamOnboardingPage() {
             {invites.map((inv, idx) => (
               <div key={idx} className="flex flex-col sm:flex-row gap-4 sm:items-end">
                 <div className="flex-grow text-left">
-                  {idx === 0 && (
+                  {idx === 0 ? (
                     <label className="font-label-md text-label-md text-on-surface-variant block mb-1.5">
+                      Email address
+                    </label>
+                  ) : (
+                    <label className="font-label-md text-label-md text-on-surface-variant block sm:hidden mb-1.5">
                       Email address
                     </label>
                   )}
@@ -111,8 +115,12 @@ export default function InviteTeamOnboardingPage() {
                   />
                 </div>
                 <div className="w-full sm:w-40 text-left">
-                  {idx === 0 && (
+                  {idx === 0 ? (
                     <label className="font-label-md text-label-md text-on-surface-variant block mb-1.5">
+                      Role
+                    </label>
+                  ) : (
+                    <label className="font-label-md text-label-md text-on-surface-variant block sm:hidden mb-1.5">
                       Role
                     </label>
                   )}

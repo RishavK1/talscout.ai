@@ -204,7 +204,7 @@ export default function CandidateProfilePage() {
           {/* Left Column: Main Profile (8 cols) */}
           <div className="lg:col-span-8 space-y-8">
             {/* Header Card */}
-            <div className="glass-card rounded-xl p-8 flex flex-col md:flex-row gap-8 items-start relative overflow-hidden bg-white border border-border-low-alpha shadow-sm">
+            <div className="glass-card rounded-xl p-5 sm:p-8 flex flex-col md:flex-row gap-8 items-start relative overflow-hidden bg-white border border-border-low-alpha shadow-sm">
               <div className="absolute top-0 right-0 w-64 h-64 bg-tertiary-fixed/20 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
               <div className="w-32 h-32 rounded-full flex items-center justify-center border-4 border-surface-white ambient-shadow z-10 shrink-0 bg-surface-container-high text-primary font-headline-lg text-headline-lg">
                 {initials}
@@ -267,12 +267,12 @@ export default function CandidateProfilePage() {
                       <div className="timeline-line absolute left-0 top-0 h-full w-6 flex justify-center">
                         <div className={`w-2.5 h-2.5 rounded-full mt-2 border-2 border-surface-white z-10 ${idx === 0 ? "bg-primary ring-2 ring-primary-fixed" : "bg-surface-tint"}`}></div>
                       </div>
-                      <div className="flex justify-between items-start mb-2">
+                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 mb-2">
                         <div>
                           <h4 className="font-label-md text-[16px] text-on-surface font-semibold">{job.title || "Job Title"}</h4>
                           <p className="font-body-md text-[14px] text-outline">{job.company || "Company"}</p>
                         </div>
-                        <span className="font-data-mono text-data-mono text-outline">
+                        <span className="font-data-mono text-data-mono text-outline whitespace-nowrap">
                           {job.startDate || "?"} - {job.endDate || "Present"}
                         </span>
                       </div>
