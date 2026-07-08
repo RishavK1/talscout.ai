@@ -5,6 +5,7 @@ import Link from "next/link";
 import { AppShell } from "@/components/app/app-shell";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
+import { TopAppBar } from "@/components/app/top-app-bar";
 
 export default function AuditLogPage() {
   const [logs, setLogs] = useState<any[]>([]);
@@ -116,15 +117,17 @@ export default function AuditLogPage() {
       {/* Main Wrapper */}
       <div className="min-h-screen flex flex-col">
         {/* TopAppBar */}
-        <header className="sticky top-0 z-40 bg-surface/80 backdrop-blur-md border-b border-border-low-alpha flex flex-wrap justify-between items-center gap-4 px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center gap-4">
-            <nav className="flex items-center gap-2 text-on-surface-variant font-label-md">
-              <Link href="/settings" className="hover:text-primary cursor-pointer">Settings</Link>
-              <span className="material-symbols-outlined text-[16px]">chevron_right</span>
-              <span className="text-primary font-semibold">Audit log</span>
-            </nav>
-          </div>
-          <div className="flex items-center gap-6">
+        <TopAppBar
+          leftContent={
+            <div className="flex items-center gap-4">
+              <nav className="flex items-center gap-2 text-on-surface-variant font-label-md">
+                <Link href="/settings" className="hover:text-primary cursor-pointer">Settings</Link>
+                <span className="material-symbols-outlined text-[16px]">chevron_right</span>
+                <span className="text-primary font-semibold">Audit log</span>
+              </nav>
+            </div>
+          }
+          rightContent={
             <div className="relative group">
               <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline group-focus-within:text-primary transition-colors">search</span>
               <input
@@ -135,8 +138,8 @@ export default function AuditLogPage() {
                 onChange={(e) => setQuery(e.target.value)}
               />
             </div>
-          </div>
-        </header>
+          }
+        />
         {/* Page Content */}
         <main className="flex-1 flex flex-col lg:flex-row p-4 sm:p-6 lg:p-8 gap-8 max-w-[1440px] mx-auto w-full">
           {/* Sub-navigation Sidebar */}

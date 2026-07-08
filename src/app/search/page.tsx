@@ -143,20 +143,22 @@ function SearchPageContent() {
             <div className="mb-12">
               <h1 className="font-headline-lg text-headline-lg text-primary mb-6">Semantic Search</h1>
               {/* Large Search Input */}
-              <form onSubmit={handleSearchSubmit} className="relative flex items-center w-full bg-white rounded-xl ambient-shadow p-2 border border-border-low-alpha focus-within:border-primary transition-colors shadow-sm">
-                <span className="material-symbols-outlined text-outline ml-4 mr-2" style={{ fontVariationSettings: "'FILL' 0" }}>search</span>
-                <input
-                  className="flex-1 bg-transparent border-none outline-none focus:outline-none focus:ring-0 font-body-md text-body-md text-on-surface py-3 px-2 placeholder-outline-variant"
-                  placeholder="Describe your ideal candidate..."
-                  type="text"
-                  value={q}
-                  onChange={(e) => setQ(e.target.value)}
-                  disabled={loading}
-                />
+              <form onSubmit={handleSearchSubmit} className="relative flex flex-col sm:flex-row items-stretch sm:items-center w-full bg-white rounded-xl ambient-shadow p-2 border border-border-low-alpha focus-within:border-primary transition-colors shadow-sm gap-2">
+                <div className="flex flex-grow items-center min-w-0">
+                  <span className="material-symbols-outlined text-outline ml-4 mr-2" style={{ fontVariationSettings: "'FILL' 0" }}>search</span>
+                  <input
+                    className="flex-1 bg-transparent border-none outline-none focus:outline-none focus:ring-0 font-body-md text-body-md text-on-surface py-3 px-2 placeholder-outline-variant"
+                    placeholder="Describe your ideal candidate..."
+                    type="text"
+                    value={q}
+                    onChange={(e) => setQ(e.target.value)}
+                    disabled={loading}
+                  />
+                </div>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="bg-tertiary-fixed text-on-tertiary-fixed px-6 py-3 rounded-lg font-label-md text-label-md hover:bg-tertiary-fixed-dim transition-colors flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                  className="bg-tertiary-fixed text-on-tertiary-fixed px-6 py-3 rounded-lg font-label-md text-label-md hover:bg-tertiary-fixed-dim transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 w-full sm:w-auto"
                 >
                   <span className="material-symbols-outlined text-[18px]">auto_awesome</span>
                   Search
