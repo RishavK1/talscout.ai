@@ -266,23 +266,23 @@ export default function BulkFirePage() {
 
         {/* Sender accounts */}
         <section className="mb-12">
-          <div className="mb-4 flex items-center justify-between">
+          <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <h2 className="font-headline-md text-headline-md text-on-surface">
               Sender accounts
             </h2>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2 w-full sm:w-auto">
               <button
                 type="button"
                 onClick={handleConnectGmail}
                 disabled={connectingGmail}
-                className="rounded-lg border border-border-low-alpha bg-white px-4 py-2 font-label-md text-label-md text-on-surface transition-colors hover:bg-surface-container-low disabled:opacity-50"
+                className="flex-1 sm:flex-initial rounded-lg border border-border-low-alpha bg-white px-4 py-2 font-label-md text-label-md text-on-surface transition-colors hover:bg-surface-container-low disabled:opacity-50 text-center"
               >
                 {connectingGmail ? "Redirecting…" : "+ Connect Gmail"}
               </button>
               <button
                 type="button"
                 onClick={() => setSmtpOpen(true)}
-                className="rounded-lg border border-border-low-alpha bg-white px-4 py-2 font-label-md text-label-md text-on-surface transition-colors hover:bg-surface-container-low"
+                className="flex-1 sm:flex-initial rounded-lg border border-border-low-alpha bg-white px-4 py-2 font-label-md text-label-md text-on-surface transition-colors hover:bg-surface-container-low text-center"
               >
                 + Add SMTP
               </button>

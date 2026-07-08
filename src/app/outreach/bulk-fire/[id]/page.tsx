@@ -515,6 +515,41 @@ export default function BulkFireCampaignPage({
                   campaign.errorReason}
               </p>
             )}
+            
+            {/* Mobile/Tablet campaign controls */}
+            <div className="flex flex-wrap items-center gap-2 mt-4 lg:hidden">
+              {campaign.status === "running" && (
+                <button
+                  type="button"
+                  disabled={controlBusy}
+                  onClick={() => runControl("pause")}
+                  className="rounded-lg border border-border-low-alpha bg-white px-4 py-2 font-label-md text-label-md text-on-surface transition-colors hover:bg-surface-container-low disabled:opacity-50"
+                >
+                  Pause
+                </button>
+              )}
+              {campaign.status === "paused" && (
+                <button
+                  type="button"
+                  disabled={controlBusy}
+                  onClick={() => runControl("resume")}
+                  className="rounded-lg border border-border-low-alpha bg-white px-4 py-2 font-label-md text-label-md text-on-surface transition-colors hover:bg-surface-container-low disabled:opacity-50"
+                >
+                  Resume
+                </button>
+              )}
+              {(campaign.status === "running" ||
+                campaign.status === "paused") && (
+                <button
+                  type="button"
+                  disabled={controlBusy}
+                  onClick={() => runControl("stop")}
+                  className="rounded-lg border border-error/20 bg-white px-4 py-2 font-label-md text-label-md text-error transition-colors hover:bg-error/5 disabled:opacity-50"
+                >
+                  Stop
+                </button>
+              )}
+            </div>
           </div>
         </section>
 
