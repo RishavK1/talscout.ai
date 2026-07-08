@@ -13,7 +13,8 @@ export const POST = withAuth<CompleteLeadsUploadBody>(
   async ({ ctx, params, body }) => {
     await billingService.assertActiveSubscription(ctx);
     const campaignId = uuidOr404(params.id, "Campaign not found");
-    return { status: 202, data: await outreachService.completeLeadsUpload(ctx, campaignId, body) };
+    const { result, afterCommit } = await outreachService.completeLeadsUpload(ctx, campaignId, body);
+    return { status: 202, data: result, afterCommit };
   },
   { role: "recruiter", bodySchema: completeLeadsUploadSchema },
 );

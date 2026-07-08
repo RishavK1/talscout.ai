@@ -159,13 +159,20 @@ export const outreachService = {
       targetId: campaignId,
     });
 
-    await getServices().queue.enqueue(PARSE_LEADS_DOCX_JOB, {
-      tenantId: ctx.tenantId,
-      campaignId,
-      fileKey: body.fileKey,
-    });
-
-    return { id: campaignId, status: "importing" as const };
+    // Enqueueing must wait until AFTER this transaction commits — with
+    // InProcessQueue (local dev), enqueue() runs the job synchronously on a
+    // separate connection, which can't see the "importing" write above until
+    // it's durable. Enqueueing here, mid-transaction, means the job either
+    // reads the pre-commit status and silently no-ops, or deadlocks trying to
+    // write a row this transaction still holds locked. The route returns this
+    // closure as `afterCommit` so `withAuth` runs it post-commit.
+    const tenantId = ctx.tenantId;
+    const fileKey = body.fileKey;
+    return {
+      result: { id: campaignId, status: "importing" as const },
+      afterCommit: () =>
+        getServices().queue.enqueue(PARSE_LEADS_DOCX_JOB, { tenantId, campaignId, fileKey }),
+    };
   },
 
   /**
@@ -222,15 +229,25 @@ export const outreachService = {
       metadata: { stepIndex, count: sends.length },
     });
 
-    for (const send of sends) {
-      await getServices().queue.enqueue(SEND_OUTREACH_EMAIL_JOB, {
-        tenantId: ctx.tenantId,
-        sendId: send.id,
-        targetSendAt: send.scheduledAt.toISOString(),
-      });
-    }
+    // Deferred to `afterCommit` — same reasoning as `completeLeadsUpload`:
+    // InProcessQueue runs each send job synchronously, on a separate
+    // connection, which must not start before the `outreachSends` rows
+    // above are actually committed and visible.
+    const tenantId = ctx.tenantId;
+    const sendJobs = sends.map((send) => ({
+      tenantId,
+      sendId: send.id,
+      targetSendAt: send.scheduledAt.toISOString(),
+    }));
 
-    return { id: campaignId, status: "running" as const, scheduled: sends.length };
+    return {
+      result: { id: campaignId, status: "running" as const, scheduled: sends.length },
+      afterCommit: async () => {
+        for (const job of sendJobs) {
+          await getServices().queue.enqueue(SEND_OUTREACH_EMAIL_JOB, job);
+        }
+      },
+    };
   },
 
   async pauseCampaign(ctx: TenantContext, campaignId: string) {

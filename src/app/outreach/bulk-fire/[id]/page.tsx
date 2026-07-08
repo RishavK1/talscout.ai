@@ -73,6 +73,13 @@ const LEAD_STATUS_STYLE: Record<Lead["status"], string> = {
   skipped: "bg-surface-container-high text-on-surface-variant",
 };
 
+const ERROR_REASON_LABELS: Record<string, string> = {
+  file_missing: "The uploaded file could not be found — please try uploading again.",
+  no_leads_found: "No leads could be read from this file — check it has a name and email for each lead.",
+  docx_parse_failed: "This file couldn't be read as a .docx — please re-export and try again.",
+  import_failed: "Import failed unexpectedly — please try uploading again.",
+};
+
 const DEFAULT_SEQUENCE: SequenceStep[] = [
   { stepIndex: 0, dayOffset: 0, subjectTemplate: "", bodyTemplate: "" },
   { stepIndex: 1, dayOffset: 3, subjectTemplate: "", bodyTemplate: "" },
@@ -355,7 +362,9 @@ export default function BulkFireCampaignPage({
               <span className="font-data-mono text-[12px] text-text-muted">{leadCount} leads</span>
             </div>
             {campaign.status === "error" && campaign.errorReason && (
-              <p className="mt-2 font-body-md text-[13px] text-error">{campaign.errorReason}</p>
+              <p className="mt-2 font-body-md text-[13px] text-error">
+                {ERROR_REASON_LABELS[campaign.errorReason] ?? campaign.errorReason}
+              </p>
             )}
           </div>
         </section>

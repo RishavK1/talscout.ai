@@ -149,8 +149,64 @@ function finalizeLead(lead: ParsedLead & { warningNotes: string[] }): ParsedLead
   };
 }
 
+const EMPTY_TEMPLATES: SequenceTemplates = {
+  day0: { subject: "", body: "" },
+  day3: { subject: "", body: "" },
+  day7: { subject: "", body: "" },
+};
+
+const EMAIL_RE = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/;
+const PHONE_RE = /\+?\d[\d\s-]{8,}\d/;
+
+/**
+ * Fallback for leads docs that aren't in the sibling CRM's exact numbered
+ * "1. Name / What they do: / Founders: / Send route" template — the format
+ * most agencies actually type up. Treats each blank-line-separated paragraph
+ * (or, failing that, each non-empty line) containing an email address as one
+ * lead, using the rest of that block as the name/notes.
+ */
+function parseLenientEmailList(rawText: string): ParsedLead[] {
+  let blocks = rawText.split(/\r?\n\s*\r?\n/).filter((b) => b.trim());
+  if (!blocks.some((b) => EMAIL_RE.test(b))) {
+    blocks = rawText.split(/\r?\n/).filter((b) => b.trim());
+  }
+
+  const leads: ParsedLead[] = [];
+  const seenEmails = new Set<string>();
+
+  for (const block of blocks) {
+    const emailMatch = block.match(EMAIL_RE);
+    if (!emailMatch) continue;
+    const email = emailMatch[0].trim().toLowerCase();
+    if (seenEmails.has(email)) continue;
+    seenEmails.add(email);
+
+    const lines = block.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    const phoneMatch = block.match(PHONE_RE);
+    const nameLine = lines.find(
+      (l) => !EMAIL_RE.test(l) && !(phoneMatch && l === phoneMatch[0].trim()),
+    );
+    const name = (nameLine ?? email.split("@")[0])
+      .replace(/^\d+[.)]\s*/, "")
+      .replace(/[-•*]\s*/, "")
+      .trim();
+
+    leads.push({
+      name: name || email,
+      email,
+      phone: phoneMatch ? phoneMatch[0].trim() : undefined,
+      notes: lines.join("\n"),
+      templates: EMPTY_TEMPLATES,
+    });
+  }
+
+  return leads;
+}
+
 /** Extracts raw text from a .docx buffer, then runs it through the parser. */
 export async function parseLeadsDocx(buffer: Buffer): Promise<ParsedLead[]> {
   const result = await mammoth.extractRawText({ buffer });
-  return parsePlaybookText(result.value);
+  const strict = parsePlaybookText(result.value);
+  if (strict.length > 0) return strict;
+  return parseLenientEmailList(result.value);
 }

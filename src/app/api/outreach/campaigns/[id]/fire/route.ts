@@ -10,7 +10,8 @@ export const POST = withAuth<FireCampaignBody>(
   async ({ ctx, params, body }) => {
     await billingService.assertActiveSubscription(ctx);
     const campaignId = uuidOr404(params.id, "Campaign not found");
-    return { data: await outreachService.fireCampaign(ctx, campaignId, body.stepIndex) };
+    const { result, afterCommit } = await outreachService.fireCampaign(ctx, campaignId, body.stepIndex);
+    return { data: result, afterCommit };
   },
   { role: "recruiter", bodySchema: fireCampaignSchema },
 );

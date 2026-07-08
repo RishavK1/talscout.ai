@@ -10,6 +10,17 @@ import { getServices } from "@/server/container";
 export interface HandlerResult {
   data?: unknown;
   status?: number;
+  /**
+   * Run after the enclosing tenant transaction commits — for work that must
+   * not start until the handler's own writes are durable and visible to
+   * other connections. `InProcessQueue.enqueue()` runs a job synchronously,
+   * inline, on a SEPARATE connection/transaction; calling it from inside the
+   * handler (i.e. inside `withTenantTx`) means the job can never see this
+   * request's own uncommitted writes — it silently no-ops reading stale
+   * state, or deadlocks retrying to write a row this transaction still holds
+   * locked. Any handler that enqueues a job belongs here, not in the body.
+   */
+  afterCommit?: () => Promise<void>;
 }
 
 export interface RateLimitOptions {
@@ -126,6 +137,7 @@ export function withAuth<B = undefined, Q = undefined>(
         { tenantId: session.tenantId, userId: session.userId, ip: clientIp(req) },
         (ctx) => handler({ req, params, session, body, query, ctx }),
       );
+      if (result.afterCommit) await result.afterCommit();
       return okResponse(result.data ?? null, result.status ?? 200);
     } catch (err) {
       return errorResponse(err, requestId);
