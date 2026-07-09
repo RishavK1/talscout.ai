@@ -167,6 +167,24 @@ export function buildOutreachTemplatesBlock(
   return `${TEMPLATES_MARKER_START}\n${JSON.stringify(templates, null, 2)}\n${TEMPLATES_MARKER_END}\n`;
 }
 
+/**
+ * Replaces a lead's embedded templates block with a new one (or appends one,
+ * for a lead that didn't have per-lead copy yet), preserving any other
+ * free-text content in `notes` — e.g. the docx importer's warning lines.
+ * Used by the email-edit modal to persist per-lead subject/body changes.
+ */
+export function replaceOutreachTemplatesBlock(
+  notes: string | null | undefined,
+  templates: SequenceTemplates,
+): string {
+  const pattern = new RegExp(
+    `${TEMPLATES_MARKER_START}\\r?\\n[\\s\\S]*?\\r?\\n${TEMPLATES_MARKER_END}\\n?`,
+  );
+  const rest = (notes ?? "").replace(pattern, "").trim();
+  const block = buildOutreachTemplatesBlock(templates);
+  return rest ? `${rest}\n${block}` : block;
+}
+
 export interface ScheduledSend {
   leadId: string;
   senderAccountId: string;

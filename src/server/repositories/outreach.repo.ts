@@ -1,4 +1,14 @@
-import { and, eq, sql, inArray, isNull, isNotNull, ne, asc } from "drizzle-orm";
+import {
+  and,
+  eq,
+  sql,
+  inArray,
+  isNull,
+  isNotNull,
+  ne,
+  asc,
+  getTableColumns,
+} from "drizzle-orm";
 import {
   senderAccounts,
   outreachCampaigns,
@@ -262,7 +272,9 @@ export const outreachLeadRepo = {
 
   /** Paginated — defaults/caps mirror candidateRepo.list (PAGE-02/03), so this
    *  is never an unbounded list endpoint even for a campaign with thousands
-   *  of imported leads. */
+   *  of imported leads. `nextSendAt` is a correlated subquery (not a join) so
+   *  it stays a single row per lead — the leads table's live countdown timer
+   *  reads off this. */
   async listByCampaign(
     ctx: TenantContext,
     campaignId: string,
@@ -271,7 +283,20 @@ export const outreachLeadRepo = {
     const limit = clampLimit(params.limit);
     const offset = clampOffset(params.offset);
     const rows = await ctx.tx
-      .select()
+      .select({
+        ...getTableColumns(outreachLeads),
+        // NOTE: outreach_leads.id must stay qualified — outreach_sends has
+        // its own "id" column, and a bare `${outreachLeads.id}` here renders
+        // as unqualified "id" (drizzle doesn't table-qualify raw sql``
+        // column interpolations), which Postgres resolves to the nearer
+        // outreach_sends.id, silently turning this into a no-op correlation
+        // that always returned null.
+        nextSendAt: sql<Date | null>`(
+          select min(${outreachSends.scheduledAt}) from ${outreachSends}
+          where ${outreachSends.leadId} = ${sql.raw('"outreach_leads"."id"')}
+            and ${outreachSends.status} = 'scheduled'
+        )`,
+      })
       .from(outreachLeads)
       .where(
         and(
@@ -377,6 +402,19 @@ export const outreachLeadRepo = {
         and(eq(outreachLeads.id, id), eq(outreachLeads.tenantId, ctx.tenantId)),
       )
       .limit(1);
+    return row ?? null;
+  },
+
+  /** Overwrites `notes` wholesale — used to persist an edited embedded
+   *  templates block (see `replaceOutreachTemplatesBlock`). */
+  async updateNotes(ctx: TenantContext, id: string, notes: string) {
+    const [row] = await ctx.tx
+      .update(outreachLeads)
+      .set({ notes })
+      .where(
+        and(eq(outreachLeads.id, id), eq(outreachLeads.tenantId, ctx.tenantId)),
+      )
+      .returning();
     return row ?? null;
   },
 };

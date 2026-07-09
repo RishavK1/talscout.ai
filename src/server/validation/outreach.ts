@@ -67,6 +67,19 @@ export const setSenderActiveSchema = z.object({
 });
 export type SetSenderActiveBody = z.infer<typeof setSenderActiveSchema>;
 
+export const leadTemplateStepSchema = z.object({
+  stepIndex: z.number().int().min(0).max(2),
+  subject: z.string().min(1).max(500),
+  body: z.string().min(1).max(10_000),
+});
+
+/** Saved as this lead's own copy (overrides the campaign fallback sequence
+ *  for it) — see `replaceOutreachTemplatesBlock` in server/lib/spintax.ts. */
+export const setLeadTemplatesSchema = z.object({
+  steps: z.array(leadTemplateStepSchema).min(1).max(3),
+});
+export type SetLeadTemplatesBody = z.infer<typeof setLeadTemplatesSchema>;
+
 export const gmailOauthCallbackSchema = z.object({
   code: z.string().min(1),
   state: z.string().min(1),

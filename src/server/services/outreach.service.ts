@@ -6,7 +6,13 @@ import {
   outreachSendRepo,
   senderAccountRepo,
 } from "@/server/repositories/outreach.repo";
-import { scheduleSends } from "@/server/lib/spintax";
+import {
+  scheduleSends,
+  getOutreachTemplates,
+  replaceOutreachTemplatesBlock,
+  type SequenceStepKey,
+} from "@/server/lib/spintax";
+import type { SequenceStep } from "@/server/repositories/outreach.repo";
 import { encryptSecret } from "@/server/lib/secret-box";
 import { signOAuthState, verifyOAuthState } from "@/server/lib/oauth-state";
 import { getServices } from "@/server/container";
@@ -27,12 +33,15 @@ import type {
   RequestLeadsUploadBody,
   CompleteLeadsUploadBody,
   CreateSmtpSenderBody,
+  SetLeadTemplatesBody,
 } from "@/server/validation/outreach";
 
 const GMAIL_OAUTH_SCOPES = [
   "https://www.googleapis.com/auth/gmail.send",
   "https://www.googleapis.com/auth/userinfo.email",
 ];
+
+const STEP_KEYS: SequenceStepKey[] = ["day0", "day3", "day7"];
 
 /** `senderAccountRepo` rows carry `smtpPasswordEnc`/`gmailRefreshTokenEnc` —
  *  ciphertext, not plaintext, but still an internal column that should never
@@ -108,6 +117,67 @@ export const outreachService = {
       targetId: campaignId,
     });
     return { id: campaignId, sequence: body.sequence };
+  },
+
+  /** What will actually be sent to this lead for each step — its own
+   *  docx-embedded copy where it has one, else the campaign's fallback
+   *  sequence (mirrors `resolveTemplate` in jobs/send-outreach-email.ts).
+   *  Backs the "view/edit emails" modal on the leads table. */
+  async getLeadTemplates(ctx: TenantContext, campaignId: string, leadId: string) {
+    const campaign = await outreachCampaignRepo.getById(ctx, campaignId);
+    if (!campaign) throw new NotFound("Campaign not found");
+    const lead = await outreachLeadRepo.getById(ctx, leadId);
+    if (!lead || lead.campaignId !== campaignId) throw new NotFound("Lead not found");
+
+    const own = getOutreachTemplates(lead.notes) ?? {};
+    const fallbackSteps = Array.isArray(campaign.sequence)
+      ? (campaign.sequence as SequenceStep[])
+      : [];
+
+    const steps = STEP_KEYS.map((key, stepIndex) => {
+      const fallback = fallbackSteps.find((s) => s.stepIndex === stepIndex);
+      const ownStep = own[key];
+      return {
+        stepIndex,
+        subject: ownStep?.subject || fallback?.subjectTemplate || "",
+        body: ownStep?.body || fallback?.bodyTemplate || "",
+        isOwn: Boolean(ownStep?.body),
+      };
+    });
+
+    return { leadId, steps };
+  },
+
+  /** Persists edited subject/body as this lead's own copy — from then on it
+   *  wins over the campaign fallback for every step included, regardless of
+   *  future fallback edits (same one-way precedence docx-imported leads
+   *  already have). Steps not included keep whatever they had before. */
+  async setLeadTemplates(
+    ctx: TenantContext,
+    campaignId: string,
+    leadId: string,
+    body: SetLeadTemplatesBody,
+  ) {
+    const campaign = await outreachCampaignRepo.getById(ctx, campaignId);
+    if (!campaign) throw new NotFound("Campaign not found");
+    const lead = await outreachLeadRepo.getById(ctx, leadId);
+    if (!lead || lead.campaignId !== campaignId) throw new NotFound("Lead not found");
+
+    const templates = { ...(getOutreachTemplates(lead.notes) ?? {}) };
+    for (const step of body.steps) {
+      const key = STEP_KEYS[step.stepIndex];
+      if (key) templates[key] = { subject: step.subject, body: step.body };
+    }
+
+    const notes = replaceOutreachTemplatesBlock(lead.notes, templates);
+    await outreachLeadRepo.updateNotes(ctx, leadId, notes);
+    await auditRepo.log(ctx, {
+      action: "outreach.lead.set_templates",
+      targetType: "outreach_lead",
+      targetId: leadId,
+    });
+
+    return { leadId, steps: body.steps };
   },
 
   async listLeads(
