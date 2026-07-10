@@ -34,6 +34,11 @@ import {
   SEND_OUTREACH_EMAIL_JOB,
   type SendOutreachEmailPayload,
 } from "@/server/jobs/send-outreach-email";
+import {
+  fireScheduledCampaign,
+  FIRE_SCHEDULED_CAMPAIGN_JOB,
+  type FireScheduledCampaignPayload,
+} from "@/server/jobs/fire-scheduled-campaign";
 
 let services: Services | null = null;
 
@@ -72,6 +77,16 @@ export function getServices(): Services {
         services as Services,
       );
     });
+    // Same inline-vs-deferred caveat as SEND_OUTREACH_EMAIL_JOB above — the
+    // payload field is scheduledFireAt, not targetSendAt, so InProcessQueue
+    // runs this immediately rather than waiting; real delay only happens
+    // under a live Inngest queue.
+    queue.register(FIRE_SCHEDULED_CAMPAIGN_JOB, (payload) =>
+      fireScheduledCampaign(
+        payload as FireScheduledCampaignPayload,
+        services as Services,
+      ),
+    );
   } else {
     // APP_MODE=live — real services.
     // In serverless production, use InngestQueue to prevent background job freezing.
@@ -117,6 +132,12 @@ export function getServices(): Services {
           services as Services,
         );
       });
+      queue.register(FIRE_SCHEDULED_CAMPAIGN_JOB, (payload) =>
+        fireScheduledCampaign(
+          payload as FireScheduledCampaignPayload,
+          services as Services,
+        ),
+      );
     }
   }
 

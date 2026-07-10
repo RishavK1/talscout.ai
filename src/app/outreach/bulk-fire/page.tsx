@@ -23,6 +23,7 @@ interface Campaign {
     | "completed"
     | "error";
   createdAt: string;
+  scheduledFireAt: string | null;
 }
 
 interface Sender {
@@ -416,6 +417,18 @@ export default function BulkFirePage() {
                           >
                             {c.status}
                           </span>
+                          {c.scheduledFireAt && (
+                            <span
+                              title={new Date(c.scheduledFireAt).toLocaleString()}
+                              className="rounded-full bg-secondary-container/30 px-2.5 py-0.5 font-label-md text-[11px] text-secondary"
+                            >
+                              Scheduled{" "}
+                              {new Date(c.scheduledFireAt).toLocaleDateString(
+                                undefined,
+                                { month: "short", day: "numeric" },
+                              )}
+                            </span>
+                          )}
                           <button
                             type="button"
                             onClick={(e) => {

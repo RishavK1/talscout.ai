@@ -318,6 +318,20 @@ export const outreachCampaigns = pgTable(
     /** Minutes per pacing block for the send scheduler (fireQueue's
      *  block+jitter algorithm, generalized across sender accounts). */
     blockMinutes: integer("block_minutes").notNull().default(5),
+    /** string[] | null — which sender accounts this campaign fires from.
+     *  null/empty means "every active sender account" (the original,
+     *  tenant-wide round-robin behavior); set means Fire/Schedule Fire only
+     *  rotate across these ids (see resolveCampaignSenders in
+     *  outreach.service.ts). */
+    senderAccountIds: jsonb("sender_account_ids"),
+    /** A pending "fire at this time" request set via the schedule-fire UI —
+     *  all three null together means no schedule is pending. The Inngest job
+     *  in server/jobs/fire-scheduled-campaign.ts re-checks scheduledFireAt
+     *  against this row at wake time, so clearing/changing it here is enough
+     *  to cancel/reschedule (see that file for the staleness check). */
+    scheduledFireAt: timestamp("scheduled_fire_at", { withTimezone: true }),
+    scheduledFireStepIndex: integer("scheduled_fire_step_index"),
+    scheduledFireLeadIds: jsonb("scheduled_fire_lead_ids"),
     errorReason: text("error_reason"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

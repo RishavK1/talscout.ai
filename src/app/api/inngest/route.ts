@@ -10,6 +10,10 @@ import {
   sendOutreachEmail,
   type SendOutreachEmailPayload,
 } from "@/server/jobs/send-outreach-email";
+import {
+  fireScheduledCampaign,
+  type FireScheduledCampaignPayload,
+} from "@/server/jobs/fire-scheduled-campaign";
 import { getServices } from "@/server/container";
 
 const parseResumeFunction = inngest.createFunction(
@@ -68,11 +72,42 @@ const sendOutreachEmailFunction = inngest.createFunction(
   }
 );
 
+/**
+ * Enqueued once per schedule-fire request (see outreachService.scheduleFire),
+ * carrying the chosen `scheduledFireAt`. Same durable-sleep shape as
+ * sendOutreachEmailFunction above, one level up: this suspends until the
+ * chosen fire time, then runs fireScheduledCampaign, which re-validates
+ * against the campaign's live scheduledFireAt before doing anything — a
+ * cancel/reschedule just makes this wake-up a no-op.
+ */
+const fireScheduledCampaignFunction = inngest.createFunction(
+  {
+    id: "fire-scheduled-campaign",
+    name: "Bulk Fire Scheduled Campaign Fire",
+    triggers: [{ event: "job/fire-scheduled-campaign" }],
+  },
+  async ({
+    event,
+    step,
+  }: {
+    event: { data: FireScheduledCampaignPayload };
+    step: GetStepTools<typeof inngest>;
+  }) => {
+    const payload = event.data;
+    await step.sleepUntil("wait-for-scheduled-fire", payload.scheduledFireAt);
+    await step.run("fire", async () => {
+      const services = getServices();
+      await fireScheduledCampaign(payload, services);
+    });
+  }
+);
+
 export const { GET, POST, PUT } = serve({
   client: inngest,
   functions: [
     parseResumeFunction,
     parseLeadsDocxFunction,
     sendOutreachEmailFunction,
+    fireScheduledCampaignFunction,
   ],
 });

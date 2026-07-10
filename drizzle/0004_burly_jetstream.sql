@@ -1,0 +1,1 @@
+ALTER TABLE "outreach_campaigns" ADD COLUMN "sender_account_ids" jsonb;

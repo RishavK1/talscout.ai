@@ -159,6 +159,24 @@ export const senderAccountRepo = {
       .returning({ id: senderAccounts.id });
     return deleted.length > 0;
   },
+
+  /** Active accounts matching the given ids, tenant-scoped. Ids that don't
+   *  resolve (deleted/paused/foreign) are silently excluded — callers treat
+   *  an empty result as "no eligible sender". */
+  async listByIds(ctx: TenantContext, ids: string[]) {
+    if (ids.length === 0) return [];
+    return await ctx.tx
+      .select()
+      .from(senderAccounts)
+      .where(
+        and(
+          eq(senderAccounts.tenantId, ctx.tenantId),
+          eq(senderAccounts.isActive, true),
+          inArray(senderAccounts.id, ids),
+        ),
+      )
+      .orderBy(sql`${senderAccounts.createdAt} ASC`);
+  },
 };
 
 export const outreachCampaignRepo = {
@@ -213,6 +231,60 @@ export const outreachCampaignRepo = {
     await ctx.tx
       .update(outreachCampaigns)
       .set({ status, errorReason: errorReason ?? null, updatedAt: new Date() })
+      .where(
+        and(
+          eq(outreachCampaigns.id, id),
+          eq(outreachCampaigns.tenantId, ctx.tenantId),
+        ),
+      );
+  },
+
+  async setScheduledFire(
+    ctx: TenantContext,
+    id: string,
+    fire: { scheduledFireAt: Date; stepIndex: number; leadIds: string[] | null },
+  ) {
+    await ctx.tx
+      .update(outreachCampaigns)
+      .set({
+        scheduledFireAt: fire.scheduledFireAt,
+        scheduledFireStepIndex: fire.stepIndex,
+        scheduledFireLeadIds: fire.leadIds,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(outreachCampaigns.id, id),
+          eq(outreachCampaigns.tenantId, ctx.tenantId),
+        ),
+      );
+  },
+
+  async setSenderAccounts(
+    ctx: TenantContext,
+    id: string,
+    senderAccountIds: string[] | null,
+  ) {
+    await ctx.tx
+      .update(outreachCampaigns)
+      .set({ senderAccountIds, updatedAt: new Date() })
+      .where(
+        and(
+          eq(outreachCampaigns.id, id),
+          eq(outreachCampaigns.tenantId, ctx.tenantId),
+        ),
+      );
+  },
+
+  async clearScheduledFire(ctx: TenantContext, id: string) {
+    await ctx.tx
+      .update(outreachCampaigns)
+      .set({
+        scheduledFireAt: null,
+        scheduledFireStepIndex: null,
+        scheduledFireLeadIds: null,
+        updatedAt: new Date(),
+      })
       .where(
         and(
           eq(outreachCampaigns.id, id),
@@ -481,6 +553,26 @@ export const outreachSendRepo = {
       .set({ status: "skipped", errorReason: reason })
       .where(
         and(eq(outreachSends.id, id), eq(outreachSends.tenantId, ctx.tenantId)),
+      );
+  },
+
+  /** Called on pause/stop so the leads table's countdown stops immediately
+   *  instead of ticking down to a send that will only get skipped later,
+   *  lazily, when its Inngest job happens to wake up. */
+  async skipScheduledForCampaign(
+    ctx: TenantContext,
+    campaignId: string,
+    reason: string,
+  ) {
+    await ctx.tx
+      .update(outreachSends)
+      .set({ status: "skipped", errorReason: reason })
+      .where(
+        and(
+          eq(outreachSends.tenantId, ctx.tenantId),
+          eq(outreachSends.campaignId, campaignId),
+          eq(outreachSends.status, "scheduled"),
+        ),
       );
   },
 

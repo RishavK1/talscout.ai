@@ -26,6 +26,22 @@ export const fireCampaignSchema = z.object({
 });
 export type FireCampaignBody = z.infer<typeof fireCampaignSchema>;
 
+/** Schedules a future Fire for one sequence step — same shape as
+ *  `fireCampaignSchema` plus the target time. */
+export const scheduleFireSchema = z.object({
+  stepIndex: z.number().int().min(0).max(2).default(0),
+  scheduledFireAt: z.iso.datetime(),
+  leadIds: z.array(z.uuid()).max(5000).optional(),
+});
+export type ScheduleFireBody = z.infer<typeof scheduleFireSchema>;
+
+/** Empty array means "no explicit selection" — the campaign falls back to
+ *  every active sender account (see resolveCampaignSenders). */
+export const setCampaignSendersSchema = z.object({
+  senderAccountIds: z.array(z.uuid()).max(20),
+});
+export type SetCampaignSendersBody = z.infer<typeof setCampaignSendersSchema>;
+
 /** List query for a campaign's leads table. Bad values fall back to repo
  *  defaults rather than erroring, same convention as listCandidatesQuerySchema. */
 export const listLeadsQuerySchema = z.object({

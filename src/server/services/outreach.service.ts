@@ -21,6 +21,7 @@ import { auditRepo } from "@/server/repositories/audit.repo";
 import { MAX_UPLOAD_BYTES } from "@/server/ingestion/file-type";
 import { PARSE_LEADS_DOCX_JOB } from "@/server/jobs/parse-leads-docx";
 import { SEND_OUTREACH_EMAIL_JOB } from "@/server/jobs/send-outreach-email";
+import { FIRE_SCHEDULED_CAMPAIGN_JOB } from "@/server/jobs/fire-scheduled-campaign";
 import {
   NotFound,
   Conflict,
@@ -34,6 +35,7 @@ import type {
   CompleteLeadsUploadBody,
   CreateSmtpSenderBody,
   SetLeadTemplatesBody,
+  SetCampaignSendersBody,
 } from "@/server/validation/outreach";
 
 const GMAIL_OAUTH_SCOPES = [
@@ -42,6 +44,20 @@ const GMAIL_OAUTH_SCOPES = [
 ];
 
 const STEP_KEYS: SequenceStepKey[] = ["day0", "day3", "day7"];
+
+/** Which sender accounts a campaign's Fire (immediate or scheduled — both
+ *  route through `fireCampaign`) rotates across. An explicit selection
+ *  scopes to just those (still tenant/active-guarded via `listByIds`);
+ *  null/empty preserves the original tenant-wide round-robin. */
+async function resolveCampaignSenders(
+  ctx: TenantContext,
+  campaign: { senderAccountIds: unknown },
+) {
+  const ids = campaign.senderAccountIds as string[] | null;
+  return ids && ids.length > 0
+    ? await senderAccountRepo.listByIds(ctx, ids)
+    : await senderAccountRepo.listActive(ctx);
+}
 
 /** `senderAccountRepo` rows carry `smtpPasswordEnc`/`gmailRefreshTokenEnc` —
  *  ciphertext, not plaintext, but still an internal column that should never
@@ -117,6 +133,35 @@ export const outreachService = {
       targetId: campaignId,
     });
     return { id: campaignId, sequence: body.sequence };
+  },
+
+  /** Empty selection clears back to "every active sender account" (see
+   *  resolveCampaignSenders) — the historical, tenant-wide behavior. */
+  async setCampaignSenders(
+    ctx: TenantContext,
+    campaignId: string,
+    body: SetCampaignSendersBody,
+  ) {
+    const campaign = await outreachCampaignRepo.getById(ctx, campaignId);
+    if (!campaign) throw new NotFound("Campaign not found");
+
+    if (body.senderAccountIds.length > 0) {
+      const resolved = await senderAccountRepo.listByIds(ctx, body.senderAccountIds);
+      if (resolved.length !== body.senderAccountIds.length) {
+        throw new BadRequest("One or more selected sender accounts are invalid");
+      }
+    }
+
+    const senderAccountIds =
+      body.senderAccountIds.length > 0 ? body.senderAccountIds : null;
+    await outreachCampaignRepo.setSenderAccounts(ctx, campaignId, senderAccountIds);
+    await auditRepo.log(ctx, {
+      action: "outreach.campaign.set_senders",
+      targetType: "outreach_campaign",
+      targetId: campaignId,
+      metadata: { senderAccountIds },
+    });
+    return { id: campaignId, senderAccountIds };
   },
 
   /** What will actually be sent to this lead for each step — its own
@@ -295,7 +340,7 @@ export const outreachService = {
       );
     }
 
-    const senders = await senderAccountRepo.listActive(ctx);
+    const senders = await resolveCampaignSenders(ctx, campaign);
     if (senders.length === 0) {
       throw new BadRequest("Connect at least one sender account before firing");
     }
@@ -364,6 +409,68 @@ export const outreachService = {
     };
   },
 
+  /**
+   * Schedules a future Fire instead of firing immediately — same eligibility
+   * gate as `fireCampaign` (checked again at fire time, since the wait can
+   * be days) plus a future-time check. The enqueued job (`fire-scheduled-campaign.ts`)
+   * re-reads `scheduledFireAt` off the campaign row before acting, so
+   * canceling or rescheduling (both just DB writes here) makes any earlier
+   * wake-up a safe no-op without needing to cancel the job itself.
+   */
+  async scheduleFire(
+    ctx: TenantContext,
+    campaignId: string,
+    stepIndex: number,
+    scheduledFireAt: Date,
+    leadIds?: string[],
+  ) {
+    const campaign = await outreachCampaignRepo.getById(ctx, campaignId);
+    if (!campaign) throw new NotFound("Campaign not found");
+    if (campaign.status !== "ready" && campaign.status !== "running") {
+      throw new Conflict(
+        `Campaign must be ready or running to schedule a fire (current status: ${campaign.status})`,
+      );
+    }
+    if (scheduledFireAt.getTime() <= Date.now()) {
+      throw new BadRequest("Scheduled time must be in the future");
+    }
+
+    await outreachCampaignRepo.setScheduledFire(ctx, campaignId, {
+      scheduledFireAt,
+      stepIndex,
+      leadIds: leadIds && leadIds.length > 0 ? leadIds : null,
+    });
+    await auditRepo.log(ctx, {
+      action: "outreach.campaign.schedule_fire",
+      targetType: "outreach_campaign",
+      targetId: campaignId,
+      metadata: { stepIndex, scheduledFireAt: scheduledFireAt.toISOString() },
+    });
+
+    const tenantId = ctx.tenantId;
+    return {
+      result: { id: campaignId, scheduledFireAt: scheduledFireAt.toISOString() },
+      afterCommit: () =>
+        getServices().queue.enqueue(FIRE_SCHEDULED_CAMPAIGN_JOB, {
+          tenantId,
+          campaignId,
+          scheduledFireAt: scheduledFireAt.toISOString(),
+        }),
+    };
+  },
+
+  async cancelScheduledFire(ctx: TenantContext, campaignId: string) {
+    const campaign = await outreachCampaignRepo.getById(ctx, campaignId);
+    if (!campaign) throw new NotFound("Campaign not found");
+    await outreachCampaignRepo.clearScheduledFire(ctx, campaignId);
+    await auditRepo.log(ctx, {
+      action: "outreach.campaign.cancel_scheduled_fire",
+      targetType: "outreach_campaign",
+      targetId: campaignId,
+    });
+    return { id: campaignId };
+  },
+
   /** Deletes a campaign and, via FK cascade, all of its leads and sends. No
    *  storage cleanup needed — the imported leads docx is never persisted past
    *  the parse job (unlike a resume's stored file). A campaign's in-flight
@@ -419,6 +526,15 @@ export const outreachService = {
       throw new Conflict("Campaign is not active");
     }
     await outreachCampaignRepo.setStatus(ctx, campaignId, "completed");
+    // Stop is terminal — eagerly skip whatever's still pending instead of
+    // waiting for each send's own job to wake up and self-check, so the
+    // leads table reflects "won't send" immediately rather than looking
+    // like it's still counting down to a live send.
+    await outreachSendRepo.skipScheduledForCampaign(
+      ctx,
+      campaignId,
+      "campaign_not_running",
+    );
     await auditRepo.log(ctx, {
       action: "outreach.campaign.stop",
       targetType: "outreach_campaign",

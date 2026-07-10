@@ -33,6 +33,22 @@ interface Campaign {
   sequence: SequenceStep[];
   blockMinutes: number;
   errorReason: string | null;
+  /** A pending "fire at this time" request set via the schedule-fire UI —
+   *  null means no schedule is pending. */
+  scheduledFireAt: string | null;
+  scheduledFireStepIndex: number | null;
+  scheduledFireLeadIds: string[] | null;
+  /** null/empty means "every active sender account" — see
+   *  resolveCampaignSenders in outreach.service.ts. */
+  senderAccountIds: string[] | null;
+}
+
+interface Sender {
+  id: string;
+  type: "gmail" | "smtp";
+  label: string;
+  email: string;
+  isActive: boolean;
 }
 
 interface Counts {
@@ -66,17 +82,36 @@ interface LeadTemplateStep {
 /** Ticking mm:ss countdown to a lead's next scheduled send — replaces the
  *  static "Niche" column so pacing is visible per-row, not just in the
  *  aggregate progress panel. */
-function SendCountdown({ nextSendAt }: { nextSendAt: string | null }) {
+function SendCountdown({
+  nextSendAt,
+  paused,
+}: {
+  nextSendAt: string | null;
+  /** True while the campaign is paused/stopped — the send row still says
+   *  "scheduled" until its own job wakes up and self-skips, so without this
+   *  the countdown would keep ticking toward "Sending…" for a send that
+   *  will actually be silently skipped, not sent. */
+  paused?: boolean;
+}) {
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
-    if (!nextSendAt) return;
+    if (!nextSendAt || paused) return;
     const interval = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(interval);
-  }, [nextSendAt]);
+  }, [nextSendAt, paused]);
 
   if (!nextSendAt) {
     return <span className="text-on-surface-variant">—</span>;
+  }
+
+  if (paused) {
+    return (
+      <span className="inline-flex items-center gap-1 text-on-surface-variant">
+        <span className="material-symbols-outlined text-[14px]">pause</span>
+        Paused
+      </span>
+    );
   }
 
   const remainingMs = new Date(nextSendAt).getTime() - now;
@@ -99,6 +134,41 @@ function SendCountdown({ nextSendAt }: { nextSendAt: string | null }) {
       {minutes}:{seconds.toString().padStart(2, "0")}
     </span>
   );
+}
+
+/** Ticking day/hour/minute countdown to a scheduled fire — same idiom as
+ *  SendCountdown but formatted for a week-out horizon instead of mm:ss. */
+function ScheduleCountdown({ scheduledFireAt }: { scheduledFireAt: string }) {
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(interval);
+  }, [scheduledFireAt]);
+
+  const remainingMs = new Date(scheduledFireAt).getTime() - now;
+  if (remainingMs <= 0) {
+    return (
+      <span className="inline-flex items-center gap-1 text-primary">
+        <span className="material-symbols-outlined animate-spin text-[14px]">
+          sync
+        </span>
+        Firing…
+      </span>
+    );
+  }
+
+  const totalMinutes = Math.ceil(remainingMs / 60_000);
+  const days = Math.floor(totalMinutes / (60 * 24));
+  const hours = Math.floor((totalMinutes % (60 * 24)) / 60);
+  const minutes = totalMinutes % 60;
+
+  const parts: string[] = [];
+  if (days > 0) parts.push(`${days}d`);
+  if (days > 0 || hours > 0) parts.push(`${hours}h`);
+  parts.push(`${minutes}m`);
+
+  return <span className="text-secondary">in {parts.join(" ")}</span>;
 }
 
 /** Modal for viewing/editing the Day 0/3/7 email copy that will actually be
@@ -343,6 +413,19 @@ export default function BulkFireCampaignPage({
   const [fireStep, setFireStep] = useState(0);
   const [firing, setFiring] = useState(false);
   const [controlBusy, setControlBusy] = useState(false);
+  const [scheduledAtInput, setScheduledAtInput] = useState("");
+  const [scheduling, setScheduling] = useState(false);
+  const [cancelingSchedule, setCancelingSchedule] = useState(false);
+  const [senders, setSenders] = useState<Sender[]>([]);
+  const [selectedSenderIds, setSelectedSenderIds] = useState<Set<string>>(new Set());
+  const [savingSenders, setSavingSenders] = useState(false);
+  // Lazy-initialized once at mount (not recomputed on every render) — the
+  // `datetime-local` input's `min` just needs to be "roughly now".
+  const [minScheduleTime] = useState(() =>
+    new Date(Date.now() - new Date().getTimezoneOffset() * 60_000)
+      .toISOString()
+      .slice(0, 16),
+  );
 
   const load = async () => {
     try {
@@ -359,6 +442,7 @@ export default function BulkFireCampaignPage({
           ? res.campaign.sequence
           : DEFAULT_SEQUENCE,
       );
+      setSelectedSenderIds(new Set(res.campaign.senderAccountIds ?? []));
     } catch (err: any) {
       if (err.status === 404) {
         setNotFound(true);
@@ -367,6 +451,15 @@ export default function BulkFireCampaignPage({
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadSenders = async () => {
+    try {
+      const res = await api.get<{ senders: Sender[] }>("/api/outreach/senders");
+      setSenders(res.senders);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to load sender accounts");
     }
   };
 
@@ -386,13 +479,21 @@ export default function BulkFireCampaignPage({
   useEffect(() => {
     load();
     loadLeads(1);
+    loadSenders();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   // Sends and the docx import both run as background jobs — poll until the
-  // campaign settles into a state that no longer changes on its own.
+  // campaign settles into a state that no longer changes on its own. A
+  // pending scheduledFireAt also needs polling so the banner flips over to
+  // "running" the moment the scheduled job actually fires, with no manual
+  // refresh required.
   useEffect(() => {
-    if (campaign?.status !== "running" && campaign?.status !== "importing")
+    if (
+      campaign?.status !== "running" &&
+      campaign?.status !== "importing" &&
+      !campaign?.scheduledFireAt
+    )
       return;
     const interval = setInterval(() => {
       load();
@@ -400,7 +501,7 @@ export default function BulkFireCampaignPage({
     }, 4000);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [campaign?.status, leadsPage]);
+  }, [campaign?.status, campaign?.scheduledFireAt, leadsPage]);
 
   const handleSaveSequence = async () => {
     setSavingSequence(true);
@@ -412,6 +513,34 @@ export default function BulkFireCampaignPage({
       toast.error(err.message || "Failed to save sequence");
     } finally {
       setSavingSequence(false);
+    }
+  };
+
+  const toggleSender = (senderId: string) => {
+    setSelectedSenderIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(senderId)) next.delete(senderId);
+      else next.add(senderId);
+      return next;
+    });
+  };
+
+  const sendersDirty =
+    JSON.stringify([...selectedSenderIds].sort()) !==
+    JSON.stringify([...(campaign?.senderAccountIds ?? [])].sort());
+
+  const handleSaveSenders = async () => {
+    setSavingSenders(true);
+    try {
+      await api.put(`/api/outreach/campaigns/${id}/senders`, {
+        senderAccountIds: [...selectedSenderIds],
+      });
+      toast.success("Senders saved");
+      load();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to save senders");
+    } finally {
+      setSavingSenders(false);
     }
   };
 
@@ -554,6 +683,44 @@ export default function BulkFireCampaignPage({
       toast.error(err.message || "Failed to fire campaign");
     } finally {
       setFiring(false);
+    }
+  };
+
+  const handleScheduleFire = async () => {
+    if (!scheduledAtInput) {
+      toast.error("Pick a date and time first");
+      return;
+    }
+    setScheduling(true);
+    try {
+      const leadIds =
+        selectedIds.size > 0 ? Array.from(selectedIds) : undefined;
+      await api.post(`/api/outreach/campaigns/${id}/fire/schedule`, {
+        stepIndex: fireStep,
+        scheduledFireAt: new Date(scheduledAtInput).toISOString(),
+        ...(leadIds ? { leadIds } : {}),
+      });
+      toast.success("Fire scheduled");
+      clearSelection();
+      setScheduledAtInput("");
+      load();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to schedule fire");
+    } finally {
+      setScheduling(false);
+    }
+  };
+
+  const handleCancelScheduledFire = async () => {
+    setCancelingSchedule(true);
+    try {
+      await api.delete(`/api/outreach/campaigns/${id}/fire/schedule`);
+      toast.success("Scheduled fire canceled");
+      load();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to cancel scheduled fire");
+    } finally {
+      setCancelingSchedule(false);
     }
   };
 
@@ -949,7 +1116,10 @@ export default function BulkFireCampaignPage({
                           {lead.name}
                         </td>
                         <td className="px-4 py-3 font-data-mono text-[12px]">
-                          <SendCountdown nextSendAt={lead.nextSendAt} />
+                          <SendCountdown
+                            nextSendAt={lead.nextSendAt}
+                            paused={campaign?.status === "paused"}
+                          />
                         </td>
                         <td
                           className="px-4 py-3"
@@ -1163,6 +1333,52 @@ export default function BulkFireCampaignPage({
         {/* Fire controls */}
         <section className="mb-10 rounded-[20px] border border-border-low-alpha bg-white p-6">
           <h2 className="mb-4 font-headline-md text-[18px] text-on-surface">
+            Send from
+          </h2>
+          <p className="mb-4 font-body-md text-[13px] text-on-surface-variant">
+            {selectedSenderIds.size > 0
+              ? `Fire (immediate or scheduled) rotates across only your ${selectedSenderIds.size} selected sender${selectedSenderIds.size === 1 ? "" : "s"}.`
+              : "No senders selected — Fire rotates across every active sender account."}
+          </p>
+          {senders.length === 0 ? (
+            <p className="font-body-md text-[13px] text-on-surface-variant">
+              No sender accounts connected yet.
+            </p>
+          ) : (
+            <div className="mb-4 flex flex-wrap gap-3">
+              {senders.map((sender) => (
+                <label
+                  key={sender.id}
+                  className={`flex items-center gap-2 rounded-lg border px-3 py-2 font-body-md text-[13px] transition-colors ${
+                    selectedSenderIds.has(sender.id)
+                      ? "border-primary bg-primary/5 text-on-surface"
+                      : "border-border-low-alpha text-on-surface-variant"
+                  } ${sender.isActive ? "" : "opacity-50"}`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedSenderIds.has(sender.id)}
+                    onChange={() => toggleSender(sender.id)}
+                    className="accent-primary"
+                  />
+                  {sender.label} ({sender.email})
+                  {!sender.isActive && " — paused"}
+                </label>
+              ))}
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={handleSaveSenders}
+            disabled={savingSenders || !sendersDirty}
+            className="rounded-lg border border-primary px-5 py-2.5 font-label-md text-label-md text-primary transition-all hover:bg-primary/5 active:scale-[0.98] disabled:opacity-50"
+          >
+            {savingSenders ? "Saving…" : "Save senders"}
+          </button>
+        </section>
+
+        <section className="mb-10 rounded-[20px] border border-border-low-alpha bg-white p-6">
+          <h2 className="mb-4 font-headline-md text-[18px] text-on-surface">
             Fire
           </h2>
           <p className="mb-4 font-body-md text-[13px] text-on-surface-variant">
@@ -1170,31 +1386,77 @@ export default function BulkFireCampaignPage({
               ? `Fires the selected step to only your ${selectedIds.size} selected lead${selectedIds.size === 1 ? "" : "s"} (still limited to whichever are eligible for it).`
               : "Fires one sequence step to every lead eligible for it — a lead that already received its Day 0 email is still eligible for Day 3. Select specific rows above to fire to only some leads."}
           </p>
-          <div className="flex flex-wrap items-center gap-3">
-            <select
-              value={fireStep}
-              onChange={(e) => setFireStep(Number(e.target.value))}
-              className="rounded-lg border border-border-low-alpha bg-bg-cream/30 px-3 py-2 font-body-md text-[13px] focus:outline-none focus:ring-1 focus:ring-primary"
-            >
-              {STEP_LABELS.map((label, i) => (
-                <option key={i} value={i}>
-                  {label}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              onClick={handleFire}
-              disabled={firing || leadCount === 0}
-              className="rounded-lg bg-primary px-5 py-2.5 font-label-md text-label-md text-on-primary transition-all hover:shadow-lg active:scale-[0.98] disabled:opacity-50"
-            >
-              {firing
-                ? "Scheduling…"
-                : selectedIds.size > 0
-                  ? `Fire ${STEP_LABELS[fireStep]} to ${selectedIds.size} selected`
-                  : `Fire ${STEP_LABELS[fireStep]} to all eligible`}
-            </button>
-          </div>
+          {campaign.scheduledFireAt ? (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-secondary/30 bg-secondary-container/10 px-4 py-3">
+              <p className="font-body-md text-[13px] text-on-surface">
+                <span className="material-symbols-outlined align-middle text-[16px] text-secondary">
+                  schedule
+                </span>{" "}
+                Scheduled to fire{" "}
+                <strong>
+                  {STEP_LABELS[campaign.scheduledFireStepIndex ?? 0]}
+                </strong>{" "}
+                on {new Date(campaign.scheduledFireAt).toLocaleString()} (
+                <ScheduleCountdown scheduledFireAt={campaign.scheduledFireAt} />
+                )
+                {campaign.scheduledFireLeadIds
+                  ? ` — ${campaign.scheduledFireLeadIds.length} selected lead${campaign.scheduledFireLeadIds.length === 1 ? "" : "s"}`
+                  : " — all eligible leads"}
+              </p>
+              <button
+                type="button"
+                onClick={handleCancelScheduledFire}
+                disabled={cancelingSchedule}
+                className="rounded-lg border border-border-low-alpha bg-white px-4 py-2 font-label-md text-[12px] text-on-surface transition-colors hover:bg-surface-container-low disabled:opacity-50"
+              >
+                {cancelingSchedule ? "Canceling…" : "Cancel schedule"}
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center gap-3">
+              <select
+                value={fireStep}
+                onChange={(e) => setFireStep(Number(e.target.value))}
+                className="rounded-lg border border-border-low-alpha bg-bg-cream/30 px-3 py-2 font-body-md text-[13px] focus:outline-none focus:ring-1 focus:ring-primary"
+              >
+                {STEP_LABELS.map((label, i) => (
+                  <option key={i} value={i}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={handleFire}
+                disabled={firing || leadCount === 0}
+                className="rounded-lg bg-primary px-5 py-2.5 font-label-md text-label-md text-on-primary transition-all hover:shadow-lg active:scale-[0.98] disabled:opacity-50"
+              >
+                {firing
+                  ? "Scheduling…"
+                  : selectedIds.size > 0
+                    ? `Fire ${STEP_LABELS[fireStep]} to ${selectedIds.size} selected`
+                    : `Fire ${STEP_LABELS[fireStep]} to all eligible`}
+              </button>
+              <span className="font-body-md text-[13px] text-on-surface-variant">
+                or
+              </span>
+              <input
+                type="datetime-local"
+                value={scheduledAtInput}
+                min={minScheduleTime}
+                onChange={(e) => setScheduledAtInput(e.target.value)}
+                className="rounded-lg border border-border-low-alpha bg-bg-cream/30 px-3 py-2 font-body-md text-[13px] focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+              <button
+                type="button"
+                onClick={handleScheduleFire}
+                disabled={scheduling || leadCount === 0 || !scheduledAtInput}
+                className="rounded-lg border border-primary px-5 py-2.5 font-label-md text-label-md text-primary transition-all hover:bg-primary/5 active:scale-[0.98] disabled:opacity-50"
+              >
+                {scheduling ? "Scheduling…" : "Schedule fire"}
+              </button>
+            </div>
+          )}
         </section>
       </main>
 
