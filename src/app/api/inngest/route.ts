@@ -15,6 +15,13 @@ import {
   type FireScheduledCampaignPayload,
 } from "@/server/jobs/fire-scheduled-campaign";
 import { getServices } from "@/server/container";
+import { withTenantTx } from "@/server/db/tx";
+import {
+  outreachSendRepo,
+  outreachLeadRepo,
+  outreachCampaignRepo,
+} from "@/server/repositories/outreach.repo";
+import { logger } from "@/server/observability/logger";
 
 const parseResumeFunction = inngest.createFunction(
   {
@@ -55,6 +62,21 @@ const sendOutreachEmailFunction = inngest.createFunction(
     id: "send-outreach-email",
     name: "Bulk Fire Send Email",
     triggers: [{ event: "job/send-outreach-email" }],
+    // Guards against infra-level failures (e.g. a misconfigured signing key)
+    // that stop the run before `sendOutreachEmail`'s own try/catch ever
+    // executes — without this, Inngest correctly shows the run "Failed" but
+    // the send/lead rows stay "scheduled" forever since nothing else ever
+    // updates them.
+    onFailure: async ({ event, error }) => {
+      const { tenantId, sendId } = event.data.event.data as SendOutreachEmailPayload;
+      logger.error({ err: error, sendId }, "send_outreach_email_exhausted_retries");
+      await withTenantTx({ tenantId }, async (ctx) => {
+        const send = await outreachSendRepo.getById(ctx, sendId);
+        if (!send || send.status !== "scheduled") return;
+        await outreachSendRepo.markFailed(ctx, sendId, error.message || "exhausted_retries");
+        await outreachLeadRepo.setStatus(ctx, send.leadId, "failed");
+      });
+    },
   },
   async ({
     event,
@@ -85,6 +107,26 @@ const fireScheduledCampaignFunction = inngest.createFunction(
     id: "fire-scheduled-campaign",
     name: "Bulk Fire Scheduled Campaign Fire",
     triggers: [{ event: "job/fire-scheduled-campaign" }],
+    // Same defense-in-depth as sendOutreachEmailFunction.onFailure above:
+    // fireScheduledCampaign's own try/catch only fires once its code actually
+    // runs, so an infra-level failure before that needs this fallback too.
+    onFailure: async ({ event, error }) => {
+      const { tenantId, campaignId } = event.data.event
+        .data as FireScheduledCampaignPayload;
+      logger.error(
+        { err: error, campaignId },
+        "fire_scheduled_campaign_exhausted_retries",
+      );
+      await withTenantTx({ tenantId }, async (ctx) => {
+        await outreachCampaignRepo.clearScheduledFire(ctx, campaignId);
+        await outreachCampaignRepo.setStatus(
+          ctx,
+          campaignId,
+          "error",
+          error.message || "exhausted_retries",
+        );
+      });
+    },
   },
   async ({
     event,
