@@ -8,7 +8,7 @@ import { resetDb } from "../helpers/seed";
 import { makeUser } from "../helpers/auth-fixtures";
 import { call } from "../helpers/http";
 import { adminDb, closePools } from "../../src/server/db/client";
-import { outreachCampaigns, outreachSends } from "../../src/server/db/schema";
+import { outreachCampaigns, outreachSends, tenants } from "../../src/server/db/schema";
 import { withTenantTx } from "../../src/server/db/tx";
 import { outreachService } from "../../src/server/services/outreach.service";
 import {
@@ -20,7 +20,12 @@ import { getServices } from "../../src/server/container";
 
 const params = (id: string) => ({ params: Promise.resolve({ id }) });
 
-async function createReadyCampaign(token: string) {
+// Bulk-fire outreach (campaigns, senders, scheduling) is a Scale-plan
+// feature — these tests exercise the send/scheduling mechanics themselves,
+// so bump the fixture tenant onto Scale rather than re-testing plan gating
+// here (see outreach-plan-gating.test.ts for that).
+async function createReadyCampaign(tenantId: string, token: string) {
+  await adminDb().update(tenants).set({ plan: "scale" }).where(eq(tenants.id, tenantId));
   const created = await call(createCampaignPOST, {
     token,
     body: { name: "Test Campaign" },
@@ -102,7 +107,7 @@ afterAll(async () => {
 describe("outreachService.scheduleFire / cancelScheduledFire", () => {
   it("persists scheduledFireAt/stepIndex on the campaign row", async () => {
     const { tenant, token } = await makeUser("recruiter");
-    const campaignId = await createReadyCampaign(token);
+    const campaignId = await createReadyCampaign(tenant.id, token);
     const scheduledFireAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
 
     await seedPendingSchedule(tenant.id, campaignId, scheduledFireAt);
@@ -114,7 +119,7 @@ describe("outreachService.scheduleFire / cancelScheduledFire", () => {
 
   it("rejects a past scheduled time with 400", async () => {
     const { tenant, token } = await makeUser("recruiter");
-    const campaignId = await createReadyCampaign(token);
+    const campaignId = await createReadyCampaign(tenant.id, token);
     await expect(
       withTenantTx({ tenantId: tenant.id }, (ctx) =>
         outreachService.scheduleFire(
@@ -129,7 +134,7 @@ describe("outreachService.scheduleFire / cancelScheduledFire", () => {
 
   it("cancel clears a pending schedule via the DELETE route", async () => {
     const { tenant, token } = await makeUser("recruiter");
-    const campaignId = await createReadyCampaign(token);
+    const campaignId = await createReadyCampaign(tenant.id, token);
     await seedPendingSchedule(
       tenant.id,
       campaignId,
@@ -151,7 +156,7 @@ describe("outreachService.scheduleFire / cancelScheduledFire", () => {
 describe("fireScheduledCampaign job — re-validate-before-acting", () => {
   it("is a no-op when the wake-up is stale (canceled/rescheduled since enqueue)", async () => {
     const { tenant, token } = await makeUser("recruiter");
-    const campaignId = await createReadyCampaign(token);
+    const campaignId = await createReadyCampaign(tenant.id, token);
     const scheduledFireAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
     await seedPendingSchedule(tenant.id, campaignId, scheduledFireAt);
 
@@ -174,7 +179,7 @@ describe("fireScheduledCampaign job — re-validate-before-acting", () => {
 
   it("surfaces a failure (no sender connected) as campaign status=error and clears the schedule", async () => {
     const { tenant, token } = await makeUser("recruiter");
-    const campaignId = await createReadyCampaign(token);
+    const campaignId = await createReadyCampaign(tenant.id, token);
     const scheduledFireAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
     await seedPendingSchedule(tenant.id, campaignId, scheduledFireAt);
 
@@ -193,7 +198,7 @@ describe("fireScheduledCampaign job — re-validate-before-acting", () => {
 describe("per-campaign sender selection", () => {
   it("no selection still round-robins across every active sender", async () => {
     const { tenant, token } = await makeUser("recruiter");
-    const campaignId = await createReadyCampaign(token);
+    const campaignId = await createReadyCampaign(tenant.id, token);
     const senderA = await seedSender(tenant.id, "a@test.local");
     const senderB = await seedSender(tenant.id, "b@test.local");
     await seedLeadsWithEmail(tenant.id, campaignId, 4);
@@ -213,7 +218,7 @@ describe("per-campaign sender selection", () => {
 
   it("a selected sender is the only one used when firing immediately", async () => {
     const { tenant, token } = await makeUser("recruiter");
-    const campaignId = await createReadyCampaign(token);
+    const campaignId = await createReadyCampaign(tenant.id, token);
     const senderA = await seedSender(tenant.id, "a@test.local");
     await seedSender(tenant.id, "b@test.local"); // unselected — must be excluded
     await seedLeadsWithEmail(tenant.id, campaignId, 4);
@@ -240,8 +245,8 @@ describe("per-campaign sender selection", () => {
   });
 
   it("rejects an invalid/foreign sender id with 400", async () => {
-    const { token } = await makeUser("recruiter");
-    const campaignId = await createReadyCampaign(token);
+    const { tenant, token } = await makeUser("recruiter");
+    const campaignId = await createReadyCampaign(tenant.id, token);
 
     const put = await call(sendersPUT, {
       token,
@@ -254,7 +259,7 @@ describe("per-campaign sender selection", () => {
 
   it("a scheduled fire also honors the campaign's selected sender", async () => {
     const { tenant, token } = await makeUser("recruiter");
-    const campaignId = await createReadyCampaign(token);
+    const campaignId = await createReadyCampaign(tenant.id, token);
     const senderA = await seedSender(tenant.id, "a@test.local");
     await seedSender(tenant.id, "b@test.local"); // unselected — must be excluded
     await seedLeadsWithEmail(tenant.id, campaignId, 4);

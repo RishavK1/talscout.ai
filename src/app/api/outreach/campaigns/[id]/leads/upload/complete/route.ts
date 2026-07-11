@@ -16,5 +16,9 @@ export const POST = withAuth<CompleteLeadsUploadBody>(
     const { result, afterCommit } = await outreachService.completeLeadsUpload(ctx, campaignId, body);
     return { status: 202, data: result, afterCommit };
   },
-  { role: "recruiter", bodySchema: completeLeadsUploadSchema },
+  {
+    role: "recruiter",
+    bodySchema: completeLeadsUploadSchema,
+    rateLimit: { limit: 20, windowSeconds: 3600, keyPrefix: "outreach_upload_complete" },
+  },
 );

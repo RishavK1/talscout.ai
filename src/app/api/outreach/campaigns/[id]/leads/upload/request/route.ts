@@ -15,5 +15,9 @@ export const POST = withAuth<RequestLeadsUploadBody>(
     const campaignId = uuidOr404(params.id, "Campaign not found");
     return { status: 201, data: await outreachService.requestLeadsUpload(ctx, campaignId, body) };
   },
-  { role: "recruiter", bodySchema: requestLeadsUploadSchema },
+  {
+    role: "recruiter",
+    bodySchema: requestLeadsUploadSchema,
+    rateLimit: { limit: 20, windowSeconds: 3600, keyPrefix: "outreach_upload_request" },
+  },
 );

@@ -18,5 +18,9 @@ export const POST = withAuth<CreateCampaignBody>(
     await billingService.assertActiveSubscription(ctx);
     return { status: 201, data: await outreachService.createCampaign(ctx, body) };
   },
-  { role: "recruiter", bodySchema: createCampaignSchema },
+  {
+    role: "recruiter",
+    bodySchema: createCampaignSchema,
+    rateLimit: { limit: 20, windowSeconds: 3600, keyPrefix: "outreach_campaign_create" },
+  },
 );

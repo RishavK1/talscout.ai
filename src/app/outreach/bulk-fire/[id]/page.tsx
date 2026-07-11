@@ -9,6 +9,7 @@ import { Modal } from "@/components/ui/modal";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { fadeUp, easeOut } from "@/lib/motion";
+import { useAuth } from "@/components/app/auth-provider";
 
 type CampaignStatus =
   | "draft"
@@ -342,6 +343,7 @@ const ERROR_REASON_LABELS: Record<string, string> = {
   docx_parse_failed:
     "This file couldn't be read as a .docx — please re-export and try again.",
   import_failed: "Import failed unexpectedly — please try uploading again.",
+  enqueue_failed: "Import failed to start — please try uploading again.",
 };
 
 const DEFAULT_SEQUENCE: SequenceStep[] = [
@@ -383,6 +385,8 @@ export default function BulkFireCampaignPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
+  const { can } = useAuth();
+  const canScheduler = can("outreach_scheduler");
 
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [counts, setCounts] = useState<Counts>({
@@ -666,15 +670,26 @@ export default function BulkFireCampaignPage({
     try {
       const leadIds =
         selectedIds.size > 0 ? Array.from(selectedIds) : undefined;
-      const res = await api.post<{ scheduled: number }>(
-        `/api/outreach/campaigns/${id}/fire`,
-        {
-          stepIndex: fireStep,
-          ...(leadIds ? { leadIds } : {}),
-        },
-      );
+      const res = await api.post<{
+        scheduled: number;
+        skippedForDailyCapCount?: number;
+        skippedForSenderCapCount?: number;
+      }>(`/api/outreach/campaigns/${id}/fire`, {
+        stepIndex: fireStep,
+        ...(leadIds ? { leadIds } : {}),
+      });
+      const skipped =
+        (res.skippedForDailyCapCount ?? 0) + (res.skippedForSenderCapCount ?? 0);
+      const reason =
+        res.skippedForDailyCapCount && res.skippedForSenderCapCount
+          ? "daily send and sender limits reached"
+          : res.skippedForSenderCapCount
+            ? "sender daily limit reached"
+            : "daily send limit reached";
       toast.success(
-        `Scheduled ${res.scheduled} send${res.scheduled === 1 ? "" : "s"}`,
+        skipped > 0
+          ? `Fired to ${res.scheduled} lead${res.scheduled === 1 ? "" : "s"} — ${skipped} skipped, ${reason}`
+          : `Scheduled ${res.scheduled} send${res.scheduled === 1 ? "" : "s"}`,
       );
       clearSelection();
       load();
@@ -1440,21 +1455,36 @@ export default function BulkFireCampaignPage({
               <span className="font-body-md text-[13px] text-on-surface-variant">
                 or
               </span>
-              <input
-                type="datetime-local"
-                value={scheduledAtInput}
-                min={minScheduleTime}
-                onChange={(e) => setScheduledAtInput(e.target.value)}
-                className="rounded-lg border border-border-low-alpha bg-bg-cream/30 px-3 py-2 font-body-md text-[13px] focus:outline-none focus:ring-1 focus:ring-primary"
-              />
-              <button
-                type="button"
-                onClick={handleScheduleFire}
-                disabled={scheduling || leadCount === 0 || !scheduledAtInput}
-                className="rounded-lg border border-primary px-5 py-2.5 font-label-md text-label-md text-primary transition-all hover:bg-primary/5 active:scale-[0.98] disabled:opacity-50"
-              >
-                {scheduling ? "Scheduling…" : "Schedule fire"}
-              </button>
+              {canScheduler ? (
+                <>
+                  <input
+                    type="datetime-local"
+                    value={scheduledAtInput}
+                    min={minScheduleTime}
+                    onChange={(e) => setScheduledAtInput(e.target.value)}
+                    className="rounded-lg border border-border-low-alpha bg-bg-cream/30 px-3 py-2 font-body-md text-[13px] focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleScheduleFire}
+                    disabled={scheduling || leadCount === 0 || !scheduledAtInput}
+                    className="rounded-lg border border-primary px-5 py-2.5 font-label-md text-label-md text-primary transition-all hover:bg-primary/5 active:scale-[0.98] disabled:opacity-50"
+                  >
+                    {scheduling ? "Scheduling…" : "Schedule fire"}
+                  </button>
+                </>
+              ) : (
+                <Link
+                  href="/billing"
+                  title="Scheduled sends are a Scale plan feature — upgrade to unlock"
+                  className="flex items-center gap-1.5 rounded-lg border border-primary px-4 py-2.5 font-label-md text-[12px] text-primary transition-colors hover:bg-primary/5"
+                >
+                  <span className="material-symbols-outlined text-[16px]">
+                    lock
+                  </span>
+                  Scheduled sends are a Scale plan feature — upgrade to unlock
+                </Link>
+              )}
             </div>
           )}
         </section>

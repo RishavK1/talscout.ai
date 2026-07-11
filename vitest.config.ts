@@ -21,6 +21,7 @@ export default defineConfig({
         "postgresql://talscout_app:talscout_app_pw@localhost:5432/talscout_test",
       DATABASE_ADMIN_URL: "postgresql://rishav@localhost:5432/talscout_test",
       SUPABASE_JWT_SECRET: "test-jwt-secret-0123456789abcdef0123456789",
+      OUTREACH_ENCRYPTION_KEY: "vPZoqfOXC0VVWjvLFROFfSkhw281WDI1zxORqIVzCUU=",
     },
   },
 });

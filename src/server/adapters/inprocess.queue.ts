@@ -57,4 +57,15 @@ export class InProcessQueue implements JobQueue {
     }
     await run();
   }
+
+  async enqueueBatch(name: string, payloads: unknown[]): Promise<void> {
+    // enqueue() here never throws on a handler failure (it's caught and
+    // logged above) — the only way this loop throws is a missing handler,
+    // which is a programming error, not a runtime condition callers need to
+    // recover from. Sequential is fine: unlike InngestQueue this never makes
+    // a network call, so there's no per-call latency to amortize.
+    for (const payload of payloads) {
+      await this.enqueue(name, payload);
+    }
+  }
 }

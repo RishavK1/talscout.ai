@@ -10,6 +10,8 @@ import { Modal } from "@/components/ui/modal";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { stagger, item as itemVariants } from "@/lib/motion";
+import { useAuth } from "@/components/app/auth-provider";
+import { outreachLimits } from "@/lib/plans";
 
 interface Campaign {
   id: string;
@@ -47,6 +49,9 @@ const STATUS_STYLE: Record<Campaign["status"], string> = {
 
 export default function BulkFirePage() {
   const router = useRouter();
+  const { can, profile } = useAuth();
+  const canOutreach = can("outreach_bulk_fire");
+  const { maxSenderAccounts } = outreachLimits(profile?.plan || "starter");
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [senders, setSenders] = useState<Sender[]>([]);
   const [loading, setLoading] = useState(true);
@@ -244,13 +249,26 @@ export default function BulkFirePage() {
           </div>
         }
         rightContent={
-          <button
-            type="button"
-            onClick={() => setNewCampaignOpen(true)}
-            className="bg-primary text-white px-5 py-2.5 rounded-xl font-label-md text-label-md hover:shadow-lg transition-all active:scale-[0.98] whitespace-nowrap"
-          >
-            + New campaign
-          </button>
+          canOutreach ? (
+            <button
+              type="button"
+              onClick={() => setNewCampaignOpen(true)}
+              className="bg-primary text-white px-5 py-2.5 rounded-xl font-label-md text-label-md hover:shadow-lg transition-all active:scale-[0.98] whitespace-nowrap"
+            >
+              + New campaign
+            </button>
+          ) : (
+            <Link
+              href="/billing"
+              title="Upgrade to Growth to unlock Bulk Fire outreach"
+              className="flex items-center gap-2 rounded-xl border border-primary px-5 py-2.5 font-label-md text-label-md text-primary transition-colors hover:bg-primary/5 whitespace-nowrap"
+            >
+              <span className="material-symbols-outlined text-[16px]">
+                lock
+              </span>
+              Upgrade to unlock
+            </Link>
+          )
         }
       />
       <main className="mx-auto max-w-[1160px] p-4 sm:p-6 lg:p-12 min-h-screen">
@@ -265,28 +283,76 @@ export default function BulkFirePage() {
           </p>
         </section>
 
+        {!canOutreach ? (
+          <section className="rounded-[20px] border-2 border-dashed border-border-low-alpha p-10 text-center">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-bg-cream text-on-surface-variant/50">
+              <span className="material-symbols-outlined text-[28px]">
+                lock
+              </span>
+            </div>
+            <h2 className="font-headline-md text-headline-md text-on-surface mb-2">
+              Bulk-fire outreach is a Growth &amp; Scale feature
+            </h2>
+            <p className="mx-auto mb-6 max-w-md font-body-md text-body-md text-text-muted">
+              Upgrade your plan to connect sender accounts and run paced,
+              multi-account cold-email campaigns straight from your candidate
+              search.
+            </p>
+            <Link
+              href="/billing"
+              className="inline-flex items-center gap-2 rounded-lg border border-primary px-6 py-2.5 font-label-md text-label-md text-primary transition-colors hover:bg-primary/5"
+            >
+              <span className="material-symbols-outlined text-[16px]">
+                lock
+              </span>
+              Upgrade to unlock
+            </Link>
+          </section>
+        ) : (
+          <>
         {/* Sender accounts */}
         <section className="mb-12">
           <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <h2 className="font-headline-md text-headline-md text-on-surface">
-              Sender accounts
-            </h2>
+            <div>
+              <h2 className="font-headline-md text-headline-md text-on-surface">
+                Sender accounts
+              </h2>
+              <p className="mt-1 font-label-md text-[12px] text-on-surface-variant">
+                {senders.length} of {maxSenderAccounts} sender
+                {maxSenderAccounts === 1 ? "" : "s"} used on your plan
+              </p>
+            </div>
             <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-              <button
-                type="button"
-                onClick={handleConnectGmail}
-                disabled={connectingGmail}
-                className="flex-1 sm:flex-initial rounded-lg border border-border-low-alpha bg-white px-4 py-2 font-label-md text-label-md text-on-surface transition-colors hover:bg-surface-container-low disabled:opacity-50 text-center"
-              >
-                {connectingGmail ? "Redirecting…" : "+ Connect Gmail"}
-              </button>
-              <button
-                type="button"
-                onClick={() => setSmtpOpen(true)}
-                className="flex-1 sm:flex-initial rounded-lg border border-border-low-alpha bg-white px-4 py-2 font-label-md text-label-md text-on-surface transition-colors hover:bg-surface-container-low text-center"
-              >
-                + Add SMTP
-              </button>
+              {senders.length >= maxSenderAccounts ? (
+                <Link
+                  href="/billing"
+                  title="Upgrade to connect more sender accounts"
+                  className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 rounded-lg border border-primary px-4 py-2 font-label-md text-label-md text-primary transition-colors hover:bg-primary/5 text-center"
+                >
+                  <span className="material-symbols-outlined text-[16px]">
+                    lock
+                  </span>
+                  Sender limit reached — upgrade
+                </Link>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleConnectGmail}
+                    disabled={connectingGmail}
+                    className="flex-1 sm:flex-initial rounded-lg border border-border-low-alpha bg-white px-4 py-2 font-label-md text-label-md text-on-surface transition-colors hover:bg-surface-container-low disabled:opacity-50 text-center"
+                  >
+                    {connectingGmail ? "Redirecting…" : "+ Connect Gmail"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSmtpOpen(true)}
+                    className="flex-1 sm:flex-initial rounded-lg border border-border-low-alpha bg-white px-4 py-2 font-label-md text-label-md text-on-surface transition-colors hover:bg-surface-container-low text-center"
+                  >
+                    + Add SMTP
+                  </button>
+                </>
+              )}
             </div>
           </div>
 
@@ -461,6 +527,8 @@ export default function BulkFirePage() {
             </motion.div>
           )}
         </section>
+          </>
+        )}
       </main>
 
       <Modal

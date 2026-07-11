@@ -1,6 +1,7 @@
 import { withTenantTx } from "@/server/db/tx";
 import { outreachCampaignRepo } from "@/server/repositories/outreach.repo";
 import { outreachService } from "@/server/services/outreach.service";
+import { billingService } from "@/server/services/billing.service";
 import { logger } from "@/server/observability/logger";
 import type { Services } from "@/server/ports";
 
@@ -45,6 +46,10 @@ export async function fireScheduledCampaign(
 
   try {
     const { afterCommit } = await withTenantTx({ tenantId }, async (ctx) => {
+      // The tenant's plan may have changed since this fire was scheduled
+      // (e.g. downgraded off Scale) — re-check scheduler access at wake
+      // time; fireCampaign below re-checks outreach_bulk_fire itself.
+      await billingService.assertCapability(ctx, "outreach_scheduler");
       await outreachCampaignRepo.clearScheduledFire(ctx, campaignId);
       return outreachService.fireCampaign(
         ctx,

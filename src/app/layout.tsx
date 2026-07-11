@@ -25,9 +25,9 @@ const geistMono = Geist_Mono({
 
 const SITE_URL = "https://talscout.rishavkamboj.online";
 const SITE_NAME = "TalScout";
-const TITLE = "TalScout — Stop typing résumés. Start finding talent.";
+const TITLE = "TalScout — Stop typing résumés. Start finding and reaching talent.";
 const DESCRIPTION =
-  "Transform chaotic PDFs into a structured, searchable candidate database in seconds. Built for high-volume recruitment teams who demand precision and speed.";
+  "Transform chaotic PDFs into a structured, searchable candidate database in seconds, then bulk-fire AI-personalized outreach campaigns to win new client business or re-engage candidates. Built for staffing and recruiting teams who demand precision, speed, and growth.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -44,6 +44,11 @@ export const metadata: Metadata = {
     "applicant tracking",
     "AI recruiting",
     "talent search",
+    "b2b lead generation",
+    "cold email outreach",
+    "sales outreach software",
+    "business development emails",
+    "bulk email outreach",
   ],
   alternates: {
     canonical: "/",

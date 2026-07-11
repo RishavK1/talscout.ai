@@ -1,4 +1,5 @@
 import { getEnv } from "@/server/config/env";
+import { logger } from "@/server/observability/logger";
 import type { Services } from "@/server/ports";
 import { MockStorage } from "@/server/adapters/mock.storage";
 import { MockExtractor } from "@/server/adapters/mock.extractor";
@@ -100,6 +101,22 @@ export function getServices(): Services {
       ? new GeminiExtractor()
       : new ClaudeExtractor();
 
+    // MemoryRateLimiter's counters live in this process's memory only — on a
+    // serverless/horizontally-scaled deployment, every instance gets its own
+    // independent counter, so a limit of e.g. 20/hour actually allows
+    // 20 × (instance count)/hour, silently. That's not a hypothetical: this
+    // app already forces InngestQueue over InProcessQueue in production for
+    // the exact same "multiple instances, no shared state" reason (see
+    // `useInngest` above). Fail loud here so a missing REDIS_URL in
+    // production is caught at deploy time, not discovered as an outreach
+    // route quietly not rate-limiting anyone.
+    if (!env.REDIS_URL && env.NODE_ENV === "production") {
+      logger.error(
+        "REDIS_URL is not set in production — falling back to MemoryRateLimiter, " +
+          "which does not share state across instances and will NOT enforce rate " +
+          "limits correctly under horizontal scaling. Set REDIS_URL (Upstash) to fix.",
+      );
+    }
     const limiter = env.REDIS_URL ? new RedisRateLimiter() : new MemoryRateLimiter();
 
     // LLM reranking needs an AI key. With Gemini available we rerank for real;

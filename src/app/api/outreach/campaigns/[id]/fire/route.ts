@@ -21,5 +21,12 @@ export const POST = withAuth<FireCampaignBody>(
     );
     return { data: result, afterCommit };
   },
-  { role: "recruiter", bodySchema: fireCampaignSchema },
+  {
+    role: "recruiter",
+    bodySchema: fireCampaignSchema,
+    // Firing is already daily-capped by plan, but that check happens inside
+    // the handler — this stops a scripted loop from hammering the endpoint
+    // itself (DB writes + job enqueues) well before it would ever hit that cap.
+    rateLimit: { limit: 20, windowSeconds: 3600, keyPrefix: "outreach_fire" },
+  },
 );

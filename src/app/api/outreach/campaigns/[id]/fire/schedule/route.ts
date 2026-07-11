@@ -22,7 +22,11 @@ export const POST = withAuth<ScheduleFireBody>(
     );
     return { data: result, afterCommit };
   },
-  { role: "recruiter", bodySchema: scheduleFireSchema },
+  {
+    role: "recruiter",
+    bodySchema: scheduleFireSchema,
+    rateLimit: { limit: 20, windowSeconds: 3600, keyPrefix: "outreach_fire_schedule" },
+  },
 );
 
 /** DELETE /api/outreach/campaigns/[id]/fire/schedule — cancel a pending
@@ -32,5 +36,8 @@ export const DELETE = withAuth(
     const campaignId = uuidOr404(params.id, "Campaign not found");
     return { data: await outreachService.cancelScheduledFire(ctx, campaignId) };
   },
-  { role: "recruiter" },
+  {
+    role: "recruiter",
+    rateLimit: { limit: 30, windowSeconds: 3600, keyPrefix: "outreach_fire_schedule_cancel" },
+  },
 );

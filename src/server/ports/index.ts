@@ -18,6 +18,13 @@ export interface Storage {
   getObject(key: string): Promise<Buffer | null>;
   exists(key: string): Promise<boolean>;
   deleteObject(key: string): Promise<void>;
+  /** The presigned URL's declared `maxBytes` isn't enforced by the storage
+   *  provider itself — a client can lie about `sizeBytes` at request time and
+   *  then PUT anything to the signed URL. Callers that need the real size
+   *  (e.g. to reject an oversized upload after the fact) use this instead of
+   *  trusting the client-supplied value. Returns null if the object doesn't
+   *  exist. */
+  getObjectSize(key: string): Promise<number | null>;
 }
 
 export interface WorkHistoryItem {
@@ -104,6 +111,11 @@ export type JobHandler = (payload: unknown) => Promise<void>;
 export interface JobQueue {
   register(name: string, handler: JobHandler): void;
   enqueue(name: string, payload: unknown): Promise<void>;
+  /** Same job, many payloads — one round trip instead of N. Used where a
+   *  single user action fans out into many jobs (e.g. firing a campaign to
+   *  hundreds of leads) so a transient failure fails atomically rather than
+   *  stranding an arbitrary prefix of the loop. */
+  enqueueBatch(name: string, payloads: unknown[]): Promise<void>;
 }
 
 export interface CheckoutArgs {

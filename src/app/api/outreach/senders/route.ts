@@ -20,5 +20,9 @@ export const POST = withAuth<CreateSmtpSenderBody>(
     await billingService.assertActiveSubscription(ctx);
     return { status: 201, data: await outreachService.createSmtpSender(ctx, body) };
   },
-  { role: "recruiter", bodySchema: createSmtpSenderSchema },
+  {
+    role: "recruiter",
+    bodySchema: createSmtpSenderSchema,
+    rateLimit: { limit: 10, windowSeconds: 3600, keyPrefix: "outreach_sender_create" },
+  },
 );

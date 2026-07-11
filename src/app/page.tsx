@@ -62,14 +62,15 @@ export default function LandingPage() {
               <h1 className="mb-6 font-display-lg text-[44px] leading-[1.04] tracking-tight text-on-surface sm:text-[58px] lg:text-[68px]">
                 Stop typing résumés.
                 <br />
-                <span className="text-gradient-teal">Start finding talent.</span>
+                <span className="text-gradient-teal">Start finding and reaching talent.</span>
               </h1>
 
               <p className="mb-9 max-w-md font-body-lg text-body-lg leading-relaxed text-text-muted">
-                TalScout reads every résumé for you and lets you search your
-                entire candidate database in plain English — in seconds. Built
-                for staffing teams who are done with manual data entry and dumb
-                keyword search.
+                TalScout reads every résumé for you, lets you search your
+                entire candidate database in plain English, and fires
+                personalized outreach sequences to your shortlist automatically.
+                Built for staffing teams who are done with manual data entry,
+                dumb keyword search, and chasing candidates one email at a time.
               </p>
 
               <div className="flex flex-col gap-4 sm:flex-row">
@@ -363,6 +364,88 @@ export default function LandingPage() {
                       </span>{" "}
                       {row.t}…
                     </p>
+                  </div>
+                ))}
+              </div>
+            </Reveal>
+          </div>
+        </PointerGlow>
+
+        {/* ===================== OUTREACH SPOTLIGHT (dark teal) ===================== */}
+        <PointerGlow
+          className="overflow-hidden bg-teal-gradient"
+          glowColor="rgba(169, 249, 49, 0.16)"
+          glowSize={560}
+        >
+          <span aria-hidden className="absolute inset-0 bg-grid-dark opacity-60" />
+          <div className="mx-auto grid w-full max-w-[1440px] grid-cols-1 items-center gap-14 px-6 py-24 md:px-12 lg:grid-cols-2">
+            <Reveal delay={0.12} className="lg:order-2">
+              <span className="mb-4 inline-block font-label-md text-label-md uppercase tracking-[0.18em] text-tertiary-fixed">
+                New: outreach &amp; lead generation
+              </span>
+              <h2 className="mb-5 font-headline-lg text-headline-lg text-on-primary lg:text-[40px] lg:leading-[1.1]">
+                Win new clients — automatically.
+              </h2>
+              <p className="mb-4 max-w-md font-body-lg text-body-lg leading-relaxed text-primary-fixed-dim">
+                Recruiting is a two-sided hustle — you need candidates, but you
+                also need companies to place them with. Build an
+                AI-personalized sequence once, then bulk-fire it to hundreds of
+                prospects to pitch your agency and generate new business leads.
+                TalScout rotates sends across your connected inboxes and
+                schedules the next touch for the perfect moment — no more
+                copy-pasting the same pitch a hundred times.
+              </p>
+              <p className="mb-8 max-w-md font-body-md text-body-md leading-relaxed text-primary-fixed-dim/80">
+                The same engine also fires candidate outreach sequences to
+                your shortlist — one tool for growing both your client roster
+                and your talent pipeline.
+              </p>
+              <Link
+                href={user ? "/outreach/bulk-fire" : "/signup"}
+                className="group inline-flex items-center gap-2 rounded-lg bg-tertiary-fixed px-6 py-3.5 font-label-md text-label-md text-on-tertiary-fixed shadow-floating transition-transform hover:-translate-y-0.5 active:scale-[0.97]"
+              >
+                Try bulk-fire outreach
+                <span className="material-symbols-outlined text-[18px] transition-transform group-hover:translate-x-1">
+                  arrow_forward
+                </span>
+              </Link>
+            </Reveal>
+
+            <Reveal className="lg:order-1">
+              <div className="rounded-3xl border border-white/10 bg-white/[0.06] p-5 shadow-floating backdrop-blur-sm">
+                <div className="mb-4 flex items-center justify-between rounded-xl bg-white/10 px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[18px] text-tertiary-fixed">
+                      forward_to_inbox
+                    </span>
+                    <span className="font-body-md text-[14px] text-white/90">
+                      New business outreach — Sequence
+                    </span>
+                  </div>
+                  <span className="rounded-full bg-tertiary-fixed px-2 py-0.5 font-data-mono text-[11px] font-semibold text-on-tertiary-fixed">
+                    Fires in 2h 14m
+                  </span>
+                </div>
+                {[
+                  { step: "Day 0 · Intro", status: "Sent · 96 prospects", icon: "check_circle" },
+                  { step: "Day 3 · Follow-up", status: "Scheduled · 84 prospects", icon: "schedule" },
+                  { step: "Day 7 · Final nudge", status: "Queued", icon: "hourglass_top" },
+                ].map((row) => (
+                  <div
+                    key={row.step}
+                    className="mb-3 flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.04] p-4 last:mb-0"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="material-symbols-outlined text-[18px] text-tertiary-fixed">
+                        {row.icon}
+                      </span>
+                      <span className="font-headline-md text-[14px] text-white">
+                        {row.step}
+                      </span>
+                    </div>
+                    <span className="font-body-md text-[13px] text-white/70">
+                      {row.status}
+                    </span>
                   </div>
                 ))}
               </div>

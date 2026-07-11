@@ -1,4 +1,5 @@
 import { google } from "googleapis";
+import { sql } from "drizzle-orm";
 import { withTenantTx, type TenantContext } from "@/server/db/tx";
 import {
   outreachCampaignRepo,
@@ -6,6 +7,9 @@ import {
   outreachSendRepo,
   senderAccountRepo,
 } from "@/server/repositories/outreach.repo";
+import { tenantRepo } from "@/server/repositories/tenant.repo";
+import { billingService } from "@/server/services/billing.service";
+import { getPlan } from "@/lib/plans";
 import {
   scheduleSends,
   getOutreachTemplates,
@@ -17,6 +21,7 @@ import { encryptSecret } from "@/server/lib/secret-box";
 import { signOAuthState, verifyOAuthState } from "@/server/lib/oauth-state";
 import { getServices } from "@/server/container";
 import { getEnv } from "@/server/config/env";
+import { logger } from "@/server/observability/logger";
 import { auditRepo } from "@/server/repositories/audit.repo";
 import { MAX_UPLOAD_BYTES } from "@/server/ingestion/file-type";
 import { PARSE_LEADS_DOCX_JOB } from "@/server/jobs/parse-leads-docx";
@@ -27,6 +32,7 @@ import {
   Conflict,
   BadRequest,
   PayloadTooLarge,
+  PaymentRequired,
 } from "@/server/http/errors";
 import type {
   CreateCampaignBody,
@@ -41,9 +47,25 @@ import type {
 const GMAIL_OAUTH_SCOPES = [
   "https://www.googleapis.com/auth/gmail.send",
   "https://www.googleapis.com/auth/userinfo.email",
+  "https://www.googleapis.com/auth/userinfo.profile",
 ];
 
 const STEP_KEYS: SequenceStepKey[] = ["day0", "day3", "day7"];
+
+/** Serializes the per-tenant daily-send-cap check-then-insert: two concurrent
+ *  fires (double-click, two campaigns, a scheduled fire landing mid-fire)
+ *  would otherwise both read the same "sent today" count and both schedule
+ *  up to the full remaining quota, letting a Growth tenant blow past its
+ *  cap. A transaction-scoped advisory lock keyed on the tenant id forces
+ *  concurrent fires for the same tenant to serialize around the count+insert;
+ *  it auto-releases at COMMIT/ROLLBACK (no explicit unlock needed) and is
+ *  compatible with PgBouncer transaction-mode pooling, unlike session-level
+ *  advisory locks. */
+async function lockTenantForDailyCap(ctx: TenantContext) {
+  await ctx.tx.execute(
+    sql`select pg_advisory_xact_lock(hashtext(${ctx.tenantId}))`,
+  );
+}
 
 /** Which sender accounts a campaign's Fire (immediate or scheduled — both
  *  route through `fireCampaign`) rotates across. An explicit selection
@@ -57,6 +79,37 @@ async function resolveCampaignSenders(
   return ids && ids.length > 0
     ? await senderAccountRepo.listByIds(ctx, ids)
     : await senderAccountRepo.listActive(ctx);
+}
+
+/** Expands each sender into as many rotation slots as it has remaining
+ *  capacity today, round-robin interleaved (A,B,C,A,B,C,... dropping any
+ *  sender once it runs out) — e.g. remaining {A:2,B:1} → [A,B,A]. Passing
+ *  this (rather than the plain sender id list) as `scheduleSends`'
+ *  `senderAccountIds` is what makes it respect each sender's `dailyLimit`:
+ *  with the array's length capped to `count`, `scheduleSends`' own
+ *  `i % length` indexing degenerates to `rotation[i]`, so lead i lands on
+ *  exactly the sender this rotation assigned it to. */
+function buildSenderRotation(
+  senderIds: string[],
+  remainingBySender: Map<string, number>,
+  count: number,
+): string[] {
+  const rotation: string[] = [];
+  const left = new Map(remainingBySender);
+  while (rotation.length < count) {
+    let addedThisPass = false;
+    for (const id of senderIds) {
+      if (rotation.length >= count) break;
+      const cap = left.get(id) ?? 0;
+      if (cap > 0) {
+        rotation.push(id);
+        left.set(id, cap - 1);
+        addedThisPass = true;
+      }
+    }
+    if (!addedThisPass) break; // every sender is out of capacity
+  }
+  return rotation;
 }
 
 /** `senderAccountRepo` rows carry `smtpPasswordEnc`/`gmailRefreshTokenEnc` —
@@ -77,6 +130,19 @@ function toPublicSender(
     dailyLimit: row.dailyLimit,
     createdAt: row.createdAt,
   };
+}
+
+/** Growth/Scale connect a bounded number of sender mailboxes — checked
+ *  against the currently-connected count (active or not) at connect time. */
+async function assertSenderCapacity(ctx: TenantContext) {
+  const tenant = await tenantRepo.getByIdAdmin(ctx.tenantId);
+  const { outreachMaxSenderAccounts } = getPlan(tenant?.plan || "starter");
+  const existing = await senderAccountRepo.list(ctx);
+  if (existing.length >= outreachMaxSenderAccounts) {
+    throw new PaymentRequired(
+      "You've reached your plan's sender account limit — upgrade to connect more.",
+    );
+  }
 }
 
 /** `prompt: "consent"` forces Google to hand back a refresh token on every
@@ -110,6 +176,7 @@ export const outreachService = {
   },
 
   async createCampaign(ctx: TenantContext, body: CreateCampaignBody) {
+    await billingService.assertCapability(ctx, "outreach_bulk_fire");
     const campaign = await outreachCampaignRepo.create(ctx, body.name);
     await auditRepo.log(ctx, {
       action: "outreach.campaign.create",
@@ -286,6 +353,16 @@ export const outreachService = {
     const exists = await getServices().storage.exists(body.fileKey);
     if (!exists) throw new BadRequest("File was not uploaded"); // UP-08
 
+    // `requestLeadsUpload`'s 10MB check only ever saw the client-declared
+    // `sizeBytes` — the presigned URL itself enforces no limit, so a client
+    // can lie there and then PUT anything. Check the object Supabase
+    // actually stored before trusting it; delete and reject if it's over.
+    const actualSize = await getServices().storage.getObjectSize(body.fileKey);
+    if (actualSize !== null && actualSize > MAX_UPLOAD_BYTES) {
+      await getServices().storage.deleteObject(body.fileKey);
+      throw new PayloadTooLarge("File exceeds the 10MB limit");
+    }
+
     await outreachCampaignRepo.setStatus(ctx, campaignId, "importing");
     await auditRepo.log(ctx, {
       action: "outreach.leads.upload_complete",
@@ -304,12 +381,35 @@ export const outreachService = {
     const fileKey = body.fileKey;
     return {
       result: { id: campaignId, status: "importing" as const },
-      afterCommit: () =>
-        getServices().queue.enqueue(PARSE_LEADS_DOCX_JOB, {
-          tenantId,
-          campaignId,
-          fileKey,
-        }),
+      afterCommit: async () => {
+        try {
+          await getServices().queue.enqueue(PARSE_LEADS_DOCX_JOB, {
+            tenantId,
+            campaignId,
+            fileKey,
+          });
+        } catch (e) {
+          // The "importing" write above is already committed — if the job
+          // never actually gets enqueued, the campaign is stuck there
+          // forever with no parse ever coming to move it along. Flip it to
+          // "error" (same recovery shape parse-leads-docx.ts itself uses on
+          // a parse failure) so the UI shows a clear, re-uploadable state
+          // instead of a silent stall.
+          logger.error(
+            { err: e, campaignId, tenantId },
+            "leads_upload_enqueue_failed",
+          );
+          await withTenantTx({ tenantId }, (recoveryCtx) =>
+            outreachCampaignRepo.setStatus(
+              recoveryCtx,
+              campaignId,
+              "error",
+              "enqueue_failed",
+            ),
+          );
+          throw e;
+        }
+      },
     };
   },
 
@@ -332,6 +432,8 @@ export const outreachService = {
     stepIndex: number,
     leadIds?: string[],
   ) {
+    await billingService.assertCapability(ctx, "outreach_bulk_fire");
+
     const campaign = await outreachCampaignRepo.getById(ctx, campaignId);
     if (!campaign) throw new NotFound("Campaign not found");
     if (campaign.status !== "ready" && campaign.status !== "running") {
@@ -345,7 +447,7 @@ export const outreachService = {
       throw new BadRequest("Connect at least one sender account before firing");
     }
 
-    const leads = await outreachLeadRepo.listEligibleForStep(
+    let leads = await outreachLeadRepo.listEligibleForStep(
       ctx,
       campaignId,
       stepIndex,
@@ -355,9 +457,70 @@ export const outreachService = {
       throw new Conflict("No eligible leads for this step");
     }
 
+    // Growth is daily-capped tenant-wide (Scale's cap is Infinity, so this is
+    // a no-op there) — fire as many of the eligible leads as fit in what's
+    // left of today's quota and skip the rest, rather than rejecting the
+    // whole fire outright.
+    const tenant = await tenantRepo.getByIdAdmin(ctx.tenantId);
+    const { outreachDailySendCap: cap } = getPlan(tenant?.plan || "starter");
+    let skippedForDailyCapCount = 0;
+    if (Number.isFinite(cap)) {
+      // Held for the rest of this transaction — serializes concurrent fires
+      // for this tenant around the count-then-insert below (see doc comment).
+      await lockTenantForDailyCap(ctx);
+      const sentToday = await outreachSendRepo.countSentTodayForTenant(ctx);
+      const remaining = Math.max(cap - sentToday, 0);
+      if (remaining <= 0) {
+        throw new PaymentRequired(
+          "You've reached your plan's daily outreach send limit — upgrade or try again tomorrow.",
+        );
+      }
+      if (leads.length > remaining) {
+        skippedForDailyCapCount = leads.length - remaining;
+        leads = leads.slice(0, remaining);
+      }
+    }
+
+    // Each sender mailbox also has its own `dailyLimit` (separate from the
+    // tenant-wide plan cap above) — a real per-mailbox spam-threshold guard
+    // that, until now, was stored and shown in the UI but never actually
+    // enforced anywhere in the send path. Compute what's left today per
+    // sender and fire only as many leads as the connected senders can still
+    // take between them, again skipping the rest rather than failing outright.
+    const senderIds = senders.map((s) => s.id);
+    const sentTodayBySender = await outreachSendRepo.countSentTodayForSenders(
+      ctx,
+      senderIds,
+    );
+    const remainingBySender = new Map(
+      senders.map((s) => [
+        s.id,
+        Math.max(s.dailyLimit - (sentTodayBySender.get(s.id) ?? 0), 0),
+      ]),
+    );
+    const totalSenderCapacity = [...remainingBySender.values()].reduce(
+      (a, b) => a + b,
+      0,
+    );
+    let skippedForSenderCapCount = 0;
+    if (totalSenderCapacity <= 0) {
+      throw new PaymentRequired(
+        "All connected senders have reached their daily send limit — try again tomorrow or connect another sender.",
+      );
+    }
+    if (leads.length > totalSenderCapacity) {
+      skippedForSenderCapCount = leads.length - totalSenderCapacity;
+      leads = leads.slice(0, totalSenderCapacity);
+    }
+    const senderRotation = buildSenderRotation(
+      senderIds,
+      remainingBySender,
+      leads.length,
+    );
+
     const scheduled = scheduleSends({
       leadIds: leads.map((l) => l.id),
-      senderAccountIds: senders.map((s) => s.id),
+      senderAccountIds: senderRotation,
       blockMinutes: campaign.blockMinutes,
       now: new Date(),
     });
@@ -373,6 +536,15 @@ export const outreachService = {
       })),
     );
 
+    // Snapshot each lead's pre-fire status so a failed enqueue (below) can
+    // restore it exactly, rather than guessing a value like "pending" that
+    // may be wrong for a lead already partway through the sequence.
+    const priorLeadStatuses = leads.map((l) => ({
+      id: l.id,
+      status: l.status,
+    }));
+    const priorCampaignStatus = campaign.status;
+
     await Promise.all(
       leads.map((l) => outreachLeadRepo.setStatus(ctx, l.id, "scheduled")),
     );
@@ -381,7 +553,12 @@ export const outreachService = {
       action: "outreach.campaign.fire",
       targetType: "outreach_campaign",
       targetId: campaignId,
-      metadata: { stepIndex, count: sends.length },
+      metadata: {
+        stepIndex,
+        count: sends.length,
+        skippedForDailyCapCount,
+        skippedForSenderCapCount,
+      },
     });
 
     // Deferred to `afterCommit` — same reasoning as `completeLeadsUpload`:
@@ -389,6 +566,7 @@ export const outreachService = {
     // connection, which must not start before the `outreachSends` rows
     // above are actually committed and visible.
     const tenantId = ctx.tenantId;
+    const sendIds = sends.map((send) => send.id);
     const sendJobs = sends.map((send) => ({
       tenantId,
       sendId: send.id,
@@ -400,10 +578,46 @@ export const outreachService = {
         id: campaignId,
         status: "running" as const,
         scheduled: sends.length,
+        skippedForDailyCapCount,
+        skippedForSenderCapCount,
       },
       afterCommit: async () => {
-        for (const job of sendJobs) {
-          await getServices().queue.enqueue(SEND_OUTREACH_EMAIL_JOB, job);
+        try {
+          // One call for the whole fire — either every send job lands or
+          // none do, so the recovery below never has to reason about which
+          // subset of a partially-sent batch actually made it to Inngest.
+          await getServices().queue.enqueueBatch(
+            SEND_OUTREACH_EMAIL_JOB,
+            sendJobs,
+          );
+        } catch (e) {
+          // The `outreachSends` rows and "scheduled" lead/campaign statuses
+          // above are already committed. Left as-is, these leads would be
+          // permanently stuck: `listEligibleForStep` excludes any lead with
+          // an existing send row for this step regardless of its status, so
+          // a later retry of Fire would silently skip every one of them
+          // forever. Undo the writes in a fresh transaction so the next
+          // Fire click picks these leads back up.
+          logger.error(
+            { err: e, campaignId, tenantId, count: sendIds.length },
+            "fire_campaign_enqueue_failed",
+          );
+          await withTenantTx({ tenantId }, async (recoveryCtx) => {
+            await outreachSendRepo.deleteByIds(recoveryCtx, sendIds);
+            await Promise.all(
+              priorLeadStatuses.map((l) =>
+                outreachLeadRepo.setStatus(recoveryCtx, l.id, l.status),
+              ),
+            );
+            if (priorCampaignStatus !== "running") {
+              await outreachCampaignRepo.setStatus(
+                recoveryCtx,
+                campaignId,
+                priorCampaignStatus,
+              );
+            }
+          });
+          throw e;
         }
       },
     };
@@ -424,6 +638,9 @@ export const outreachService = {
     scheduledFireAt: Date,
     leadIds?: string[],
   ) {
+    await billingService.assertCapability(ctx, "outreach_bulk_fire");
+    await billingService.assertCapability(ctx, "outreach_scheduler");
+
     const campaign = await outreachCampaignRepo.getById(ctx, campaignId);
     if (!campaign) throw new NotFound("Campaign not found");
     if (campaign.status !== "ready" && campaign.status !== "running") {
@@ -450,12 +667,30 @@ export const outreachService = {
     const tenantId = ctx.tenantId;
     return {
       result: { id: campaignId, scheduledFireAt: scheduledFireAt.toISOString() },
-      afterCommit: () =>
-        getServices().queue.enqueue(FIRE_SCHEDULED_CAMPAIGN_JOB, {
-          tenantId,
-          campaignId,
-          scheduledFireAt: scheduledFireAt.toISOString(),
-        }),
+      afterCommit: async () => {
+        try {
+          await getServices().queue.enqueue(FIRE_SCHEDULED_CAMPAIGN_JOB, {
+            tenantId,
+            campaignId,
+            scheduledFireAt: scheduledFireAt.toISOString(),
+          });
+        } catch (e) {
+          // `scheduledFireAt` is already committed on the campaign — if the
+          // wake-up job never gets enqueued, that time will just pass with
+          // nothing happening and no error surfaced anywhere. Clear it so
+          // the campaign falls back to "no schedule set" (matching what the
+          // user sees right now, since the request is about to fail) rather
+          // than silently promising a fire that will never come.
+          logger.error(
+            { err: e, campaignId, tenantId },
+            "schedule_fire_enqueue_failed",
+          );
+          await withTenantTx({ tenantId }, (recoveryCtx) =>
+            outreachCampaignRepo.clearScheduledFire(recoveryCtx, campaignId),
+          );
+          throw e;
+        }
+      },
     };
   },
 
@@ -549,6 +784,9 @@ export const outreachService = {
   },
 
   async createSmtpSender(ctx: TenantContext, body: CreateSmtpSenderBody) {
+    await billingService.assertCapability(ctx, "outreach_bulk_fire");
+    await assertSenderCapacity(ctx);
+
     const existing = await senderAccountRepo.getByEmail(ctx, body.email);
     if (existing)
       throw new Conflict("A sender account with this email already exists");
@@ -635,16 +873,21 @@ export const outreachService = {
     const { data } = await oauth2.userinfo.get();
     const email = data.email;
     if (!email) throw new BadRequest("Google account has no email");
+    const fromName = data.name ?? undefined;
 
     return await withTenantTx(
       { tenantId: claims.tenantId, userId: claims.userId || undefined },
       async (ctx) => {
+        await billingService.assertCapability(ctx, "outreach_bulk_fire");
+        await assertSenderCapacity(ctx);
+
         const existing = await senderAccountRepo.getByEmail(ctx, email);
         if (existing)
           throw new Conflict("This Gmail account is already connected");
         const sender = await senderAccountRepo.createGmail(ctx, {
           label: email,
           email,
+          fromName,
           gmailRefreshTokenEnc: encryptSecret(tokens.refresh_token as string),
         });
         await auditRepo.log(ctx, {

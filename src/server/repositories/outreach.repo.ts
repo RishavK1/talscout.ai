@@ -310,6 +310,12 @@ export const outreachCampaignRepo = {
 };
 
 export const outreachLeadRepo = {
+  // Postgres caps a single query at 65535 bind params. Each row here binds 9
+  // columns, so an unchunked insert tops out around ~7281 leads — a docx
+  // dense enough to exceed that would fail the whole import with a driver
+  // error instead of a clean result. 1000 rows/chunk keeps a wide safety
+  // margin while still being a handful of round trips for any realistic
+  // import size.
   async bulkInsert(
     ctx: TenantContext,
     campaignId: string,
@@ -324,22 +330,29 @@ export const outreachLeadRepo = {
     }>,
   ) {
     if (leads.length === 0) return [];
-    return await ctx.tx
-      .insert(outreachLeads)
-      .values(
-        leads.map((lead) => ({
-          tenantId: ctx.tenantId,
-          campaignId,
-          name: lead.name,
-          niche: lead.niche,
-          location: lead.location,
-          decisionMaker: lead.decisionMaker,
-          email: lead.email,
-          phone: lead.phone,
-          notes: lead.notes,
-        })),
-      )
-      .returning();
+    const CHUNK_SIZE = 1000;
+    const inserted: (typeof outreachLeads.$inferSelect)[] = [];
+    for (let i = 0; i < leads.length; i += CHUNK_SIZE) {
+      const chunk = leads.slice(i, i + CHUNK_SIZE);
+      const rows = await ctx.tx
+        .insert(outreachLeads)
+        .values(
+          chunk.map((lead) => ({
+            tenantId: ctx.tenantId,
+            campaignId,
+            name: lead.name,
+            niche: lead.niche,
+            location: lead.location,
+            decisionMaker: lead.decisionMaker,
+            email: lead.email,
+            phone: lead.phone,
+            notes: lead.notes,
+          })),
+        )
+        .returning();
+      inserted.push(...rows);
+    }
+    return inserted;
   },
 
   /** Paginated — defaults/caps mirror candidateRepo.list (PAGE-02/03), so this
@@ -518,6 +531,25 @@ export const outreachSendRepo = {
       .returning();
   },
 
+  /** Undoes `bulkSchedule` for a set of rows — used to recover from a fire
+   *  whose enqueue failed after the sends were already committed. Deleting
+   *  (rather than marking "failed"/"skipped") matters because
+   *  `listEligibleForStep` excludes a lead the moment ANY send row exists for
+   *  that step, regardless of status — so a status flip would leave those
+   *  leads permanently un-retryable, while deleting lets the next fire pick
+   *  them straight back up. */
+  async deleteByIds(ctx: TenantContext, ids: string[]) {
+    if (ids.length === 0) return;
+    await ctx.tx
+      .delete(outreachSends)
+      .where(
+        and(
+          inArray(outreachSends.id, ids),
+          eq(outreachSends.tenantId, ctx.tenantId),
+        ),
+      );
+  },
+
   async getById(ctx: TenantContext, id: string) {
     const [row] = await ctx.tx
       .select()
@@ -621,5 +653,22 @@ export const outreachSendRepo = {
       )
       .groupBy(outreachSends.senderAccountId);
     return new Map(rows.map((r) => [r.senderAccountId, r.count]));
+  },
+
+  /** How many sends the whole tenant already has today — enforces the plan's
+   *  outreachDailySendCap. Same window as countSentTodayForSenders, just not
+   *  scoped to a sender subset. */
+  async countSentTodayForTenant(ctx: TenantContext) {
+    const [row] = await ctx.tx
+      .select({ count: sql<number>`count(*)::int` })
+      .from(outreachSends)
+      .where(
+        and(
+          eq(outreachSends.tenantId, ctx.tenantId),
+          sql`${outreachSends.status} in ('scheduled', 'sent')`,
+          sql`${outreachSends.scheduledAt} >= date_trunc('day', now())`,
+        ),
+      );
+    return row?.count ?? 0;
   },
 };
