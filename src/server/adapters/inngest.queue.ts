@@ -16,4 +16,18 @@ export class InngestQueue implements JobQueue {
       data: payload as Record<string, unknown>,
     });
   }
+
+  async enqueueBatch(name: string, payloads: unknown[]): Promise<void> {
+    if (payloads.length === 0) return;
+    const eventName = `job/${name.replace(/([A-Z])/g, "-$1").toLowerCase()}`;
+    // One HTTP call for the whole batch — either every event lands or the
+    // call throws and none do, so callers never have to reason about a
+    // partially-sent batch.
+    await inngest.send(
+      payloads.map((payload) => ({
+        name: eventName,
+        data: payload as Record<string, unknown>,
+      })),
+    );
+  }
 }

@@ -1,4 +1,5 @@
 import { getEnv } from "@/server/config/env";
+import { logger } from "@/server/observability/logger";
 import type { Services } from "@/server/ports";
 import { MockStorage } from "@/server/adapters/mock.storage";
 import { MockExtractor } from "@/server/adapters/mock.extractor";
@@ -8,6 +9,8 @@ import { GeminiReranker } from "@/server/adapters/gemini.reranker";
 import { MockPaymentProvider } from "@/server/adapters/mock.payment";
 import { MockMailer } from "@/server/adapters/mock.mailer";
 import { ResendMailer } from "@/server/adapters/resend.mailer";
+import { MockOutreachMailer } from "@/server/adapters/mock.outreach-mailer";
+import { OutreachMailerAdapter } from "@/server/adapters/outreach.mailer";
 import { InProcessQueue } from "@/server/adapters/inprocess.queue";
 import { ClaudeExtractor } from "@/server/adapters/claude.extractor";
 import { GeminiExtractor } from "@/server/adapters/gemini.extractor";
@@ -22,6 +25,21 @@ import {
   PARSE_RESUME_JOB,
   type ParseResumePayload,
 } from "@/server/jobs/parse-resume";
+import {
+  parseLeadsDocxJob,
+  PARSE_LEADS_DOCX_JOB,
+  type ParseLeadsDocxPayload,
+} from "@/server/jobs/parse-leads-docx";
+import {
+  sendOutreachEmail,
+  SEND_OUTREACH_EMAIL_JOB,
+  type SendOutreachEmailPayload,
+} from "@/server/jobs/send-outreach-email";
+import {
+  fireScheduledCampaign,
+  FIRE_SCHEDULED_CAMPAIGN_JOB,
+  type FireScheduledCampaignPayload,
+} from "@/server/jobs/fire-scheduled-campaign";
 
 let services: Services | null = null;
 
@@ -42,9 +60,33 @@ export function getServices(): Services {
       queue,
       limiter: new MemoryRateLimiter(),
       mailer: new MockMailer(),
+      outreachMailer: new MockOutreachMailer(),
     };
     queue.register(PARSE_RESUME_JOB, (payload) =>
       parseResume(payload as ParseResumePayload, services as Services),
+    );
+    queue.register(PARSE_LEADS_DOCX_JOB, (payload) =>
+      parseLeadsDocxJob(payload as ParseLeadsDocxPayload, services as Services),
+    );
+    // No sleepUntil here — InProcessQueue runs handlers inline for deterministic
+    // tests/dev, so a scheduled send just fires immediately instead of waiting
+    // for its block; the pacing delay only matters against a real Inngest queue.
+    queue.register(SEND_OUTREACH_EMAIL_JOB, (payload) => {
+      const data = payload as SendOutreachEmailPayload & { targetSendAt: string };
+      return sendOutreachEmail(
+        { tenantId: data.tenantId, sendId: data.sendId },
+        services as Services,
+      );
+    });
+    // Same inline-vs-deferred caveat as SEND_OUTREACH_EMAIL_JOB above — the
+    // payload field is scheduledFireAt, not targetSendAt, so InProcessQueue
+    // runs this immediately rather than waiting; real delay only happens
+    // under a live Inngest queue.
+    queue.register(FIRE_SCHEDULED_CAMPAIGN_JOB, (payload) =>
+      fireScheduledCampaign(
+        payload as FireScheduledCampaignPayload,
+        services as Services,
+      ),
     );
   } else {
     // APP_MODE=live — real services.
@@ -59,6 +101,22 @@ export function getServices(): Services {
       ? new GeminiExtractor()
       : new ClaudeExtractor();
 
+    // MemoryRateLimiter's counters live in this process's memory only — on a
+    // serverless/horizontally-scaled deployment, every instance gets its own
+    // independent counter, so a limit of e.g. 20/hour actually allows
+    // 20 × (instance count)/hour, silently. That's not a hypothetical: this
+    // app already forces InngestQueue over InProcessQueue in production for
+    // the exact same "multiple instances, no shared state" reason (see
+    // `useInngest` above). Fail loud here so a missing REDIS_URL in
+    // production is caught at deploy time, not discovered as an outreach
+    // route quietly not rate-limiting anyone.
+    if (!env.REDIS_URL && env.NODE_ENV === "production") {
+      logger.error(
+        "REDIS_URL is not set in production — falling back to MemoryRateLimiter, " +
+          "which does not share state across instances and will NOT enforce rate " +
+          "limits correctly under horizontal scaling. Set REDIS_URL (Upstash) to fix.",
+      );
+    }
     const limiter = env.REDIS_URL ? new RedisRateLimiter() : new MemoryRateLimiter();
 
     // LLM reranking needs an AI key. With Gemini available we rerank for real;
@@ -74,11 +132,28 @@ export function getServices(): Services {
       queue,
       limiter,
       mailer: env.RESEND_API_KEY ? new ResendMailer() : new MockMailer(),
+      outreachMailer: new OutreachMailerAdapter(),
     };
 
     if (queue instanceof InProcessQueue) {
       queue.register(PARSE_RESUME_JOB, (payload) =>
         parseResume(payload as ParseResumePayload, services as Services),
+      );
+      queue.register(PARSE_LEADS_DOCX_JOB, (payload) =>
+        parseLeadsDocxJob(payload as ParseLeadsDocxPayload, services as Services),
+      );
+      queue.register(SEND_OUTREACH_EMAIL_JOB, (payload) => {
+        const data = payload as SendOutreachEmailPayload & { targetSendAt: string };
+        return sendOutreachEmail(
+          { tenantId: data.tenantId, sendId: data.sendId },
+          services as Services,
+        );
+      });
+      queue.register(FIRE_SCHEDULED_CAMPAIGN_JOB, (payload) =>
+        fireScheduledCampaign(
+          payload as FireScheduledCampaignPayload,
+          services as Services,
+        ),
       );
     }
   }

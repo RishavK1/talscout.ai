@@ -28,4 +28,8 @@ export class MockStorage implements Storage {
   async deleteObject(key: string): Promise<void> {
     this.store.delete(key);
   }
+
+  async getObjectSize(key: string): Promise<number | null> {
+    return this.store.get(key)?.bytes.byteLength ?? null;
+  }
 }

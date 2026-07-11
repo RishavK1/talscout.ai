@@ -42,6 +42,17 @@ const EnvSchema = z
     REDIS_URL: z.string().optional(),
     REDIS_TOKEN: z.string().optional(),
 
+    /** ---- bulk-fire outreach (new, opt-in — validated lazily by use) ---- */
+    /** AES-256-GCM key (32 bytes, base64) for sender-account secret columns.
+     *  See server/lib/secret-box.ts. Not required at boot (CFG-01 only
+     *  applies to keys needed to start at all); connecting a sender account
+     *  without it configured fails loudly at that call site instead. */
+    OUTREACH_ENCRYPTION_KEY: z.string().optional(),
+    /** Google OAuth client for the server-side "Connect Gmail" flow
+     *  (offline access — sending must work with no browser tab open). */
+    GOOGLE_OAUTH_CLIENT_ID: z.string().optional(),
+    GOOGLE_OAUTH_CLIENT_SECRET: z.string().optional(),
+
     /** ---- live-mode tuning (all optional, sensible defaults) ---- */
     ANTHROPIC_MODEL: z.string().default("claude-haiku-4-5"),
     ANTHROPIC_FALLBACK_MODEL: z.string().default("claude-sonnet-4-6"),

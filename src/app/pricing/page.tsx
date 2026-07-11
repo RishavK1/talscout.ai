@@ -40,6 +40,24 @@ const COMPARISON_ROWS: { label: string; render: (planId: (typeof PLAN_ORDER)[num
     label: CAPABILITY_LABEL.sso,
     render: (id) => (planHasCapability(id, "sso") ? "Included" : "—"),
   },
+  {
+    label: "Outreach: daily email cap",
+    render: (id) => {
+      const cap = PLANS[id].outreachDailySendCap;
+      return cap === 0 ? "—" : Number.isFinite(cap) ? cap.toLocaleString() : "Unlimited";
+    },
+  },
+  {
+    label: "Outreach: sender accounts",
+    render: (id) => {
+      const n = PLANS[id].outreachMaxSenderAccounts;
+      return n === 0 ? "—" : String(n);
+    },
+  },
+  {
+    label: CAPABILITY_LABEL.outreach_scheduler,
+    render: (id) => (planHasCapability(id, "outreach_scheduler") ? "Included" : "—"),
+  },
 ];
 
 export default function PricingPage() {

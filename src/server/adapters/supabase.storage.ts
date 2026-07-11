@@ -49,4 +49,10 @@ export class SupabaseStorage implements Storage {
   async deleteObject(key: string): Promise<void> {
     await this.client.storage.from(this.bucket).remove([key]);
   }
+
+  async getObjectSize(key: string): Promise<number | null> {
+    const { data, error } = await this.client.storage.from(this.bucket).info(key);
+    if (error || !data) return null;
+    return data.size ?? null;
+  }
 }

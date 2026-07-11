@@ -83,6 +83,12 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify(body),
     }),
+  put: <T = any>(path: string, body?: any, options?: RequestInit) =>
+    request<T>(path, {
+      ...options,
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
   delete: <T = any>(path: string, body?: any, options?: RequestInit) =>
     request<T>(path, {
       ...options,

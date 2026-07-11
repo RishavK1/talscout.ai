@@ -18,6 +18,13 @@ export interface Storage {
   getObject(key: string): Promise<Buffer | null>;
   exists(key: string): Promise<boolean>;
   deleteObject(key: string): Promise<void>;
+  /** The presigned URL's declared `maxBytes` isn't enforced by the storage
+   *  provider itself — a client can lie about `sizeBytes` at request time and
+   *  then PUT anything to the signed URL. Callers that need the real size
+   *  (e.g. to reject an oversized upload after the fact) use this instead of
+   *  trusting the client-supplied value. Returns null if the object doesn't
+   *  exist. */
+  getObjectSize(key: string): Promise<number | null>;
 }
 
 export interface WorkHistoryItem {
@@ -104,6 +111,11 @@ export type JobHandler = (payload: unknown) => Promise<void>;
 export interface JobQueue {
   register(name: string, handler: JobHandler): void;
   enqueue(name: string, payload: unknown): Promise<void>;
+  /** Same job, many payloads — one round trip instead of N. Used where a
+   *  single user action fans out into many jobs (e.g. firing a campaign to
+   *  hundreds of leads) so a transient failure fails atomically rather than
+   *  stranding an arbitrary prefix of the loop. */
+  enqueueBatch(name: string, payloads: unknown[]): Promise<void>;
 }
 
 export interface CheckoutArgs {
@@ -154,6 +166,45 @@ export interface Mailer {
   send(message: MailMessage): Promise<void>;
 }
 
+/** Credentials for one connected sender account (see server/db/schema.ts's
+ *  `senderAccounts`), decrypted just-in-time by the caller — never persisted
+ *  in this shape. Gmail uses server-side OAuth with offline access (a
+ *  refresh token), not a browser-held access token, so sending works with
+ *  no tab open. */
+export type SenderAccountCredentials =
+  | {
+      type: "smtp";
+      host: string;
+      port: number;
+      secure: boolean;
+      username: string;
+      password: string;
+    }
+  | {
+      type: "gmail";
+      refreshToken: string;
+    };
+
+export interface OutreachSendArgs {
+  from: string;
+  fromName?: string;
+  to: string;
+  subject: string;
+  text: string;
+  /** Replies go back to the sending mailbox itself. */
+  replyTo?: string;
+}
+
+/**
+ * Separate from `Mailer` on purpose: `Mailer` assumes one fixed transactional
+ * sender (Resend), while bulk-fire rotates sends across many tenant-owned
+ * mailbox identities (Gmail/SMTP), each with its own credentials supplied
+ * per call.
+ */
+export interface OutreachMailer {
+  send(creds: SenderAccountCredentials, message: OutreachSendArgs): Promise<void>;
+}
+
 export interface RateLimitResult {
   success: boolean;
   limit: number;
@@ -174,4 +225,5 @@ export interface Services {
   payment: PaymentProvider;
   limiter: RateLimiter;
   mailer: Mailer;
+  outreachMailer: OutreachMailer;
 }
