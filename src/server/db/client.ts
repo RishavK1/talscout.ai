@@ -36,10 +36,22 @@ function sslFor(url: string): false | { rejectUnauthorized: boolean; ca?: string
   return { rejectUnauthorized: false };
 }
 
+// Supabase's Supavisor pooler in Session mode hard-caps total concurrent
+// client connections at the dashboard's `pool_size` (currently 15) no matter
+// how many serverless instances are alive — it's a global ceiling, not a
+// per-connection-string one. Each Vercel invocation gets its own process and
+// therefore its own pair of pools, so keeping `max` small here is what lets
+// several concurrent invocations coexist under that shared 15-connection cap
+// instead of two invocations alone exhausting it (see EMAXCONNSESSION).
 export function appPool(): Pool {
   if (!globalForDb._appPool) {
     const url = getEnv().DATABASE_URL;
-    globalForDb._appPool = new Pool({ connectionString: url, max: 10, ssl: sslFor(url) });
+    globalForDb._appPool = new Pool({
+      connectionString: url,
+      max: 3,
+      idleTimeoutMillis: 10_000,
+      ssl: sslFor(url),
+    });
   }
   return globalForDb._appPool;
 }
@@ -47,7 +59,12 @@ export function appPool(): Pool {
 export function adminPool(): Pool {
   if (!globalForDb._adminPool) {
     const url = adminDbUrl();
-    globalForDb._adminPool = new Pool({ connectionString: url, max: 4, ssl: sslFor(url) });
+    globalForDb._adminPool = new Pool({
+      connectionString: url,
+      max: 2,
+      idleTimeoutMillis: 10_000,
+      ssl: sslFor(url),
+    });
   }
   return globalForDb._adminPool;
 }
