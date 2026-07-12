@@ -1,15 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "sonner";
 import { easeDrawer } from "@/lib/motion";
+import { cn } from "@/lib/utils";
 import { Modal } from "@/components/ui/modal";
 import { useAuth } from "@/components/app/auth-provider";
 import { api } from "@/lib/api";
 import { InviteMemberForm } from "@/components/team/invite-member-form";
+
+const SIDEBAR_EXPANDED = 280;
+const SIDEBAR_COLLAPSED = 84;
+const SIDEBAR_COLLAPSE_KEY = "sidebar-collapsed";
 
 type Item = { href: string; icon: string; label: string; capability?: string };
 
@@ -33,11 +38,13 @@ function NavLink({
   item,
   active,
   locked,
+  collapsed,
   onClick,
 }: {
   item: Item;
   active: boolean;
   locked?: boolean;
+  collapsed?: boolean;
   onClick?: () => void;
 }) {
   // Locked (plan doesn't include it): route to billing/upgrade, show a lock.
@@ -46,12 +53,31 @@ function NavLink({
       <Link
         href="/billing"
         onClick={onClick}
-        title="Upgrade your plan to use this feature"
-        className="flex items-center gap-3 rounded-lg p-3 text-on-surface-variant/50 transition-colors hover:bg-white/40"
+        title={collapsed ? `${item.label} — upgrade to unlock` : "Upgrade your plan to use this feature"}
+        className={cn(
+          "relative flex items-center rounded-lg p-3 text-on-surface-variant/50 transition-all duration-200 ease-in-out hover:bg-white/40",
+          collapsed ? "justify-center" : "gap-3",
+        )}
       >
         <span className="material-symbols-outlined">{item.icon}</span>
-        <span className="font-label-md text-label-md">{item.label}</span>
-        <span className="material-symbols-outlined ml-auto text-[16px] text-on-surface-variant/50">lock</span>
+        <span
+          className={cn(
+            "font-label-md text-label-md overflow-hidden whitespace-nowrap transition-all duration-200",
+            collapsed ? "w-0 opacity-0" : "w-auto opacity-100",
+          )}
+        >
+          {item.label}
+        </span>
+        <span
+          className={cn(
+            "material-symbols-outlined text-[16px] text-on-surface-variant/50 transition-all duration-200",
+            collapsed
+              ? "absolute -right-1 -top-1 rounded-full bg-bg-secondary text-[12px]"
+              : "ml-auto",
+          )}
+        >
+          lock
+        </span>
       </Link>
     );
   }
@@ -59,28 +85,39 @@ function NavLink({
     <Link
       href={item.href}
       onClick={onClick}
-      className={
-        "flex items-center gap-3 rounded-lg p-3 transition-all duration-200 ease-in-out " +
-        (active
+      title={collapsed ? item.label : undefined}
+      className={cn(
+        "flex items-center rounded-lg p-3 transition-all duration-200 ease-in-out",
+        collapsed ? "justify-center" : "gap-3",
+        active
           ? "bg-white text-primary shadow-sm font-semibold"
-          : "text-on-surface-variant hover:bg-white/50 hover:text-primary")
-      }
+          : "text-on-surface-variant hover:bg-white/50 hover:text-primary",
+      )}
     >
       <span
-        className="material-symbols-outlined"
+        className="material-symbols-outlined shrink-0"
         {...(active ? { "data-weight": "fill" } : {})}
       >
         {item.icon}
       </span>
-      <span className="font-label-md text-label-md">{item.label}</span>
+      <span
+        className={cn(
+          "font-label-md text-label-md overflow-hidden whitespace-nowrap transition-all duration-200",
+          collapsed ? "w-0 opacity-0" : "w-auto opacity-100",
+        )}
+      >
+        {item.label}
+      </span>
     </Link>
   );
 }
 
 function SidebarContent({
+  collapsed,
   onNavigate,
   onInvite,
 }: {
+  collapsed?: boolean;
   onNavigate?: () => void;
   onInvite?: () => void;
 }) {
@@ -94,16 +131,26 @@ function SidebarContent({
   return (
     <div className="flex h-full flex-col p-6">
       {/* Brand */}
-      <Link href="/dashboard" onClick={onNavigate} className="mb-8 flex items-center gap-3">
+      <Link
+        href="/dashboard"
+        onClick={onNavigate}
+        title={collapsed ? workspaceName || "Workspace" : undefined}
+        className={cn("mb-8 flex items-center gap-3", collapsed && "justify-center")}
+      >
         {logoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={logoUrl} alt="Logo" className="h-10 w-10 rounded object-cover border border-border-low-alpha" />
+          <img src={logoUrl} alt="Logo" className="h-10 w-10 shrink-0 rounded object-cover border border-border-low-alpha" />
         ) : (
-          <div className="flex h-10 w-10 items-center justify-center rounded bg-primary text-on-primary">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded bg-primary text-on-primary">
             <span className="material-symbols-outlined">work</span>
           </div>
         )}
-        <div>
+        <div
+          className={cn(
+            "overflow-hidden whitespace-nowrap transition-all duration-200",
+            collapsed ? "w-0 opacity-0" : "w-auto opacity-100",
+          )}
+        >
           <h2 className="font-headline-md text-headline-md text-primary truncate max-w-[160px]">{workspaceName || "Workspace"}</h2>
           <p className="font-label-md text-label-md text-on-surface-variant">
             Recruitment Team
@@ -118,6 +165,7 @@ function SidebarContent({
             key={item.href}
             item={item}
             active={isActive(item.href)}
+            collapsed={collapsed}
             onClick={onNavigate}
           />
         ))}
@@ -129,9 +177,21 @@ function SidebarContent({
           <button
             type="button"
             onClick={onInvite}
-            className="mb-4 w-full rounded-lg bg-primary px-4 py-2 font-label-md text-label-md text-on-primary transition-colors hover:bg-primary-container active:scale-[0.98]"
+            title={collapsed ? "Invite Team" : undefined}
+            className={cn(
+              "mb-4 flex w-full items-center justify-center rounded-lg bg-primary font-label-md text-label-md text-on-primary transition-all duration-200 hover:bg-primary-container active:scale-[0.98]",
+              collapsed ? "px-0 py-2" : "gap-2 px-4 py-2",
+            )}
           >
-            Invite Team
+            <span className="material-symbols-outlined text-[18px]">person_add</span>
+            <span
+              className={cn(
+                "overflow-hidden whitespace-nowrap transition-all duration-200",
+                collapsed ? "w-0 opacity-0" : "w-auto opacity-100",
+              )}
+            >
+              Invite Team
+            </span>
           </button>
         )}
         {footerNav.map((item) => (
@@ -140,6 +200,7 @@ function SidebarContent({
             item={item}
             active={isActive(item.href)}
             locked={item.capability ? !can(item.capability) : false}
+            collapsed={collapsed}
             onClick={onNavigate}
           />
         ))}
@@ -151,10 +212,29 @@ function SidebarContent({
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { workspaceName, profile } = useAuth();
   const [open, setOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+  const [sidebarReady, setSidebarReady] = useState(false);
   const [invite, setInvite] = useState(false);
   const [seatInfo, setSeatInfo] = useState<{ remainingSeats: number; plan: string } | null>(null);
   const [loadingSeats, setLoadingSeats] = useState(false);
   const pathname = usePathname();
+
+  // Runs before the browser paints, so the persisted collapsed state is
+  // applied without a visible flash of the (server-rendered) expanded default.
+  // The width/padding transitions are suppressed until this fires (via
+  // sidebarReady) so this correction itself never animates.
+  useLayoutEffect(() => {
+    setCollapsed(window.localStorage.getItem(SIDEBAR_COLLAPSE_KEY) === "true");
+    setSidebarReady(true);
+  }, []);
+
+  const toggleCollapsed = () => {
+    setCollapsed((prev) => {
+      const next = !prev;
+      window.localStorage.setItem(SIDEBAR_COLLAPSE_KEY, String(next));
+      return next;
+    });
+  };
 
   const logoUrl = profile?.logo;
 
@@ -196,8 +276,30 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-dvh bg-bg-cream">
       {/* Desktop sidebar */}
-      <nav className="fixed left-0 top-0 z-40 hidden h-full w-[280px] bg-bg-secondary lg:block">
-        <SidebarContent onInvite={openInvite} />
+      <nav
+        style={{ width: collapsed ? SIDEBAR_COLLAPSED : SIDEBAR_EXPANDED }}
+        className={cn(
+          "fixed left-0 top-0 z-40 hidden h-full bg-bg-secondary lg:block",
+          sidebarReady && "transition-[width] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]",
+        )}
+      >
+        <SidebarContent collapsed={collapsed} onInvite={openInvite} />
+        <button
+          type="button"
+          onClick={toggleCollapsed}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          className="absolute -right-3 top-20 flex h-6 w-6 items-center justify-center rounded-full border border-border-low-alpha bg-white text-on-surface-variant shadow-[0_2px_8px_rgba(44,35,34,0.12)] transition-colors hover:text-primary"
+        >
+          <span
+            className={cn(
+              "material-symbols-outlined text-[16px] transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]",
+              collapsed && "rotate-180",
+            )}
+          >
+            chevron_left
+          </span>
+        </button>
       </nav>
 
       {/* Mobile top bar */}
@@ -255,7 +357,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </AnimatePresence>
 
       {/* Main content */}
-      <div className="lg:pl-[280px]">{children}</div>
+      <div
+        style={{ "--sidebar-w": `${collapsed ? SIDEBAR_COLLAPSED : SIDEBAR_EXPANDED}px` } as React.CSSProperties}
+        className={cn(
+          "lg:pl-[var(--sidebar-w)]",
+          sidebarReady && "transition-[padding-left] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]",
+        )}
+      >
+        {children}
+      </div>
 
       {/* Invite team modal */}
       <Modal

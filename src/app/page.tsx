@@ -65,13 +65,25 @@ export default function LandingPage() {
                 <span className="text-gradient-teal">Start finding and reaching talent.</span>
               </h1>
 
-              <p className="mb-9 max-w-md font-body-lg text-body-lg leading-relaxed text-text-muted">
-                TalScout reads every résumé for you, lets you search your
-                entire candidate database in plain English, and fires
-                personalized outreach sequences to your shortlist automatically.
-                Built for staffing teams who are done with manual data entry,
-                dumb keyword search, and chasing candidates one email at a time.
+              <p className="mb-6 max-w-md font-body-lg text-body-lg leading-relaxed text-text-muted">
+                Search your candidates in plain English. Reach the best ones
+                automatically. No more spreadsheets, no more cold copy-paste.
               </p>
+
+              <div className="mb-9 flex flex-wrap gap-3">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-border-low-alpha bg-surface-white/70 px-3 py-1.5 font-label-md text-label-md text-on-surface-variant backdrop-blur-sm">
+                  <span className="material-symbols-outlined text-[15px] text-primary">
+                    search
+                  </span>
+                  AI-powered search
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-border-low-alpha bg-surface-white/70 px-3 py-1.5 font-label-md text-label-md text-on-surface-variant backdrop-blur-sm">
+                  <span className="material-symbols-outlined text-[15px] text-primary">
+                    forward_to_inbox
+                  </span>
+                  Automated outreach
+                </span>
+              </div>
 
               <div className="flex flex-col gap-4 sm:flex-row">
                 <Link

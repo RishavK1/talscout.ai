@@ -149,6 +149,19 @@ body {
   color: var(--color-on-tertiary-fixed);
 }
 
+/* Tailwind's preflight resets <button> to the browser's native
+   cursor: default — every button across the app needs an explicit
+   override instead of relying on per-component cursor-pointer classes.
+   Scoped to @layer base (not left unlayered) so any Tailwind cursor
+   utility (cursor-wait, cursor-not-allowed, etc.) can still win —
+   utilities always outrank base in Tailwind v4's cascade layers. */
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
 /* ---- Stitch per-screen custom utilities (consolidated, 1:1) ---- */
 .bg-hero-gradient {
   background: linear-gradient(180deg, #faf7f3 0%, #ffffff 100%);

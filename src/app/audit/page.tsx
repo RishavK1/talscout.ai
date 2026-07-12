@@ -14,6 +14,8 @@ export default function AuditLogPage() {
   const [member, setMember] = useState("All Members");
   const [action, setAction] = useState("All Actions");
   const [date, setDate] = useState("All Dates");
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 10;
 
   useEffect(() => {
     const fetchLogs = async () => {
@@ -112,6 +114,17 @@ export default function AuditLogPage() {
     return matchesQuery && matchesMember && matchesAction && matchesDate;
   });
 
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const paginated = filtered.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE,
+  );
+
+  useEffect(() => {
+    setPage(1);
+  }, [query, member, action, date]);
+
   return (
     <AppShell>
       {/* Main Wrapper */}
@@ -152,7 +165,7 @@ export default function AuditLogPage() {
             <Link className="flex items-center gap-3 px-4 py-3 bg-white text-primary font-semibold shadow-sm rounded-lg font-label-md border-l-4 border-secondary" href="/audit">Audit log</Link>
           </nav>
           {/* Main Dashboard Area */}
-          <div className="flex-1 space-y-8">
+          <div className="min-w-0 flex-1 space-y-8">
             {/* Header */}
             <section>
               <h2 className="font-headline-lg text-primary mb-1">Audit log</h2>
@@ -220,7 +233,7 @@ export default function AuditLogPage() {
                           </td>
                         </tr>
                       ) : (
-                        filtered.map((entry) => (
+                        paginated.map((entry) => (
                           <tr key={entry.id} className="table-row-hover transition-colors">
                             <td className="px-6 py-4 font-data-mono text-[13px] text-text-muted">{formatTimestamp(entry.createdAt)}</td>
                             <td className="px-6 py-4">
@@ -245,6 +258,52 @@ export default function AuditLogPage() {
                   </table>
                 )}
               </div>
+              {/* Pagination */}
+              {!loading && filtered.length > 0 && (
+                <div className="px-6 py-4 border-t border-border-low-alpha bg-surface-white flex flex-wrap items-center justify-between gap-3">
+                  <span className="font-body-md text-[13px] text-on-surface-variant">
+                    Showing {(currentPage - 1) * PAGE_SIZE + 1}–
+                    {Math.min(currentPage * PAGE_SIZE, filtered.length)} of {filtered.length}
+                    {filtered.length !== logs.length ? ` (filtered from ${logs.length})` : ""}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      disabled={currentPage <= 1}
+                      aria-label="Previous page"
+                      className="w-8 h-8 rounded border border-border-low-alpha flex items-center justify-center text-on-surface-variant hover:bg-bg-cream disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">chevron_left</span>
+                    </button>
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                      <button
+                        key={p}
+                        type="button"
+                        onClick={() => setPage(p)}
+                        aria-current={p === currentPage ? "page" : undefined}
+                        className={
+                          "w-8 h-8 rounded font-label-md text-[13px] flex items-center justify-center transition-colors " +
+                          (p === currentPage
+                            ? "bg-primary text-on-primary"
+                            : "border border-border-low-alpha text-on-surface-variant hover:bg-bg-cream")
+                        }
+                      >
+                        {p}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                      disabled={currentPage >= totalPages}
+                      aria-label="Next page"
+                      className="w-8 h-8 rounded border border-border-low-alpha flex items-center justify-center text-on-surface-variant hover:bg-bg-cream disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">chevron_right</span>
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
             {/* Footer Section Info */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
