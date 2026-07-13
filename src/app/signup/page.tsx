@@ -44,6 +44,15 @@ export default function SignUpPage() {
         // Email confirmation is disabled → we already have a session.
         toast.success("Account created successfully!");
         router.push("/onboarding/workspace");
+      } else if (data.user && data.user.identities?.length === 0) {
+        // Supabase returns a fake success (no error, no session) for an email
+        // that already has a confirmed account — this is deliberate anti-
+        // enumeration behavior, not a bug on their end. The one signal it
+        // still gives us: `identities` comes back empty only in this case
+        // (a genuinely new signup, or a resend to an unconfirmed account,
+        // both have a non-empty identities array).
+        toast.error("An account with this email already exists. Please log in instead.");
+        router.push(`/login?email=${encodeURIComponent(email)}`);
       } else {
         // Confirmation required → tell the user to check their inbox.
         setEmailSent(true);
