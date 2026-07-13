@@ -43,12 +43,24 @@ function sslFor(url: string): false | { rejectUnauthorized: boolean; ca?: string
 // therefore its own pair of pools, so keeping `max` small here is what lets
 // several concurrent invocations coexist under that shared 15-connection cap
 // instead of two invocations alone exhausting it (see EMAXCONNSESSION).
+//
+// That constraint doesn't apply in local dev: it's a single long-running
+// process, not N concurrent serverless invocations, so it isn't sharing the
+// 15-cap with anyone else. Keeping the prod-sized pool there instead starves
+// a single page load — e.g. the dashboard alone fires ~6 concurrent
+// authenticated requests, each needing 2 admin-pool connections just to
+// resolve the session, so a 2-connection cap serializes them into multi-
+// second queues. Widen only outside production.
+const isProd = getEnv().NODE_ENV === "production";
+const APP_POOL_MAX = isProd ? 3 : 10;
+const ADMIN_POOL_MAX = isProd ? 2 : 5;
+
 export function appPool(): Pool {
   if (!globalForDb._appPool) {
     const url = getEnv().DATABASE_URL;
     globalForDb._appPool = new Pool({
       connectionString: url,
-      max: 3,
+      max: APP_POOL_MAX,
       idleTimeoutMillis: 10_000,
       ssl: sslFor(url),
     });
@@ -61,7 +73,7 @@ export function adminPool(): Pool {
     const url = adminDbUrl();
     globalForDb._adminPool = new Pool({
       connectionString: url,
-      max: 2,
+      max: ADMIN_POOL_MAX,
       idleTimeoutMillis: 10_000,
       ssl: sslFor(url),
     });

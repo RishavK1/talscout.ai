@@ -29,7 +29,7 @@ interface SearchedCandidate {
 
 function SearchPageContent() {
   const searchParams = useSearchParams();
-  const { profile, can } = useAuth();
+  const { profile, can, loading: authLoading } = useAuth();
   const advancedFilters = can("advanced_filters");
 
   const [q, setQ] = useState(searchParams.get("q") || "");
@@ -208,7 +208,12 @@ function SearchPageContent() {
                   </div>
                 )}
                 <div className="relative ml-2">
-                  {!advancedFilters ? (
+                  {authLoading ? (
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1.5 font-label-md text-[13px] text-transparent select-none">
+                      <span className="material-symbols-outlined text-[16px]">add</span>
+                      Add Filter
+                    </div>
+                  ) : !advancedFilters ? (
                     <Link
                       href="/billing"
                       title="Advanced filters are a Growth feature — upgrade to use them"

@@ -9,5 +9,9 @@ export const POST = withAuth<SearchInput>(
     await billingService.assertActiveSubscription(ctx);
     return { data: await searchService.search(ctx, body) };
   },
-  { role: "viewer", bodySchema: searchSchema },
+  {
+    role: "viewer",
+    bodySchema: searchSchema,
+    rateLimit: { limit: 60, windowSeconds: 60, keyPrefix: "search" },
+  },
 );

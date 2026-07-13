@@ -655,27 +655,6 @@ function DeveloperCard({ plan }: { plan: string }) {
 export default function SettingsPage() {
   const { profile, workspaceName, signOut, loading: authLoading } = useAuth();
   const [tab, setTab] = useState<Tab>("General");
-  const [currentPlan, setCurrentPlan] = useState<string | null>(null);
-  const [loadingPlan, setLoadingPlan] = useState(true);
-
-  useEffect(() => {
-    if (authLoading) return;
-    if (!profile) {
-      setLoadingPlan(false);
-      return;
-    }
-    const loadPlan = async () => {
-      try {
-        const res = await api.get<{ plan: string }>("/api/billing");
-        setCurrentPlan(res.plan);
-      } catch (e) {
-        console.error("Failed to load plan", e);
-      } finally {
-        setLoadingPlan(false);
-      }
-    };
-    loadPlan();
-  }, [profile, authLoading]);
 
   // Deep-link support: initialise from URL hash (e.g. /settings#data-privacy).
   useEffect(() => {
@@ -786,16 +765,7 @@ export default function SettingsPage() {
               {tab === "Security" && <SecurityCard />}
               {tab === "Data & privacy" && <DataPanel profile={profile} signOut={signOut} />}
               {tab === "Developer" && (
-                loadingPlan ? (
-                  <Card title="Custom API & Webhooks" subtitle="Loading integration details...">
-                    <div className="flex flex-col items-center gap-4 py-8">
-                      <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
-                      <p className="text-label-md text-text-muted">Loading plan configuration...</p>
-                    </div>
-                  </Card>
-                ) : (
-                  <DeveloperCard plan={currentPlan || "starter"} />
-                )
+                <DeveloperCard plan={profile?.plan || "starter"} />
               )}
             </div>
           </div>

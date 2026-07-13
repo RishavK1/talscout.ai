@@ -63,11 +63,18 @@ function matchesExperience(years: number, range: string): boolean {
   }
 }
 
+const STATUS_TO_API: Record<string, "ready" | "processing" | "error" | undefined> = {
+  Ready: "ready",
+  Processing: "processing",
+  Error: "error",
+};
+
 export default function CandidatesPage() {
   const router = useRouter();
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [q, setQ] = useState("");
+  const [debouncedQ, setDebouncedQ] = useState("");
   const [status, setStatus] = useState("All");
   const [experience, setExperience] = useState("All");
   const [roleFilter, setRoleFilter] = useState("");
@@ -76,15 +83,35 @@ export default function CandidatesPage() {
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 10;
 
-  // Fetch candidates from API
+  // Debounce free-text search so typing doesn't fire a request per keystroke.
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQ(q), 300);
+    return () => clearTimeout(t);
+  }, [q]);
+
+  // Any change to server-side filters returns to the first page.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setPage(1);
+  }, [debouncedQ, status]);
+
+  // Fetch just the current page from the server instead of slurping every
+  // candidate on every load/filter change.
   const fetchCandidates = async () => {
     setLoading(true);
     try {
-      // Get up to 100 candidates to enable rich client-side search & filtering experience
+      const params = new URLSearchParams({
+        limit: String(PAGE_SIZE),
+        offset: String((page - 1) * PAGE_SIZE),
+      });
+      const apiStatus = STATUS_TO_API[status];
+      if (apiStatus) params.set("status", apiStatus);
+      if (debouncedQ.trim()) params.set("q", debouncedQ.trim());
+
       const res = await api.get<{ candidates: ApiCandidate[]; total: number }>(
-        `/api/candidates?limit=100`
+        `/api/candidates?${params.toString()}`
       );
-      
+
       const mapped = res.candidates.map((item): Candidate => {
         const name = item.fullName || "Unnamed Candidate";
         const initials = name
@@ -93,7 +120,7 @@ export default function CandidatesPage() {
           .join("")
           .toUpperCase()
           .slice(0, 2) || "C";
-          
+
         return {
           id: item.id,
           name,
@@ -119,7 +146,8 @@ export default function CandidatesPage() {
 
   useEffect(() => {
     fetchCandidates();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, status, debouncedQ]);
 
   // Parsing runs in a background job, so rows can still be "Processing" right
   // after upload. Poll until none are, instead of leaving stale rows forever.
@@ -129,36 +157,21 @@ export default function CandidatesPage() {
       fetchCandidates();
     }, 5000);
     return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [candidates]);
 
-  const filtered = candidates.filter((c) => {
-    const matchesQ =
-      q.trim() === "" ||
-      [c.name, c.title, c.location, c.email, ...c.skills]
-        .join(" ")
-        .toLowerCase()
-        .includes(q.trim().toLowerCase());
-    const matchesStatus = status === "All" || c.status === status;
+  // Experience/role are secondary refinements with no server-side filter yet,
+  // applied only within the already-fetched page (server owns pagination).
+  const paged = candidates.filter((c) => {
     const matchesExp = matchesExperience(c.experience, experience);
     const matchesRole =
       roleFilter === "" ||
       [c.title, ...c.skills].join(" ").toLowerCase().includes(roleFilter.toLowerCase());
-    return matchesQ && matchesStatus && matchesExp && matchesRole;
+    return matchesExp && matchesRole;
   });
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  // Guard against a stale page after filters shrink the list.
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
-  const paged = filtered.slice(
-    (currentPage - 1) * PAGE_SIZE,
-    currentPage * PAGE_SIZE,
-  );
-
-  // Any change to the filters returns to the first page.
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setPage(1);
-  }, [q, status, experience, roleFilter]);
 
   const getSkillBadgeClass = (index: number) => {
     if (index % 3 === 0) return SKILL_SECONDARY;
@@ -252,7 +265,7 @@ export default function CandidatesPage() {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <span className="font-label-md text-[13px] text-on-surface-variant">Showing {filtered.length} of {totalCount}</span>
+            <span className="font-label-md text-[13px] text-on-surface-variant">Showing {paged.length} of {totalCount}</span>
             <div className="flex gap-1 border border-border-low-alpha rounded-lg p-1 bg-bg-cream">
               <button
                 type="button"
@@ -411,20 +424,19 @@ export default function CandidatesPage() {
             </div>
           )}
 
-          {!loading && filtered.length === 0 && (
+          {!loading && paged.length === 0 && (
             <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
               <span className="material-symbols-outlined text-[40px] text-on-surface-variant/40 mb-3">person_search</span>
               <p className="font-body-md text-body-md text-on-surface-variant">No candidates match your filters.</p>
             </div>
           )}
 
-          {/* Client-side pagination over the filtered list */}
-          {!loading && filtered.length > 0 && (
+          {/* Server-side pagination — each page button fetches that page from the API */}
+          {!loading && paged.length > 0 && (
             <div className="px-6 py-4 border-t border-border-low-alpha bg-surface-white flex items-center justify-between">
               <span className="font-body-md text-[13px] text-on-surface-variant">
                 Showing {(currentPage - 1) * PAGE_SIZE + 1}–
-                {Math.min(currentPage * PAGE_SIZE, filtered.length)} of {filtered.length}
-                {filtered.length !== totalCount ? ` (filtered from ${totalCount})` : ""}
+                {Math.min(currentPage * PAGE_SIZE, totalCount)} of {totalCount}
               </span>
               <div className="flex items-center gap-2">
                 <button
@@ -436,7 +448,14 @@ export default function CandidatesPage() {
                 >
                   <span className="material-symbols-outlined text-[18px]">chevron_left</span>
                 </button>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                {(() => {
+                  const windowSize = 5;
+                  const half = Math.floor(windowSize / 2);
+                  let start = Math.max(1, currentPage - half);
+                  const end = Math.min(totalPages, start + windowSize - 1);
+                  start = Math.max(1, end - windowSize + 1);
+                  return Array.from({ length: end - start + 1 }, (_, i) => start + i);
+                })().map((p) => (
                   <button
                     key={p}
                     type="button"

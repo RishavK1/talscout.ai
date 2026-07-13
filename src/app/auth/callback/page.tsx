@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/app/auth-provider";
@@ -19,6 +19,7 @@ export default function AuthCallbackPage() {
   const { user, profile, loading } = useAuth();
   const [message, setMessage] = useState("Completing sign-in…");
   const [isRecovery, setIsRecovery] = useState(false);
+  const failsafeRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Detect OAuth errors / password-recovery links once, on mount.
   useEffect(() => {
@@ -57,6 +58,7 @@ export default function AuthCallbackPage() {
       toast.error("Could not complete sign-in. Please try again.");
       router.replace("/login");
     }, 8000);
+    failsafeRef.current = timeout;
 
     return () => {
       subscription.unsubscribe();
@@ -69,6 +71,10 @@ export default function AuthCallbackPage() {
   // user belongs (workspace setup / plan selection / dashboard) in one hop.
   useEffect(() => {
     if (isRecovery || loading || !user) return;
+    if (failsafeRef.current) {
+      clearTimeout(failsafeRef.current);
+      failsafeRef.current = null;
+    }
     if (!profile) {
       router.replace("/onboarding/workspace");
       return;

@@ -121,7 +121,7 @@ function SidebarContent({
   onNavigate?: () => void;
   onInvite?: () => void;
 }) {
-  const { workspaceName, profile, can } = useAuth();
+  const { workspaceName, profile, can, loading: authLoading } = useAuth();
   const pathname = usePathname();
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(href + "/");
@@ -199,7 +199,7 @@ function SidebarContent({
             key={item.href}
             item={item}
             active={isActive(item.href)}
-            locked={item.capability ? !can(item.capability) : false}
+            locked={item.capability ? (authLoading ? false : !can(item.capability)) : false}
             collapsed={collapsed}
             onClick={onNavigate}
           />

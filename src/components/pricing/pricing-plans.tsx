@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/components/app/auth-provider";
-import { api } from "@/lib/api";
 import { PLANS, PLAN_ORDER } from "@/lib/plans";
 
 type BillingCycle = "monthly" | "annual";
@@ -43,28 +42,9 @@ export function PricingPlans() {
   const [billing, setBilling] = useState<BillingCycle>("monthly");
   const isAnnual = billing === "annual";
 
-  const { user, loading: authLoading } = useAuth();
-  const [currentPlan, setCurrentPlan] = useState<string | null>(null);
-  const [loadingPlan, setLoadingPlan] = useState(true);
-
-  useEffect(() => {
-    if (authLoading) return;
-    if (!user) {
-      setLoadingPlan(false);
-      return;
-    }
-    const loadBilling = async () => {
-      try {
-        const res = await api.get<{ plan: string }>("/api/billing");
-        setCurrentPlan(res.plan);
-      } catch {
-        // Fall back to starter or public mode
-      } finally {
-        setLoadingPlan(false);
-      }
-    };
-    loadBilling();
-  }, [user, authLoading]);
+  const { user, profile, loading: authLoading } = useAuth();
+  const currentPlan = profile?.plan ?? null;
+  const loadingPlan = authLoading;
 
   return (
     <>

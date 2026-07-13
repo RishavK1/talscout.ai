@@ -7,9 +7,13 @@ import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { TopAppBar } from "@/components/app/top-app-bar";
 
+const FETCH_BATCH = 100;
+
 export default function AuditLogPage() {
   const [logs, setLogs] = useState<any[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [query, setQuery] = useState("");
   const [member, setMember] = useState("All Members");
   const [action, setAction] = useState("All Actions");
@@ -20,8 +24,11 @@ export default function AuditLogPage() {
   useEffect(() => {
     const fetchLogs = async () => {
       try {
-        const res = await api.get<{ logs: any[] }>("/api/audit");
+        const res = await api.get<{ logs: any[]; total: number }>(
+          `/api/audit?limit=${FETCH_BATCH}&offset=0`,
+        );
         setLogs(res.logs);
+        setTotalCount(res.total);
       } catch (err: any) {
         toast.error(err.message || "Failed to load audit logs");
       } finally {
@@ -30,6 +37,21 @@ export default function AuditLogPage() {
     };
     fetchLogs();
   }, []);
+
+  const loadMore = async () => {
+    setLoadingMore(true);
+    try {
+      const res = await api.get<{ logs: any[]; total: number }>(
+        `/api/audit?limit=${FETCH_BATCH}&offset=${logs.length}`,
+      );
+      setLogs((prev) => [...prev, ...res.logs]);
+      setTotalCount(res.total);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to load more audit logs");
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   const formatTimestamp = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -302,6 +324,19 @@ export default function AuditLogPage() {
                       <span className="material-symbols-outlined text-[18px]">chevron_right</span>
                     </button>
                   </div>
+                </div>
+              )}
+              {!loading && logs.length < totalCount && currentPage >= totalPages && (
+                <div className="px-6 py-4 border-t border-border-low-alpha bg-surface-white flex justify-center">
+                  <button
+                    type="button"
+                    onClick={loadMore}
+                    disabled={loadingMore}
+                    className="px-4 py-2 rounded-lg border border-border-low-alpha font-label-md text-[13px] text-on-surface-variant hover:bg-bg-cream transition-colors disabled:opacity-50 flex items-center gap-2"
+                  >
+                    {loadingMore && <span className="material-symbols-outlined text-[16px] animate-spin">sync</span>}
+                    {loadingMore ? "Loading…" : `Load more (${totalCount - logs.length} remaining)`}
+                  </button>
                 </div>
               )}
             </div>

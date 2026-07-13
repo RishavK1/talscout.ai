@@ -1,6 +1,6 @@
 import { and, eq, ne, count } from "drizzle-orm";
 import { adminDb } from "@/server/db/client";
-import { users } from "@/server/db/schema";
+import { users, tenants } from "@/server/db/schema";
 import type { TenantContext } from "@/server/db/tx";
 import type { Role } from "@/server/auth/rbac";
 
@@ -15,6 +15,20 @@ export const userRepo = {
     const [row] = await adminDb()
       .select()
       .from(users)
+      .where(eq(users.authUserId, authUserId))
+      .limit(1);
+    return row ?? null;
+  },
+
+  /** Session bootstrap: user + its tenant in one round trip instead of the
+   *  two sequential admin-pool queries `resolveSession` used to make — every
+   *  authenticated request pays this, so halving the round trips here halves
+   *  its baseline latency. */
+  async getSessionIdentityAdmin(authUserId: string) {
+    const [row] = await adminDb()
+      .select({ user: users, tenant: tenants })
+      .from(users)
+      .innerJoin(tenants, eq(users.tenantId, tenants.id))
       .where(eq(users.authUserId, authUserId))
       .limit(1);
     return row ?? null;

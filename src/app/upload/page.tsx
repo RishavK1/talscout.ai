@@ -27,7 +27,7 @@ const atsCache: { connectedAts: string | null; lastSynced: string | null } = {
 
 export default function UploadPage() {
   const router = useRouter();
-  const { can } = useAuth();
+  const { can, loading: authLoading } = useAuth();
   // ATS import/export is a Growth+ capability — gated server-side via plan
   // capabilities; the UI mirrors that so it can't be used on Starter.
   const canAtsExport = can("ats_export");
@@ -446,12 +446,14 @@ export default function UploadPage() {
           {/* Footer Card: ATS Import — Growth+ feature (ats_export capability) */}
           <div className="bg-surface-white/50 border border-border-low-alpha rounded-lg p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 custom-shadow">
             <div className="flex items-center gap-4">
-              <div className={`w-12 h-12 rounded-full flex items-center justify-center ${!canAtsExport ? "bg-bg-cream text-on-surface-variant/50" : connectedAts ? "bg-tertiary/10 text-tertiary" : "bg-bg-cream text-primary"}`}>
-                <span className="material-symbols-outlined">{!canAtsExport ? "lock" : connectedAts ? "check_circle" : "sync"}</span>
+              <div className={`w-12 h-12 rounded-full flex items-center justify-center ${authLoading ? "bg-bg-cream text-on-surface-variant/50 animate-pulse" : !canAtsExport ? "bg-bg-cream text-on-surface-variant/50" : connectedAts ? "bg-tertiary/10 text-tertiary" : "bg-bg-cream text-primary"}`}>
+                <span className="material-symbols-outlined">{authLoading ? "sync" : !canAtsExport ? "lock" : connectedAts ? "check_circle" : "sync"}</span>
               </div>
               <div>
                 <h4 className="font-label-md text-body-md text-on-surface font-semibold flex items-center gap-2">
-                  {!canAtsExport ? (
+                  {authLoading ? (
+                    "Import from your ATS"
+                  ) : !canAtsExport ? (
                     "ATS import & export"
                   ) : connectedAts ? (
                     <>
@@ -462,7 +464,9 @@ export default function UploadPage() {
                   )}
                 </h4>
                 <p className="text-label-md text-text-muted">
-                  {!canAtsExport ? (
+                  {authLoading ? (
+                    "Checking your plan…"
+                  ) : !canAtsExport ? (
                     "Sync with Bullhorn, Greenhouse, or Lever — available on Growth and Scale plans."
                   ) : connectedAts ? (
                     `Demo import of 3 sample candidates completed at ${lastSynced || "just now"}.`
@@ -472,7 +476,7 @@ export default function UploadPage() {
                 </p>
               </div>
             </div>
-            {!canAtsExport ? (
+            {authLoading ? null : !canAtsExport ? (
               <Link
                 href="/billing"
                 title="Upgrade to Growth to connect your ATS"

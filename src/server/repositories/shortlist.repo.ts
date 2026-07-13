@@ -2,8 +2,23 @@ import { shortlists, shortlistItems, candidates } from "../db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import type { TenantContext } from "../db/tx";
 
+const DEFAULT_LIMIT = 50;
+const MAX_LIMIT = 100;
+
+function clampLimit(limit?: number): number {
+  if (limit == null || Number.isNaN(limit)) return DEFAULT_LIMIT;
+  return Math.min(Math.max(Math.trunc(limit), 1), MAX_LIMIT);
+}
+
+function clampOffset(offset?: number): number {
+  if (offset == null || Number.isNaN(offset) || offset < 0) return 0;
+  return Math.trunc(offset);
+}
+
 export const shortlistRepo = {
-  async getByTenant(ctx: TenantContext) {
+  async getByTenant(ctx: TenantContext, params: { limit?: number; offset?: number } = {}) {
+    const limit = clampLimit(params.limit);
+    const offset = clampOffset(params.offset);
     return await ctx.tx
       .select({
         id: shortlists.id,
@@ -16,7 +31,17 @@ export const shortlistRepo = {
       .leftJoin(shortlistItems, eq(shortlists.id, shortlistItems.shortlistId))
       .where(eq(shortlists.tenantId, ctx.tenantId))
       .groupBy(shortlists.id)
-      .orderBy(sql`${shortlists.createdAt} DESC`);
+      .orderBy(sql`${shortlists.createdAt} DESC`)
+      .limit(limit)
+      .offset(offset);
+  },
+
+  async countByTenant(ctx: TenantContext) {
+    const [row] = await ctx.tx
+      .select({ n: sql<number>`count(*)::int` })
+      .from(shortlists)
+      .where(eq(shortlists.tenantId, ctx.tenantId));
+    return row?.n ?? 0;
   },
 
   async create(ctx: TenantContext, name: string) {

@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { stagger, item as itemVariants } from "@/lib/motion";
 import { useAuth } from "@/components/app/auth-provider";
 import { outreachLimits } from "@/lib/plans";
+import { PageSpinner } from "@/components/ui/page-spinner";
 
 interface Campaign {
   id: string;
@@ -49,7 +50,7 @@ const STATUS_STYLE: Record<Campaign["status"], string> = {
 
 export default function BulkFirePage() {
   const router = useRouter();
-  const { can, profile } = useAuth();
+  const { can, profile, loading: authLoading } = useAuth();
   const canOutreach = can("outreach_bulk_fire");
   const { maxSenderAccounts } = outreachLimits(profile?.plan || "starter");
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -235,6 +236,14 @@ export default function BulkFirePage() {
       setSenderBusyId(null);
     }
   };
+
+  if (authLoading) {
+    return (
+      <AppShell>
+        <PageSpinner label="Loading outreach settings..." />
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell>

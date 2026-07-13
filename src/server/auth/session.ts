@@ -1,6 +1,5 @@
 import { verifyJwt, extractBearer } from "./verify-jwt";
 import { userRepo } from "@/server/repositories/user.repo";
-import { tenantRepo } from "@/server/repositories/tenant.repo";
 import { Unauthorized, Forbidden } from "@/server/http/errors";
 import type { Role } from "./rbac";
 
@@ -29,12 +28,10 @@ export async function authenticate(
 export async function resolveSession(req: Request): Promise<Session> {
   const { authUserId, email } = await authenticate(req);
 
-  const user = await userRepo.getByAuthUserIdAdmin(authUserId);
-  if (!user) throw new Unauthorized("No account provisioned"); // AUTH-05
+  const identity = await userRepo.getSessionIdentityAdmin(authUserId);
+  if (!identity) throw new Unauthorized("No account provisioned"); // AUTH-05
+  const { user, tenant } = identity;
   if (user.status !== "active") throw new Forbidden("Account is disabled"); // RBAC-04
-
-  const tenant = await tenantRepo.getByIdAdmin(user.tenantId);
-  if (!tenant) throw new Forbidden("Workspace not found");
   if (tenant.status !== "active") throw new Forbidden("Workspace is suspended"); // AUTH-06
 
   return {

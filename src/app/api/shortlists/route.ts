@@ -4,15 +4,23 @@ import { tenantRepo } from "@/server/repositories/tenant.repo";
 import { billingService } from "@/server/services/billing.service";
 import { BadRequest } from "@/server/http/errors";
 import { z } from "zod";
+import { listShortlistsQuerySchema, type ListShortlistsQuery } from "@/server/validation/shortlist";
 
 const createSchema = z.object({
   name: z.string().min(1).max(255),
 });
 
-export const GET = withAuth(async ({ ctx }) => {
-  await billingService.assertActiveSubscription(ctx);
-  return { data: { shortlists: await shortlistRepo.getByTenant(ctx) } };
-});
+export const GET = withAuth<undefined, ListShortlistsQuery>(
+  async ({ ctx, query }) => {
+    await billingService.assertActiveSubscription(ctx);
+    const [shortlists, total] = await Promise.all([
+      shortlistRepo.getByTenant(ctx, { limit: query?.limit, offset: query?.offset }),
+      shortlistRepo.countByTenant(ctx),
+    ]);
+    return { data: { shortlists, total } };
+  },
+  { querySchema: listShortlistsQuerySchema },
+);
 
 export const POST = withAuth(
   async ({ ctx, body }) => {
@@ -21,8 +29,8 @@ export const POST = withAuth(
     const plan = tenant?.plan || "starter";
 
     if (plan === "starter") {
-      const existing = await shortlistRepo.getByTenant(ctx);
-      if (existing.length >= 3) {
+      const existingCount = await shortlistRepo.countByTenant(ctx);
+      if (existingCount >= 3) {
         throw new BadRequest("Starter plan is limited to 3 shortlists. Please upgrade to create more.");
       }
     }

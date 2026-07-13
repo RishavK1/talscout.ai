@@ -8,6 +8,7 @@ import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { Modal } from "@/components/ui/modal";
 import { TopAppBar } from "@/components/app/top-app-bar";
+import { PageSpinner } from "@/components/ui/page-spinner";
 
 
 interface BillingInfo {
@@ -111,12 +112,7 @@ export default function BillingPage() {
   if (authLoading || (loading && profile?.role === "admin")) {
     return (
       <AppShell>
-        <main className="min-h-screen flex items-center justify-center">
-          <div className="flex flex-col items-center gap-4">
-            <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
-            <p className="font-label-md text-text-muted">Loading billing settings...</p>
-          </div>
-        </main>
+        <PageSpinner label="Loading billing settings..." />
       </AppShell>
     );
   }

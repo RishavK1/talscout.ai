@@ -15,9 +15,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.104.1",
     "@google/genai": "^2.8.0",
-    "@react-three/fiber": "^9.6.1",
     "@sentry/nextjs": "^10.57.0",
-    "@shadergradient/react": "^2.4.20",
     "@supabase/supabase-js": "^2.108.1",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.38.0",
@@ -29,7 +27,6 @@
     "googleapis": "^173.0.0",
     "inngest": "^4.5.1",
     "jose": "^6.2.3",
-    "lucide-react": "^1.18.0",
     "mammoth": "^1.12.0",
     "next": "16.2.9",
     "nodemailer": "^9.0.3",
@@ -40,7 +37,6 @@
     "sonner": "^2.0.7",
     "stripe": "^22.2.1",
     "tailwind-merge": "^3.6.0",
-    "three": "^0.184.0",
     "unpdf": "^1.6.2",
     "zod": "^4.4.3"
   },
