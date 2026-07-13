@@ -20,6 +20,7 @@ export default function AuthCallbackPage() {
   const [message, setMessage] = useState("Completing sign-in…");
   const [isRecovery, setIsRecovery] = useState(false);
   const failsafeRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const patienceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Detect OAuth errors / password-recovery links once, on mount.
   useEffect(() => {
@@ -53,16 +54,27 @@ export default function AuthCallbackPage() {
       }
     });
 
+    // Cold-start sign-ins (fresh deploy: new Lambda + fresh DB connection +
+    // JWKS fetch) can genuinely take several seconds — reassure first, only
+    // treat it as failed after a much longer wait so we don't redirect an
+    // already-authenticated user to /login out from under themselves (the
+    // routing effect below clears this timer as soon as it actually resolves,
+    // so a slow-but-successful sign-in never reaches the failure branch).
+    const patienceTimeout = setTimeout(() => {
+      setMessage("Still verifying your session — almost there…");
+    }, 6000);
     const timeout = setTimeout(() => {
       setMessage("Sign-in is taking longer than expected…");
       toast.error("Could not complete sign-in. Please try again.");
       router.replace("/login");
-    }, 8000);
+    }, 25000);
     failsafeRef.current = timeout;
+    patienceRef.current = patienceTimeout;
 
     return () => {
       subscription.unsubscribe();
       clearTimeout(timeout);
+      clearTimeout(patienceTimeout);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -74,6 +86,10 @@ export default function AuthCallbackPage() {
     if (failsafeRef.current) {
       clearTimeout(failsafeRef.current);
       failsafeRef.current = null;
+    }
+    if (patienceRef.current) {
+      clearTimeout(patienceRef.current);
+      patienceRef.current = null;
     }
     if (!profile) {
       router.replace("/onboarding/workspace");
