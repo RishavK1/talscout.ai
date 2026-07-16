@@ -25,7 +25,8 @@ DECLARE
   scoped text[] := ARRAY[
     'users','candidates','resume_files','candidate_tags',
     'shortlists','shortlist_items','subscriptions','audit_logs','usage_counters',
-    'sender_accounts','outreach_campaigns','outreach_leads','outreach_sends'
+    'sender_accounts','outreach_campaigns','outreach_leads','outreach_sends',
+    'whatsapp_templates'
   ];
 BEGIN
   FOREACH t IN ARRAY scoped LOOP

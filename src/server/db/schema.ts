@@ -35,7 +35,11 @@ export const subscriptionStatus = pgEnum("subscription_status", [
 ]);
 
 /** Bulk-fire outreach — cold-email sending, kept separate from candidates. */
-export const senderAccountType = pgEnum("sender_account_type", ["gmail", "smtp"]);
+export const senderAccountType = pgEnum("sender_account_type", [
+  "gmail",
+  "smtp",
+  "whatsapp",
+]);
 export const outreachCampaignStatus = pgEnum("outreach_campaign_status", [
   "draft",
   "importing",
@@ -58,6 +62,31 @@ export const outreachSendStatus = pgEnum("outreach_send_status", [
   "sent",
   "failed",
   "skipped",
+]);
+/** Channel a campaign sends through — per-campaign, not per-step, since the
+ *  jsonb `sequence` step shape differs entirely between the two (email steps
+ *  carry subject/body spintax templates, WhatsApp steps carry a pre-approved
+ *  template id + params). */
+export const outreachChannel = pgEnum("outreach_channel", ["email", "whatsapp"]);
+/** Delivery-status layer for WhatsApp sends, populated asynchronously by the
+ *  inbound webhook — deliberately separate from `outreachSendStatus`, which
+ *  drives the scheduling lifecycle the email path also depends on. */
+export const outreachDeliveryStatus = pgEnum("outreach_delivery_status", [
+  "sent",
+  "delivered",
+  "read",
+  "failed",
+]);
+export const whatsappTemplateCategory = pgEnum("whatsapp_template_category", [
+  "marketing",
+  "utility",
+  "authentication",
+]);
+export const whatsappTemplateStatus = pgEnum("whatsapp_template_status", [
+  "pending",
+  "approved",
+  "rejected",
+  "disabled",
 ]);
 
 export const tenants = pgTable("tenants", {
@@ -292,6 +321,14 @@ export const senderAccounts = pgTable(
     // Gmail credentials (type = "gmail") — server-side OAuth w/ offline
     // access, so sending works with no browser tab open.
     gmailRefreshTokenEnc: text("gmail_refresh_token_enc"),
+    // WhatsApp Business Cloud API credentials (type = "whatsapp"). The E.164
+    // phone number itself is stored in the `email` column above (already
+    // NOT NULL + unique per tenant; sender-facing code already branches on
+    // `type` before treating that column as an email address).
+    whatsappPhoneNumberId: text("whatsapp_phone_number_id"),
+    whatsappWabaId: text("whatsapp_waba_id"),
+    whatsappAccessTokenEnc: text("whatsapp_access_token_enc"),
+    whatsappDisplayName: text("whatsapp_display_name"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -311,9 +348,16 @@ export const outreachCampaigns = pgTable(
     createdBy: uuid("created_by"),
     name: text("name").notNull(),
     status: outreachCampaignStatus("status").notNull().default("draft"),
-    /** Array of { stepIndex, dayOffset, subjectTemplate, bodyTemplate } —
-     *  templates may contain spintax `{a|b|c}` and `{{placeholder}}` tokens,
-     *  resolved per-send by server/lib/spintax.ts. */
+    /** Which provider this campaign sends through. Fixed at creation-time
+     *  scope for the sequence shape below — not changeable per-step. */
+    channel: outreachChannel("channel").notNull().default("email"),
+    /** Array of step objects, shape depends on `channel`:
+     *  email: { stepIndex, dayOffset, subjectTemplate, bodyTemplate } —
+     *    templates may contain spintax `{a|b|c}` and `{{placeholder}}`
+     *    tokens, resolved per-send by server/lib/spintax.ts.
+     *  whatsapp: { stepIndex, dayOffset, templateId, templateParams } —
+     *    Meta forbids free text outside pre-approved template placeholders,
+     *    so there is no spintax path for this channel. */
     sequence: jsonb("sequence").notNull().default([]),
     /** Minutes per pacing block for the send scheduler (fireQueue's
      *  block+jitter algorithm, generalized across sender accounts). */
@@ -387,12 +431,56 @@ export const outreachSends = pgTable(
     sentAt: timestamp("sent_at", { withTimezone: true }),
     status: outreachSendStatus("status").notNull().default("scheduled"),
     errorReason: text("error_reason"),
+    /** Provider-assigned message id (Meta's `wamid.…` for WhatsApp sends) —
+     *  what the inbound webhook uses to correlate a delivery/read event back
+     *  to this row. Null for email sends. */
+    providerMessageId: text("provider_message_id"),
+    /** WhatsApp-only delivery-status layer, updated asynchronously by the
+     *  webhook — kept separate from `status` above so the webhook never
+     *  touches the scheduling-lifecycle field the email path depends on. */
+    deliveryStatus: outreachDeliveryStatus("delivery_status"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     index("outreach_sends_tenant_idx").on(t.tenantId),
     index("outreach_sends_campaign_idx").on(t.campaignId),
     uniqueIndex("outreach_sends_lead_step_uq").on(t.campaignId, t.leadId, t.stepIndex),
+    index("outreach_sends_provider_message_id_idx").on(t.providerMessageId),
+  ],
+);
+
+export const whatsappTemplates = pgTable(
+  "whatsapp_templates",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    senderAccountId: uuid("sender_account_id")
+      .notNull()
+      .references(() => senderAccounts.id, { onDelete: "cascade" }),
+    metaTemplateName: text("meta_template_name").notNull(),
+    category: whatsappTemplateCategory("category").notNull(),
+    language: text("language").notNull().default("en_US"),
+    bodyText: text("body_text").notNull(),
+    placeholderCount: integer("placeholder_count").notNull().default(0),
+    status: whatsappTemplateStatus("status").notNull().default("pending"),
+    rejectionReason: text("rejection_reason"),
+    /** Meta's template id, returned from POST /{waba_id}/message_templates —
+     *  what the status-update webhook and the cron sync job key off of. */
+    metaTemplateId: text("meta_template_id"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("whatsapp_templates_tenant_idx").on(t.tenantId),
+    index("whatsapp_templates_meta_template_id_idx").on(t.metaTemplateId),
+    uniqueIndex("whatsapp_templates_tenant_sender_name_lang_uq").on(
+      t.tenantId,
+      t.senderAccountId,
+      t.metaTemplateName,
+      t.language,
+    ),
   ],
 );
 
@@ -412,4 +500,5 @@ export const schema = {
   outreachCampaigns,
   outreachLeads,
   outreachSends,
+  whatsappTemplates,
 };

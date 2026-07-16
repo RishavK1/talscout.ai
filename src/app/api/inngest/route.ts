@@ -14,6 +14,11 @@ import {
   fireScheduledCampaign,
   type FireScheduledCampaignPayload,
 } from "@/server/jobs/fire-scheduled-campaign";
+import {
+  sendOutreachWhatsapp,
+  type SendOutreachWhatsAppPayload,
+} from "@/server/jobs/send-outreach-whatsapp";
+import { syncWhatsAppTemplates } from "@/server/jobs/sync-whatsapp-templates";
 import { getServices } from "@/server/container";
 import { withTenantTx } from "@/server/db/tx";
 import {
@@ -144,6 +149,61 @@ const fireScheduledCampaignFunction = inngest.createFunction(
   }
 );
 
+/**
+ * Structural sibling of sendOutreachEmailFunction — same durable-sleep shell,
+ * forked into its own job because Meta's send/error shapes don't map onto
+ * SMTP/Gmail's (see send-outreach-whatsapp.ts).
+ */
+const sendOutreachWhatsappFunction = inngest.createFunction(
+  {
+    id: "send-outreach-whatsapp",
+    name: "Bulk Fire Send WhatsApp",
+    triggers: [{ event: "job/send-outreach-whatsapp" }],
+    // Same defense-in-depth as sendOutreachEmailFunction.onFailure above.
+    onFailure: async ({ event, error }) => {
+      const { tenantId, sendId } = event.data.event.data as SendOutreachWhatsAppPayload;
+      logger.error({ err: error, sendId }, "send_outreach_whatsapp_exhausted_retries");
+      await withTenantTx({ tenantId }, async (ctx) => {
+        const send = await outreachSendRepo.getById(ctx, sendId);
+        if (!send || send.status !== "scheduled") return;
+        await outreachSendRepo.markFailed(ctx, sendId, error.message || "exhausted_retries");
+        await outreachLeadRepo.setStatus(ctx, send.leadId, "failed");
+      });
+    },
+  },
+  async ({
+    event,
+    step,
+  }: {
+    event: { data: SendOutreachWhatsAppPayload & { targetSendAt: string } };
+    step: GetStepTools<typeof inngest>;
+  }) => {
+    const { targetSendAt, ...payload } = event.data;
+    await step.sleepUntil("wait-for-send-slot", targetSendAt);
+    await step.run("send", async () => {
+      const services = getServices();
+      await sendOutreachWhatsapp(payload, services);
+    });
+  }
+);
+
+/**
+ * Cron-triggered backstop for Meta's template-approval webhook (plan §2) —
+ * distinct registration pattern from the event-triggered functions above:
+ * no `event.data`, just a schedule.
+ */
+const syncWhatsAppTemplatesFunction = inngest.createFunction(
+  {
+    id: "sync-whatsapp-templates",
+    name: "WhatsApp Template Status Sync",
+    triggers: [{ cron: "*/30 * * * *" }],
+  },
+  async () => {
+    const services = getServices();
+    await syncWhatsAppTemplates(services);
+  }
+);
+
 export const { GET, POST, PUT } = serve({
   client: inngest,
   functions: [
@@ -151,5 +211,7 @@ export const { GET, POST, PUT } = serve({
     parseLeadsDocxFunction,
     sendOutreachEmailFunction,
     fireScheduledCampaignFunction,
+    sendOutreachWhatsappFunction,
+    syncWhatsAppTemplatesFunction,
   ],
 });

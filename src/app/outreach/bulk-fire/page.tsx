@@ -17,6 +17,7 @@ import { PageSpinner } from "@/components/ui/page-spinner";
 interface Campaign {
   id: string;
   name: string;
+  channel: "email" | "whatsapp";
   status:
     | "draft"
     | "importing"
@@ -31,12 +32,19 @@ interface Campaign {
 
 interface Sender {
   id: string;
-  type: "gmail" | "smtp";
+  type: "gmail" | "smtp" | "whatsapp";
   label: string;
   email: string;
   isActive: boolean;
   dailyLimit: number;
+  whatsappDisplayName?: string | null;
 }
+
+const SENDER_ICON: Record<Sender["type"], string> = {
+  gmail: "mail",
+  smtp: "dns",
+  whatsapp: "chat",
+};
 
 const STATUS_STYLE: Record<Campaign["status"], string> = {
   draft: "bg-surface-container-high text-on-surface-variant",
@@ -52,6 +60,7 @@ export default function BulkFirePage() {
   const router = useRouter();
   const { can, profile, loading: authLoading } = useAuth();
   const canOutreach = can("outreach_bulk_fire");
+  const canWhatsApp = can("whatsapp_channel");
   const { maxSenderAccounts } = outreachLimits(profile?.plan || "starter");
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [senders, setSenders] = useState<Sender[]>([]);
@@ -59,6 +68,9 @@ export default function BulkFirePage() {
 
   const [newCampaignOpen, setNewCampaignOpen] = useState(false);
   const [newCampaignName, setNewCampaignName] = useState("");
+  const [newCampaignChannel, setNewCampaignChannel] = useState<
+    "email" | "whatsapp"
+  >("email");
   const [creatingCampaign, setCreatingCampaign] = useState(false);
 
   const [deleteTarget, setDeleteTarget] = useState<Campaign | null>(null);
@@ -78,6 +90,17 @@ export default function BulkFirePage() {
   const [savingSmtp, setSavingSmtp] = useState(false);
   const [connectingGmail, setConnectingGmail] = useState(false);
   const [senderBusyId, setSenderBusyId] = useState<string | null>(null);
+
+  const [whatsappOpen, setWhatsappOpen] = useState(false);
+  const [whatsapp, setWhatsapp] = useState({
+    label: "",
+    phoneNumber: "",
+    whatsappPhoneNumberId: "",
+    whatsappWabaId: "",
+    whatsappAccessToken: "",
+    whatsappDisplayName: "",
+  });
+  const [savingWhatsapp, setSavingWhatsapp] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -132,10 +155,12 @@ export default function BulkFirePage() {
     try {
       const campaign = await api.post<Campaign>("/api/outreach/campaigns", {
         name: newCampaignName.trim(),
+        channel: newCampaignChannel,
       });
       toast.success("Campaign created");
       setNewCampaignOpen(false);
       setNewCampaignName("");
+      setNewCampaignChannel("email");
       router.push(`/outreach/bulk-fire/${campaign.id}`);
     } catch (err: any) {
       toast.error(err.message || "Failed to create campaign");
@@ -203,6 +228,36 @@ export default function BulkFirePage() {
       toast.error(err.message || "Failed to connect SMTP sender");
     } finally {
       setSavingSmtp(false);
+    }
+  };
+
+  const handleAddWhatsapp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingWhatsapp(true);
+    try {
+      await api.post("/api/outreach/senders/whatsapp", {
+        label: whatsapp.label.trim(),
+        phoneNumber: whatsapp.phoneNumber.trim(),
+        whatsappPhoneNumberId: whatsapp.whatsappPhoneNumberId.trim(),
+        whatsappWabaId: whatsapp.whatsappWabaId.trim(),
+        whatsappAccessToken: whatsapp.whatsappAccessToken,
+        whatsappDisplayName: whatsapp.whatsappDisplayName.trim() || undefined,
+      });
+      toast.success("WhatsApp number connected");
+      setWhatsappOpen(false);
+      setWhatsapp({
+        label: "",
+        phoneNumber: "",
+        whatsappPhoneNumberId: "",
+        whatsappWabaId: "",
+        whatsappAccessToken: "",
+        whatsappDisplayName: "",
+      });
+      load();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to connect WhatsApp number");
+    } finally {
+      setSavingWhatsapp(false);
     }
   };
 
@@ -360,6 +415,26 @@ export default function BulkFirePage() {
                   >
                     + Add SMTP
                   </button>
+                  {canWhatsApp ? (
+                    <button
+                      type="button"
+                      onClick={() => setWhatsappOpen(true)}
+                      className="flex-1 sm:flex-initial rounded-lg border border-border-low-alpha bg-white px-4 py-2 font-label-md text-label-md text-on-surface transition-colors hover:bg-surface-container-low text-center"
+                    >
+                      + Connect WhatsApp
+                    </button>
+                  ) : (
+                    <Link
+                      href="/billing"
+                      title="WhatsApp outreach is a Scale plan feature — upgrade to unlock"
+                      className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 rounded-lg border border-border-low-alpha bg-white px-4 py-2 font-label-md text-label-md text-on-surface-variant/70 transition-colors hover:bg-surface-container-low text-center"
+                    >
+                      <span className="material-symbols-outlined text-[14px]">
+                        lock
+                      </span>
+                      + Connect WhatsApp
+                    </Link>
+                  )}
                 </>
               )}
             </div>
@@ -393,14 +468,16 @@ export default function BulkFirePage() {
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-2">
                       <span className="material-symbols-outlined text-primary text-[20px]">
-                        {s.type === "gmail" ? "mail" : "dns"}
+                        {SENDER_ICON[s.type]}
                       </span>
                       <div>
                         <div className="font-label-md text-label-md font-semibold text-on-surface">
                           {s.label}
                         </div>
                         <div className="font-body-md text-[13px] text-on-surface-variant">
-                          {s.email}
+                          {s.type === "whatsapp" && s.whatsappDisplayName
+                            ? `${s.whatsappDisplayName} · ${s.email}`
+                            : s.email}
                         </div>
                       </div>
                     </div>
@@ -483,7 +560,10 @@ export default function BulkFirePage() {
                   >
                     <div>
                       <div className="mb-3 flex items-start justify-between gap-2">
-                        <h3 className="font-headline-md text-[18px] text-on-surface leading-snug">
+                        <h3 className="flex items-center gap-1.5 font-headline-md text-[18px] text-on-surface leading-snug">
+                          <span className="material-symbols-outlined text-[16px] text-on-surface-variant/70">
+                            {c.channel === "whatsapp" ? "chat" : "mail"}
+                          </span>
                           {c.name}
                         </h3>
                         <div className="flex shrink-0 items-center gap-1.5">
@@ -565,6 +645,48 @@ export default function BulkFirePage() {
               placeholder="e.g. Q3 Roofing Contractors — East Coast"
               className="w-full rounded-xl border border-border-low-alpha bg-bg-cream/30 px-4 py-3 font-body-md text-on-surface focus:outline-none focus:ring-1 focus:ring-primary placeholder:text-on-surface-variant/60"
             />
+          </div>
+          <div>
+            <label className="block font-label-md text-primary mb-2">
+              Channel
+            </label>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setNewCampaignChannel("email")}
+                disabled={creatingCampaign}
+                className={`rounded-xl border px-4 py-3 text-left font-body-md text-[13px] transition-colors ${
+                  newCampaignChannel === "email"
+                    ? "border-primary bg-primary/5 text-on-surface"
+                    : "border-border-low-alpha text-on-surface-variant"
+                }`}
+              >
+                <span className="material-symbols-outlined mr-1.5 align-middle text-[16px]">
+                  mail
+                </span>
+                Email
+              </button>
+              <button
+                type="button"
+                onClick={() => canWhatsApp && setNewCampaignChannel("whatsapp")}
+                disabled={creatingCampaign || !canWhatsApp}
+                title={
+                  canWhatsApp
+                    ? undefined
+                    : "WhatsApp outreach is a Scale plan feature"
+                }
+                className={`rounded-xl border px-4 py-3 text-left font-body-md text-[13px] transition-colors disabled:opacity-50 ${
+                  newCampaignChannel === "whatsapp"
+                    ? "border-primary bg-primary/5 text-on-surface"
+                    : "border-border-low-alpha text-on-surface-variant"
+                }`}
+              >
+                <span className="material-symbols-outlined mr-1.5 align-middle text-[16px]">
+                  {canWhatsApp ? "chat" : "lock"}
+                </span>
+                WhatsApp
+              </button>
+            </div>
           </div>
           <div className="flex justify-end gap-3 pt-2">
             <button
@@ -713,6 +835,130 @@ export default function BulkFirePage() {
               className="rounded-lg bg-primary px-5 py-2.5 font-label-md text-on-primary transition-colors hover:bg-primary-container active:scale-[0.98] disabled:opacity-50"
             >
               {savingSmtp ? "Connecting…" : "Connect sender"}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal
+        open={whatsappOpen}
+        onClose={() => !savingWhatsapp && setWhatsappOpen(false)}
+        title="Connect a WhatsApp Business number"
+        subtitle="Direct Meta Cloud API credentials — the access token is encrypted at rest and never shown again after saving."
+        maxWidth="max-w-xl"
+      >
+        <form onSubmit={handleAddWhatsapp} className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block font-label-md text-primary mb-2">
+                Label
+              </label>
+              <input
+                required
+                value={whatsapp.label}
+                onChange={(e) =>
+                  setWhatsapp({ ...whatsapp, label: e.target.value })
+                }
+                placeholder="Recruiting line #1"
+                className="w-full rounded-xl border border-border-low-alpha bg-bg-cream/30 px-4 py-2.5 font-body-md"
+              />
+            </div>
+            <div>
+              <label className="block font-label-md text-primary mb-2">
+                Display name
+              </label>
+              <input
+                value={whatsapp.whatsappDisplayName}
+                onChange={(e) =>
+                  setWhatsapp({
+                    ...whatsapp,
+                    whatsappDisplayName: e.target.value,
+                  })
+                }
+                placeholder="Optional"
+                className="w-full rounded-xl border border-border-low-alpha bg-bg-cream/30 px-4 py-2.5 font-body-md"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block font-label-md text-primary mb-2">
+              Phone number (E.164)
+            </label>
+            <input
+              required
+              value={whatsapp.phoneNumber}
+              onChange={(e) =>
+                setWhatsapp({ ...whatsapp, phoneNumber: e.target.value })
+              }
+              placeholder="+14155552671"
+              className="w-full rounded-xl border border-border-low-alpha bg-bg-cream/30 px-4 py-2.5 font-body-md"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block font-label-md text-primary mb-2">
+                Phone number ID
+              </label>
+              <input
+                required
+                value={whatsapp.whatsappPhoneNumberId}
+                onChange={(e) =>
+                  setWhatsapp({
+                    ...whatsapp,
+                    whatsappPhoneNumberId: e.target.value,
+                  })
+                }
+                placeholder="From the Meta App Dashboard"
+                className="w-full rounded-xl border border-border-low-alpha bg-bg-cream/30 px-4 py-2.5 font-body-md"
+              />
+            </div>
+            <div>
+              <label className="block font-label-md text-primary mb-2">
+                WABA ID
+              </label>
+              <input
+                required
+                value={whatsapp.whatsappWabaId}
+                onChange={(e) =>
+                  setWhatsapp({ ...whatsapp, whatsappWabaId: e.target.value })
+                }
+                placeholder="WhatsApp Business Account ID"
+                className="w-full rounded-xl border border-border-low-alpha bg-bg-cream/30 px-4 py-2.5 font-body-md"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block font-label-md text-primary mb-2">
+              Permanent access token
+            </label>
+            <input
+              required
+              type="password"
+              value={whatsapp.whatsappAccessToken}
+              onChange={(e) =>
+                setWhatsapp({
+                  ...whatsapp,
+                  whatsappAccessToken: e.target.value,
+                })
+              }
+              className="w-full rounded-xl border border-border-low-alpha bg-bg-cream/30 px-4 py-2.5 font-body-md"
+            />
+          </div>
+          <div className="flex justify-end gap-3 pt-2">
+            <button
+              type="button"
+              onClick={() => setWhatsappOpen(false)}
+              disabled={savingWhatsapp}
+              className="rounded-lg border border-outline px-5 py-2.5 font-label-md text-primary transition-colors hover:bg-surface-container-low"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={savingWhatsapp}
+              className="rounded-lg bg-primary px-5 py-2.5 font-label-md text-on-primary transition-colors hover:bg-primary-container active:scale-[0.98] disabled:opacity-50"
+            >
+              {savingWhatsapp ? "Connecting…" : "Connect number"}
             </button>
           </div>
         </form>

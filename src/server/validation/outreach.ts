@@ -2,6 +2,9 @@ import { z } from "zod";
 
 export const createCampaignSchema = z.object({
   name: z.string().min(1).max(200),
+  /** Fixed at creation — the sequence step shape below depends on it and is
+   *  not changeable per-step (see outreachCampaigns.channel in schema.ts). */
+  channel: z.enum(["email", "whatsapp"]).default("email"),
 });
 export type CreateCampaignBody = z.infer<typeof createCampaignSchema>;
 
@@ -17,6 +20,21 @@ export const setSequenceSchema = z.object({
   sequence: z.array(sequenceStepSchema).max(3),
 });
 export type SetSequenceBody = z.infer<typeof setSequenceSchema>;
+
+/** WhatsApp steps carry a pre-approved templateId + its {{n}} params instead
+ *  of free-text subject/body — Meta forbids anything else for business-
+ *  initiated messages (see resolveWhatsAppTemplateParam in spintax.ts). */
+export const whatsappSequenceStepSchema = z.object({
+  stepIndex: z.number().int().min(0).max(2),
+  dayOffset: z.number().int().min(0).max(90),
+  templateId: z.uuid(),
+  templateParams: z.array(z.string().max(500)).max(10),
+});
+
+export const setWhatsAppSequenceSchema = z.object({
+  sequence: z.array(whatsappSequenceStepSchema).max(3),
+});
+export type SetWhatsAppSequenceBody = z.infer<typeof setWhatsAppSequenceSchema>;
 
 export const fireCampaignSchema = z.object({
   stepIndex: z.number().int().min(0).max(2).default(0),
@@ -82,6 +100,33 @@ export const setSenderActiveSchema = z.object({
   isActive: z.boolean(),
 });
 export type SetSenderActiveBody = z.infer<typeof setSenderActiveSchema>;
+
+/** E.164 phone number, e.g. +14155552671 — reused as senderAccounts.email. */
+const E164_PHONE = /^\+[1-9]\d{6,14}$/;
+
+export const createWhatsAppSenderSchema = z.object({
+  label: z.string().min(1).max(200),
+  phoneNumber: z.string().regex(E164_PHONE, "Must be an E.164 phone number, e.g. +14155552671"),
+  whatsappPhoneNumberId: z.string().min(1).max(200),
+  whatsappWabaId: z.string().min(1).max(200),
+  whatsappAccessToken: z.string().min(1).max(2000),
+  whatsappDisplayName: z.string().max(200).optional(),
+  dailyLimit: z.number().int().positive().max(100_000).optional(),
+});
+export type CreateWhatsAppSenderBody = z.infer<typeof createWhatsAppSenderSchema>;
+
+export const submitWhatsAppTemplateSchema = z.object({
+  senderAccountId: z.uuid(),
+  metaTemplateName: z
+    .string()
+    .min(1)
+    .max(512)
+    .regex(/^[a-z0-9_]+$/, "Meta template names are lowercase letters, digits, underscores only"),
+  category: z.enum(["marketing", "utility", "authentication"]),
+  language: z.string().min(2).max(10).default("en_US"),
+  bodyText: z.string().min(1).max(1024),
+});
+export type SubmitWhatsAppTemplateBody = z.infer<typeof submitWhatsAppTemplateSchema>;
 
 export const leadTemplateStepSchema = z.object({
   stepIndex: z.number().int().min(0).max(2),

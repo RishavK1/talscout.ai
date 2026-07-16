@@ -53,6 +53,17 @@ const EnvSchema = z
     GOOGLE_OAUTH_CLIENT_ID: z.string().optional(),
     GOOGLE_OAUTH_CLIENT_SECRET: z.string().optional(),
 
+    /** ---- WhatsApp Business Cloud API (new, opt-in — validated lazily) ---- */
+    /** Shared secret this app echoes back during Meta's webhook `GET`
+     *  verification handshake (`hub.verify_token`). Set to whatever value is
+     *  configured in the Meta App Dashboard's webhook subscription. */
+    WHATSAPP_WEBHOOK_VERIFY_TOKEN: z.string().optional(),
+    /** Meta App secret used to verify the `X-Hub-Signature-256` HMAC on
+     *  inbound webhook POSTs. Per-message-send credentials (phone number id,
+     *  access token) live per sender account, not here — see
+     *  `senderAccounts.whatsappAccessTokenEnc`. */
+    WHATSAPP_APP_SECRET: z.string().optional(),
+
     /** ---- live-mode tuning (all optional, sensible defaults) ---- */
     ANTHROPIC_MODEL: z.string().default("claude-haiku-4-5"),
     ANTHROPIC_FALLBACK_MODEL: z.string().default("claude-sonnet-4-6"),

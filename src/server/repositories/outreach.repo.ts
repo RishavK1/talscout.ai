@@ -17,12 +17,20 @@ import {
 } from "@/server/db/schema";
 import { clampLimit, clampOffset } from "@/server/repositories/candidate.repo";
 import type { TenantContext } from "@/server/db/tx";
+import { adminDb } from "@/server/db/client";
 
 export interface SequenceStep {
   stepIndex: number;
   dayOffset: number;
   subjectTemplate: string;
   bodyTemplate: string;
+}
+
+export interface WhatsAppSequenceStep {
+  stepIndex: number;
+  dayOffset: number;
+  templateId: string;
+  templateParams: string[];
 }
 
 export const senderAccountRepo = {
@@ -135,6 +143,37 @@ export const senderAccountRepo = {
     return row;
   },
 
+  async createWhatsApp(
+    ctx: TenantContext,
+    input: {
+      label: string;
+      /** E.164 phone number — reuses the `email` column (see schema.ts). */
+      phoneNumber: string;
+      whatsappPhoneNumberId: string;
+      whatsappWabaId: string;
+      whatsappAccessTokenEnc: string;
+      whatsappDisplayName?: string;
+      dailyLimit?: number;
+    },
+  ) {
+    const [row] = await ctx.tx
+      .insert(senderAccounts)
+      .values({
+        tenantId: ctx.tenantId,
+        createdBy: ctx.userId,
+        type: "whatsapp",
+        label: input.label,
+        email: input.phoneNumber,
+        dailyLimit: input.dailyLimit,
+        whatsappPhoneNumberId: input.whatsappPhoneNumberId,
+        whatsappWabaId: input.whatsappWabaId,
+        whatsappAccessTokenEnc: input.whatsappAccessTokenEnc,
+        whatsappDisplayName: input.whatsappDisplayName,
+      })
+      .returning();
+    return row;
+  },
+
   async setActive(ctx: TenantContext, id: string, isActive: boolean) {
     await ctx.tx
       .update(senderAccounts)
@@ -202,15 +241,25 @@ export const outreachCampaignRepo = {
     return row ?? null;
   },
 
-  async create(ctx: TenantContext, name: string) {
+  async create(
+    ctx: TenantContext,
+    name: string,
+    channel: "email" | "whatsapp" = "email",
+  ) {
     const [row] = await ctx.tx
       .insert(outreachCampaigns)
-      .values({ tenantId: ctx.tenantId, createdBy: ctx.userId, name })
+      .values({ tenantId: ctx.tenantId, createdBy: ctx.userId, name, channel })
       .returning();
     return row;
   },
 
-  async setSequence(ctx: TenantContext, id: string, sequence: SequenceStep[]) {
+  /** Sequence shape depends on `channel` — validated by the caller (Zod
+   *  schema selection in the service layer), stored as-is in the jsonb col. */
+  async setSequence(
+    ctx: TenantContext,
+    id: string,
+    sequence: SequenceStep[] | WhatsAppSequenceStep[],
+  ) {
     await ctx.tx
       .update(outreachCampaigns)
       .set({ sequence, updatedAt: new Date() })
@@ -426,12 +475,14 @@ export const outreachLeadRepo = {
   },
 
   /**
-   * Leads eligible for a specific sequence step — has a usable email AND
-   * doesn't already have an `outreachSends` row for `(campaignId, leadId,
-   * stepIndex)` (also enforced by the `outreach_sends_lead_step_uq` unique
-   * index). This is what makes "Fire" a per-step action: a lead that already
-   * got its day0 send is still eligible for day3, unlike `listPendingWithEmail`
-   * (which only looks at the lead's single overall `status`).
+   * Leads eligible for a specific sequence step — has a usable contact point
+   * for the campaign's channel (email for email campaigns, phone for
+   * WhatsApp) AND doesn't already have an `outreachSends` row for
+   * `(campaignId, leadId, stepIndex)` (also enforced by the
+   * `outreach_sends_lead_step_uq` unique index). This is what makes "Fire" a
+   * per-step action: a lead that already got its day0 send is still eligible
+   * for day3, unlike `listPendingWithEmail` (which only looks at the lead's
+   * single overall `status`).
    */
   async listEligibleForStep(
     ctx: TenantContext,
@@ -440,11 +491,14 @@ export const outreachLeadRepo = {
     /** Optional — restricts eligibility to this subset (a user's row
      *  selection in the leads table). Omitted/empty means "all eligible". */
     leadIds?: string[],
+    channel: "email" | "whatsapp" = "email",
   ) {
     const conds = [
       eq(outreachLeads.tenantId, ctx.tenantId),
       eq(outreachLeads.campaignId, campaignId),
-      isNotNull(outreachLeads.email),
+      channel === "whatsapp"
+        ? isNotNull(outreachLeads.phone)
+        : isNotNull(outreachLeads.email),
       ne(outreachLeads.status, "skipped"),
       isNull(outreachSends.id),
     ];
@@ -568,6 +622,48 @@ export const outreachSendRepo = {
       .where(
         and(eq(outreachSends.id, id), eq(outreachSends.tenantId, ctx.tenantId)),
       );
+  },
+
+  /** Like `markSent`, but also records the provider's message id so inbound
+   *  delivery-status webhooks (which only know the provider id, not our
+   *  internal one) can find the row back via `getByProviderMessageId`. */
+  async markSentWithProviderMessageId(
+    ctx: TenantContext,
+    id: string,
+    providerMessageId: string,
+  ) {
+    await ctx.tx
+      .update(outreachSends)
+      .set({ status: "sent", sentAt: new Date(), providerMessageId })
+      .where(
+        and(eq(outreachSends.id, id), eq(outreachSends.tenantId, ctx.tenantId)),
+      );
+  },
+
+  /** Admin-scoped: the WhatsApp delivery-status webhook arrives with no
+   *  tenant context (Meta only echoes back the provider message id), so this
+   *  looks the send up across all tenants via `adminDb()` — mirroring
+   *  `tenantRepo.getByIdAdmin` / `webhookRepo`'s use of the RLS-bypassing
+   *  connection for pre-tenant-resolution lookups. */
+  async getByProviderMessageId(providerMessageId: string) {
+    const [row] = await adminDb()
+      .select()
+      .from(outreachSends)
+      .where(eq(outreachSends.providerMessageId, providerMessageId))
+      .limit(1);
+    return row ?? null;
+  },
+
+  /** Admin-scoped counterpart to marking delivery status from the webhook —
+   *  same no-tenant-context reasoning as `getByProviderMessageId`. */
+  async updateDeliveryStatusAdmin(
+    id: string,
+    deliveryStatus: "sent" | "delivered" | "read" | "failed",
+  ) {
+    await adminDb()
+      .update(outreachSends)
+      .set({ deliveryStatus })
+      .where(eq(outreachSends.id, id));
   },
 
   async markFailed(ctx: TenantContext, id: string, errorReason: string) {
