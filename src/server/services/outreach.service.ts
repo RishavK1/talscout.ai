@@ -51,9 +51,16 @@ import type {
 
 const GMAIL_OAUTH_SCOPES = [
   "https://www.googleapis.com/auth/gmail.send",
+  // Read access powers the follow-up reply-stop check (has the lead replied
+  // in the Day 0 thread?). Mailboxes connected before this scope was added
+  // keep sending fine — their tokens are send-only, so the reply check
+  // fails open until they reconnect (see senderAccounts.gmailHasReadScope).
+  "https://www.googleapis.com/auth/gmail.readonly",
   "https://www.googleapis.com/auth/userinfo.email",
   "https://www.googleapis.com/auth/userinfo.profile",
 ];
+
+const GMAIL_READ_SCOPE = "https://www.googleapis.com/auth/gmail.readonly";
 
 const STEP_KEYS: SequenceStepKey[] = ["day0", "day3", "day7"];
 
@@ -136,6 +143,10 @@ function toPublicSender(
     dailyLimit: row.dailyLimit,
     createdAt: row.createdAt,
     whatsappDisplayName: row.whatsappDisplayName,
+    /** False for Gmail mailboxes connected before reply-detection shipped —
+     *  the UI uses this to nudge a reconnect (reply-stop stays fail-open
+     *  meanwhile). Always false for smtp/whatsapp. */
+    gmailHasReadScope: row.gmailHasReadScope,
   };
 }
 
@@ -175,11 +186,12 @@ export const outreachService = {
   async getCampaign(ctx: TenantContext, campaignId: string) {
     const campaign = await outreachCampaignRepo.getById(ctx, campaignId);
     if (!campaign) throw new NotFound("Campaign not found");
-    const [counts, leadCount] = await Promise.all([
+    const [counts, leadCount, stepSummary] = await Promise.all([
       outreachSendRepo.countsByCampaign(ctx, campaignId),
       outreachLeadRepo.countByCampaign(ctx, campaignId),
+      outreachSendRepo.stepSummaryByCampaign(ctx, campaignId),
     ]);
-    return { campaign, counts, leadCount };
+    return { campaign, counts, leadCount, stepSummary };
   },
 
   async createCampaign(ctx: TenantContext, body: CreateCampaignBody) {
@@ -480,6 +492,12 @@ export const outreachService = {
     campaignId: string,
     stepIndex: number,
     leadIds?: string[],
+    /** cascadeFollowups (step 0 only): also create the Day 3/Day 7 sends now,
+     *  each at its step's `dayOffset` days after the lead's own Day 0 slot —
+     *  same clock time, same sender mailbox (a Gmail thread only continues
+     *  from the mailbox that started it). The send job skips a follow-up
+     *  whose Day 0 didn't actually go out. */
+    opts?: { cascadeFollowups?: boolean },
   ) {
     await billingService.assertCapability(ctx, "outreach_bulk_fire");
 
@@ -612,6 +630,53 @@ export const outreachService = {
       })),
     );
 
+    // Opt-in follow-up cascade (email step-0 fires only): every step-0 send
+    // just created gets its Day 3/Day 7 siblings NOW, at `dayOffset` days
+    // after its own slot — same clock time, same sender (a Gmail thread only
+    // continues from the mailbox that started it). Creating the rows up
+    // front also blocks a later manual fire from double-sending those steps
+    // (`listEligibleForStep` keys off row existence); the send job itself
+    // re-validates at wake time and skips any follow-up whose Day 0 failed
+    // or whose lead already replied.
+    let followupSends: typeof sends = [];
+    if (opts?.cascadeFollowups && stepIndex === 0 && campaign.channel === "email") {
+      const steps = Array.isArray(campaign.sequence)
+        ? (campaign.sequence as SequenceStep[])
+        : [];
+      const followupSteps = steps.filter(
+        (s) => s.stepIndex > 0 && s.dayOffset > 0,
+      );
+      // No configured Day 3/Day 7 steps (or docx leads carrying their own
+      // copy with the default 3/7 offsets) — fall back to the canonical
+      // offsets so the checkbox still does what it says.
+      const offsets: Array<{ stepIndex: number; dayOffset: number }> =
+        followupSteps.length > 0
+          ? followupSteps.map((s) => ({ stepIndex: s.stepIndex, dayOffset: s.dayOffset }))
+          : [
+              { stepIndex: 1, dayOffset: 3 },
+              { stepIndex: 2, dayOffset: 7 },
+            ];
+      const dayMs = 24 * 60 * 60 * 1000;
+      followupSends = await outreachSendRepo.bulkSchedule(
+        ctx,
+        sends.flatMap((day0) =>
+          offsets.map((step) => ({
+            campaignId,
+            leadId: day0.leadId,
+            senderAccountId: day0.senderAccountId,
+            stepIndex: step.stepIndex,
+            scheduledAt: new Date(
+              day0.scheduledAt.getTime() + step.dayOffset * dayMs,
+            ),
+          })),
+        ),
+        // A lead may already carry a manually-fired day3/day7 row — that
+        // one wins; skip the auto-scheduled duplicate instead of aborting
+        // the whole cascade.
+        { ignoreConflicts: true },
+      );
+    }
+
     // Snapshot each lead's pre-fire status so a failed enqueue (below) can
     // restore it exactly, rather than guessing a value like "pending" that
     // may be wrong for a lead already partway through the sequence.
@@ -634,6 +699,7 @@ export const outreachService = {
       metadata: {
         stepIndex,
         count: sends.length,
+        followupCount: followupSends.length,
         skippedForDailyCapCount,
         skippedForSenderCapCount,
         skippedForUsMarketingRestrictionCount,
@@ -645,8 +711,9 @@ export const outreachService = {
     // connection, which must not start before the `outreachSends` rows
     // above are actually committed and visible.
     const tenantId = ctx.tenantId;
-    const sendIds = sends.map((send) => send.id);
-    const sendJobs = sends.map((send) => ({
+    const allSends = [...sends, ...followupSends];
+    const sendIds = allSends.map((send) => send.id);
+    const sendJobs = allSends.map((send) => ({
       tenantId,
       sendId: send.id,
       targetSendAt: send.scheduledAt.toISOString(),
@@ -662,6 +729,7 @@ export const outreachService = {
         id: campaignId,
         status: "running" as const,
         scheduled: sends.length,
+        followupsScheduled: followupSends.length,
         skippedForDailyCapCount,
         skippedForSenderCapCount,
         skippedForUsMarketingRestrictionCount,
@@ -719,6 +787,9 @@ export const outreachService = {
     stepIndex: number,
     scheduledFireAt: Date,
     leadIds?: string[],
+    /** Persisted with the schedule and honored by the wake-up job — see
+     *  fireCampaign's cascadeFollowups option. */
+    opts?: { cascadeFollowups?: boolean },
   ) {
     await billingService.assertCapability(ctx, "outreach_bulk_fire");
     await billingService.assertCapability(ctx, "outreach_scheduler");
@@ -738,12 +809,17 @@ export const outreachService = {
       scheduledFireAt,
       stepIndex,
       leadIds: leadIds && leadIds.length > 0 ? leadIds : null,
+      cascadeFollowups: opts?.cascadeFollowups ?? false,
     });
     await auditRepo.log(ctx, {
       action: "outreach.campaign.schedule_fire",
       targetType: "outreach_campaign",
       targetId: campaignId,
-      metadata: { stepIndex, scheduledFireAt: scheduledFireAt.toISOString() },
+      metadata: {
+        stepIndex,
+        scheduledFireAt: scheduledFireAt.toISOString(),
+        cascadeFollowups: opts?.cascadeFollowups ?? false,
+      },
     });
 
     const tenantId = ctx.tenantId;
@@ -1040,20 +1116,51 @@ export const outreachService = {
     if (!email) throw new BadRequest("Google account has no email");
     const fromName = data.name ?? undefined;
 
+    // What Google ACTUALLY granted (the consent screen lets users untick
+    // scopes) — not what we asked for. Read access is optional: it only
+    // powers the follow-up reply-stop check, which fails open without it.
+    const grantedScopes = (tokens.scope ?? "").split(/\s+/);
+    const gmailHasReadScope = grantedScopes.includes(GMAIL_READ_SCOPE);
+
     return await withTenantTx(
       { tenantId: claims.tenantId, userId: claims.userId || undefined },
       async (ctx) => {
         await billingService.assertCapability(ctx, "outreach_bulk_fire");
-        await assertSenderCapacity(ctx);
 
+        // Reconnecting an already-linked mailbox refreshes its credentials
+        // in place (that's how a pre-read-scope account upgrades to
+        // reply-stop) — only a NEW mailbox counts against sender capacity.
         const existing = await senderAccountRepo.getByEmail(ctx, email);
-        if (existing)
-          throw new Conflict("This Gmail account is already connected");
+        if (existing) {
+          if (existing.type !== "gmail") {
+            throw new Conflict(
+              "This email is already connected as a non-Gmail sender",
+            );
+          }
+          const updated = await senderAccountRepo.updateGmailCredentials(
+            ctx,
+            existing.id,
+            {
+              gmailRefreshTokenEnc: encryptSecret(tokens.refresh_token as string),
+              gmailHasReadScope,
+            },
+          );
+          await auditRepo.log(ctx, {
+            action: "outreach.sender.reconnect_gmail",
+            targetType: "sender_account",
+            targetId: existing.id,
+            metadata: { gmailHasReadScope },
+          });
+          return toPublicSender(updated ?? existing);
+        }
+
+        await assertSenderCapacity(ctx);
         const sender = await senderAccountRepo.createGmail(ctx, {
           label: email,
           email,
           fromName,
           gmailRefreshTokenEnc: encryptSecret(tokens.refresh_token as string),
+          gmailHasReadScope,
         });
         await auditRepo.log(ctx, {
           action: "outreach.sender.create_gmail",

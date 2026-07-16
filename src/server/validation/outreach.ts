@@ -41,6 +41,10 @@ export const fireCampaignSchema = z.object({
   /** Optional — when provided, fires only these leads (intersected with
    *  step eligibility server-side). Omitted/empty means "all eligible". */
   leadIds: z.array(z.uuid()).max(5000).optional(),
+  /** Step-0 email fires only: also auto-schedule the Day 3/Day 7 follow-ups
+   *  at each lead's Day 0 slot + dayOffset days (same clock time), sent
+   *  in-thread from the same mailbox. Ignored for step 1/2 and WhatsApp. */
+  cascadeFollowups: z.boolean().default(false),
 });
 export type FireCampaignBody = z.infer<typeof fireCampaignSchema>;
 
@@ -50,6 +54,7 @@ export const scheduleFireSchema = z.object({
   stepIndex: z.number().int().min(0).max(2).default(0),
   scheduledFireAt: z.iso.datetime(),
   leadIds: z.array(z.uuid()).max(5000).optional(),
+  cascadeFollowups: z.boolean().default(false),
 });
 export type ScheduleFireBody = z.infer<typeof scheduleFireSchema>;
 

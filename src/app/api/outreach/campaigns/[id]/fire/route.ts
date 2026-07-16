@@ -18,6 +18,7 @@ export const POST = withAuth<FireCampaignBody>(
       campaignId,
       body.stepIndex,
       body.leadIds,
+      { cascadeFollowups: body.cascadeFollowups },
     );
     return { data: result, afterCommit };
   },

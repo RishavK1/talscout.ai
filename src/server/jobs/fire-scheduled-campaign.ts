@@ -56,6 +56,9 @@ export async function fireScheduledCampaign(
         campaignId,
         snapshot.scheduledFireStepIndex ?? 0,
         (snapshot.scheduledFireLeadIds as string[] | null) ?? undefined,
+        // The checkbox state from when this fire was scheduled — persisted on
+        // the campaign row because this wake-up may be days later.
+        { cascadeFollowups: snapshot.scheduledFireCascade },
       );
     });
     await afterCommit();

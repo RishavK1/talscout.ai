@@ -38,6 +38,10 @@ interface Sender {
   isActive: boolean;
   dailyLimit: number;
   whatsappDisplayName?: string | null;
+  /** False for Gmail mailboxes connected before reply-detection shipped —
+   *  they keep sending fine, but follow-ups can't auto-skip replied leads
+   *  until the mailbox is reconnected. */
+  gmailHasReadScope?: boolean;
 }
 
 const SENDER_ICON: Record<Sender["type"], string> = {
@@ -499,6 +503,17 @@ export default function BulkFirePage() {
                   <div className="font-data-mono text-[12px] text-text-muted">
                     Daily limit: {s.dailyLimit}/day
                   </div>
+                  {s.type === "gmail" && !s.gmailHasReadScope && (
+                    <p
+                      title="Follow-ups can't auto-skip leads who already replied until this mailbox is reconnected with read access. Sending is unaffected."
+                      className="flex items-center gap-1.5 rounded-lg bg-secondary-container/20 px-2.5 py-1.5 font-body-md text-[12px] text-secondary"
+                    >
+                      <span className="material-symbols-outlined text-[14px]">
+                        info
+                      </span>
+                      Reconnect to enable reply detection for follow-ups
+                    </p>
+                  )}
                   <div className="flex gap-2 pt-1">
                     <button
                       type="button"

@@ -43,6 +43,13 @@
       "when": 1783963195382,
       "tag": "0005_loose_ultimo",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1784192659526,
+      "tag": "0006_lazy_taskmaster",
+      "breakpoints": true
     }
   ]
 }

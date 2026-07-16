@@ -54,6 +54,9 @@ interface Campaign {
   scheduledFireAt: string | null;
   scheduledFireStepIndex: number | null;
   scheduledFireLeadIds: string[] | null;
+  /** True when the pending scheduled fire will also auto-schedule the Day 3/
+   *  Day 7 follow-ups (same thread, same mailbox). */
+  scheduledFireCascade: boolean;
   /** null/empty means "every active sender account" — see
    *  resolveCampaignSenders in outreach.service.ts. */
   senderAccountIds: string[] | null;
@@ -91,6 +94,19 @@ interface Counts {
   sent: number;
   failed: number;
   skipped: number;
+}
+
+/** Per-step (Day 0/3/7) rollup from GET /campaigns/[id] — drives the
+ *  "Day 3 · 40 scheduled · fires Jul 19, 9:04 AM" lines so cascaded
+ *  follow-ups are visible the moment they're created. */
+interface StepSummary {
+  stepIndex: number;
+  scheduled: number;
+  sent: number;
+  failed: number;
+  skipped: number;
+  firstScheduledAt: string | null;
+  lastScheduledAt: string | null;
 }
 
 interface Lead {
@@ -413,6 +429,10 @@ export default function BulkFireCampaignPage({
 
   const [fireStep, setFireStep] = useState(0);
   const [firing, setFiring] = useState(false);
+  // Opt-in "also schedule Day 3 & Day 7" cascade for Day 0 fires — see
+  // fireCampaignSchema.cascadeFollowups.
+  const [cascadeFollowups, setCascadeFollowups] = useState(false);
+  const [stepSummary, setStepSummary] = useState<StepSummary[]>([]);
   const [controlBusy, setControlBusy] = useState(false);
   const [scheduledAtInput, setScheduledAtInput] = useState("");
   const [scheduling, setScheduling] = useState(false);
@@ -434,10 +454,12 @@ export default function BulkFireCampaignPage({
         campaign: Campaign;
         counts: Counts;
         leadCount: number;
+        stepSummary: StepSummary[];
       }>(`/api/outreach/campaigns/${id}`);
       setCampaign(res.campaign);
       setCounts(res.counts);
       setLeadCount(res.leadCount);
+      setStepSummary(res.stepSummary ?? []);
       if (res.campaign.channel === "whatsapp") {
         const s = res.campaign.sequence as WhatsAppSequenceStep[];
         setWhatsappSequence(s.length === 3 ? s : DEFAULT_WHATSAPP_SEQUENCE);
@@ -726,10 +748,12 @@ export default function BulkFireCampaignPage({
         selectedIds.size > 0 ? Array.from(selectedIds) : undefined;
       const res = await api.post<{
         scheduled: number;
+        followupsScheduled?: number;
         skippedForDailyCapCount?: number;
         skippedForSenderCapCount?: number;
       }>(`/api/outreach/campaigns/${id}/fire`, {
         stepIndex: fireStep,
+        cascadeFollowups: fireStep === 0 && cascadeFollowups,
         ...(leadIds ? { leadIds } : {}),
       });
       const skipped =
@@ -740,10 +764,13 @@ export default function BulkFireCampaignPage({
           : res.skippedForSenderCapCount
             ? "sender daily limit reached"
             : "daily send limit reached";
+      const followups = res.followupsScheduled
+        ? ` + ${res.followupsScheduled} Day 3/Day 7 follow-up${res.followupsScheduled === 1 ? "" : "s"}`
+        : "";
       toast.success(
         skipped > 0
-          ? `Fired to ${res.scheduled} lead${res.scheduled === 1 ? "" : "s"} — ${skipped} skipped, ${reason}`
-          : `Scheduled ${res.scheduled} send${res.scheduled === 1 ? "" : "s"}`,
+          ? `Fired to ${res.scheduled} lead${res.scheduled === 1 ? "" : "s"}${followups} — ${skipped} skipped, ${reason}`
+          : `Scheduled ${res.scheduled} send${res.scheduled === 1 ? "" : "s"}${followups}`,
       );
       clearSelection();
       load();
@@ -767,6 +794,7 @@ export default function BulkFireCampaignPage({
       await api.post(`/api/outreach/campaigns/${id}/fire/schedule`, {
         stepIndex: fireStep,
         scheduledFireAt: new Date(scheduledAtInput).toISOString(),
+        cascadeFollowups: fireStep === 0 && cascadeFollowups,
         ...(leadIds ? { leadIds } : {}),
       });
       toast.success("Fire scheduled");
@@ -1594,6 +1622,9 @@ export default function BulkFireCampaignPage({
                 on {new Date(campaign.scheduledFireAt).toLocaleString()} (
                 <ScheduleCountdown scheduledFireAt={campaign.scheduledFireAt} />
                 )
+                {campaign.scheduledFireCascade
+                  ? " + Day 3 & Day 7 follow-ups (same thread)"
+                  : ""}
                 {campaign.scheduledFireLeadIds
                   ? ` — ${campaign.scheduledFireLeadIds.length} selected lead${campaign.scheduledFireLeadIds.length === 1 ? "" : "s"}`
                   : " — all eligible leads"}
@@ -1608,7 +1639,29 @@ export default function BulkFireCampaignPage({
               </button>
             </div>
           ) : (
-            <div className="flex flex-wrap items-center gap-3">
+            <>
+              {campaign.channel === "email" && (
+                <label className="mb-3 flex w-fit cursor-pointer items-start gap-2.5 rounded-lg border border-border-low-alpha bg-bg-cream/30 px-4 py-3">
+                  <input
+                    type="checkbox"
+                    checked={fireStep === 0 && cascadeFollowups}
+                    disabled={fireStep !== 0}
+                    onChange={(e) => setCascadeFollowups(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 accent-primary"
+                  />
+                  <span className="font-body-md text-[13px] text-on-surface">
+                    Also schedule <strong>Day 3 &amp; Day 7</strong> follow-ups
+                    automatically
+                    <span className="block font-body-md text-[12px] text-on-surface-variant">
+                      Each lead gets Day 3 and Day 7 at the same time of day, 3
+                      and 7 days after its Day 0 send — sent as a reply in the
+                      same email thread, from the same mailbox. Skipped
+                      automatically if Day 0 fails{fireStep !== 0 ? " (Day 0 fires only)" : ""}.
+                    </span>
+                  </span>
+                </label>
+              )}
+              <div className="flex flex-wrap items-center gap-3">
               <select
                 value={fireStep}
                 onChange={(e) => setFireStep(Number(e.target.value))}
@@ -1665,6 +1718,53 @@ export default function BulkFireCampaignPage({
                   Scheduled sends are a Scale plan feature — upgrade to unlock
                 </Link>
               )}
+              </div>
+            </>
+          )}
+          {/* Per-step schedule rollup — makes cascaded Day 3/Day 7 visible
+              with their fire windows the moment they're created. */}
+          {stepSummary.length > 0 && (
+            <div className="mt-5 grid gap-2 border-t border-border-low-alpha pt-4 sm:grid-cols-3">
+              {stepSummary.map((s) => {
+                const label = STEP_LABELS[s.stepIndex] ?? `Step ${s.stepIndex + 1}`;
+                const pending = s.scheduled > 0;
+                const done = s.sent + s.failed + s.skipped;
+                return (
+                  <div
+                    key={s.stepIndex}
+                    className="rounded-lg border border-border-low-alpha bg-bg-cream/30 px-4 py-3"
+                  >
+                    <p className="flex items-center gap-1.5 font-label-md text-[12px] text-on-surface">
+                      <span
+                        className={`material-symbols-outlined text-[16px] ${pending ? "text-secondary" : "text-tertiary"}`}
+                      >
+                        {pending ? "schedule_send" : "check_circle"}
+                      </span>
+                      {label}
+                      {s.stepIndex > 0 && (
+                        <span className="rounded bg-secondary-container/30 px-1.5 py-0.5 font-label-md text-[10px] uppercase tracking-wide text-secondary">
+                          same thread
+                        </span>
+                      )}
+                    </p>
+                    <p className="mt-1 font-body-md text-[12px] text-on-surface-variant">
+                      {pending
+                        ? `${s.scheduled} scheduled · fires ${
+                            s.firstScheduledAt
+                              ? new Date(s.firstScheduledAt).toLocaleString([], {
+                                  month: "short",
+                                  day: "numeric",
+                                  hour: "numeric",
+                                  minute: "2-digit",
+                                })
+                              : "—"
+                          }`
+                        : `${done} processed`}
+                      {s.sent > 0 && pending ? ` · ${s.sent} sent` : ""}
+                    </p>
+                  </div>
+                );
+              })}
             </div>
           )}
         </section>

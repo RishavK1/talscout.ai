@@ -321,6 +321,12 @@ export const senderAccounts = pgTable(
     // Gmail credentials (type = "gmail") — server-side OAuth w/ offline
     // access, so sending works with no browser tab open.
     gmailRefreshTokenEnc: text("gmail_refresh_token_enc"),
+    /** Whether this Gmail account's refresh token was granted with the
+     *  read scope (gmail.readonly) in addition to gmail.send. Accounts
+     *  connected before reply-detection shipped only carry the send scope —
+     *  they keep sending fine, but the follow-up reply-stop check fails open
+     *  (sends anyway) until the mailbox is reconnected. */
+    gmailHasReadScope: boolean("gmail_has_read_scope").notNull().default(false),
     // WhatsApp Business Cloud API credentials (type = "whatsapp"). The E.164
     // phone number itself is stored in the `email` column above (already
     // NOT NULL + unique per tenant; sender-facing code already branches on
@@ -376,6 +382,12 @@ export const outreachCampaigns = pgTable(
     scheduledFireAt: timestamp("scheduled_fire_at", { withTimezone: true }),
     scheduledFireStepIndex: integer("scheduled_fire_step_index"),
     scheduledFireLeadIds: jsonb("scheduled_fire_lead_ids"),
+    /** When the pending scheduled fire is for step 0 and this is true, the
+     *  fire also cascades Day 3/Day 7 follow-up sends (see
+     *  fireCampaign's cascadeFollowups option). Persisted alongside the
+     *  schedule because the actual fire happens days later in a background
+     *  job that only has this row to go on. */
+    scheduledFireCascade: boolean("scheduled_fire_cascade").notNull().default(false),
     errorReason: text("error_reason"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -435,6 +447,20 @@ export const outreachSends = pgTable(
      *  what the inbound webhook uses to correlate a delivery/read event back
      *  to this row. Null for email sends. */
     providerMessageId: text("provider_message_id"),
+    /** RFC 5322 Message-ID of a SENT email (self-generated before send, so
+     *  no provider read-back is needed). A step-0 row's value becomes the
+     *  follow-up steps' In-Reply-To/References anchor — what keeps Day 3/
+     *  Day 7 in the same conversation. Null for WhatsApp and unsent rows. */
+    rfc822MessageId: text("rfc822_message_id"),
+    /** Gmail's thread id from the messages.send response (gmail senders
+     *  only) — passed back on follow-up sends as requestBody.threadId, the
+     *  authoritative way to land a reply in the same Gmail thread. */
+    gmailThreadId: text("gmail_thread_id"),
+    /** The spintax-resolved subject actually sent (email only). Persisted
+     *  because Gmail only files a follow-up into an existing thread when its
+     *  Subject matches the original (modulo "Re:") — Day 3/Day 7 reuse this
+     *  as `Re: <sentSubject>` instead of their own step's subject template. */
+    sentSubject: text("sent_subject"),
     /** WhatsApp-only delivery-status layer, updated asynchronously by the
      *  webhook — kept separate from `status` above so the webhook never
      *  touches the scheduling-lifecycle field the email path depends on. */

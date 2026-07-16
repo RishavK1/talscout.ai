@@ -317,7 +317,7 @@ describe("sendOutreachEmail — transient send failures retry, permanent ones do
     const spy = vi
       .spyOn(getServices().outreachMailer, "send")
       .mockRejectedValueOnce(err)
-      .mockResolvedValueOnce(undefined);
+      .mockResolvedValueOnce({});
 
     await sendOutreachEmail({ tenantId: tenant.id, sendId }, getServices());
 

@@ -19,6 +19,7 @@ export const POST = withAuth<ScheduleFireBody>(
       body.stepIndex,
       new Date(body.scheduledFireAt),
       body.leadIds,
+      { cascadeFollowups: body.cascadeFollowups },
     );
     return { data: result, afterCommit };
   },

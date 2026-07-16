@@ -125,6 +125,7 @@ export const senderAccountRepo = {
       fromName?: string;
       dailyLimit?: number;
       gmailRefreshTokenEnc: string;
+      gmailHasReadScope?: boolean;
     },
   ) {
     const [row] = await ctx.tx
@@ -138,9 +139,36 @@ export const senderAccountRepo = {
         fromName: input.fromName,
         dailyLimit: input.dailyLimit,
         gmailRefreshTokenEnc: input.gmailRefreshTokenEnc,
+        gmailHasReadScope: input.gmailHasReadScope ?? false,
       })
       .returning();
     return row;
+  },
+
+  /** Reconnect path for an already-connected Gmail mailbox: swap in the
+   *  fresh refresh token and record whether this grant carried the read
+   *  scope (reply-stop). Everything else (label, limits, active state) is
+   *  the user's configuration and survives the reconnect. */
+  async updateGmailCredentials(
+    ctx: TenantContext,
+    id: string,
+    input: { gmailRefreshTokenEnc: string; gmailHasReadScope: boolean },
+  ) {
+    const [row] = await ctx.tx
+      .update(senderAccounts)
+      .set({
+        gmailRefreshTokenEnc: input.gmailRefreshTokenEnc,
+        gmailHasReadScope: input.gmailHasReadScope,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(senderAccounts.id, id),
+          eq(senderAccounts.tenantId, ctx.tenantId),
+        ),
+      )
+      .returning();
+    return row ?? null;
   },
 
   async createWhatsApp(
@@ -291,7 +319,12 @@ export const outreachCampaignRepo = {
   async setScheduledFire(
     ctx: TenantContext,
     id: string,
-    fire: { scheduledFireAt: Date; stepIndex: number; leadIds: string[] | null },
+    fire: {
+      scheduledFireAt: Date;
+      stepIndex: number;
+      leadIds: string[] | null;
+      cascadeFollowups?: boolean;
+    },
   ) {
     await ctx.tx
       .update(outreachCampaigns)
@@ -299,6 +332,7 @@ export const outreachCampaignRepo = {
         scheduledFireAt: fire.scheduledFireAt,
         scheduledFireStepIndex: fire.stepIndex,
         scheduledFireLeadIds: fire.leadIds,
+        scheduledFireCascade: fire.cascadeFollowups ?? false,
         updatedAt: new Date(),
       })
       .where(
@@ -332,6 +366,7 @@ export const outreachCampaignRepo = {
         scheduledFireAt: null,
         scheduledFireStepIndex: null,
         scheduledFireLeadIds: null,
+        scheduledFireCascade: false,
         updatedAt: new Date(),
       })
       .where(
@@ -588,9 +623,14 @@ export const outreachSendRepo = {
       stepIndex: number;
       scheduledAt: Date;
     }>,
+    /** Skip (rather than abort the whole insert on) rows whose
+     *  (campaignId, leadId, stepIndex) already exists — used by the
+     *  follow-up cascade, where a lead may already carry a manually-fired
+     *  day3/day7 row that must win over the auto-scheduled one. */
+    opts?: { ignoreConflicts?: boolean },
   ) {
     if (sends.length === 0) return [];
-    return await ctx.tx
+    const insert = ctx.tx
       .insert(outreachSends)
       .values(
         sends.map((s) => ({
@@ -601,8 +641,19 @@ export const outreachSendRepo = {
           stepIndex: s.stepIndex,
           scheduledAt: s.scheduledAt,
         })),
-      )
-      .returning();
+      );
+    if (opts?.ignoreConflicts) {
+      return await insert
+        .onConflictDoNothing({
+          target: [
+            outreachSends.campaignId,
+            outreachSends.leadId,
+            outreachSends.stepIndex,
+          ],
+        })
+        .returning();
+    }
+    return await insert.returning();
   },
 
   /** Undoes `bulkSchedule` for a set of rows — used to recover from a fire
@@ -642,6 +693,58 @@ export const outreachSendRepo = {
       .where(
         and(eq(outreachSends.id, id), eq(outreachSends.tenantId, ctx.tenantId)),
       );
+  },
+
+  /** `markSent` plus the email-threading anchors: the Message-ID stamped on
+   *  the outgoing mail and (gmail senders) the thread id from the send
+   *  response. A step-0 row's values are what its Day 3/Day 7 follow-ups
+   *  read back via `getByLeadAndStep` to reply in the same conversation. */
+  async markSentWithThreading(
+    ctx: TenantContext,
+    id: string,
+    threading: {
+      rfc822MessageId: string;
+      gmailThreadId?: string;
+      sentSubject: string;
+    },
+  ) {
+    await ctx.tx
+      .update(outreachSends)
+      .set({
+        status: "sent",
+        sentAt: new Date(),
+        rfc822MessageId: threading.rfc822MessageId,
+        gmailThreadId: threading.gmailThreadId ?? null,
+        sentSubject: threading.sentSubject,
+      })
+      .where(
+        and(eq(outreachSends.id, id), eq(outreachSends.tenantId, ctx.tenantId)),
+      );
+  },
+
+  /** The one send row for `(campaignId, leadId, stepIndex)` — unique by the
+   *  `outreach_sends_lead_step_uq` index. Follow-up sends use this to find
+   *  their step-0 anchor (thread id + Message-ID) and to verify it actually
+   *  went out before replying to it. */
+  async getByLeadAndStep(
+    ctx: TenantContext,
+    campaignId: string,
+    leadId: string,
+    stepIndex: number,
+  ) {
+    const [row] = await ctx.tx
+      .select()
+      .from(outreachSends)
+      .where(
+        and(
+          eq(outreachSends.tenantId, ctx.tenantId),
+          eq(outreachSends.campaignId, campaignId),
+          eq(outreachSends.leadId, leadId),
+          eq(outreachSends.stepIndex, stepIndex),
+        ),
+      )
+      .limit(1);
+    return row ?? null;
   },
 
   /** Like `markSent`, but also records the provider's message id so inbound
@@ -747,7 +850,73 @@ export const outreachSendRepo = {
     return counts;
   },
 
-  /** How many sends a sender account already has today — enforces `dailyLimit`. */
+  /** Per-step (Day 0/3/7) rollup for the campaign panel: status counts plus
+   *  the step's send window — lets the UI say "Day 3 · 40 scheduled · fires
+   *  Jul 19, 9:00 AM" for cascaded follow-ups without shipping every row. */
+  async stepSummaryByCampaign(ctx: TenantContext, campaignId: string) {
+    const rows = await ctx.tx
+      .select({
+        stepIndex: outreachSends.stepIndex,
+        status: outreachSends.status,
+        count: sql<number>`count(*)::int`,
+        firstAt: sql<string | null>`min(${outreachSends.scheduledAt})`,
+        lastAt: sql<string | null>`max(${outreachSends.scheduledAt})`,
+      })
+      .from(outreachSends)
+      .where(
+        and(
+          eq(outreachSends.tenantId, ctx.tenantId),
+          eq(outreachSends.campaignId, campaignId),
+        ),
+      )
+      .groupBy(outreachSends.stepIndex, outreachSends.status)
+      .orderBy(outreachSends.stepIndex);
+
+    const byStep = new Map<
+      number,
+      {
+        stepIndex: number;
+        scheduled: number;
+        sent: number;
+        failed: number;
+        skipped: number;
+        firstScheduledAt: string | null;
+        lastScheduledAt: string | null;
+      }
+    >();
+    for (const row of rows) {
+      const entry = byStep.get(row.stepIndex) ?? {
+        stepIndex: row.stepIndex,
+        scheduled: 0,
+        sent: 0,
+        failed: 0,
+        skipped: 0,
+        firstScheduledAt: null as string | null,
+        lastScheduledAt: null as string | null,
+      };
+      entry[row.status] = row.count;
+      if (
+        row.firstAt &&
+        (!entry.firstScheduledAt || row.firstAt < entry.firstScheduledAt)
+      ) {
+        entry.firstScheduledAt = row.firstAt;
+      }
+      if (
+        row.lastAt &&
+        (!entry.lastScheduledAt || row.lastAt > entry.lastScheduledAt)
+      ) {
+        entry.lastScheduledAt = row.lastAt;
+      }
+      byStep.set(row.stepIndex, entry);
+    }
+    return [...byStep.values()].sort((a, b) => a.stepIndex - b.stepIndex);
+  },
+
+  /** How many sends a sender account already has today — enforces `dailyLimit`.
+   *  Bounded to TODAY's window on both sides: cascaded Day 3/Day 7 follow-up
+   *  rows are created days before they fire, and without the upper bound
+   *  they'd eat today's cap the moment they're scheduled instead of counting
+   *  against the day they actually go out. */
   async countSentTodayForSenders(
     ctx: TenantContext,
     senderAccountIds: string[],
@@ -765,6 +934,7 @@ export const outreachSendRepo = {
           inArray(outreachSends.senderAccountId, senderAccountIds),
           sql`${outreachSends.status} in ('scheduled', 'sent')`,
           sql`${outreachSends.scheduledAt} >= date_trunc('day', now())`,
+          sql`${outreachSends.scheduledAt} < date_trunc('day', now()) + interval '1 day'`,
         ),
       )
       .groupBy(outreachSends.senderAccountId);
@@ -783,6 +953,7 @@ export const outreachSendRepo = {
           eq(outreachSends.tenantId, ctx.tenantId),
           sql`${outreachSends.status} in ('scheduled', 'sent')`,
           sql`${outreachSends.scheduledAt} >= date_trunc('day', now())`,
+          sql`${outreachSends.scheduledAt} < date_trunc('day', now()) + interval '1 day'`,
         ),
       );
     return row?.count ?? 0;

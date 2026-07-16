@@ -17,6 +17,7 @@ import type {
   Services,
   SenderAccountCredentials,
   OutreachSendArgs,
+  OutreachSendResult,
 } from "@/server/ports";
 import type { senderAccounts } from "@/server/db/schema";
 
@@ -93,7 +94,7 @@ async function sendWithRetry(
   mailer: Services["outreachMailer"],
   creds: SenderAccountCredentials,
   message: OutreachSendArgs,
-): Promise<void> {
+): Promise<OutreachSendResult> {
   const backoffMs = [0, 1000, 3000];
   let lastErr: unknown;
   for (let attempt = 0; attempt < backoffMs.length; attempt++) {
@@ -101,8 +102,7 @@ async function sendWithRetry(
       await new Promise((r) => setTimeout(r, backoffMs[attempt]));
     }
     try {
-      await mailer.send(creds, message);
-      return;
+      return await mailer.send(creds, message);
     } catch (e) {
       lastErr = e;
       if (!isTransientSendError(e)) throw e;
@@ -115,6 +115,17 @@ async function sendWithRetry(
   throw lastErr;
 }
 
+/** RFC 5322 Message-ID, generated BEFORE the send so it can be both stamped
+ *  on the outgoing mail and persisted — no provider read-back (and thus no
+ *  extra OAuth scope) needed. Domain-part matches the sending mailbox so the
+ *  id looks legitimate to receiving MTAs. */
+function generateMessageId(senderEmail: string): string {
+  const domain = senderEmail.includes("@")
+    ? senderEmail.split("@")[1]
+    : "talscout.local";
+  return `<${crypto.randomUUID()}@${domain}>`;
+}
+
 function toCredentials(
   sender: typeof senderAccounts.$inferSelect,
 ): SenderAccountCredentials {
@@ -125,6 +136,7 @@ function toCredentials(
     return {
       type: "gmail",
       refreshToken: decryptSecret(sender.gmailRefreshTokenEnc),
+      hasReadScope: sender.gmailHasReadScope,
     };
   }
   if (
@@ -199,7 +211,37 @@ export async function sendOutreachEmail(
     return;
   }
 
+  // Follow-up steps (Day 3/Day 7) reply INTO the step-0 thread — never a
+  // fresh mail. That requires the step-0 send to (a) exist, (b) have gone
+  // out successfully, and (c) carry its threading anchors. Anything else
+  // skips this follow-up rather than falling back to a new-thread send,
+  // matching the product rule "same thread or nothing".
+  let anchor: {
+    rfc822MessageId: string;
+    gmailThreadId: string | null;
+    sentSubject: string | null;
+  } | null = null;
+  if (send.stepIndex > 0) {
+    const day0 = await withTenantTx({ tenantId }, (ctx) =>
+      outreachSendRepo.getByLeadAndStep(ctx, send.campaignId, lead.id, 0),
+    );
+    if (!day0 || day0.status !== "sent" || !day0.rfc822MessageId) {
+      await withTenantTx({ tenantId }, async (ctx) => {
+        await outreachSendRepo.markSkipped(ctx, sendId, "day0_not_sent");
+      });
+      return;
+    }
+    anchor = {
+      rfc822MessageId: day0.rfc822MessageId,
+      gmailThreadId: day0.gmailThreadId,
+      sentSubject: day0.sentSubject,
+    };
+  }
+
   let errorReason: string | null = null;
+  let sendResult: OutreachSendResult | null = null;
+  let messageId: string | null = null;
+  let sentSubject: string | null = null;
   const template = resolveTemplate(
     lead.notes,
     campaign.sequence,
@@ -210,25 +252,54 @@ export async function sendOutreachEmail(
   } else {
     try {
       const creds = toCredentials(sender);
-      const subject = resolveSpintaxAndPlaceholders(
+
+      // Reply-stop: if the lead already replied in the Day 0 thread, a
+      // scheduled follow-up would read as tone-deaf spam — skip it. Only a
+      // definite "replied" stops the send; "unknown" (SMTP, send-only Gmail
+      // token, transient API error) fails open and sends anyway.
+      if (anchor?.gmailThreadId) {
+        const replyState = await services.outreachMailer.threadHasReply(creds, {
+          gmailThreadId: anchor.gmailThreadId,
+          senderEmail: sender.email,
+        });
+        if (replyState === "replied") {
+          await withTenantTx({ tenantId }, async (ctx) => {
+            await outreachSendRepo.markSkipped(ctx, sendId, "lead_replied");
+          });
+          return;
+        }
+      }
+
+      const stepSubject = resolveSpintaxAndPlaceholders(
         template.subject,
         lead,
         sender.fromName ?? "",
         sender.email,
       );
+      // Follow-ups reuse the subject that actually went out on Day 0 (as
+      // "Re: …") — Gmail requires the subject to match the thread's, and the
+      // step's own template may differ or spintax-resolve differently.
+      const subject = anchor
+        ? `Re: ${(anchor.sentSubject ?? stepSubject).replace(/^(Re:\s*)+/i, "")}`
+        : stepSubject;
       const text = resolveSpintaxAndPlaceholders(
         template.body,
         lead,
         sender.fromName ?? "",
         sender.email,
       );
-      await sendWithRetry(services.outreachMailer, creds, {
+      messageId = generateMessageId(sender.email);
+      sentSubject = subject;
+      sendResult = await sendWithRetry(services.outreachMailer, creds, {
         from: sender.email,
         fromName: sender.fromName ?? undefined,
         to: lead.email,
         subject,
         text,
         replyTo: sender.email,
+        messageId,
+        inReplyTo: anchor?.rfc822MessageId ?? undefined,
+        gmailThreadId: anchor?.gmailThreadId ?? undefined,
       });
     } catch (e) {
       errorReason = e instanceof Error ? e.message : "send_failed";
@@ -240,7 +311,15 @@ export async function sendOutreachEmail(
       await outreachSendRepo.markFailed(ctx, sendId, errorReason);
       await outreachLeadRepo.setStatus(ctx, lead.id, "failed");
     } else {
-      await outreachSendRepo.markSent(ctx, sendId);
+      await outreachSendRepo.markSentWithThreading(ctx, sendId, {
+        rfc822MessageId: messageId as string,
+        // A follow-up stays in the Day 0 thread; a step-0 send records the
+        // thread Gmail just created (SMTP sends have none — header-only
+        // threading applies there).
+        gmailThreadId:
+          anchor?.gmailThreadId ?? sendResult?.gmailThreadId ?? undefined,
+        sentSubject: sentSubject as string,
+      });
       await outreachLeadRepo.setStatus(ctx, lead.id, "sent");
     }
   });
