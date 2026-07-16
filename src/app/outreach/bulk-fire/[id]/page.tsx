@@ -121,6 +121,21 @@ interface Lead {
   /** Next scheduled (not yet sent) send time for this lead, if any — drives
    *  the leads-table countdown timer. */
   nextSendAt: string | null;
+  /** When this lead's Day 0 email actually went out, if it has. */
+  day0SentAt: string | null;
+}
+
+/** "Mon, Jul 13 · 2:01 PM" in the viewer's timezone. */
+function formatSentAt(iso: string) {
+  const d = new Date(iso);
+  return `${d.toLocaleDateString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  })} · ${d.toLocaleTimeString(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  })}`;
 }
 
 /** Ticking mm:ss countdown to a lead's next scheduled send — replaces the
@@ -741,6 +756,46 @@ export default function BulkFireCampaignPage({
 
   const clearSelection = () => setSelectedIds(new Set());
 
+  /** Adds every lead in the campaign (not just this page) whose Day 0 went
+   *  out on the same calendar day (viewer's timezone) to the selection — one
+   *  click turns "fire Day 3 for Monday's batch" from 18 checkboxes into a
+   *  single tap on the date. Pages through the leads endpoint at its max
+   *  page size to build the full id list. */
+  const selectSameSendDay = async (sentAt: string | null) => {
+    if (!sentAt) return;
+    const day = new Date(sentAt).toDateString();
+    try {
+      const matched: string[] = [];
+      let offset = 0;
+      for (;;) {
+        const res = await api.get<{ leads: Lead[]; total: number }>(
+          `/api/outreach/campaigns/${id}/leads?limit=100&offset=${offset}`,
+        );
+        for (const l of res.leads) {
+          if (
+            l.email &&
+            l.day0SentAt &&
+            new Date(l.day0SentAt).toDateString() === day
+          ) {
+            matched.push(l.id);
+          }
+        }
+        offset += res.leads.length;
+        if (offset >= res.total || res.leads.length === 0) break;
+      }
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        matched.forEach((lid) => next.add(lid));
+        return next;
+      });
+      toast.success(
+        `Selected ${matched.length} lead${matched.length === 1 ? "" : "s"} sent on ${new Date(sentAt).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}`,
+      );
+    } catch (err: any) {
+      toast.error(err.message || "Failed to select by day");
+    }
+  };
+
   const handleFire = async () => {
     setFiring(true);
     try {
@@ -1167,7 +1222,7 @@ export default function BulkFireCampaignPage({
                         "Name",
                         "Next send",
                         "Emails",
-                        "Decision maker",
+                        "Sent on",
                         "Email",
                         "Status",
                       ].map((h) => (
@@ -1230,8 +1285,24 @@ export default function BulkFireCampaignPage({
                             View emails
                           </button>
                         </td>
-                        <td className="px-4 py-3 font-body-md text-[13px] text-on-surface-variant">
-                          {lead.decisionMaker || "—"}
+                        <td
+                          className="px-4 py-3 whitespace-nowrap"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {lead.day0SentAt ? (
+                            <button
+                              type="button"
+                              onClick={() => selectSameSendDay(lead.day0SentAt)}
+                              title="Click to also select everyone sent on this day"
+                              className="rounded-lg px-2 py-1 font-data-mono text-[12px] text-on-surface-variant transition-colors hover:bg-primary/5 hover:text-primary"
+                            >
+                              {formatSentAt(lead.day0SentAt)}
+                            </button>
+                          ) : (
+                            <span className="px-2 font-data-mono text-[12px] text-on-surface-variant">
+                              —
+                            </span>
+                          )}
                         </td>
                         <td className="px-4 py-3 font-data-mono text-[12px] text-on-surface-variant">
                           {lead.email || "—"}

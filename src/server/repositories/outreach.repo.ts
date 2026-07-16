@@ -465,6 +465,16 @@ export const outreachLeadRepo = {
           where ${outreachSends.leadId} = ${sql.raw('"outreach_leads"."id"')}
             and ${outreachSends.status} = 'scheduled'
         )`,
+        // When this lead's Day 0 actually went out — the leads table shows
+        // it so per-day fire batches are tellable apart (e.g. "fire Day 3
+        // for everyone whose Day 0 went Monday"). Same qualified-id caveat
+        // as nextSendAt above.
+        day0SentAt: sql<Date | null>`(
+          select min(${outreachSends.sentAt}) from ${outreachSends}
+          where ${outreachSends.leadId} = ${sql.raw('"outreach_leads"."id"')}
+            and ${outreachSends.stepIndex} = 0
+            and ${outreachSends.status} = 'sent'
+        )`,
       })
       .from(outreachLeads)
       .where(
@@ -934,7 +944,11 @@ export const outreachSendRepo = {
           inArray(outreachSends.senderAccountId, senderAccountIds),
           sql`${outreachSends.status} in ('scheduled', 'sent')`,
           sql`${outreachSends.scheduledAt} >= date_trunc('day', now())`,
-          sql`${outreachSends.scheduledAt} < date_trunc('day', now()) + interval '1 day'`,
+          // Upper bound is now()+24h, NOT midnight: an evening fire spaces
+          // its tail past midnight and those sends must still consume
+          // today's quota, while Day 3/Day 7 cascade rows (+3d/+7d out)
+          // must consume their own fire day's quota, not creation day's.
+          sql`${outreachSends.scheduledAt} < now() + interval '1 day'`,
         ),
       )
       .groupBy(outreachSends.senderAccountId);
@@ -953,7 +967,9 @@ export const outreachSendRepo = {
           eq(outreachSends.tenantId, ctx.tenantId),
           sql`${outreachSends.status} in ('scheduled', 'sent')`,
           sql`${outreachSends.scheduledAt} >= date_trunc('day', now())`,
-          sql`${outreachSends.scheduledAt} < date_trunc('day', now()) + interval '1 day'`,
+          // Same now()+24h upper bound as countSentTodayForSenders — see
+          // the comment there.
+          sql`${outreachSends.scheduledAt} < now() + interval '1 day'`,
         ),
       );
     return row?.count ?? 0;
