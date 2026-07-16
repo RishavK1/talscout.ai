@@ -85,8 +85,10 @@ export const candidateRepo = {
   },
 
   async getById(ctx: TenantContext, id: string) {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { embedding, ...cols } = getTableColumns(candidates);
     const [row] = await ctx.tx
-      .select()
+      .select(cols)
       .from(candidates)
       .where(and(eq(candidates.tenantId, ctx.tenantId), eq(candidates.id, id)))
       .limit(1);
@@ -96,6 +98,8 @@ export const candidateRepo = {
   async list(ctx: TenantContext, params: ListCandidatesParams = {}) {
     const limit = clampLimit(params.limit);
     const offset = clampOffset(params.offset);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { embedding, ...cols } = getTableColumns(candidates);
 
     const filters = [eq(candidates.tenantId, ctx.tenantId)];
     if (params.status) filters.push(eq(candidates.status, params.status));
@@ -110,7 +114,7 @@ export const candidateRepo = {
     }
 
     const rows = await ctx.tx
-      .select()
+      .select(cols)
       .from(candidates)
       .where(and(...filters))
       // stable ordering with a tiebreak so pages don't drift (PAGE-05)

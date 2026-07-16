@@ -262,20 +262,25 @@ export default function BulkFirePage() {
   };
 
   const toggleSenderActive = async (sender: Sender) => {
-    setSenderBusyId(sender.id);
+    // Optimistic: flip the toggle immediately, reconcile on failure. This is a
+    // pure on/off that almost never fails, so the user shouldn't wait on the
+    // round-trip.
+    const next = !sender.isActive;
+    setSenders((prev) =>
+      prev.map((s) => (s.id === sender.id ? { ...s, isActive: next } : s)),
+    );
     try {
       await api.patch(`/api/outreach/senders/${sender.id}`, {
-        isActive: !sender.isActive,
+        isActive: next,
       });
+    } catch (err: any) {
+      // Roll back the optimistic flip.
       setSenders((prev) =>
         prev.map((s) =>
-          s.id === sender.id ? { ...s, isActive: !s.isActive } : s,
+          s.id === sender.id ? { ...s, isActive: sender.isActive } : s,
         ),
       );
-    } catch (err: any) {
       toast.error(err.message || "Failed to update sender");
-    } finally {
-      setSenderBusyId(null);
     }
   };
 

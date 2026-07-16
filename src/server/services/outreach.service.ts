@@ -621,8 +621,10 @@ export const outreachService = {
     }));
     const priorCampaignStatus = campaign.status;
 
-    await Promise.all(
-      leads.map((l) => outreachLeadRepo.setStatus(ctx, l.id, "scheduled")),
+    await outreachLeadRepo.setStatusMany(
+      ctx,
+      leads.map((l) => l.id),
+      "scheduled",
     );
     await outreachCampaignRepo.setStatus(ctx, campaignId, "running");
     await auditRepo.log(ctx, {

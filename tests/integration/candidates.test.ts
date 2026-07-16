@@ -121,6 +121,19 @@ describe("GET /candidates — list, pagination, tenant scope", () => {
     ).toBe(true);
   });
 
+  it("PERF: list never returns the raw embedding vector", async () => {
+    const { tenant, token } = await makeUser("viewer");
+    await seedCandidate(tenant.id, {
+      fullName: "Vectorized",
+      embedding: Array(1024).fill(0.1),
+    });
+
+    const res = await call(listGET, { token, url: BASE });
+    expect(res.status).toBe(200);
+    expect(res.json.data.candidates.length).toBe(1);
+    expect(res.json.data.candidates[0].embedding).toBeUndefined();
+  });
+
   it("PAGE: limit caps page size but total reflects all", async () => {
     const { tenant, token } = await makeUser("viewer");
     for (let i = 0; i < 3; i++) await seedCandidate(tenant.id, { fullName: `C${i}` });
@@ -148,6 +161,17 @@ describe("GET /candidates/:id — read + IDOR", () => {
     const res = await call(getGET, { token, routeCtx: params(c.id) });
     expect(res.status).toBe(200);
     expect(res.json.data.id).toBe(c.id);
+  });
+
+  it("PERF: detail never returns the raw embedding vector", async () => {
+    const { tenant, token } = await makeUser("viewer");
+    const c = await seedCandidate(tenant.id, {
+      fullName: "Vectorized",
+      embedding: Array(1024).fill(0.1),
+    });
+    const res = await call(getGET, { token, routeCtx: params(c.id) });
+    expect(res.status).toBe(200);
+    expect(res.json.data.embedding).toBeUndefined();
   });
 
   it("TEN-01: cross-tenant read → 404", async () => {

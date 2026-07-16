@@ -62,6 +62,13 @@ export function appPool(): Pool {
       connectionString: url,
       max: APP_POOL_MAX,
       idleTimeoutMillis: 10_000,
+      // Fail a stuck connect in 5s instead of hanging indefinitely when the
+      // (free-tier, remote) DB is cold/waking — the caller can then retry or
+      // surface an error fast rather than leaving the user on a dead spinner.
+      connectionTimeoutMillis: 5_000,
+      // Keep TCP sockets alive so warm connections don't get silently dropped
+      // by intermediaries, which would otherwise force a fresh cold connect.
+      keepAlive: true,
       ssl: sslFor(url),
     });
   }
@@ -75,6 +82,8 @@ export function adminPool(): Pool {
       connectionString: url,
       max: ADMIN_POOL_MAX,
       idleTimeoutMillis: 10_000,
+      connectionTimeoutMillis: 5_000,
+      keepAlive: true,
       ssl: sslFor(url),
     });
   }
@@ -99,4 +108,41 @@ export async function closePools(): Promise<void> {
   globalForDb._adminPool = undefined;
   globalForDb._appDb = undefined;
   globalForDb._adminDb = undefined;
+}
+
+/**
+ * True when an error is a CONNECTION-ESTABLISHMENT failure (pool couldn't get a
+ * socket to the DB) rather than a query error. These are the only errors safe
+ * to blind-retry: nothing was executed, so there's no risk of double-applying a
+ * write. Covers pg's connect-timeout message + the usual TCP/DNS error codes a
+ * cold/waking remote DB throws.
+ */
+function isConnectError(err: unknown): boolean {
+  const code = (err as { code?: string })?.code;
+  if (code && ["ETIMEDOUT", "ECONNREFUSED", "ENOTFOUND", "ECONNRESET", "EHOSTUNREACH"].includes(code)) {
+    return true;
+  }
+  const msg = (err as { message?: string })?.message ?? "";
+  return /timeout exceeded when trying to connect|Connection terminated/i.test(msg);
+}
+
+/**
+ * Retry `fn` a few times with exponential backoff, but ONLY when it fails to
+ * establish a connection (see `isConnectError`). Turns a cold-DB first request
+ * that would otherwise hang/error into a short wait that succeeds once the DB
+ * wakes. Query errors, auth errors, etc. bubble immediately — never retried.
+ */
+export async function withConnectRetry<T>(fn: () => Promise<T>): Promise<T> {
+  const delays = [1_000, 2_000, 4_000];
+  let lastErr: unknown;
+  for (let attempt = 0; attempt <= delays.length; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      if (attempt === delays.length || !isConnectError(err)) throw err;
+      await new Promise((r) => setTimeout(r, delays[attempt]));
+    }
+  }
+  throw lastErr;
 }

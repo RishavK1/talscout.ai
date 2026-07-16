@@ -533,6 +533,26 @@ export const outreachLeadRepo = {
       );
   },
 
+  /** Set the SAME status on many leads in one UPDATE (WHERE id = ANY(...))
+   *  instead of one round-trip per lead — the fire path flips every lead to
+   *  "scheduled" at once, which was N sequential updates on one connection. */
+  async setStatusMany(
+    ctx: TenantContext,
+    ids: string[],
+    status: (typeof outreachLeads.$inferSelect)["status"],
+  ) {
+    if (ids.length === 0) return;
+    await ctx.tx
+      .update(outreachLeads)
+      .set({ status, lastActionAt: new Date() })
+      .where(
+        and(
+          inArray(outreachLeads.id, ids),
+          eq(outreachLeads.tenantId, ctx.tenantId),
+        ),
+      );
+  },
+
   async getById(ctx: TenantContext, id: string) {
     const [row] = await ctx.tx
       .select()
