@@ -11,6 +11,10 @@ import { MockMailer } from "@/server/adapters/mock.mailer";
 import { ResendMailer } from "@/server/adapters/resend.mailer";
 import { MockOutreachMailer } from "@/server/adapters/mock.outreach-mailer";
 import { OutreachMailerAdapter } from "@/server/adapters/outreach.mailer";
+import { MockWhatsAppSender } from "@/server/adapters/mock.whatsapp-sender";
+import { WhatsAppSenderAdapter } from "@/server/adapters/whatsapp.sender";
+import { MockWhatsAppTemplateManager } from "@/server/adapters/mock.whatsapp-template-manager";
+import { WhatsAppTemplateManagerAdapter } from "@/server/adapters/whatsapp.template-manager";
 import { InProcessQueue } from "@/server/adapters/inprocess.queue";
 import { ClaudeExtractor } from "@/server/adapters/claude.extractor";
 import { GeminiExtractor } from "@/server/adapters/gemini.extractor";
@@ -40,6 +44,15 @@ import {
   FIRE_SCHEDULED_CAMPAIGN_JOB,
   type FireScheduledCampaignPayload,
 } from "@/server/jobs/fire-scheduled-campaign";
+import {
+  sendOutreachWhatsapp,
+  SEND_OUTREACH_WHATSAPP_JOB,
+  type SendOutreachWhatsAppPayload,
+} from "@/server/jobs/send-outreach-whatsapp";
+import {
+  syncWhatsAppTemplates,
+  SYNC_WHATSAPP_TEMPLATES_JOB,
+} from "@/server/jobs/sync-whatsapp-templates";
 
 let services: Services | null = null;
 
@@ -61,6 +74,8 @@ export function getServices(): Services {
       limiter: new MemoryRateLimiter(),
       mailer: new MockMailer(),
       outreachMailer: new MockOutreachMailer(),
+      whatsappSender: new MockWhatsAppSender(),
+      whatsappTemplateManager: new MockWhatsAppTemplateManager(),
     };
     queue.register(PARSE_RESUME_JOB, (payload) =>
       parseResume(payload as ParseResumePayload, services as Services),
@@ -87,6 +102,20 @@ export function getServices(): Services {
         payload as FireScheduledCampaignPayload,
         services as Services,
       ),
+    );
+    // Same inline-vs-deferred caveat as SEND_OUTREACH_EMAIL_JOB above.
+    queue.register(SEND_OUTREACH_WHATSAPP_JOB, (payload) => {
+      const data = payload as SendOutreachWhatsAppPayload & { targetSendAt: string };
+      return sendOutreachWhatsapp(
+        { tenantId: data.tenantId, sendId: data.sendId },
+        services as Services,
+      );
+    });
+    // No real cron under InProcessQueue/mock mode — nothing to reconcile
+    // against a live Meta API in dev/test anyway. Registered so a manual
+    // enqueue (e.g. from a test) still resolves to a handler.
+    queue.register(SYNC_WHATSAPP_TEMPLATES_JOB, () =>
+      syncWhatsAppTemplates(services as Services),
     );
   } else {
     // APP_MODE=live — real services.
@@ -133,6 +162,8 @@ export function getServices(): Services {
       limiter,
       mailer: env.RESEND_API_KEY ? new ResendMailer() : new MockMailer(),
       outreachMailer: new OutreachMailerAdapter(),
+      whatsappSender: new WhatsAppSenderAdapter(),
+      whatsappTemplateManager: new WhatsAppTemplateManagerAdapter(),
     };
 
     if (queue instanceof InProcessQueue) {
@@ -154,6 +185,16 @@ export function getServices(): Services {
           payload as FireScheduledCampaignPayload,
           services as Services,
         ),
+      );
+      queue.register(SEND_OUTREACH_WHATSAPP_JOB, (payload) => {
+        const data = payload as SendOutreachWhatsAppPayload & { targetSendAt: string };
+        return sendOutreachWhatsapp(
+          { tenantId: data.tenantId, sendId: data.sendId },
+          services as Services,
+        );
+      });
+      queue.register(SYNC_WHATSAPP_TEMPLATES_JOB, () =>
+        syncWhatsAppTemplates(services as Services),
       );
     }
   }

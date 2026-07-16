@@ -205,6 +205,59 @@ export interface OutreachMailer {
   send(creds: SenderAccountCredentials, message: OutreachSendArgs): Promise<void>;
 }
 
+/** A WhatsApp Business Cloud API send always goes through a pre-approved
+ *  template (Meta forbids free-form business-initiated text), so this is
+ *  intentionally not shaped like `OutreachSendArgs` — there is no
+ *  subject/body, only a template name + positional body params. Kept as a
+ *  dedicated port (not a third arm on `OutreachMailer`/
+ *  `SenderAccountCredentials`) since those two types are irreducibly
+ *  email-shaped and already exhaustively pattern-matched elsewhere. */
+export interface WhatsAppTemplateSendArgs {
+  to: string;
+  templateName: string;
+  language: string;
+  bodyParams: string[];
+}
+
+export interface WhatsAppSenderCredentials {
+  phoneNumberId: string;
+  accessToken: string;
+}
+
+export interface WhatsAppSender {
+  send(
+    creds: WhatsAppSenderCredentials,
+    message: WhatsAppTemplateSendArgs,
+  ): Promise<{ providerMessageId: string }>;
+}
+
+export interface WhatsAppTemplateSubmission {
+  wabaId: string;
+  accessToken: string;
+  name: string;
+  category: "marketing" | "utility" | "authentication";
+  language: string;
+  bodyText: string;
+}
+
+export interface WhatsAppTemplateStatusResult {
+  metaTemplateId: string;
+  status: "pending" | "approved" | "rejected" | "disabled";
+  rejectionReason?: string;
+}
+
+/** Meta's template-submission/status-lookup surface — separate from
+ *  `WhatsAppSender` (which only sends already-approved templates) so the
+ *  mock adapter can simulate approval without touching send semantics. */
+export interface WhatsAppTemplateManager {
+  submit(input: WhatsAppTemplateSubmission): Promise<{ metaTemplateId: string }>;
+  getStatus(
+    wabaId: string,
+    accessToken: string,
+    metaTemplateId: string,
+  ): Promise<WhatsAppTemplateStatusResult>;
+}
+
 export interface RateLimitResult {
   success: boolean;
   limit: number;
@@ -226,4 +279,6 @@ export interface Services {
   limiter: RateLimiter;
   mailer: Mailer;
   outreachMailer: OutreachMailer;
+  whatsappSender: WhatsAppSender;
+  whatsappTemplateManager: WhatsAppTemplateManager;
 }

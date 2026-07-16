@@ -1,5 +1,5 @@
 import { verifyJwt, extractBearer } from "./verify-jwt";
-import { userRepo } from "@/server/repositories/user.repo";
+import { getCachedSessionIdentity } from "./session-cache";
 import { Unauthorized, Forbidden } from "@/server/http/errors";
 import type { Role } from "./rbac";
 
@@ -28,7 +28,7 @@ export async function authenticate(
 export async function resolveSession(req: Request): Promise<Session> {
   const { authUserId, email } = await authenticate(req);
 
-  const identity = await userRepo.getSessionIdentityAdmin(authUserId);
+  const identity = await getCachedSessionIdentity(authUserId);
   if (!identity) throw new Unauthorized("No account provisioned"); // AUTH-05
   const { user, tenant } = identity;
   if (user.status !== "active") throw new Forbidden("Account is disabled"); // RBAC-04

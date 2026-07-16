@@ -1,4 +1,5 @@
 import { getServices } from "@/server/container";
+import { getEnv } from "@/server/config/env";
 import { subscriptionRepo } from "@/server/repositories/subscription.repo";
 import { webhookRepo } from "@/server/repositories/webhook.repo";
 import { tenantRepo } from "@/server/repositories/tenant.repo";
@@ -6,6 +7,7 @@ import { userRepo } from "@/server/repositories/user.repo";
 import { auditRepo } from "@/server/repositories/audit.repo";
 import { PLAN_PRICES, type CheckoutBody } from "@/server/validation/billing";
 import { BadRequest, PaymentRequired } from "@/server/http/errors";
+import { MockPaymentProvider } from "@/server/adapters/mock.payment";
 import {
   planHasCapability,
   capabilitiesForPlan,
@@ -48,8 +50,31 @@ export const billingService = {
     });
     
     // Subscription state is ONLY set by the Stripe webhook (handleWebhook) after
-    // payment is confirmed. Never activate here — even in development.
-    // For local testing, run: stripe listen --forward-to localhost:3000/api/webhooks/stripe
+    // payment is confirmed. Never activate here directly — even in mock mode.
+    // In live mode nothing activates until Stripe calls /api/webhooks/stripe
+    // (locally: `stripe listen --forward-to localhost:3000/api/webhooks/stripe`).
+    // In mock mode there's no real Stripe to send that webhook, so there's
+    // nothing to redirect to and no card to charge — go through the exact
+    // same signature-verified handleWebhook() path a real webhook would hit,
+    // simulating instant payment confirmation.
+    if (getEnv().APP_MODE === "mock") {
+      const event = {
+        id: `evt_mock_${session.sessionId}`,
+        type: "checkout.session.completed",
+        created: Math.floor(Date.now() / 1000),
+        data: {
+          tenantId: ctx.tenantId,
+          plan: body.plan,
+          seats: body.seats,
+          status: "active",
+          stripeCustomerId: sub?.stripeCustomerId ?? `cus_mock_${ctx.tenantId}`,
+          stripeSubId: session.sessionId,
+        },
+      };
+      const raw = JSON.stringify(event);
+      await this.handleWebhook(raw, MockPaymentProvider.sign(raw));
+    }
+
     await auditRepo.log(ctx, { action: "billing.checkout", metadata: { plan: body.plan, seats: body.seats } });
     return { url: session.url };
   },

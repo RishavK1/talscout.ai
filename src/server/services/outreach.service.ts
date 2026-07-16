@@ -17,7 +17,7 @@ import {
   type SequenceStepKey,
 } from "@/server/lib/spintax";
 import type { SequenceStep } from "@/server/repositories/outreach.repo";
-import { encryptSecret } from "@/server/lib/secret-box";
+import { encryptSecret, decryptSecret } from "@/server/lib/secret-box";
 import { signOAuthState, verifyOAuthState } from "@/server/lib/oauth-state";
 import { getServices } from "@/server/container";
 import { getEnv } from "@/server/config/env";
@@ -26,7 +26,9 @@ import { auditRepo } from "@/server/repositories/audit.repo";
 import { MAX_UPLOAD_BYTES } from "@/server/ingestion/file-type";
 import { PARSE_LEADS_DOCX_JOB } from "@/server/jobs/parse-leads-docx";
 import { SEND_OUTREACH_EMAIL_JOB } from "@/server/jobs/send-outreach-email";
+import { SEND_OUTREACH_WHATSAPP_JOB } from "@/server/jobs/send-outreach-whatsapp";
 import { FIRE_SCHEDULED_CAMPAIGN_JOB } from "@/server/jobs/fire-scheduled-campaign";
+import { whatsappTemplateRepo } from "@/server/repositories/whatsapp-template.repo";
 import {
   NotFound,
   Conflict,
@@ -37,9 +39,12 @@ import {
 import type {
   CreateCampaignBody,
   SetSequenceBody,
+  SetWhatsAppSequenceBody,
   RequestLeadsUploadBody,
   CompleteLeadsUploadBody,
   CreateSmtpSenderBody,
+  CreateWhatsAppSenderBody,
+  SubmitWhatsAppTemplateBody,
   SetLeadTemplatesBody,
   SetCampaignSendersBody,
 } from "@/server/validation/outreach";
@@ -112,11 +117,12 @@ function buildSenderRotation(
   return rotation;
 }
 
-/** `senderAccountRepo` rows carry `smtpPasswordEnc`/`gmailRefreshTokenEnc` —
- *  ciphertext, not plaintext, but still an internal column that should never
- *  round-trip to the client. `withAuth` serializes whatever a handler returns
- *  verbatim, so every method that surfaces a sender row maps through this
- *  first rather than relying on callers to remember to strip it. */
+/** `senderAccountRepo` rows carry `smtpPasswordEnc`/`gmailRefreshTokenEnc`/
+ *  `whatsappAccessTokenEnc` — ciphertext, not plaintext, but still internal
+ *  columns that should never round-trip to the client. `withAuth` serializes
+ *  whatever a handler returns verbatim, so every method that surfaces a
+ *  sender row maps through this first rather than relying on callers to
+ *  remember to strip it. */
 function toPublicSender(
   row: Awaited<ReturnType<typeof senderAccountRepo.list>>[number],
 ) {
@@ -129,6 +135,7 @@ function toPublicSender(
     isActive: row.isActive,
     dailyLimit: row.dailyLimit,
     createdAt: row.createdAt,
+    whatsappDisplayName: row.whatsappDisplayName,
   };
 }
 
@@ -177,7 +184,10 @@ export const outreachService = {
 
   async createCampaign(ctx: TenantContext, body: CreateCampaignBody) {
     await billingService.assertCapability(ctx, "outreach_bulk_fire");
-    const campaign = await outreachCampaignRepo.create(ctx, body.name);
+    if (body.channel === "whatsapp") {
+      await billingService.assertCapability(ctx, "whatsapp_channel");
+    }
+    const campaign = await outreachCampaignRepo.create(ctx, body.name, body.channel);
     await auditRepo.log(ctx, {
       action: "outreach.campaign.create",
       targetType: "outreach_campaign",
@@ -193,6 +203,45 @@ export const outreachService = {
   ) {
     const campaign = await outreachCampaignRepo.getById(ctx, campaignId);
     if (!campaign) throw new NotFound("Campaign not found");
+    if (campaign.channel !== "email") {
+      throw new Conflict("This campaign's channel is not email");
+    }
+    await outreachCampaignRepo.setSequence(ctx, campaignId, body.sequence);
+    await auditRepo.log(ctx, {
+      action: "outreach.campaign.set_sequence",
+      targetType: "outreach_campaign",
+      targetId: campaignId,
+    });
+    return { id: campaignId, sequence: body.sequence };
+  },
+
+  /** WhatsApp counterpart to `setSequence` — separate method (not a branch)
+   *  because the step shape is entirely different (templateId+templateParams,
+   *  not subject/body) and each template must already be Meta-approved for
+   *  this to be enforceable at fire time (see send-outreach-whatsapp.ts). */
+  async setWhatsAppSequence(
+    ctx: TenantContext,
+    campaignId: string,
+    body: SetWhatsAppSequenceBody,
+  ) {
+    const campaign = await outreachCampaignRepo.getById(ctx, campaignId);
+    if (!campaign) throw new NotFound("Campaign not found");
+    if (campaign.channel !== "whatsapp") {
+      throw new Conflict("This campaign's channel is not whatsapp");
+    }
+    await billingService.assertCapability(ctx, "whatsapp_channel");
+
+    const templateIds = [...new Set(body.sequence.map((s) => s.templateId))];
+    if (templateIds.length > 0) {
+      const templates = await Promise.all(
+        templateIds.map((id) => whatsappTemplateRepo.getById(ctx, id)),
+      );
+      const missing = templates.some((t) => !t);
+      if (missing) {
+        throw new BadRequest("One or more selected templates are invalid");
+      }
+    }
+
     await outreachCampaignRepo.setSequence(ctx, campaignId, body.sequence);
     await auditRepo.log(ctx, {
       action: "outreach.campaign.set_sequence",
@@ -452,9 +501,36 @@ export const outreachService = {
       campaignId,
       stepIndex,
       leadIds,
+      campaign.channel,
     );
     if (leads.length === 0) {
       throw new Conflict("No eligible leads for this step");
+    }
+
+    // US marketing-template pause (Meta, since April 2025, no resumption
+    // date): skip-and-report rather than block the whole fire, matching the
+    // existing daily-cap truncation UX below. Only applies to WhatsApp
+    // marketing-category templates — utility/authentication and email are
+    // unaffected.
+    let skippedForUsMarketingRestrictionCount = 0;
+    if (campaign.channel === "whatsapp") {
+      const steps = Array.isArray(campaign.sequence)
+        ? (campaign.sequence as { stepIndex: number; templateId?: string }[])
+        : [];
+      const step = steps.find((s) => s.stepIndex === stepIndex);
+      const template = step?.templateId
+        ? await whatsappTemplateRepo.getById(ctx, step.templateId)
+        : null;
+      if (template?.category === "marketing") {
+        const eligible = leads.filter((l) => !l.phone?.startsWith("+1"));
+        skippedForUsMarketingRestrictionCount = leads.length - eligible.length;
+        leads = eligible;
+        if (leads.length === 0) {
+          throw new Conflict(
+            "All eligible leads are US numbers, which Meta currently blocks for marketing-category WhatsApp templates",
+          );
+        }
+      }
     }
 
     // Growth is daily-capped tenant-wide (Scale's cap is Infinity, so this is
@@ -545,8 +621,10 @@ export const outreachService = {
     }));
     const priorCampaignStatus = campaign.status;
 
-    await Promise.all(
-      leads.map((l) => outreachLeadRepo.setStatus(ctx, l.id, "scheduled")),
+    await outreachLeadRepo.setStatusMany(
+      ctx,
+      leads.map((l) => l.id),
+      "scheduled",
     );
     await outreachCampaignRepo.setStatus(ctx, campaignId, "running");
     await auditRepo.log(ctx, {
@@ -558,6 +636,7 @@ export const outreachService = {
         count: sends.length,
         skippedForDailyCapCount,
         skippedForSenderCapCount,
+        skippedForUsMarketingRestrictionCount,
       },
     });
 
@@ -573,6 +652,11 @@ export const outreachService = {
       targetSendAt: send.scheduledAt.toISOString(),
     }));
 
+    const sendJob =
+      campaign.channel === "whatsapp"
+        ? SEND_OUTREACH_WHATSAPP_JOB
+        : SEND_OUTREACH_EMAIL_JOB;
+
     return {
       result: {
         id: campaignId,
@@ -580,16 +664,14 @@ export const outreachService = {
         scheduled: sends.length,
         skippedForDailyCapCount,
         skippedForSenderCapCount,
+        skippedForUsMarketingRestrictionCount,
       },
       afterCommit: async () => {
         try {
           // One call for the whole fire — either every send job lands or
           // none do, so the recovery below never has to reason about which
           // subset of a partially-sent batch actually made it to Inngest.
-          await getServices().queue.enqueueBatch(
-            SEND_OUTREACH_EMAIL_JOB,
-            sendJobs,
-          );
+          await getServices().queue.enqueueBatch(sendJob, sendJobs);
         } catch (e) {
           // The `outreachSends` rows and "scheduled" lead/campaign statuses
           // above are already committed. Left as-is, these leads would be
@@ -808,6 +890,89 @@ export const outreachService = {
       targetId: sender.id,
     });
     return toPublicSender(sender);
+  },
+
+  async createWhatsAppSender(ctx: TenantContext, body: CreateWhatsAppSenderBody) {
+    await billingService.assertCapability(ctx, "outreach_bulk_fire");
+    await billingService.assertCapability(ctx, "whatsapp_channel");
+    await assertSenderCapacity(ctx);
+
+    const existing = await senderAccountRepo.getByEmail(ctx, body.phoneNumber);
+    if (existing)
+      throw new Conflict("A sender account with this phone number already exists");
+
+    const sender = await senderAccountRepo.createWhatsApp(ctx, {
+      label: body.label,
+      phoneNumber: body.phoneNumber,
+      whatsappPhoneNumberId: body.whatsappPhoneNumberId,
+      whatsappWabaId: body.whatsappWabaId,
+      whatsappAccessTokenEnc: encryptSecret(body.whatsappAccessToken),
+      whatsappDisplayName: body.whatsappDisplayName,
+      dailyLimit: body.dailyLimit,
+    });
+    await auditRepo.log(ctx, {
+      action: "outreach.sender.create_whatsapp",
+      targetType: "sender_account",
+      targetId: sender.id,
+    });
+    return toPublicSender(sender);
+  },
+
+  async listWhatsAppTemplates(ctx: TenantContext) {
+    return await whatsappTemplateRepo.list(ctx);
+  },
+
+  /** Submits a new template to Meta for approval — the only way a template
+   *  reaches `status: "approved"` and becomes usable in a sequence step (see
+   *  the structural enforcement note in send-outreach-whatsapp.ts). Actual
+   *  approval is async: Meta reviews and pushes a webhook event (or the
+   *  cron-triggered sync job reconciles it) — this call only records the
+   *  submission as "pending". */
+  async submitWhatsAppTemplate(ctx: TenantContext, body: SubmitWhatsAppTemplateBody) {
+    await billingService.assertCapability(ctx, "whatsapp_channel");
+    const sender = await senderAccountRepo.getById(ctx, body.senderAccountId);
+    if (!sender || sender.type !== "whatsapp") {
+      throw new NotFound("WhatsApp sender account not found");
+    }
+    if (!sender.whatsappWabaId || !sender.whatsappAccessTokenEnc) {
+      throw new BadRequest("This sender is missing WhatsApp credentials");
+    }
+
+    const placeholderCount = (body.bodyText.match(/\{\{\d+\}\}/g) ?? []).length;
+
+    let metaTemplateId: string | undefined;
+    try {
+      const result = await getServices().whatsappTemplateManager.submit({
+        wabaId: sender.whatsappWabaId,
+        accessToken: decryptSecret(sender.whatsappAccessTokenEnc),
+        name: body.metaTemplateName,
+        category: body.category,
+        language: body.language,
+        bodyText: body.bodyText,
+      });
+      metaTemplateId = result.metaTemplateId;
+    } catch (e) {
+      logger.error({ err: e }, "whatsapp_template_submit_failed");
+      throw new BadRequest(
+        e instanceof Error ? e.message : "Failed to submit template to Meta",
+      );
+    }
+
+    const template = await whatsappTemplateRepo.create(ctx, {
+      senderAccountId: sender.id,
+      metaTemplateName: body.metaTemplateName,
+      category: body.category,
+      language: body.language,
+      bodyText: body.bodyText,
+      placeholderCount,
+      metaTemplateId,
+    });
+    await auditRepo.log(ctx, {
+      action: "outreach.whatsapp_template.submit",
+      targetType: "whatsapp_template",
+      targetId: template.id,
+    });
+    return template;
   },
 
   async setSenderActive(

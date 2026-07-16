@@ -34,11 +34,19 @@ interface SequenceStep {
   bodyTemplate: string;
 }
 
+interface WhatsAppSequenceStep {
+  stepIndex: number;
+  dayOffset: number;
+  templateId: string;
+  templateParams: string[];
+}
+
 interface Campaign {
   id: string;
   name: string;
+  channel: "email" | "whatsapp";
   status: CampaignStatus;
-  sequence: SequenceStep[];
+  sequence: SequenceStep[] | WhatsAppSequenceStep[];
   blockMinutes: number;
   errorReason: string | null;
   /** A pending "fire at this time" request set via the schedule-fire UI —
@@ -53,11 +61,30 @@ interface Campaign {
 
 interface Sender {
   id: string;
-  type: "gmail" | "smtp";
+  type: "gmail" | "smtp" | "whatsapp";
   label: string;
   email: string;
   isActive: boolean;
 }
+
+interface WhatsAppTemplate {
+  id: string;
+  senderAccountId: string;
+  metaTemplateName: string;
+  category: "marketing" | "utility" | "authentication";
+  language: string;
+  bodyText: string;
+  placeholderCount: number;
+  status: "pending" | "approved" | "rejected" | "disabled";
+  rejectionReason: string | null;
+}
+
+const TEMPLATE_STATUS_STYLE: Record<WhatsAppTemplate["status"], string> = {
+  pending: "bg-secondary-container/30 text-secondary",
+  approved: "bg-tertiary/10 text-tertiary",
+  rejected: "bg-error/10 text-error",
+  disabled: "bg-surface-container-high text-on-surface-variant",
+};
 
 interface Counts {
   scheduled: number;
@@ -214,6 +241,12 @@ const DEFAULT_SEQUENCE: SequenceStep[] = [
   { stepIndex: 2, dayOffset: 7, subjectTemplate: "", bodyTemplate: "" },
 ];
 
+const DEFAULT_WHATSAPP_SEQUENCE: WhatsAppSequenceStep[] = [
+  { stepIndex: 0, dayOffset: 0, templateId: "", templateParams: [] },
+  { stepIndex: 1, dayOffset: 3, templateId: "", templateParams: [] },
+  { stepIndex: 2, dayOffset: 7, templateId: "", templateParams: [] },
+];
+
 /** Compact page-number list with ellipses, e.g. [1, "…", 4, 5, 6, "…", 20] —
  *  keeps the control usable even for a campaign with hundreds of leads. */
 function paginationRange(current: number, total: number): (number | "…")[] {
@@ -241,6 +274,94 @@ function paginationRange(current: number, total: number): (number | "…")[] {
   return withDots;
 }
 
+/** Template picker + dynamic {{n}} placeholder inputs for one WhatsApp
+ *  sequence step. Only approved templates are selectable — the caller is
+ *  responsible for filtering `templates` down to those. */
+function WhatsAppStepEditor({
+  step,
+  templates,
+  onChange,
+}: {
+  step: WhatsAppSequenceStep;
+  templates: WhatsAppTemplate[];
+  onChange: (patch: Partial<WhatsAppSequenceStep>) => void;
+}) {
+  const selected = templates.find((t) => t.id === step.templateId);
+
+  const handleTemplateChange = (templateId: string) => {
+    const t = templates.find((tpl) => tpl.id === templateId);
+    onChange({
+      templateId,
+      templateParams: t
+        ? Array.from(
+            { length: t.placeholderCount },
+            (_, i) => step.templateParams[i] ?? "",
+          )
+        : [],
+    });
+  };
+
+  const updateParam = (i: number, value: string) => {
+    const next = [...step.templateParams];
+    next[i] = value;
+    onChange({ templateParams: next });
+  };
+
+  if (templates.length === 0) {
+    return (
+      <p className="rounded-lg bg-bg-cream/40 p-4 font-body-md text-[13px] text-on-surface-variant">
+        No approved templates yet — submit one above and wait for Meta to
+        approve it before it can be used here.
+      </p>
+    );
+  }
+
+  return (
+    <div>
+      <label className="mb-1 block font-label-md text-[11px] uppercase tracking-wide text-on-surface-variant">
+        Template
+      </label>
+      <select
+        value={step.templateId}
+        onChange={(e) => handleTemplateChange(e.target.value)}
+        className="mb-3 w-full rounded-lg border border-border-low-alpha bg-bg-cream/30 px-3 py-2 font-body-md text-[13px] focus:outline-none focus:ring-1 focus:ring-primary"
+      >
+        <option value="">Select a template…</option>
+        {templates.map((t) => (
+          <option key={t.id} value={t.id}>
+            {t.metaTemplateName} ({t.category})
+          </option>
+        ))}
+      </select>
+
+      {selected && (
+        <>
+          <p className="mb-3 rounded-lg bg-bg-cream/40 p-3 font-body-md text-[13px] text-on-surface-variant">
+            {selected.bodyText}
+          </p>
+          {selected.placeholderCount > 0 && (
+            <div className="space-y-2">
+              {Array.from({ length: selected.placeholderCount }, (_, i) => (
+                <div key={i}>
+                  <label className="mb-1 block font-label-md text-[11px] uppercase tracking-wide text-on-surface-variant">
+                    {`{{${i + 1}}}`}
+                  </label>
+                  <input
+                    value={step.templateParams[i] ?? ""}
+                    onChange={(e) => updateParam(i, e.target.value)}
+                    placeholder="{{name}} or literal text"
+                    className="w-full rounded-lg border border-border-low-alpha bg-bg-cream/30 px-3 py-2 font-body-md text-[13px] focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function BulkFireCampaignPage({
   params,
 }: {
@@ -263,9 +384,23 @@ export default function BulkFireCampaignPage({
   const [notFound, setNotFound] = useState(false);
 
   const [sequence, setSequence] = useState<SequenceStep[]>(DEFAULT_SEQUENCE);
+  const [whatsappSequence, setWhatsappSequence] = useState<
+    WhatsAppSequenceStep[]
+  >(DEFAULT_WHATSAPP_SEQUENCE);
   const [savingSequence, setSavingSequence] = useState(false);
   const [sequenceOpen, setSequenceOpen] = useState(false);
   const [activeStep, setActiveStep] = useState(0);
+
+  const [templates, setTemplates] = useState<WhatsAppTemplate[]>([]);
+  const [newTemplateOpen, setNewTemplateOpen] = useState(false);
+  const [submittingTemplate, setSubmittingTemplate] = useState(false);
+  const [newTemplate, setNewTemplate] = useState({
+    senderAccountId: "",
+    metaTemplateName: "",
+    category: "utility" as WhatsAppTemplate["category"],
+    language: "en_US",
+    bodyText: "",
+  });
 
   const [dragging, setDragging] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
@@ -303,11 +438,13 @@ export default function BulkFireCampaignPage({
       setCampaign(res.campaign);
       setCounts(res.counts);
       setLeadCount(res.leadCount);
-      setSequence(
-        res.campaign.sequence.length === 3
-          ? res.campaign.sequence
-          : DEFAULT_SEQUENCE,
-      );
+      if (res.campaign.channel === "whatsapp") {
+        const s = res.campaign.sequence as WhatsAppSequenceStep[];
+        setWhatsappSequence(s.length === 3 ? s : DEFAULT_WHATSAPP_SEQUENCE);
+      } else {
+        const s = res.campaign.sequence as SequenceStep[];
+        setSequence(s.length === 3 ? s : DEFAULT_SEQUENCE);
+      }
       setSelectedSenderIds(new Set(res.campaign.senderAccountIds ?? []));
     } catch (err: any) {
       if (err.status === 404) {
@@ -329,6 +466,17 @@ export default function BulkFireCampaignPage({
     }
   };
 
+  const loadTemplates = async () => {
+    try {
+      const res = await api.get<{ templates: WhatsAppTemplate[] }>(
+        "/api/outreach/whatsapp/templates",
+      );
+      setTemplates(res.templates);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to load WhatsApp templates");
+    }
+  };
+
   const loadLeads = async (page: number) => {
     try {
       const offset = (page - 1) * LEADS_PAGE_SIZE;
@@ -346,6 +494,7 @@ export default function BulkFireCampaignPage({
     load();
     loadLeads(1);
     loadSenders();
+    loadTemplates();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
@@ -372,13 +521,47 @@ export default function BulkFireCampaignPage({
   const handleSaveSequence = async () => {
     setSavingSequence(true);
     try {
-      await api.put(`/api/outreach/campaigns/${id}/sequence`, { sequence });
+      if (campaign?.channel === "whatsapp") {
+        await api.put(`/api/outreach/campaigns/${id}/sequence/whatsapp`, {
+          sequence: whatsappSequence,
+        });
+      } else {
+        await api.put(`/api/outreach/campaigns/${id}/sequence`, { sequence });
+      }
       toast.success("Sequence saved");
       load();
     } catch (err: any) {
       toast.error(err.message || "Failed to save sequence");
     } finally {
       setSavingSequence(false);
+    }
+  };
+
+  const handleSubmitTemplate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmittingTemplate(true);
+    try {
+      await api.post("/api/outreach/whatsapp/templates", {
+        senderAccountId: newTemplate.senderAccountId,
+        metaTemplateName: newTemplate.metaTemplateName.trim(),
+        category: newTemplate.category,
+        language: newTemplate.language.trim() || "en_US",
+        bodyText: newTemplate.bodyText,
+      });
+      toast.success("Template submitted for approval");
+      setNewTemplateOpen(false);
+      setNewTemplate({
+        senderAccountId: "",
+        metaTemplateName: "",
+        category: "utility",
+        language: "en_US",
+        bodyText: "",
+      });
+      loadTemplates();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to submit template");
+    } finally {
+      setSubmittingTemplate(false);
     }
   };
 
@@ -408,6 +591,15 @@ export default function BulkFireCampaignPage({
     } finally {
       setSavingSenders(false);
     }
+  };
+
+  const updateWhatsAppStep = (
+    index: number,
+    patch: Partial<WhatsAppSequenceStep>,
+  ) => {
+    setWhatsappSequence((prev) =>
+      prev.map((s, i) => (i === index ? { ...s, ...patch } : s)),
+    );
   };
 
   const updateStep = (index: number, patch: Partial<SequenceStep>) => {
@@ -1089,9 +1281,83 @@ export default function BulkFireCampaignPage({
           )}
         </section>
 
+        {/* WhatsApp template library — only relevant for whatsapp-channel
+            campaigns. Templates are tenant-wide (not per-campaign), managed
+            here since this is where you'd want them while building a
+            sequence. */}
+        {campaign.channel === "whatsapp" && (
+          <section className="mb-10 rounded-[20px] border border-border-low-alpha bg-white p-5">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="font-headline-md text-[16px] text-on-surface">
+                  WhatsApp templates
+                </h2>
+                <p className="mt-0.5 font-body-md text-[12px] text-on-surface-variant">
+                  Only <strong>approved</strong> templates can be used in the
+                  sequence below — Meta reviews new submissions, usually
+                  within minutes to a day.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setNewTemplateOpen(true)}
+                disabled={senders.filter((s) => s.type === "whatsapp").length === 0}
+                title={
+                  senders.filter((s) => s.type === "whatsapp").length === 0
+                    ? "Connect a WhatsApp sender first"
+                    : undefined
+                }
+                className="rounded-lg border border-border-low-alpha bg-white px-4 py-2 font-label-md text-[12px] text-on-surface transition-colors hover:bg-surface-container-low disabled:opacity-50"
+              >
+                + Submit template
+              </button>
+            </div>
+            {templates.length === 0 ? (
+              <p className="rounded-lg bg-bg-cream/40 p-4 font-body-md text-[13px] text-on-surface-variant">
+                No templates submitted yet.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {templates.map((t) => (
+                  <div
+                    key={t.id}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border-low-alpha p-3"
+                  >
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-data-mono text-[12px] text-on-surface">
+                          {t.metaTemplateName}
+                        </span>
+                        <span className="rounded-full bg-surface-container-high px-2 py-0.5 font-label-md text-[10px] capitalize text-on-surface-variant">
+                          {t.category}
+                        </span>
+                      </div>
+                      <p className="mt-0.5 max-w-md truncate font-body-md text-[12px] text-on-surface-variant">
+                        {t.bodyText}
+                      </p>
+                      {t.status === "rejected" && t.rejectionReason && (
+                        <p className="mt-0.5 font-body-md text-[11px] text-error">
+                          {t.rejectionReason}
+                        </p>
+                      )}
+                    </div>
+                    <span
+                      className={`shrink-0 rounded-full px-2.5 py-0.5 font-label-md text-[11px] capitalize ${TEMPLATE_STATUS_STYLE[t.status]}`}
+                    >
+                      {t.status}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
         {/* Fallback sequence — collapsed by default. Most leads carry their
             own imported copy (see the docx templates), so this only matters
-            as a shared default for leads that don't. */}
+            as a shared default for leads that don't. For WhatsApp campaigns,
+            "fallback" isn't quite right (there's no per-lead custom copy
+            path), but the section still holds the one sequence that fires. */}
         <section className="mb-10 rounded-[20px] border border-border-low-alpha bg-white">
           <button
             type="button"
@@ -1101,14 +1367,19 @@ export default function BulkFireCampaignPage({
           >
             <div>
               <h2 className="font-headline-md text-[16px] text-on-surface">
-                Fallback sequence{" "}
-                <span className="font-label-md text-[11px] font-normal text-on-surface-variant">
-                  (optional)
-                </span>
+                {campaign.channel === "whatsapp"
+                  ? "Template sequence"
+                  : "Fallback sequence"}{" "}
+                {campaign.channel !== "whatsapp" && (
+                  <span className="font-label-md text-[11px] font-normal text-on-surface-variant">
+                    (optional)
+                  </span>
+                )}
               </h2>
               <p className="mt-0.5 font-body-md text-[12px] text-on-surface-variant">
-                Only used for leads that don&apos;t carry their own custom email
-                copy from the imported playbook.
+                {campaign.channel === "whatsapp"
+                  ? "Pick an approved template and fill in its {{n}} placeholders for each day of the sequence."
+                  : "Only used for leads that don't carry their own custom email copy from the imported playbook."}
               </p>
             </div>
             <span
@@ -1146,7 +1417,11 @@ export default function BulkFireCampaignPage({
                         >
                           {label}{" "}
                           <span className="text-[10px] text-text-muted">
-                            +{sequence[i].dayOffset}d
+                            +
+                            {campaign.channel === "whatsapp"
+                              ? whatsappSequence[i].dayOffset
+                              : sequence[i].dayOffset}
+                            d
                           </span>
                         </button>
                       ))}
@@ -1161,51 +1436,94 @@ export default function BulkFireCampaignPage({
                     </button>
                   </div>
 
-                  <label className="mb-1 block font-label-md text-[11px] uppercase tracking-wide text-on-surface-variant">
-                    Subject
-                  </label>
-                  <input
-                    value={sequence[activeStep].subjectTemplate}
-                    onChange={(e) =>
-                      updateStep(activeStep, {
-                        subjectTemplate: e.target.value,
-                      })
-                    }
-                    placeholder="{Quick question|Following up} about {{niche}} leads"
-                    className="mb-3 w-full rounded-lg border border-border-low-alpha bg-bg-cream/30 px-3 py-2 font-body-md text-[13px] focus:outline-none focus:ring-1 focus:ring-primary"
-                  />
-                  <label className="mb-1 block font-label-md text-[11px] uppercase tracking-wide text-on-surface-variant">
-                    Body
-                  </label>
-                  <textarea
-                    value={sequence[activeStep].bodyTemplate}
-                    onChange={(e) =>
-                      updateStep(activeStep, { bodyTemplate: e.target.value })
-                    }
-                    rows={5}
-                    placeholder={
-                      "Hi {{decisionMaker}},\n\n{I noticed|I came across} {{name}} and thought..."
-                    }
-                    className="w-full resize-none rounded-lg border border-border-low-alpha bg-bg-cream/30 px-3 py-2 font-body-md text-[13px] focus:outline-none focus:ring-1 focus:ring-primary"
-                  />
-                  <p className="mt-3 font-label-md text-[11px] text-text-muted">
-                    Use{" "}
-                    <span className="font-data-mono">
-                      {"{option a|option b}"}
-                    </span>{" "}
-                    for spintax and{" "}
-                    <span className="font-data-mono">{"{{name}}"}</span>/
-                    <span className="font-data-mono">{"{{niche}}"}</span>/
-                    <span className="font-data-mono">
-                      {"{{decisionMaker}}"}
-                    </span>{" "}
-                    for per-lead personalization.
-                  </p>
+                  {campaign.channel === "whatsapp" ? (
+                    <WhatsAppStepEditor
+                      step={whatsappSequence[activeStep]}
+                      templates={templates.filter((t) => t.status === "approved")}
+                      onChange={(patch) => updateWhatsAppStep(activeStep, patch)}
+                    />
+                  ) : (
+                    <>
+                      <label className="mb-1 block font-label-md text-[11px] uppercase tracking-wide text-on-surface-variant">
+                        Subject
+                      </label>
+                      <input
+                        value={sequence[activeStep].subjectTemplate}
+                        onChange={(e) =>
+                          updateStep(activeStep, {
+                            subjectTemplate: e.target.value,
+                          })
+                        }
+                        placeholder="{Quick question|Following up} about {{niche}} leads"
+                        className="mb-3 w-full rounded-lg border border-border-low-alpha bg-bg-cream/30 px-3 py-2 font-body-md text-[13px] focus:outline-none focus:ring-1 focus:ring-primary"
+                      />
+                      <label className="mb-1 block font-label-md text-[11px] uppercase tracking-wide text-on-surface-variant">
+                        Body
+                      </label>
+                      <textarea
+                        value={sequence[activeStep].bodyTemplate}
+                        onChange={(e) =>
+                          updateStep(activeStep, {
+                            bodyTemplate: e.target.value,
+                          })
+                        }
+                        rows={5}
+                        placeholder={
+                          "Hi {{decisionMaker}},\n\n{I noticed|I came across} {{name}} and thought..."
+                        }
+                        className="w-full resize-none rounded-lg border border-border-low-alpha bg-bg-cream/30 px-3 py-2 font-body-md text-[13px] focus:outline-none focus:ring-1 focus:ring-primary"
+                      />
+                      <p className="mt-3 font-label-md text-[11px] text-text-muted">
+                        Use{" "}
+                        <span className="font-data-mono">
+                          {"{option a|option b}"}
+                        </span>{" "}
+                        for spintax and{" "}
+                        <span className="font-data-mono">{"{{name}}"}</span>/
+                        <span className="font-data-mono">{"{{niche}}"}</span>/
+                        <span className="font-data-mono">
+                          {"{{decisionMaker}}"}
+                        </span>{" "}
+                        for per-lead personalization.
+                      </p>
+                    </>
+                  )}
                 </div>
               </motion.div>
             )}
           </AnimatePresence>
         </section>
+
+        {/* US-marketing warning — Meta currently blocks marketing-category
+            WhatsApp templates from being sent to +1 numbers. Surfaced here so
+            it's visible before Fire, backed by the same server-side filter in
+            fireCampaign (skip-and-report, not a hard block). */}
+        {campaign.channel === "whatsapp" &&
+          (() => {
+            const activeTemplate = templates.find(
+              (t) => t.id === whatsappSequence[fireStep]?.templateId,
+            );
+            if (activeTemplate?.category !== "marketing") return null;
+            const usLeadCount = leads.filter((l) =>
+              l.phone?.startsWith("+1"),
+            ).length;
+            if (usLeadCount === 0) return null;
+            return (
+              <div className="mb-6 flex items-start gap-3 rounded-[16px] border border-tertiary/30 bg-tertiary/5 p-4">
+                <span className="material-symbols-outlined text-[18px] text-tertiary">
+                  warning
+                </span>
+                <p className="font-body-md text-[13px] text-on-surface">
+                  {STEP_LABELS[fireStep]} uses a marketing-category template.
+                  Meta currently blocks marketing templates to US (+1) phone
+                  numbers, so {usLeadCount} lead
+                  {usLeadCount === 1 ? "" : "s"} on this page will be skipped
+                  automatically when you fire — not sent, not counted as
+                  failed.
+                </p>
+              </div>
+            );
+          })()}
 
         {/* Fire controls */}
         <section className="mb-10 rounded-[20px] border border-border-low-alpha bg-white p-6">
@@ -1358,6 +1676,132 @@ export default function BulkFireCampaignPage({
         onClose={() => setEmailsLeadId(null)}
         onSaved={() => loadLeads(leadsPage)}
       />
+
+      <Modal
+        open={newTemplateOpen}
+        onClose={() => setNewTemplateOpen(false)}
+        title="Submit a WhatsApp template"
+      >
+        <form onSubmit={handleSubmitTemplate} className="space-y-3">
+          <div>
+            <label className="mb-1 block font-label-md text-[11px] uppercase tracking-wide text-on-surface-variant">
+              WhatsApp sender
+            </label>
+            <select
+              required
+              value={newTemplate.senderAccountId}
+              onChange={(e) =>
+                setNewTemplate((f) => ({
+                  ...f,
+                  senderAccountId: e.target.value,
+                }))
+              }
+              className="w-full rounded-lg border border-border-low-alpha bg-bg-cream/30 px-3 py-2 font-body-md text-[13px] focus:outline-none focus:ring-1 focus:ring-primary"
+            >
+              <option value="">Select a sender…</option>
+              {senders
+                .filter((s) => s.type === "whatsapp")
+                .map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.label}
+                  </option>
+                ))}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block font-label-md text-[11px] uppercase tracking-wide text-on-surface-variant">
+              Template name
+            </label>
+            <input
+              required
+              value={newTemplate.metaTemplateName}
+              onChange={(e) =>
+                setNewTemplate((f) => ({
+                  ...f,
+                  metaTemplateName: e.target.value
+                    .toLowerCase()
+                    .replace(/[^a-z0-9_]/g, "_"),
+                }))
+              }
+              placeholder="follow_up_intro"
+              className="w-full rounded-lg border border-border-low-alpha bg-bg-cream/30 px-3 py-2 font-body-md text-[13px] focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+            <p className="mt-1 font-label-md text-[10px] text-text-muted">
+              Lowercase letters, numbers, and underscores only.
+            </p>
+          </div>
+          <div className="flex gap-3">
+            <div className="flex-1">
+              <label className="mb-1 block font-label-md text-[11px] uppercase tracking-wide text-on-surface-variant">
+                Category
+              </label>
+              <select
+                value={newTemplate.category}
+                onChange={(e) =>
+                  setNewTemplate((f) => ({
+                    ...f,
+                    category: e.target.value as WhatsAppTemplate["category"],
+                  }))
+                }
+                className="w-full rounded-lg border border-border-low-alpha bg-bg-cream/30 px-3 py-2 font-body-md text-[13px] focus:outline-none focus:ring-1 focus:ring-primary"
+              >
+                <option value="utility">Utility</option>
+                <option value="marketing">Marketing</option>
+                <option value="authentication">Authentication</option>
+              </select>
+            </div>
+            <div className="flex-1">
+              <label className="mb-1 block font-label-md text-[11px] uppercase tracking-wide text-on-surface-variant">
+                Language
+              </label>
+              <input
+                value={newTemplate.language}
+                onChange={(e) =>
+                  setNewTemplate((f) => ({ ...f, language: e.target.value }))
+                }
+                placeholder="en_US"
+                className="w-full rounded-lg border border-border-low-alpha bg-bg-cream/30 px-3 py-2 font-body-md text-[13px] focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="mb-1 block font-label-md text-[11px] uppercase tracking-wide text-on-surface-variant">
+              Body text
+            </label>
+            <textarea
+              required
+              rows={4}
+              value={newTemplate.bodyText}
+              onChange={(e) =>
+                setNewTemplate((f) => ({ ...f, bodyText: e.target.value }))
+              }
+              placeholder={"Hi {{1}}, thanks for your interest in {{2}}..."}
+              className="w-full resize-none rounded-lg border border-border-low-alpha bg-bg-cream/30 px-3 py-2 font-body-md text-[13px] focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+            <p className="mt-1 font-label-md text-[10px] text-text-muted">
+              Use <span className="font-data-mono">{"{{1}}"}</span>,{" "}
+              <span className="font-data-mono">{"{{2}}"}</span>, etc. for
+              placeholders, in order.
+            </p>
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onClick={() => setNewTemplateOpen(false)}
+              className="rounded-lg px-4 py-2 font-label-md text-[12px] text-on-surface-variant hover:bg-surface-container-low"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={submittingTemplate}
+              className="rounded-lg bg-primary px-4 py-2 font-label-md text-[12px] text-on-primary transition-colors hover:bg-primary-container disabled:opacity-50"
+            >
+              {submittingTemplate ? "Submitting…" : "Submit for approval"}
+            </button>
+          </div>
+        </form>
+      </Modal>
     </AppShell>
   );
 }

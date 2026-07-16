@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { db } from "./client";
+import { db, withConnectRetry } from "./client";
 import { getEnv } from "@/server/config/env";
 import type { schema } from "./schema";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
@@ -34,17 +34,19 @@ export async function withTenantTx<T>(
     throw new Error("withTenantTx called without a tenantId");
   }
   const role = getEnv().APP_DB_ROLE; // identifier-validated by env schema
-  return db().transaction(async (tx) => {
-    // Drop to the restricted role for THIS tx so RLS is enforced even when the
-    // pool authenticates as a privileged role. Owner/admin paths (adminDb)
-    // never SET ROLE, so they bypass RLS by design.
-    await tx.execute(sql.raw(`set local role "${role}"`));
-    // pgvector lives in `extensions` on Supabase, `public` locally; include both
-    // so the vector type + operators resolve. Missing schemas are ignored.
-    await tx.execute(sql.raw(`set local search_path to public, extensions`));
-    await tx.execute(
-      sql`select set_config('app.tenant_id', ${ctx.tenantId}, true)`,
-    );
-    return fn({ tx, tenantId: ctx.tenantId, userId: ctx.userId, ip: ctx.ip });
-  });
+  return withConnectRetry(() =>
+    db().transaction(async (tx) => {
+      // Drop to the restricted role for THIS tx so RLS is enforced even when the
+      // pool authenticates as a privileged role. Owner/admin paths (adminDb)
+      // never SET ROLE, so they bypass RLS by design.
+      await tx.execute(sql.raw(`set local role "${role}"`));
+      // pgvector lives in `extensions` on Supabase, `public` locally; include both
+      // so the vector type + operators resolve. Missing schemas are ignored.
+      await tx.execute(sql.raw(`set local search_path to public, extensions`));
+      await tx.execute(
+        sql`select set_config('app.tenant_id', ${ctx.tenantId}, true)`,
+      );
+      return fn({ tx, tenantId: ctx.tenantId, userId: ctx.userId, ip: ctx.ip });
+    }),
+  );
 }

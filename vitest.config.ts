@@ -22,6 +22,8 @@ export default defineConfig({
       DATABASE_ADMIN_URL: "postgresql://rishav@localhost:5432/talscout_test",
       SUPABASE_JWT_SECRET: "test-jwt-secret-0123456789abcdef0123456789",
       OUTREACH_ENCRYPTION_KEY: "vPZoqfOXC0VVWjvLFROFfSkhw281WDI1zxORqIVzCUU=",
+      WHATSAPP_WEBHOOK_VERIFY_TOKEN: "test-whatsapp-verify-token",
+      WHATSAPP_APP_SECRET: "test-whatsapp-app-secret",
     },
   },
 });

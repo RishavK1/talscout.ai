@@ -15,7 +15,8 @@ export type Capability =
   | "api_access" // REST API
   | "sso" // SSO / SAML
   | "outreach_bulk_fire" // bulk-fire outreach campaigns at all
-  | "outreach_scheduler"; // scheduling a fire for a future time
+  | "outreach_scheduler" // scheduling a fire for a future time
+  | "whatsapp_channel"; // WhatsApp Business as an outreach channel
 
 export const CAPABILITY_LABEL: Record<Capability, string> = {
   advanced_filters: "Advanced search filters",
@@ -26,6 +27,7 @@ export const CAPABILITY_LABEL: Record<Capability, string> = {
   sso: "SSO / SAML",
   outreach_bulk_fire: "Bulk-fire outreach",
   outreach_scheduler: "Scheduled outreach sends",
+  whatsapp_channel: "WhatsApp outreach channel",
 };
 
 export interface Plan {
@@ -105,6 +107,7 @@ export const PLANS: Record<PlanId, Plan> = {
       "sso",
       "outreach_bulk_fire",
       "outreach_scheduler",
+      "whatsapp_channel",
     ],
     features: [
       "Everything in Growth",
@@ -112,6 +115,7 @@ export const PLANS: Record<PlanId, Plan> = {
       "API access",
       "SSO & audit log",
       "Unlimited outreach sends, 5 senders, scheduling",
+      "WhatsApp Business outreach channel",
       "Dedicated support",
     ],
   },

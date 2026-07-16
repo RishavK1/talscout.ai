@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { getEnv } from "@/server/config/env";
 import type {
   PaymentProvider,
   CheckoutArgs,
@@ -9,13 +10,24 @@ import type {
 const MOCK_WEBHOOK_SECRET = "whsec_mock_secret";
 
 /** Deterministic mock payment provider. Webhook signatures are real HMACs over
- *  the raw body, so signature verification (PAY-01) is genuinely exercised. */
+ *  the raw body, so signature verification (PAY-01) is genuinely exercised.
+ *  There's no real Stripe to redirect to, so the "checkout" URL lands
+ *  straight back on /billing — billingService.createCheckout is responsible
+ *  for simulating the checkout.session.completed webhook in mock mode, since
+ *  nothing will ever POST to /api/webhooks/stripe otherwise. */
 export class MockPaymentProvider implements PaymentProvider {
   private counter = 0;
 
   async createCheckoutSession(args: CheckoutArgs): Promise<CheckoutSession> {
     const sessionId = `cs_mock_${args.tenantId}_${this.counter++}`;
-    return { url: `mock://checkout/${sessionId}`, sessionId };
+    const base =
+      args.appOrigin && /^https?:\/\//.test(args.appOrigin)
+        ? args.appOrigin
+        : getEnv().APP_URL;
+    return {
+      url: `${base}/billing?status=success&session_id=${sessionId}`,
+      sessionId,
+    };
   }
 
   verifyWebhook(rawBody: string, signature: string | null): WebhookEvent {

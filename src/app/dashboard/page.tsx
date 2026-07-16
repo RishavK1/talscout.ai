@@ -28,6 +28,9 @@ export default function DashboardPage() {
   const [shortlistedCount, setShortlistedCount] = useState(0);
   const [recentCandidates, setRecentCandidates] = useState<SimpleCandidate[]>([]);
   const [loading, setLoading] = useState(true);
+  // After a few seconds of loading, tell the user we're waking things up so a
+  // cold-start (idle free-tier DB) reads as intentional, not a frozen page.
+  const [slowLoad, setSlowLoad] = useState(false);
 
   const displayName = user?.user_metadata?.full_name || user?.email?.split("@")[0] || "Recruiter";
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
@@ -46,6 +49,15 @@ export default function DashboardPage() {
       setRecentSearches(getRecentSearches(profile.tenantId));
     }
   }, [profile?.tenantId]);
+
+  useEffect(() => {
+    if (!loading) {
+      setSlowLoad(false);
+      return;
+    }
+    const t = setTimeout(() => setSlowLoad(true), 4000);
+    return () => clearTimeout(t);
+  }, [loading]);
 
   useEffect(() => {
     // AuthProvider resolves the session/profile on mount too; on a hard refresh
@@ -145,6 +157,12 @@ export default function DashboardPage() {
           <section className="mb-12">
             <h1 className="font-headline-lg text-headline-lg text-primary mb-2">{greeting}, {displayName}.</h1>
             <p className="font-body-lg text-body-lg text-text-muted">Here is the latest intelligence on your recruitment pipeline.</p>
+            {slowLoad && (
+              <p className="mt-3 flex items-center gap-2 font-body-md text-body-md text-text-muted">
+                <span className="material-symbols-outlined text-[18px] animate-spin">progress_activity</span>
+                Waking things up — this can take a moment on the first visit of the day.
+              </p>
+            )}
           </section>
           {/* Semantic Search Bar (Central) */}
           <section className="mb-16">

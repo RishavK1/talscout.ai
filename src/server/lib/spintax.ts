@@ -125,6 +125,33 @@ export function resolveSpintaxAndPlaceholders(
   return current;
 }
 
+/**
+ * Resolves a WhatsApp template parameter's `{{lead.field}}` tokens against a
+ * lead — deliberately NOT `resolveSpintaxAndPlaceholders`: Meta forbids free
+ * text outside a template's fixed `{{n}}` slots, so there is no spintax `{a|b}`
+ * variation grammar here, only a fixed set of lead-field lookups. Unknown
+ * tokens resolve to "" (Meta rejects empty template params) rather than
+ * leaking the raw token into a live message.
+ */
+export function resolveWhatsAppTemplateParam(
+  paramTemplate: string,
+  lead: OutreachLeadFields,
+): string {
+  return paramTemplate.replace(/\{\{\s*lead\.(\w+)\s*\}\}/gi, (_match, field: string) => {
+    const key = field.toLowerCase();
+    if (key === "name") return lead.decisionMaker || lead.name || "";
+    if (key === "firstname" || key === "first_name") {
+      return getFirstName(lead) || lead.name || "";
+    }
+    if (key === "company" || key === "businessname" || key === "business_name") {
+      return lead.name || "";
+    }
+    if (key === "niche" || key === "industry") return lead.niche || "";
+    if (key === "location" || key === "city") return lead.location || "";
+    return "";
+  });
+}
+
 export interface SequenceTemplate {
   subject: string;
   body: string;
