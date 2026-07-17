@@ -21,6 +21,9 @@ export interface UserProfile {
 interface AuthContextType {
   user: User | null;
   profile: UserProfile | null;
+  /** True only when the server explicitly reported no provisioned account —
+   *  the sole signal that /onboarding/workspace is the right destination. */
+  needsOnboarding: boolean;
   loading: boolean;
   workspaceName: string | null;
   /** True if the current plan includes the given capability. */
@@ -34,6 +37,12 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  // True ONLY when the server explicitly said "No account provisioned" — the
+  // one case where /onboarding/workspace is the right destination. A profile
+  // that's null for any other reason (transient network/DB error, token
+  // hydration race right after the OAuth redirect) must NOT route an
+  // already-onboarded user into onboarding.
+  const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const [workspaceName, setWorkspaceName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const initializedRef = useRef(false);
@@ -66,6 +75,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         logo: data.logo ?? null,
         avatar: data.avatar ?? null,
       });
+      setNeedsOnboarding(false);
       // The session route might return workspaceName or we can query it later
       setWorkspaceName(data.workspaceName ?? "Workspace");
 
@@ -81,28 +91,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
     } catch (err) {
-      // The silent boot-time fetch (initAuth, skipRedirect=true) can lose a race
-      // with token hydration right after a hard refresh. Give it one retry
-      // before treating the failure as real — avoids bouncing an already-
-      // onboarded user to /onboarding/workspace over a transient blip.
-      if (skipRedirect && !isRetry) {
-        await new Promise((resolve) => setTimeout(resolve, 800));
-        return fetchProfile(skipRedirect, true);
-      }
       if (err instanceof ApiError && err.status === 401 && err.message.includes("No account provisioned")) {
-        // User exists in Supabase but no workspace provisioned in DB
+        // Definitive server answer: user exists in Supabase but no workspace
+        // provisioned in DB. Onboarding is genuinely required.
         setProfile(null);
+        setNeedsOnboarding(true);
         // Redirect to onboarding (skip if this was a silent call — the routing
         // effect owns navigation decisions once loading settles).
         if (!skipRedirect && !pathname.startsWith("/onboarding")) {
           router.push("/onboarding/workspace");
         }
-      } else {
-        // General error or token invalid
-        setProfile(null);
-        if (!skipRedirect && !["/", "/login", "/signup", "/pricing", "/privacy", "/terms"].includes(pathname)) {
-          router.push("/login");
-        }
+        return;
+      }
+      // Anything else is ambiguous: a "Missing bearer token" race right after
+      // the OAuth code exchange (getSession resolving before the new token is
+      // persisted), a transient network/DB blip, etc. Retry once before
+      // giving up — and even then, do NOT mark the user as needing
+      // onboarding; an existing account must never be bounced into
+      // /onboarding/workspace by a blip.
+      if (!isRetry) {
+        await new Promise((resolve) => setTimeout(resolve, 800));
+        return fetchProfile(skipRedirect, true);
+      }
+      setProfile(null);
+      setNeedsOnboarding(false);
+      if (!skipRedirect && !["/", "/login", "/signup", "/pricing", "/privacy", "/terms"].includes(pathname)) {
+        router.push("/login");
       }
     }
   };
@@ -118,6 +132,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await supabase.auth.signOut();
     setUser(null);
     setProfile(null);
+    setNeedsOnboarding(false);
     setWorkspaceName(null);
     setLoading(false);
     router.push("/login");
@@ -151,20 +166,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     initAuth();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (!mounted) return;
 
       if (session) {
         setUser(session.user);
         if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
-          await fetchProfile(true); // skip redirect here
+          // Deferred out of the callback: supabase-js holds its auth lock
+          // while emitting this event, and fetchProfile → api → getSession()
+          // re-enters the client. Calling it synchronously here is the
+          // documented deadlock/empty-token pitfall — the exact "Missing
+          // bearer token" seen right after the OAuth redirect.
+          setTimeout(async () => {
+            if (!mounted) return;
+            await fetchProfile(true); // skip redirect here
+            if (mounted && initializedRef.current) setLoading(false);
+          }, 0);
+          return; // loading settles when the deferred fetch finishes
         }
       } else {
         setUser(null);
         setProfile(null);
+        setNeedsOnboarding(false);
         setWorkspaceName(null);
       }
-      
+
       if (initializedRef.current) {
         setLoading(false);
       }
@@ -203,13 +229,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             router.push("/dashboard");
           }
         }
-      } else {
+      } else if (needsOnboarding) {
+        // Only the server's explicit "No account provisioned" lands here —
+        // a profile that failed to load for any other reason must not push
+        // an existing account into onboarding.
         if (!isPublicPath && !isOnboardingPath) {
           router.push("/onboarding/workspace");
         }
       }
     }
-  }, [user, profile, loading, pathname, router]);
+  }, [user, profile, needsOnboarding, loading, pathname, router]);
 
   const can = (capability: string) =>
     !!profile?.capabilities?.includes(capability);
@@ -219,6 +248,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       value={{
         user,
         profile,
+        needsOnboarding,
         loading,
         workspaceName,
         can,

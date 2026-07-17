@@ -19,8 +19,16 @@ async function request<T = any>(
   path: string,
   options: RequestInit = {}
 ): Promise<T> {
-  // 1. Fetch active session to get the latest token
-  const { data: { session } } = await supabase.auth.getSession();
+  // 1. Fetch active session to get the latest token. Right after an OAuth
+  // redirect the code exchange can still be settling — if no token is
+  // available yet, give it one short beat and re-read before sending an
+  // unauthenticated request (which the server would 401 as "Missing bearer
+  // token" even though the user just signed in).
+  let { data: { session } } = await supabase.auth.getSession();
+  if (!session?.access_token) {
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    ({ data: { session } } = await supabase.auth.getSession());
+  }
   const token = session?.access_token;
 
   // 2. Prepare headers

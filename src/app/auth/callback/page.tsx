@@ -16,7 +16,7 @@ import { toast } from "sonner";
  */
 export default function AuthCallbackPage() {
   const router = useRouter();
-  const { user, profile, loading } = useAuth();
+  const { user, profile, needsOnboarding, loading } = useAuth();
   const [message, setMessage] = useState("Completing sign-in…");
   const [isRecovery, setIsRecovery] = useState(false);
   const failsafeRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -92,12 +92,21 @@ export default function AuthCallbackPage() {
       patienceRef.current = null;
     }
     if (!profile) {
-      router.replace("/onboarding/workspace");
+      if (needsOnboarding) {
+        // Server explicitly said "No account provisioned" — genuinely new.
+        router.replace("/onboarding/workspace");
+      } else {
+        // Signed in but the profile fetch failed (already retried once in
+        // AuthProvider) — transient. Never dump an existing account into
+        // onboarding; send them to login to try again.
+        toast.error("Could not load your workspace. Please sign in again.");
+        router.replace("/login");
+      }
       return;
     }
     const isActive = ["active", "trialing"].includes(profile.subscriptionStatus);
     router.replace(isActive ? "/dashboard" : "/onboarding/plan");
-  }, [isRecovery, loading, user, profile, router]);
+  }, [isRecovery, loading, user, profile, needsOnboarding, router]);
 
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center gap-5 bg-bg-cream">
