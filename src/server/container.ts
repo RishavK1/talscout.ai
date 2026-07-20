@@ -15,6 +15,27 @@ import { MockWhatsAppSender } from "@/server/adapters/mock.whatsapp-sender";
 import { WhatsAppSenderAdapter } from "@/server/adapters/whatsapp.sender";
 import { MockWhatsAppTemplateManager } from "@/server/adapters/mock.whatsapp-template-manager";
 import { WhatsAppTemplateManagerAdapter } from "@/server/adapters/whatsapp.template-manager";
+import {
+  MockBlueprintResearcher,
+  MockBlueprintGenerator,
+} from "@/server/adapters/mock.blueprint";
+import {
+  GeminiBlueprintResearcher,
+  GeminiBlueprintGenerator,
+} from "@/server/adapters/gemini.blueprint";
+import { MockLeadDiscovery } from "@/server/adapters/mock.lead-discovery";
+import { OverpassLeadDiscovery } from "@/server/adapters/overpass.lead-discovery";
+import { GooglePlacesLeadDiscovery } from "@/server/adapters/google-places.lead-discovery";
+import { FallbackLeadDiscovery } from "@/server/adapters/fallback.lead-discovery";
+import { MockEmailFinder } from "@/server/adapters/mock.email-finder";
+import { SiteScrapeEmailFinder } from "@/server/adapters/site-scrape.email-finder";
+import { HunterEmailFinder } from "@/server/adapters/hunter.email-finder";
+import { ApolloEmailFinder } from "@/server/adapters/apollo.email-finder";
+import { WaterfallEmailFinder } from "@/server/adapters/waterfall.email-finder";
+import { MockOutreachCopywriter } from "@/server/adapters/mock.outreach-copywriter";
+import { GeminiOutreachCopywriter } from "@/server/adapters/gemini.outreach-copywriter";
+import { MockReplyDrafter } from "@/server/adapters/mock.reply-drafter";
+import { GeminiReplyDrafter } from "@/server/adapters/gemini.reply-drafter";
 import { InProcessQueue } from "@/server/adapters/inprocess.queue";
 import { ClaudeExtractor } from "@/server/adapters/claude.extractor";
 import { GeminiExtractor } from "@/server/adapters/gemini.extractor";
@@ -53,6 +74,14 @@ import {
   syncWhatsAppTemplates,
   SYNC_WHATSAPP_TEMPLATES_JOB,
 } from "@/server/jobs/sync-whatsapp-templates";
+import {
+  runAutomatedCampaigns,
+  RUN_AUTOMATED_CAMPAIGN_JOB,
+} from "@/server/jobs/run-automated-campaign";
+import {
+  pollAutomatedReplies,
+  POLL_AUTOMATED_REPLIES_JOB,
+} from "@/server/jobs/poll-automated-replies";
 
 let services: Services | null = null;
 
@@ -76,6 +105,12 @@ export function getServices(): Services {
       outreachMailer: new MockOutreachMailer(),
       whatsappSender: new MockWhatsAppSender(),
       whatsappTemplateManager: new MockWhatsAppTemplateManager(),
+      blueprintResearcher: new MockBlueprintResearcher(),
+      blueprintGenerator: new MockBlueprintGenerator(),
+      leadDiscovery: new MockLeadDiscovery(),
+      emailFinder: new MockEmailFinder(),
+      outreachCopywriter: new MockOutreachCopywriter(),
+      replyDrafter: new MockReplyDrafter(),
     };
     queue.register(PARSE_RESUME_JOB, (payload) =>
       parseResume(payload as ParseResumePayload, services as Services),
@@ -117,6 +152,14 @@ export function getServices(): Services {
     queue.register(SYNC_WHATSAPP_TEMPLATES_JOB, () =>
       syncWhatsAppTemplates(services as Services),
     );
+    // Same "no real cron under InProcessQueue" note as above — registered so
+    // a manual enqueue (e.g. from a test) still resolves to a handler.
+    queue.register(RUN_AUTOMATED_CAMPAIGN_JOB, () =>
+      runAutomatedCampaigns(services as Services),
+    );
+    queue.register(POLL_AUTOMATED_REPLIES_JOB, () =>
+      pollAutomatedReplies(services as Services),
+    );
   } else {
     // APP_MODE=live — real services.
     // In serverless production, use InngestQueue to prevent background job freezing.
@@ -152,6 +195,43 @@ export function getServices(): Services {
     // otherwise we degrade gracefully to pure vector order (identity rerank).
     const reranker = env.GEMINI_API_KEY ? new GeminiReranker() : new MockReranker();
 
+    // Blueprint AI runs on Gemini (free tier) when a key is present; without
+    // one we fall back to the deterministic mock so the feature still works
+    // end-to-end (with generic, editable suggestions) rather than 500-ing.
+    const blueprintResearcher = env.GEMINI_API_KEY
+      ? new GeminiBlueprintResearcher()
+      : new MockBlueprintResearcher();
+    const blueprintGenerator = env.GEMINI_API_KEY
+      ? new GeminiBlueprintGenerator()
+      : new MockBlueprintGenerator();
+
+    // Automated outreach: lead discovery is free-by-default (OpenStreetMap,
+    // no key). Google Places is an OPTIONAL, NOT-free last-resort fallback —
+    // constructed and referenced ONLY when GOOGLE_PLACES_API_KEY is set, so
+    // there is no code path that ever touches it without that key present.
+    const overpassDiscovery = new OverpassLeadDiscovery();
+    const leadDiscovery = env.GOOGLE_PLACES_API_KEY
+      ? new FallbackLeadDiscovery(overpassDiscovery, new GooglePlacesLeadDiscovery())
+      : overpassDiscovery;
+
+    // Email finding: free website-scrape first, then Hunter/Apollo free
+    // tiers only if their keys are configured. Each stays free-forever; the
+    // waterfall degrades gracefully with fewer sources if keys are absent.
+    const emailFinder = new WaterfallEmailFinder(
+      [
+        new SiteScrapeEmailFinder(),
+        env.HUNTER_API_KEY ? new HunterEmailFinder() : null,
+        env.APOLLO_API_KEY ? new ApolloEmailFinder() : null,
+      ].filter((f): f is NonNullable<typeof f> => f !== null),
+    );
+
+    const outreachCopywriter = env.GEMINI_API_KEY
+      ? new GeminiOutreachCopywriter()
+      : new MockOutreachCopywriter();
+    const replyDrafter = env.GEMINI_API_KEY
+      ? new GeminiReplyDrafter()
+      : new MockReplyDrafter();
+
     services = {
       storage: new SupabaseStorage(),
       extractor,
@@ -164,6 +244,12 @@ export function getServices(): Services {
       outreachMailer: new OutreachMailerAdapter(),
       whatsappSender: new WhatsAppSenderAdapter(),
       whatsappTemplateManager: new WhatsAppTemplateManagerAdapter(),
+      blueprintResearcher,
+      blueprintGenerator,
+      leadDiscovery,
+      emailFinder,
+      outreachCopywriter,
+      replyDrafter,
     };
 
     if (queue instanceof InProcessQueue) {
@@ -195,6 +281,12 @@ export function getServices(): Services {
       });
       queue.register(SYNC_WHATSAPP_TEMPLATES_JOB, () =>
         syncWhatsAppTemplates(services as Services),
+      );
+      queue.register(RUN_AUTOMATED_CAMPAIGN_JOB, () =>
+        runAutomatedCampaigns(services as Services),
+      );
+      queue.register(POLL_AUTOMATED_REPLIES_JOB, () =>
+        pollAutomatedReplies(services as Services),
       );
     }
   }

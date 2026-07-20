@@ -19,6 +19,8 @@ import {
   type SendOutreachWhatsAppPayload,
 } from "@/server/jobs/send-outreach-whatsapp";
 import { syncWhatsAppTemplates } from "@/server/jobs/sync-whatsapp-templates";
+import { runAutomatedCampaigns } from "@/server/jobs/run-automated-campaign";
+import { pollAutomatedReplies } from "@/server/jobs/poll-automated-replies";
 import { getServices } from "@/server/container";
 import { withTenantTx } from "@/server/db/tx";
 import {
@@ -204,6 +206,37 @@ const syncWhatsAppTemplatesFunction = inngest.createFunction(
   }
 );
 
+/**
+ * Cron-triggered automated-outreach pipeline (discover → enrich → generate →
+ * send) — same no-event, schedule-only pattern as syncWhatsAppTemplatesFunction
+ * above. Fully separate from every Bulk Fire function in this file.
+ */
+const runAutomatedCampaignsFunction = inngest.createFunction(
+  {
+    id: "run-automated-campaigns",
+    name: "Automated Outreach Campaign Run",
+    triggers: [{ cron: "0 0,6,12,18 * * *" }],
+  },
+  async () => {
+    const services = getServices();
+    await runAutomatedCampaigns(services);
+  }
+);
+
+/** Cron-triggered reply poll for automated-outreach campaigns — drafts
+ *  AI replies for human review, never sends anything itself. */
+const pollAutomatedRepliesFunction = inngest.createFunction(
+  {
+    id: "poll-automated-replies",
+    name: "Automated Outreach Reply Poll",
+    triggers: [{ cron: "*/20 * * * *" }],
+  },
+  async () => {
+    const services = getServices();
+    await pollAutomatedReplies(services);
+  }
+);
+
 export const { GET, POST, PUT } = serve({
   client: inngest,
   functions: [
@@ -213,5 +246,7 @@ export const { GET, POST, PUT } = serve({
     fireScheduledCampaignFunction,
     sendOutreachWhatsappFunction,
     syncWhatsAppTemplatesFunction,
+    runAutomatedCampaignsFunction,
+    pollAutomatedRepliesFunction,
   ],
 });

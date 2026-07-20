@@ -1,5 +1,5 @@
 import nodemailer from "nodemailer";
-import { google } from "googleapis";
+import { google, type gmail_v1 } from "googleapis";
 import { getEnv } from "@/server/config/env";
 import type {
   OutreachMailer,
@@ -61,6 +61,84 @@ export class OutreachMailerAdapter implements OutreachMailer {
       return "unknown";
     }
   }
+
+  async getThreadReplyContent(
+    creds: SenderAccountCredentials,
+    args: { gmailThreadId: string; senderEmail: string },
+  ): Promise<{ subject: string; body: string } | null> {
+    // Same fail-quiet posture as threadHasReply above — SMTP/no-read-scope
+    // tokens simply have nothing to fetch, any transient API error means
+    // "nothing to draft yet," never a thrown failure.
+    if (creds.type !== "gmail" || !creds.hasReadScope) return null;
+    try {
+      const gmail = gmailClient(creds.refreshToken);
+      const { data } = await gmail.users.threads.get({
+        userId: "me",
+        id: args.gmailThreadId,
+        format: "full",
+      });
+      const sender = args.senderEmail.toLowerCase();
+      const messages = data.messages ?? [];
+      // Latest message not from us — mirrors threadHasReply's "From doesn't
+      // include senderEmail" check, walked from the end so a multi-reply
+      // thread yields the newest inbound message, not the oldest.
+      for (let i = messages.length - 1; i >= 0; i--) {
+        const m = messages[i];
+        const headers = m.payload?.headers ?? [];
+        const from = headers.find((h) => h.name?.toLowerCase() === "from")?.value;
+        if (!from || from.toLowerCase().includes(sender)) continue;
+        const subject =
+          headers.find((h) => h.name?.toLowerCase() === "subject")?.value ?? "";
+        const body = extractPlainTextBody(m.payload);
+        if (!body) continue;
+        return { subject, body };
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }
+}
+
+/** Walks a Gmail message payload (recursively, for multipart messages)
+ *  preferring text/plain; falls back to text/html stripped to text. Returns
+ *  "" if no readable body part is found. */
+function extractPlainTextBody(
+  payload: gmail_v1.Schema$MessagePart | null | undefined,
+): string {
+  if (!payload) return "";
+  const plain = findPart(payload, "text/plain");
+  if (plain) return decodeBase64Url(plain);
+  const html = findPart(payload, "text/html");
+  if (html) return htmlToText(decodeBase64Url(html));
+  return "";
+}
+
+function findPart(
+  payload: gmail_v1.Schema$MessagePart,
+  mimeType: string,
+): string | null {
+  if (payload.mimeType === mimeType && payload.body?.data) return payload.body.data;
+  for (const part of payload.parts ?? []) {
+    const found = findPart(part, mimeType);
+    if (found) return found;
+  }
+  return null;
+}
+
+function decodeBase64Url(data: string): string {
+  return Buffer.from(data, "base64url").toString("utf8");
+}
+
+function htmlToText(html: string): string {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 async function sendSmtp(

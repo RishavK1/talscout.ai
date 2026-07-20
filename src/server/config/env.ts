@@ -64,6 +64,20 @@ const EnvSchema = z
      *  `senderAccounts.whatsappAccessTokenEnc`. */
     WHATSAPP_APP_SECRET: z.string().optional(),
 
+    /** ---- automated outreach campaign engine (new, opt-in — validated
+     *  lazily by use). All three are free-tier services; none are required
+     *  to run the feature at all — OpenStreetMap discovery + website email
+     *  scraping need no key. Hunter/Apollo top up the email-finder waterfall
+     *  with their free monthly credits when configured. GOOGLE_PLACES_API_KEY
+     *  is the one exception worth flagging: unlike the others it is NOT free
+     *  at scale (requires a Google Cloud billing account, bills past a small
+     *  free threshold) — it's wired in as an optional last-resort discovery
+     *  fallback and is never constructed/called anywhere unless this is
+     *  set. ---- */
+    HUNTER_API_KEY: z.string().optional(),
+    APOLLO_API_KEY: z.string().optional(),
+    GOOGLE_PLACES_API_KEY: z.string().optional(),
+
     /** ---- live-mode tuning (all optional, sensible defaults) ---- */
     ANTHROPIC_MODEL: z.string().default("claude-haiku-4-5"),
     ANTHROPIC_FALLBACK_MODEL: z.string().default("claude-sonnet-4-6"),

@@ -1,0 +1,1 @@
+ALTER TYPE "public"."automated_lead_email_source" ADD VALUE 'osm' BEFORE 'none';

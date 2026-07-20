@@ -25,6 +25,10 @@ const mainNav: Item[] = [
   { href: "/upload", icon: "upload_file", label: "Upload" },
   { href: "/shortlists", icon: "star", label: "Shortlists" },
   { href: "/outreach/bulk-fire", icon: "send", label: "Bulk Fire" },
+  { href: "/blueprints", icon: "description", label: "Blueprints" },
+  { href: "/automated-outreach", icon: "auto_awesome", label: "Automated Outreach" },
+  { href: "/automated-outreach/replies", icon: "forum", label: "Reply Review" },
+  { href: "/analytics", icon: "insights", label: "Analytics" },
 ];
 
 const footerNav: Item[] = [
@@ -135,7 +139,7 @@ function SidebarContent({
         href="/dashboard"
         onClick={onNavigate}
         title={collapsed ? workspaceName || "Workspace" : undefined}
-        className={cn("mb-8 flex items-center gap-3", collapsed && "justify-center")}
+        className={cn("mb-6 flex shrink-0 items-center gap-3", collapsed && "justify-center")}
       >
         {logoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -158,8 +162,10 @@ function SidebarContent({
         </div>
       </Link>
 
-      {/* Main nav */}
-      <div className="flex-1 space-y-1">
+      {/* Main nav — scrolls independently so the growing item list never
+          pushes the footer off-screen or becomes unreachable on short
+          viewports (brand header and footer stay pinned). */}
+      <div className="flex-1 min-h-0 space-y-1 overflow-y-auto overscroll-contain -mx-2 px-2 py-1">
         {mainNav.map((item) => (
           <NavLink
             key={item.href}
@@ -172,7 +178,7 @@ function SidebarContent({
       </div>
 
       {/* Footer */}
-      <div className="mt-auto space-y-1 border-t border-border-low-alpha pt-4">
+      <div className="mt-auto shrink-0 space-y-1 border-t border-border-low-alpha pt-4">
         {profile?.role === "admin" && (
           <button
             type="button"

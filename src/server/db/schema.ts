@@ -89,6 +89,62 @@ export const whatsappTemplateStatus = pgEnum("whatsapp_template_status", [
   "disabled",
 ]);
 
+/** Blueprint = an AI-generated business-context artifact (what you sell, who
+ *  it's for, differentiator, proof, voice, objections). Generated once from a
+ *  guided website-intake wizard and reused to write outreach copy. Fully
+ *  separate from the bulk-fire outreach tables above. */
+export const blueprintStatus = pgEnum("blueprint_status", [
+  "draft",
+  "active",
+  "archived",
+]);
+
+/** Automated outreach campaign engine — blueprint-powered lead discovery,
+ *  email enrichment, AI copywriting, and draft-only AI reply handling.
+ *  Deliberately separate tables from the outreach_* (bulk-fire) tables above:
+ *  no FK either direction except read-only references to tenants,
+ *  blueprints, and senderAccounts, so this feature can never touch bulk-fire
+ *  behavior. */
+export const automatedCampaignStatus = pgEnum("automated_campaign_status", [
+  "draft",
+  "active",
+  "paused",
+  "completed",
+  "error",
+]);
+export const automatedLeadStatus = pgEnum("automated_lead_status", [
+  "discovered",
+  "no_email",
+  "ready",
+  "queued",
+  "sent",
+  "replied",
+  "failed",
+  "skipped",
+]);
+export const automatedLeadEmailSource = pgEnum("automated_lead_email_source", [
+  "site_scrape",
+  "hunter",
+  "apollo",
+  "google_places",
+  /** The business's own OpenStreetMap listing carried an email tag —
+   *  found at discovery time, no enrichment call needed. */
+  "osm",
+  "none",
+]);
+export const automatedSendStatus = pgEnum("automated_send_status", [
+  "scheduled",
+  "sent",
+  "failed",
+  "skipped",
+]);
+export const automatedReplyDraftStatus = pgEnum("automated_reply_draft_status", [
+  "pending",
+  "approved",
+  "rejected",
+  "sent",
+]);
+
 export const tenants = pgTable("tenants", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
@@ -517,6 +573,232 @@ export const whatsappTemplates = pgTable(
   ],
 );
 
+/**
+ * Blueprints — one AI business-context artifact per offer/brand (a workspace
+ * can hold several). `sections` is the generated structured context the email
+ * writer will consume next phase; `intakeAnswers` preserves the raw wizard
+ * answers so a blueprint can be re-generated without re-running the intake.
+ * Deliberately independent of the outreach tables — no FK either direction —
+ * so this feature never touches bulk-fire behavior. Soft-delete via
+ * nullable `deletedAt`, mirroring senderAccounts.
+ */
+export const blueprints = pgTable(
+  "blueprints",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    createdBy: uuid("created_by"),
+    name: text("name").notNull(),
+    websiteUrl: text("website_url"),
+    status: blueprintStatus("status").notNull().default("draft"),
+    /** The generated business-context artifact (whoWeAre, whatWeOffer,
+     *  whoItsFor, differentiator, proof[], personas[], voice, objections[],
+     *  rules[]). Null until the wizard's generate step runs. */
+    sections: jsonb("sections"),
+    /** Raw guided-wizard answers (per-field selections/edits) — kept so
+     *  re-generate can re-run generation from the confirmed intake without
+     *  re-fetching the site. */
+    intakeAnswers: jsonb("intake_answers"),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("blueprints_tenant_idx").on(t.tenantId),
+    uniqueIndex("blueprints_tenant_name_uq").on(t.tenantId, t.name),
+  ],
+);
+
+/**
+ * One automated campaign per blueprint-driven outreach effort. References
+ * `senderAccountId` read-only (no onDelete — that table is soft-delete only,
+ * so this FK never blocks) and `blueprintId` (no onDelete — a campaign must
+ * never silently lose its grounding context).
+ */
+export const automatedCampaigns = pgTable(
+  "automated_campaigns",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    createdBy: uuid("created_by"),
+    blueprintId: uuid("blueprint_id")
+      .notNull()
+      .references(() => blueprints.id),
+    senderAccountId: uuid("sender_account_id")
+      .notNull()
+      .references(() => senderAccounts.id),
+    name: text("name").notNull(),
+    status: automatedCampaignStatus("status").notNull().default("draft"),
+    /** { category, location: { lat, lon, radiusMeters } | { text } } */
+    discoveryQuery: jsonb("discovery_query").notNull(),
+    /** Target of USABLE (email-bearing) leads per cron tick — the pipeline
+     *  fetches a much larger raw candidate pool and keeps enriching until
+     *  this many with-email leads are found or the pool/budget runs out
+     *  (see run-automated-campaign.ts). Independent of the daily SEND cap. */
+    maxLeadsPerRun: integer("max_leads_per_run").notNull().default(25),
+    signatureName: text("signature_name").notNull(),
+    signatureTitle: text("signature_title"),
+    signatureClosing: text("signature_closing").notNull().default("Best regards"),
+    /** Up to 2 example emails used as few-shot style guidance — validated at
+     *  the API layer, stored as string[]. */
+    styleExamples: jsonb("style_examples"),
+    /** Requires the sender to be Gmail with read scope (enforced at create
+     *  time in the service) — SMTP/no-read-scope senders force this false. */
+    replyPollingEnabled: boolean("reply_polling_enabled").notNull().default(true),
+    lastDiscoveryRunAt: timestamp("last_discovery_run_at", { withTimezone: true }),
+    lastReplyPollAt: timestamp("last_reply_poll_at", { withTimezone: true }),
+    errorReason: text("error_reason"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("automated_campaigns_tenant_idx").on(t.tenantId),
+    index("automated_campaigns_status_idx").on(t.status),
+  ],
+);
+
+/**
+ * Businesses discovered for a campaign. `sourcePlaceId` (e.g. "osm:node/123",
+ * "google:ChIJ...") is the discovery-dedup key — a re-run of the discovery
+ * step never inserts the same business twice for the same campaign.
+ */
+export const automatedLeads = pgTable(
+  "automated_leads",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    campaignId: uuid("campaign_id")
+      .notNull()
+      .references(() => automatedCampaigns.id, { onDelete: "cascade" }),
+    sourcePlaceId: text("source_place_id").notNull(),
+    businessName: text("business_name").notNull(),
+    category: text("category"),
+    addressText: text("address_text"),
+    phone: text("phone"),
+    website: text("website"),
+    lat: numeric("lat"),
+    lon: numeric("lon"),
+    status: automatedLeadStatus("status").notNull().default("discovered"),
+    /** Null until the email-finder waterfall succeeds. A lead that never
+     *  gets an email (status "no_email") is terminal — it stays visible for
+     *  transparency but is never eligible for AI copy generation or sending. */
+    email: text("email"),
+    emailSource: automatedLeadEmailSource("email_source").notNull().default("none"),
+    emailConfidence: integer("email_confidence"),
+    notes: text("notes"),
+    discoveredAt: timestamp("discovered_at", { withTimezone: true }).notNull().defaultNow(),
+    enrichedAt: timestamp("enriched_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("automated_leads_tenant_idx").on(t.tenantId),
+    index("automated_leads_campaign_status_idx").on(t.campaignId, t.status),
+    uniqueIndex("automated_leads_campaign_source_uq").on(t.campaignId, t.sourcePlaceId),
+  ],
+);
+
+/**
+ * One row per lead — single-touch, no multi-step sequence (a deliberate
+ * scope cut vs. bulk-fire's Day 0/3/7 sequencing). Sends go through the same
+ * OutreachMailer port bulk-fire uses, same threading discipline.
+ */
+export const automatedSends = pgTable(
+  "automated_sends",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    campaignId: uuid("campaign_id")
+      .notNull()
+      .references(() => automatedCampaigns.id, { onDelete: "cascade" }),
+    leadId: uuid("lead_id")
+      .notNull()
+      .references(() => automatedLeads.id, { onDelete: "cascade" }),
+    senderAccountId: uuid("sender_account_id")
+      .notNull()
+      .references(() => senderAccounts.id),
+    subject: text("subject").notNull(),
+    /** Final text actually sent, signature already appended. */
+    body: text("body").notNull(),
+    status: automatedSendStatus("status").notNull().default("scheduled"),
+    scheduledAt: timestamp("scheduled_at", { withTimezone: true }).notNull(),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    rfc822MessageId: text("rfc822_message_id"),
+    gmailThreadId: text("gmail_thread_id"),
+    errorReason: text("error_reason"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("automated_sends_tenant_idx").on(t.tenantId),
+    index("automated_sends_campaign_idx").on(t.campaignId),
+    /** One email per business per campaign — enforced at the DB level so
+     *  even a concurrent/retried job step can't double-email. */
+    uniqueIndex("automated_sends_campaign_lead_uq").on(t.campaignId, t.leadId),
+    index("automated_sends_gmail_thread_idx").on(t.gmailThreadId),
+    /** Mirrors outreachSends' cap-count query shape exactly (see
+     *  countSentTodayForTenant) for the independent 50/day automated cap. */
+    index("automated_sends_tenant_status_scheduled_idx").on(
+      t.tenantId,
+      t.status,
+      t.scheduledAt,
+    ),
+  ],
+);
+
+/**
+ * AI-drafted replies awaiting human review. Draft-only by construction: this
+ * table has no code path to an actual send except the explicit human-
+ * triggered approve action (see automated-outreach.service.ts). `sendId` is
+ * unique so a repeat poll tick refreshes an existing PENDING draft in place
+ * rather than duplicating — an already-reviewed row is never touched again.
+ */
+export const automatedReplyDrafts = pgTable(
+  "automated_reply_drafts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    campaignId: uuid("campaign_id")
+      .notNull()
+      .references(() => automatedCampaigns.id, { onDelete: "cascade" }),
+    leadId: uuid("lead_id")
+      .notNull()
+      .references(() => automatedLeads.id, { onDelete: "cascade" }),
+    sendId: uuid("send_id")
+      .notNull()
+      .references(() => automatedSends.id, { onDelete: "cascade" }),
+    /** Raw fetched reply content — UNTRUSTED, attacker-controllable. Never
+     *  interpolated into anything executed; only ever displayed as text or
+     *  passed to the AI drafter inside an explicit untrusted-data tag. */
+    inboundSubject: text("inbound_subject"),
+    inboundBody: text("inbound_body").notNull(),
+    draftBody: text("draft_body").notNull(),
+    reasoning: text("reasoning"),
+    confidence: numeric("confidence"),
+    status: automatedReplyDraftStatus("status").notNull().default("pending"),
+    reviewedBy: uuid("reviewed_by"),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    errorReason: text("error_reason"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("automated_reply_drafts_tenant_idx").on(t.tenantId),
+    index("automated_reply_drafts_campaign_idx").on(t.campaignId),
+    index("automated_reply_drafts_tenant_status_idx").on(t.tenantId, t.status),
+    uniqueIndex("automated_reply_drafts_send_uq").on(t.sendId),
+  ],
+);
+
 export const schema = {
   tenants,
   users,
@@ -534,4 +816,9 @@ export const schema = {
   outreachLeads,
   outreachSends,
   whatsappTemplates,
+  blueprints,
+  automatedCampaigns,
+  automatedLeads,
+  automatedSends,
+  automatedReplyDrafts,
 };

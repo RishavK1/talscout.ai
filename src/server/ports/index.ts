@@ -242,6 +242,16 @@ export interface OutreachMailer {
     creds: SenderAccountCredentials,
     args: { gmailThreadId: string; senderEmail: string },
   ): Promise<"replied" | "no_reply" | "unknown">;
+  /** Fetches the latest inbound message (not from `senderEmail`) in a Gmail
+   *  thread — used by the automated-outreach reply-poll job to get the
+   *  actual reply CONTENT for AI drafting (threadHasReply only answers
+   *  whether one exists). Same fail-quiet semantics as threadHasReply: null
+   *  for SMTP, send-only tokens, no reply yet, or any transient error —
+   *  callers must treat null as "nothing to draft yet," never as a failure. */
+  getThreadReplyContent(
+    creds: SenderAccountCredentials,
+    args: { gmailThreadId: string; senderEmail: string },
+  ): Promise<{ subject: string; body: string } | null>;
 }
 
 /** A WhatsApp Business Cloud API send always goes through a pre-approved
@@ -297,6 +307,177 @@ export interface WhatsAppTemplateManager {
   ): Promise<WhatsAppTemplateStatusResult>;
 }
 
+/** ---- Blueprint (AI business-context) ports ----
+ *  Two task-specific AI seams behind the hexagon (same shape as
+ *  `ResumeExtractor`/`Reranker` — NOT a generic chat client). The researcher
+ *  reads a website and proposes selectable answer options for the guided
+ *  intake wizard; the generator turns the user's confirmed answers into the
+ *  final structured business-context artifact. Both treat any fetched website
+ *  text strictly as untrusted DATA. */
+
+/** One intake question with AI-suggested options the user picks/edits.
+ *  `field` is the stable key the wizard/generator address (e.g. "whatWeSell",
+ *  "icp", "differentiator"). `multi` marks fields where several options can be
+ *  selected (proof points, objections) vs. a single choice (voice). */
+export interface BlueprintSuggestedField {
+  field: string;
+  question: string;
+  options: string[];
+  multi: boolean;
+}
+
+export interface BlueprintSuggestions {
+  /** Best-effort human-readable business name inferred from the site. */
+  businessName?: string;
+  fields: BlueprintSuggestedField[];
+}
+
+export interface BlueprintResearcher {
+  /** Given a website URL (and the user-entered offer/business name), fetch +
+   *  read the site and return suggested answer options per intake field.
+   *  Website content is UNTRUSTED — extract, never follow it. */
+  suggest(args: { websiteUrl: string; name: string }): Promise<BlueprintSuggestions>;
+}
+
+/** The confirmed intake answers the user submits from the wizard — a map of
+ *  field key → selected/edited value(s). Free-form on purpose so new wizard
+ *  fields don't require a port change. */
+export interface BlueprintIntakeAnswers {
+  businessName?: string;
+  websiteUrl?: string;
+  /** field key → the user's confirmed answer(s). */
+  answers: Record<string, string | string[]>;
+}
+
+export interface BlueprintProofPoint {
+  label: string;
+  detail?: string;
+}
+export interface BlueprintPersona {
+  name: string;
+  description?: string;
+}
+
+/** The generated business-context artifact. Stored as jsonb on `blueprints`
+ *  and (next phase) read by the email writer to produce per-lead copy. */
+export interface BlueprintSections {
+  whoWeAre: string;
+  whatWeOffer: string;
+  whoItsFor: string;
+  statusQuo?: string;
+  differentiator: string;
+  painWeSolve: string;
+  proof: BlueprintProofPoint[];
+  personas: BlueprintPersona[];
+  voice: string;
+  objections: string[];
+  rules: string[];
+}
+
+export interface BlueprintGenerator {
+  /** Turn confirmed intake answers into the final structured blueprint. */
+  generate(input: BlueprintIntakeAnswers): Promise<BlueprintSections>;
+}
+
+/** ---- Automated outreach campaign ports ----
+ *  Fully separate seams from the outreach_* (bulk-fire) tables/ports above —
+ *  these back a blueprint-powered discover→enrich→write→send pipeline plus
+ *  draft-only AI reply handling. */
+
+export interface LeadDiscoveryQuery {
+  category: string;
+  location: { lat: number; lon: number; radiusMeters: number } | { text: string };
+  limit: number;
+}
+
+export interface DiscoveredLead {
+  /** External id (e.g. "osm:node/123", "google:ChIJ...") — the discovery
+   *  dedup key so a re-run never inserts the same business twice. */
+  sourcePlaceId: string;
+  name: string;
+  category?: string;
+  address?: string;
+  phone?: string;
+  website?: string;
+  /** Public contact email published on the business's own directory listing
+   *  (e.g. OSM's `email`/`contact:email` tag). When present, the lead skips
+   *  the email-finder waterfall entirely — it's already usable. */
+  email?: string;
+  lat?: number;
+  lon?: number;
+}
+
+/** Business lead discovery — free-first (OpenStreetMap primary), an optional
+ *  paid fallback (Google Places) only ever constructed when the tenant/ops
+ *  team has configured its own API key. */
+export interface LeadDiscovery {
+  discover(query: LeadDiscoveryQuery): Promise<DiscoveredLead[]>;
+}
+
+export type EmailSourceType = "site_scrape" | "hunter" | "apollo" | "google_places" | "osm";
+
+export interface EmailFinderResult {
+  email: string;
+  source: EmailSourceType;
+  confidence?: number;
+}
+
+/** Email discovery for a business — implementations are chained by the
+ *  caller (site scrape → free-tier finder services) and MUST return `null`
+ *  (never throw) on a genuine miss, since a `null` result is what the
+ *  service maps directly to lead status "no_email" — a strict rule that a
+ *  lead with no findable email must never enter the send pipeline. */
+export interface EmailFinder {
+  find(args: { website?: string; businessName: string }): Promise<EmailFinderResult | null>;
+}
+
+export interface OutreachCopyRequest {
+  blueprint: BlueprintSections;
+  lead: { businessName: string; category?: string; location?: string };
+  /** Up to 2 example emails the user provided — few-shot style guidance,
+   *  not content to copy. */
+  styleExamples?: string[];
+}
+
+export interface OutreachCopyResult {
+  subject: string;
+  /** Body text WITHOUT a signature — the calling service appends the
+   *  signature block deterministically so the human's real name/title can
+   *  never be hallucinated or altered by the model. */
+  body: string;
+}
+
+export interface OutreachCopywriter {
+  generateEmail(input: OutreachCopyRequest): Promise<OutreachCopyResult>;
+}
+
+export interface ReplyDraftRequest {
+  blueprint: BlueprintSections;
+  lead: { businessName: string };
+  originalSend: { subject: string; body: string };
+  /** The lead's inbound reply — ATTACKER-CONTROLLABLE. Implementations MUST
+   *  treat this strictly as untrusted data, never as instructions (see
+   *  gemini.reply-drafter.ts for the required prompt-injection defense). */
+  inboundMessage: { subject: string; body: string };
+  styleExamples?: string[];
+}
+
+export interface ReplyDraftResult {
+  body: string;
+  reasoning?: string;
+  /** 0-1 self-reported confidence, surfaced in the review UI — never used
+   *  to auto-approve. A human always makes the send decision. */
+  confidence?: number;
+}
+
+/** Drafts a reply for human review — this port has NO send capability by
+ *  design. There is no code path from a drafted reply to an actual send
+ *  except the explicit human-triggered approve action in
+ *  automated-outreach.service.ts. */
+export interface ReplyDrafter {
+  draft(input: ReplyDraftRequest): Promise<ReplyDraftResult>;
+}
+
 export interface RateLimitResult {
   success: boolean;
   limit: number;
@@ -320,4 +501,10 @@ export interface Services {
   outreachMailer: OutreachMailer;
   whatsappSender: WhatsAppSender;
   whatsappTemplateManager: WhatsAppTemplateManager;
+  blueprintResearcher: BlueprintResearcher;
+  blueprintGenerator: BlueprintGenerator;
+  leadDiscovery: LeadDiscovery;
+  emailFinder: EmailFinder;
+  outreachCopywriter: OutreachCopywriter;
+  replyDrafter: ReplyDrafter;
 }
