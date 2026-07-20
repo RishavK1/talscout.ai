@@ -38,7 +38,12 @@ export const senderAccountRepo = {
     return await ctx.tx
       .select()
       .from(senderAccounts)
-      .where(eq(senderAccounts.tenantId, ctx.tenantId))
+      .where(
+        and(
+          eq(senderAccounts.tenantId, ctx.tenantId),
+          isNull(senderAccounts.deletedAt),
+        ),
+      )
       .orderBy(sql`${senderAccounts.createdAt} DESC`);
   },
 
@@ -50,6 +55,7 @@ export const senderAccountRepo = {
         and(
           eq(senderAccounts.tenantId, ctx.tenantId),
           eq(senderAccounts.isActive, true),
+          isNull(senderAccounts.deletedAt),
         ),
       )
       .orderBy(sql`${senderAccounts.createdAt} ASC`);
@@ -69,6 +75,10 @@ export const senderAccountRepo = {
     return row ?? null;
   },
 
+  /** Intentionally NOT filtered by deletedAt — callers use this both to
+   *  reject a duplicate-email create against a live sender AND to find a
+   *  soft-deleted row worth reviving (same email reconnecting) instead of
+   *  colliding with the unique (tenantId, email) index on a fresh insert. */
   async getByEmail(ctx: TenantContext, email: string) {
     const [row] = await ctx.tx
       .select()
@@ -145,10 +155,14 @@ export const senderAccountRepo = {
     return row;
   },
 
-  /** Reconnect path for an already-connected Gmail mailbox: swap in the
-   *  fresh refresh token and record whether this grant carried the read
-   *  scope (reply-stop). Everything else (label, limits, active state) is
-   *  the user's configuration and survives the reconnect. */
+  /** Reconnect path for an already-connected (or previously disconnected)
+   *  Gmail mailbox: swap in the fresh refresh token and record whether this
+   *  grant carried the read scope (reply-stop). Clears deletedAt/re-enables
+   *  isActive so a mailbox that was disconnected and is now being
+   *  reconnected with the same email comes back to life on the SAME row
+   *  (preserving its outreach_sends history) instead of erroring on the
+   *  unique (tenantId, email) index. Everything else (label, limits) is the
+   *  user's configuration and survives either way. */
   async updateGmailCredentials(
     ctx: TenantContext,
     id: string,
@@ -159,6 +173,101 @@ export const senderAccountRepo = {
       .set({
         gmailRefreshTokenEnc: input.gmailRefreshTokenEnc,
         gmailHasReadScope: input.gmailHasReadScope,
+        isActive: true,
+        deletedAt: null,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(senderAccounts.id, id),
+          eq(senderAccounts.tenantId, ctx.tenantId),
+        ),
+      )
+      .returning();
+    return row ?? null;
+  },
+
+  /** Revive path for a soft-deleted SMTP sender reconnecting with the same
+   *  email — same rationale as updateGmailCredentials above. */
+  async reviveSmtp(
+    ctx: TenantContext,
+    id: string,
+    input: {
+      label: string;
+      fromName?: string;
+      dailyLimit?: number;
+      smtpHost: string;
+      smtpPort: number;
+      smtpSecure: boolean;
+      smtpUsername: string;
+      smtpPasswordEnc: string;
+    },
+  ) {
+    const [row] = await ctx.tx
+      .update(senderAccounts)
+      .set({
+        type: "smtp",
+        label: input.label,
+        fromName: input.fromName,
+        dailyLimit: input.dailyLimit,
+        smtpHost: input.smtpHost,
+        smtpPort: input.smtpPort,
+        smtpSecure: input.smtpSecure,
+        smtpUsername: input.smtpUsername,
+        smtpPasswordEnc: input.smtpPasswordEnc,
+        gmailRefreshTokenEnc: null,
+        gmailHasReadScope: false,
+        whatsappPhoneNumberId: null,
+        whatsappWabaId: null,
+        whatsappAccessTokenEnc: null,
+        whatsappDisplayName: null,
+        isActive: true,
+        deletedAt: null,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(senderAccounts.id, id),
+          eq(senderAccounts.tenantId, ctx.tenantId),
+        ),
+      )
+      .returning();
+    return row ?? null;
+  },
+
+  /** Revive path for a soft-deleted WhatsApp sender reconnecting with the
+   *  same phone number — same rationale as updateGmailCredentials above. */
+  async reviveWhatsApp(
+    ctx: TenantContext,
+    id: string,
+    input: {
+      label: string;
+      whatsappPhoneNumberId: string;
+      whatsappWabaId: string;
+      whatsappAccessTokenEnc: string;
+      whatsappDisplayName?: string;
+      dailyLimit?: number;
+    },
+  ) {
+    const [row] = await ctx.tx
+      .update(senderAccounts)
+      .set({
+        type: "whatsapp",
+        label: input.label,
+        dailyLimit: input.dailyLimit,
+        whatsappPhoneNumberId: input.whatsappPhoneNumberId,
+        whatsappWabaId: input.whatsappWabaId,
+        whatsappAccessTokenEnc: input.whatsappAccessTokenEnc,
+        whatsappDisplayName: input.whatsappDisplayName,
+        smtpHost: null,
+        smtpPort: null,
+        smtpSecure: null,
+        smtpUsername: null,
+        smtpPasswordEnc: null,
+        gmailRefreshTokenEnc: null,
+        gmailHasReadScope: false,
+        isActive: true,
+        deletedAt: null,
         updatedAt: new Date(),
       })
       .where(
@@ -214,17 +323,33 @@ export const senderAccountRepo = {
       );
   },
 
+  /** "Disconnect" — soft-delete only. A hard DELETE here used to cascade
+   *  through the FK on outreach_sends.senderAccountId and wipe a campaign's
+   *  entire send history/threading anchors the moment its sender was
+   *  removed (the PixelorCode incident). Scrubbing the credential columns
+   *  means the row can no longer send anything, same practical effect as
+   *  deletion, while everything that references this id (past sends, audit
+   *  logs) keeps resolving. */
   async remove(ctx: TenantContext, id: string) {
-    const deleted = await ctx.tx
-      .delete(senderAccounts)
+    const removed = await ctx.tx
+      .update(senderAccounts)
+      .set({
+        isActive: false,
+        deletedAt: new Date(),
+        smtpPasswordEnc: null,
+        gmailRefreshTokenEnc: null,
+        whatsappAccessTokenEnc: null,
+        updatedAt: new Date(),
+      })
       .where(
         and(
           eq(senderAccounts.id, id),
           eq(senderAccounts.tenantId, ctx.tenantId),
+          isNull(senderAccounts.deletedAt),
         ),
       )
       .returning({ id: senderAccounts.id });
-    return deleted.length > 0;
+    return removed.length > 0;
   },
 
   /** Active accounts matching the given ids, tenant-scoped. Ids that don't
@@ -239,6 +364,7 @@ export const senderAccountRepo = {
         and(
           eq(senderAccounts.tenantId, ctx.tenantId),
           eq(senderAccounts.isActive, true),
+          isNull(senderAccounts.deletedAt),
           inArray(senderAccounts.id, ids),
         ),
       )

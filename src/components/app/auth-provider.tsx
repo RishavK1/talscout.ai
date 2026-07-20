@@ -49,7 +49,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
 
-  const fetchProfile = async (skipRedirect = false, isRetry = false) => {
+  const fetchProfile = async (skipRedirect = false, attempt = 0) => {
     try {
       const data = await api.get<{
         userId: string;
@@ -91,9 +91,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
     } catch (err) {
+      // Backoff schedule for BOTH branches below — a stale/racy client-side
+      // session right after a fresh OAuth redirect (logout, then sign back
+      // in) can make even a genuine account transiently look unprovisioned
+      // or unreachable. Re-confirm before committing to either terminal
+      // action instead of trusting the very first response.
+      const RETRY_DELAYS_MS = [700, 1500];
+      if (attempt < RETRY_DELAYS_MS.length) {
+        await new Promise((resolve) => setTimeout(resolve, RETRY_DELAYS_MS[attempt]));
+        return fetchProfile(skipRedirect, attempt + 1);
+      }
+
       if (err instanceof ApiError && err.status === 401 && err.message.includes("No account provisioned")) {
-        // Definitive server answer: user exists in Supabase but no workspace
-        // provisioned in DB. Onboarding is genuinely required.
+        // Server said this on every attempt across the retry window —
+        // genuinely a new account. Onboarding is the right destination.
         setProfile(null);
         setNeedsOnboarding(true);
         // Redirect to onboarding (skip if this was a silent call — the routing
@@ -105,14 +116,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       // Anything else is ambiguous: a "Missing bearer token" race right after
       // the OAuth code exchange (getSession resolving before the new token is
-      // persisted), a transient network/DB blip, etc. Retry once before
-      // giving up — and even then, do NOT mark the user as needing
-      // onboarding; an existing account must never be bounced into
+      // persisted), a transient network/DB blip, etc. Do NOT mark the user as
+      // needing onboarding; an existing account must never be bounced into
       // /onboarding/workspace by a blip.
-      if (!isRetry) {
-        await new Promise((resolve) => setTimeout(resolve, 800));
-        return fetchProfile(skipRedirect, true);
-      }
       setProfile(null);
       setNeedsOnboarding(false);
       if (!skipRedirect && !["/", "/login", "/signup", "/pricing", "/privacy", "/terms"].includes(pathname)) {

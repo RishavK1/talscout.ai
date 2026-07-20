@@ -943,12 +943,37 @@ export const outreachService = {
 
   async createSmtpSender(ctx: TenantContext, body: CreateSmtpSenderBody) {
     await billingService.assertCapability(ctx, "outreach_bulk_fire");
-    await assertSenderCapacity(ctx);
 
     const existing = await senderAccountRepo.getByEmail(ctx, body.email);
-    if (existing)
+    if (existing && !existing.deletedAt)
       throw new Conflict("A sender account with this email already exists");
 
+    // A soft-deleted row with the same email is a previously-disconnected
+    // sender — revive it in place (same rationale as the Gmail reconnect
+    // path) instead of inserting a new row, which would collide with the
+    // unique (tenantId, email) index and would otherwise lose whatever
+    // outreach_sends history still references the old id.
+    if (existing) {
+      const revived = await senderAccountRepo.reviveSmtp(ctx, existing.id, {
+        label: body.label,
+        fromName: body.fromName,
+        dailyLimit: body.dailyLimit,
+        smtpHost: body.smtpHost,
+        smtpPort: body.smtpPort,
+        smtpSecure: body.smtpSecure,
+        smtpUsername: body.smtpUsername,
+        smtpPasswordEnc: encryptSecret(body.smtpPassword),
+      });
+      await auditRepo.log(ctx, {
+        action: "outreach.sender.create_smtp",
+        targetType: "sender_account",
+        targetId: existing.id,
+        metadata: { revived: true },
+      });
+      return toPublicSender(revived!);
+    }
+
+    await assertSenderCapacity(ctx);
     const sender = await senderAccountRepo.createSmtp(ctx, {
       label: body.label,
       email: body.email,
@@ -971,12 +996,32 @@ export const outreachService = {
   async createWhatsAppSender(ctx: TenantContext, body: CreateWhatsAppSenderBody) {
     await billingService.assertCapability(ctx, "outreach_bulk_fire");
     await billingService.assertCapability(ctx, "whatsapp_channel");
-    await assertSenderCapacity(ctx);
 
     const existing = await senderAccountRepo.getByEmail(ctx, body.phoneNumber);
-    if (existing)
+    if (existing && !existing.deletedAt)
       throw new Conflict("A sender account with this phone number already exists");
 
+    // See createSmtpSender above — revive a soft-deleted row instead of
+    // inserting a new one.
+    if (existing) {
+      const revived = await senderAccountRepo.reviveWhatsApp(ctx, existing.id, {
+        label: body.label,
+        whatsappPhoneNumberId: body.whatsappPhoneNumberId,
+        whatsappWabaId: body.whatsappWabaId,
+        whatsappAccessTokenEnc: encryptSecret(body.whatsappAccessToken),
+        whatsappDisplayName: body.whatsappDisplayName,
+        dailyLimit: body.dailyLimit,
+      });
+      await auditRepo.log(ctx, {
+        action: "outreach.sender.create_whatsapp",
+        targetType: "sender_account",
+        targetId: existing.id,
+        metadata: { revived: true },
+      });
+      return toPublicSender(revived!);
+    }
+
+    await assertSenderCapacity(ctx);
     const sender = await senderAccountRepo.createWhatsApp(ctx, {
       label: body.label,
       phoneNumber: body.phoneNumber,
@@ -1057,7 +1102,7 @@ export const outreachService = {
     isActive: boolean,
   ) {
     const sender = await senderAccountRepo.getById(ctx, senderId);
-    if (!sender) throw new NotFound("Sender account not found");
+    if (!sender || sender.deletedAt) throw new NotFound("Sender account not found");
     await senderAccountRepo.setActive(ctx, senderId, isActive);
     return { id: senderId, isActive };
   },

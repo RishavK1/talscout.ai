@@ -335,6 +335,13 @@ export const senderAccounts = pgTable(
     whatsappWabaId: text("whatsapp_waba_id"),
     whatsappAccessTokenEnc: text("whatsapp_access_token_enc"),
     whatsappDisplayName: text("whatsapp_display_name"),
+    /** Soft-delete marker. "Disconnect" in the UI sets this (and scrubs the
+     *  credential columns above) instead of hard-deleting the row — the row
+     *  used to be DELETEd outright, which cascade-deleted every outreach_send
+     *  that referenced it (see the FK below) and wiped a campaign's entire
+     *  send history/threading anchors out from under it. Null means active
+     *  (subject to isActive for pause/resume); non-null means disconnected. */
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
