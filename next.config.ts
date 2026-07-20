@@ -8,10 +8,9 @@ const nextConfig: NextConfig = {
       {
         source: "/:path*",
         headers: [
-          {
-            key: "Content-Security-Policy",
-            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.supabase.co; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https://*.supabase.co; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://*.inngest.com; frame-ancestors 'none';",
-          },
+          // Content-Security-Policy is set per-request in src/proxy.ts instead
+          // of here — it needs a fresh nonce on every request, which a static
+          // next.config header can't generate.
           {
             key: "Strict-Transport-Security",
             value: "max-age=31536000; includeSubDomains; preload",

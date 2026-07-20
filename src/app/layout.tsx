@@ -80,6 +80,14 @@ export const metadata: Metadata = {
 
 import { AuthProvider } from "@/components/app/auth-provider";
 
+// Nonce-based CSP (src/proxy.ts) requires every page to be dynamically
+// rendered — a statically-generated page has no request to read a nonce
+// from, so Next's own framework scripts would render without one and get
+// blocked by the browser. The whole app is already per-user/authenticated
+// beyond the handful of marketing pages, so there's little static-caching
+// upside being traded away here.
+export const dynamic = "force-dynamic";
+
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
