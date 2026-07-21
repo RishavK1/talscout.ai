@@ -10,6 +10,9 @@ import { useAuth } from "@/components/app/auth-provider";
 
 import { TopAppBar } from "@/components/app/top-app-bar";
 import { SpotlightCard } from "@/components/marketing/spotlight-card";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 
 interface Shortlist {
   id: string;
@@ -24,7 +27,7 @@ export default function ShortlistsPage() {
   const [shortlists, setShortlists] = useState<Shortlist[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  
+
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newShortlistName, setNewShortlistName] = useState("");
@@ -92,10 +95,12 @@ export default function ShortlistsPage() {
                 <input value={search} onChange={e => setSearch(e.target.value)} className="bg-surface-container-low border-none rounded-full px-10 py-2 w-full sm:w-64 text-label-md focus:ring-1 focus:ring-primary transition-all" placeholder="Search shortlists..." type="text" />
                 <span className="material-symbols-outlined absolute left-3 top-2.5 text-outline text-[20px]">search</span>
               </div>
-              <Link href="/upload" className="flex items-center gap-2 bg-gradient-to-br from-primary-container to-primary text-on-primary px-5 py-2.5 rounded-lg font-label-md shadow-floating transition-all hover:-translate-y-0.5 active:scale-[0.97]">
-                <span className="material-symbols-outlined text-sm">upload</span>
-                + Upload résumés
-              </Link>
+              <Button asChild variant="gradient" className="whitespace-nowrap">
+                <Link href="/upload">
+                  <span className="material-symbols-outlined text-sm">upload</span>
+                  + Upload résumés
+                </Link>
+              </Button>
               <div className="flex items-center gap-3 pl-4 border-l border-border-low-alpha">
                 <div className="w-10 h-10 rounded-full overflow-hidden border border-border-low-alpha bg-surface-container-highest flex items-center justify-center text-primary font-headline-md">
                   {avatarUrl ? (
@@ -112,33 +117,34 @@ export default function ShortlistsPage() {
         {/* Main Body */}
         <div className="p-4 sm:p-6 lg:p-12 max-w-[1440px] mx-auto w-full flex-1">
           {/* Page Header Section */}
-          <section className="relative overflow-hidden rounded-2xl bg-aurora-soft p-6 mb-12">
-            <div className="pointer-events-none absolute -right-12 -top-12 h-48 w-48 rounded-full bg-tertiary-fixed/15 blur-3xl" />
-            <div className="relative flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-primary-container to-primary text-on-primary shadow-sm shrink-0">
-                  <span className="material-symbols-outlined text-[22px]">bookmarks</span>
+          <Card className="mb-12 [--card-spacing:--spacing(6)]">
+            <CardContent>
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-container/10 text-primary-container shrink-0">
+                    <span className="material-symbols-outlined text-[22px]">bookmarks</span>
+                  </div>
+                  <div className="space-y-1">
+                    <h2 className="font-headline-lg text-headline-lg text-on-surface">Shortlists</h2>
+                    <p className="text-text-muted font-body-md max-w-lg">Manage your curated candidate pools and AI-driven talent matches for ongoing hiring campaigns.</p>
+                  </div>
                 </div>
-                <div className="space-y-1">
-                  <h2 className="font-headline-lg text-headline-lg text-on-surface">Shortlists</h2>
-                  <p className="text-text-muted font-body-md max-w-lg">Manage your curated candidate pools and AI-driven talent matches for ongoing hiring campaigns.</p>
-                </div>
+                <Button type="button" variant="gradient" size="lg" onClick={handleOpenModal} className="gap-2">
+                  <span className="material-symbols-outlined">add_circle</span>
+                  + New shortlist
+                </Button>
               </div>
-              <button type="button" onClick={handleOpenModal} className="bg-gradient-to-br from-primary-container to-primary text-on-primary px-6 py-3 rounded-lg font-label-md shadow-floating transition-all hover:-translate-y-0.5 active:scale-[0.97] flex items-center gap-2">
-                <span className="material-symbols-outlined">add_circle</span>
-                + New shortlist
-              </button>
-            </div>
-          </section>
+            </CardContent>
+          </Card>
           {/* Bento/Grid Content */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {/* Create New Shortlist Card */}
-            <div onClick={handleOpenModal} className="group border-2 border-dashed border-border-low-alpha rounded-[20px] p-8 flex flex-col items-center justify-center text-center space-y-4 cursor-pointer hover:border-primary/30 hover:bg-white/50 transition-all duration-300 min-h-[280px]">
+            <div onClick={handleOpenModal} className="group border-2 border-dashed border-border-low-alpha rounded-xl p-8 flex flex-col items-center justify-center text-center space-y-4 cursor-pointer hover:border-primary/30 hover:bg-white/50 transition-all duration-300 min-h-[280px]">
               <div className="w-14 h-14 rounded-full bg-surface-container-low flex items-center justify-center group-hover:bg-primary/10 transition-colors">
                 <span className="material-symbols-outlined text-primary text-[32px]">add</span>
               </div>
               <div>
-                <h4 className="font-headline-md text-[18px] text-on-surface">Create New Shortlist</h4>
+                <h4 className="font-semibold text-[18px] text-on-surface">Create New Shortlist</h4>
                 <p className="text-text-muted font-label-md mt-1">Start a fresh talent pool for a new role</p>
               </div>
             </div>
@@ -149,28 +155,32 @@ export default function ShortlistsPage() {
                 Loading shortlists...
               </div>
             ) : filtered.map(s => (
-              <SpotlightCard key={s.id} className="glass-card rounded-[20px] group hover:-translate-y-1 transition-all duration-300">
-                <Link href={`/shortlists/${s.id}`} className="p-8 flex flex-col justify-between h-full">
-                  <div>
-                    <div className="flex justify-between items-start mb-6">
-                      <h3 className="font-headline-md text-[20px] text-on-surface leading-snug">{s.name}</h3>
-                      <span className="text-text-muted group-hover:text-on-surface transition-colors">
-                        <span className="material-symbols-outlined">more_vert</span>
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2 mb-8">
-                      <span className="brass-pill inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium">General</span>
-                      <span className="text-text-muted font-label-md">• {s.candidateCount} candidates</span>
-                    </div>
-                  </div>
-                  <div className="space-y-6">
-                    <div className="flex justify-between items-center pt-4 border-t border-border-low-alpha">
-                      <span className="font-data-mono text-[12px] text-text-muted">
-                        Last updated: {s.lastUpdated ? new Date(s.lastUpdated).toLocaleDateString() : "Never"}
-                      </span>
-                      <span className="material-symbols-outlined text-primary text-[20px] opacity-0 group-hover:opacity-100 transition-opacity">arrow_forward</span>
-                    </div>
-                  </div>
+              <SpotlightCard key={s.id} className="group">
+                <Link href={`/shortlists/${s.id}`} className="block h-full">
+                  <Card className="h-full [--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
+                    <CardContent className="flex h-full flex-col justify-between">
+                      <div>
+                        <div className="flex justify-between items-start mb-6">
+                          <h3 className="font-semibold text-[20px] text-on-surface leading-snug">{s.name}</h3>
+                          <span className="text-text-muted group-hover:text-on-surface transition-colors">
+                            <span className="material-symbols-outlined">more_vert</span>
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 mb-8">
+                          <Badge variant="outline" className="rounded-full border-transparent bg-[#ffe08e] text-[#735a00]">General</Badge>
+                          <span className="text-text-muted font-label-md">• {s.candidateCount} candidates</span>
+                        </div>
+                      </div>
+                      <div className="space-y-6">
+                        <div className="flex justify-between items-center pt-4 border-t border-border-low-alpha">
+                          <span className="font-data-mono text-[12px] text-text-muted">
+                            Last updated: {s.lastUpdated ? new Date(s.lastUpdated).toLocaleDateString() : "Never"}
+                          </span>
+                          <span className="material-symbols-outlined text-primary text-[20px] opacity-0 group-hover:opacity-100 transition-opacity">arrow_forward</span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
                 </Link>
               </SpotlightCard>
             ))}
@@ -234,21 +244,20 @@ export default function ShortlistsPage() {
             />
           </div>
           <div className="flex justify-end gap-3 pt-2">
-            <button
+            <Button
               type="button"
+              variant="outline"
               onClick={() => setIsModalOpen(false)}
               disabled={creating}
-              className="rounded-lg border border-outline px-5 py-2.5 font-label-md text-primary transition-colors hover:bg-surface-container-low"
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
               disabled={creating || !newShortlistName.trim()}
-              className="rounded-lg bg-primary px-5 py-2.5 font-label-md text-on-primary transition-colors hover:bg-primary-container active:scale-[0.98] flex items-center gap-2 disabled:opacity-50"
             >
               {creating ? "Creating..." : "Create Shortlist"}
-            </button>
+            </Button>
           </div>
         </form>
       </Modal>

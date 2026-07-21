@@ -7,6 +7,11 @@ import { AppShell } from "@/components/app/app-shell";
 import { TopAppBar } from "@/components/app/top-app-bar";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
+import { StatusBadge } from "@/components/ui/status-badge";
 
 interface ApiCandidate {
   id: string;
@@ -33,16 +38,31 @@ interface Candidate {
 }
 
 const SKILL_PLAIN =
-  "px-2 py-0.5 rounded bg-surface-container text-on-surface-variant border border-border-low-alpha font-label-md text-[12px]";
+  "rounded bg-surface-container text-on-surface-variant border-border-low-alpha font-label-md text-[12px]";
 const SKILL_SECONDARY =
-  "px-2 py-0.5 rounded bg-secondary-container/20 text-on-secondary-container border border-secondary-container/30 font-label-md text-[12px]";
+  "rounded bg-secondary-container/20 text-on-secondary-container border-secondary-container/30 font-label-md text-[12px]";
 const SKILL_TERTIARY =
-  "px-2 py-0.5 rounded bg-tertiary-fixed/40 text-on-tertiary-fixed-variant border border-tertiary-fixed font-label-md text-[12px]";
+  "rounded bg-tertiary-fixed/40 text-on-tertiary-fixed-variant border-tertiary-fixed font-label-md text-[12px]";
 
 function getSkillBadgeClass(index: number) {
   if (index % 3 === 0) return SKILL_SECONDARY;
   if (index % 3 === 1) return SKILL_TERTIARY;
   return SKILL_PLAIN;
+}
+
+function CandidateStatusBadge({ status }: { status: Candidate["status"] }) {
+  if (status === "Ready") {
+    return <StatusBadge tone="active">Ready</StatusBadge>;
+  }
+  if (status === "Processing") {
+    return (
+      <StatusBadge tone="invited" dot={false} className="gap-1.5">
+        <span className="material-symbols-outlined animate-spin text-[14px]">sync</span>
+        AI Processing
+      </StatusBadge>
+    );
+  }
+  return <StatusBadge tone="error">Error</StatusBadge>;
 }
 
 export default function ShortlistDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -111,18 +131,87 @@ export default function ShortlistDetailPage({ params }: { params: Promise<{ id: 
   if (notFound) {
     return (
       <AppShell>
-        <main className="relative flex min-h-screen flex-col items-center justify-center gap-4 overflow-hidden bg-aurora-soft p-12 text-center">
-          <div className="pointer-events-none absolute left-1/2 top-1/3 h-64 w-64 -translate-x-1/2 rounded-full bg-tertiary-fixed/15 blur-3xl" />
-          <span className="material-symbols-outlined relative z-10 text-[48px] text-on-surface-variant">search_off</span>
-          <h1 className="relative z-10 font-headline-lg text-headline-lg text-primary">Shortlist not found</h1>
-          <p className="relative z-10 font-body-md text-on-surface-variant">It may have been deleted, or you may not have access to it.</p>
-          <Link href="/shortlists" className="relative z-10 rounded-lg bg-gradient-to-br from-primary-container to-primary px-5 py-2.5 font-label-md text-on-primary shadow-floating transition-all hover:-translate-y-0.5 active:scale-[0.97]">
-            Back to Shortlists
-          </Link>
+        <main className="flex min-h-screen flex-col items-center justify-center p-4 sm:p-12">
+          <Card className="max-w-md [--card-spacing:--spacing(8)]">
+            <CardContent className="flex flex-col items-center gap-4 text-center">
+              <span className="material-symbols-outlined text-[48px] text-on-surface-variant">search_off</span>
+              <h1 className="font-headline-lg text-headline-lg text-primary">Shortlist not found</h1>
+              <p className="font-body-md text-on-surface-variant">It may have been deleted, or you may not have access to it.</p>
+              <Button asChild variant="gradient">
+                <Link href="/shortlists">Back to Shortlists</Link>
+              </Button>
+            </CardContent>
+          </Card>
         </main>
       </AppShell>
     );
   }
+
+  const columns: DataTableColumn<Candidate>[] = [
+    {
+      key: "candidate",
+      header: "Candidate",
+      render: (c) => (
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-container font-headline-md text-on-primary shrink-0">
+            {c.initials}
+          </div>
+          <div>
+            <div className="font-label-md text-label-md font-semibold text-primary">{c.name}</div>
+            <div className="font-body-md text-[13px] text-on-surface-variant">{c.email}</div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "title",
+      header: "Title",
+      render: (c) => <span className="text-[14px] text-on-surface">{c.title}</span>,
+    },
+    {
+      key: "location",
+      header: "Location",
+      render: (c) => <span className="text-[14px] text-on-surface-variant">{c.location}</span>,
+    },
+    {
+      key: "skills",
+      header: "Top Skills",
+      render: (c) => (
+        <div className="flex flex-wrap gap-1.5">
+          {c.skills.slice(0, 3).map((skill, i) => (
+            <Badge key={skill} variant="outline" className={getSkillBadgeClass(i)}>{skill}</Badge>
+          ))}
+          {c.skills.length > 3 && <Badge variant="outline" className={SKILL_PLAIN}>+{c.skills.length - 3}</Badge>}
+        </div>
+      ),
+    },
+    {
+      key: "status",
+      header: "Status",
+      render: (c) => <CandidateStatusBadge status={c.status} />,
+    },
+    {
+      key: "actions",
+      header: "",
+      cellClassName: "text-right",
+      render: (c) => (
+        <div onClick={(e) => e.stopPropagation()}>
+          <button
+            type="button"
+            disabled={removingId === c.id}
+            onClick={() => handleRemove(c.id, c.name)}
+            className="rounded-lg p-2 text-on-surface-variant transition-colors hover:bg-error/10 hover:text-error disabled:opacity-50"
+            aria-label={`Remove ${c.name} from shortlist`}
+            title="Remove from shortlist"
+          >
+            <span className="material-symbols-outlined text-[20px]">
+              {removingId === c.id ? "sync" : "close"}
+            </span>
+          </button>
+        </div>
+      ),
+    },
+  ];
 
   return (
     <AppShell>
@@ -135,114 +224,54 @@ export default function ShortlistDetailPage({ params }: { params: Promise<{ id: 
           </div>
         }
         rightContent={
-          <Link href="/upload" className="bg-gradient-to-br from-primary-container to-primary text-on-primary px-5 py-2.5 rounded-lg font-label-md text-label-md shadow-floating transition-all hover:-translate-y-0.5 active:scale-[0.97] whitespace-nowrap">
-            + Upload résumés
-          </Link>
+          <Button asChild variant="gradient" className="whitespace-nowrap">
+            <Link href="/upload">+ Upload résumés</Link>
+          </Button>
         }
       />
       <main className="mx-auto max-w-[1160px] p-4 sm:p-6 lg:p-12 min-h-screen">
-        <div className="relative overflow-hidden rounded-2xl bg-aurora-soft mb-8 p-4 sm:p-6">
-          <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-tertiary-fixed/15 blur-3xl" />
-          <div className="relative flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-            <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-primary-container to-primary text-on-primary shadow-sm shrink-0">
-                <span className="material-symbols-outlined text-[22px]">bookmark</span>
-              </div>
-              <div>
-                <h1 className="font-headline-lg text-headline-lg text-primary mb-1">{shortlistName || "Shortlist"}</h1>
-                <p className="font-body-md text-body-md text-on-surface-variant">
-                  {loading ? "Loading..." : `${candidates.length} candidate${candidates.length === 1 ? "" : "s"} in this shortlist.`}
-                </p>
+        <Card className="mb-8 [--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
+          <CardContent>
+            <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+              <div className="flex items-center gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-container/10 text-primary-container shrink-0">
+                  <span className="material-symbols-outlined text-[22px]">bookmark</span>
+                </div>
+                <div>
+                  <h1 className="font-headline-lg text-headline-lg text-primary mb-1">{shortlistName || "Shortlist"}</h1>
+                  <p className="font-body-md text-body-md text-on-surface-variant">
+                    {loading ? "Loading..." : `${candidates.length} candidate${candidates.length === 1 ? "" : "s"} in this shortlist.`}
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
-        <div className="glass-card overflow-hidden overflow-x-auto rounded-xl">
-          {loading ? (
-            <div className="flex items-center justify-center py-24 font-body-md text-on-surface-variant">
-              <span className="material-symbols-outlined mr-2 animate-spin">sync</span> Loading shortlist...
-            </div>
-          ) : candidates.length === 0 ? (
-            <div className="relative overflow-hidden flex flex-col items-center justify-center gap-3 py-24 text-center bg-aurora-soft">
-              <div className="pointer-events-none absolute -top-10 left-1/2 h-40 w-40 -translate-x-1/2 rounded-full bg-tertiary-fixed/20 blur-3xl" />
-              <span className="material-symbols-outlined relative z-10 text-[40px] text-on-surface-variant">group_off</span>
-              <p className="relative z-10 font-body-md text-on-surface-variant">No candidates in this shortlist yet.</p>
-              <Link href="/candidates" className="relative z-10 font-label-md text-primary hover:underline">
-                Browse candidates to add some →
-              </Link>
-            </div>
-          ) : (
-            <table className="w-full min-w-[720px] border-collapse text-left">
-              <thead>
-                <tr className="border-b border-border-low-alpha bg-bg-cream/50">
-                  <th className="py-4 pl-6 pr-3 font-label-md text-label-md text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">Candidate</th>
-                  <th className="py-4 px-3 font-label-md text-label-md text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">Title</th>
-                  <th className="py-4 px-3 font-label-md text-label-md text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">Location</th>
-                  <th className="py-4 px-3 font-label-md text-label-md text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">Top Skills</th>
-                  <th className="py-4 px-3 font-label-md text-label-md text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">Status</th>
-                  <th className="py-4 pl-3 pr-6 font-label-md text-label-md text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border-low-alpha">
-                {candidates.map((c) => (
-                  <tr key={c.id} className="group cursor-pointer transition-colors hover:bg-bg-cream/30" onClick={() => router.push(`/candidates/${c.id}`)}>
-                    <td className="py-4 pl-6 pr-3">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-primary-container to-primary font-headline-md text-on-primary shadow-sm">
-                          {c.initials}
-                        </div>
-                        <div>
-                          <div className="font-label-md text-label-md font-semibold text-primary transition-colors group-hover:text-tertiary-container">{c.name}</div>
-                          <div className="font-body-md text-[13px] text-on-surface-variant">{c.email}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="py-4 px-3 font-body-md text-[14px] text-on-surface">{c.title}</td>
-                    <td className="py-4 px-3 font-body-md text-[14px] text-on-surface-variant">{c.location}</td>
-                    <td className="py-4 px-3">
-                      <div className="flex flex-wrap gap-1.5">
-                        {c.skills.slice(0, 3).map((skill, i) => (
-                          <span key={skill} className={getSkillBadgeClass(i)}>{skill}</span>
-                        ))}
-                        {c.skills.length > 3 && <span className={SKILL_PLAIN}>+{c.skills.length - 3}</span>}
-                      </div>
-                    </td>
-                    <td className="py-4 px-3">
-                      {c.status === "Ready" ? (
-                        <span className="status-pill-active inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-label-md text-[12px]">
-                          <span className="h-1.5 w-1.5 rounded-full bg-tertiary-fixed-dim" /> Ready
-                        </span>
-                      ) : c.status === "Processing" ? (
-                        <span className="status-pill-invited inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-label-md text-[12px]">
-                          <span className="material-symbols-outlined animate-spin text-[14px]">sync</span> AI Processing
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1.5 rounded-full bg-error/10 px-2.5 py-1 font-label-md text-[12px] text-error">
-                          <span className="h-1.5 w-1.5 rounded-full bg-error" /> Error
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-4 pl-3 pr-6 text-right" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        type="button"
-                        disabled={removingId === c.id}
-                        onClick={() => handleRemove(c.id, c.name)}
-                        className="rounded-lg p-2 text-on-surface-variant transition-colors hover:bg-error/10 hover:text-error disabled:opacity-50"
-                        aria-label={`Remove ${c.name} from shortlist`}
-                        title="Remove from shortlist"
-                      >
-                        <span className="material-symbols-outlined text-[20px]">
-                          {removingId === c.id ? "sync" : "close"}
-                        </span>
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
+        <Card className="overflow-hidden">
+          <CardContent className="overflow-x-auto p-0">
+            {loading ? (
+              <div className="flex items-center justify-center py-24 font-body-md text-on-surface-variant">
+                <span className="material-symbols-outlined mr-2 animate-spin">sync</span> Loading shortlist...
+              </div>
+            ) : candidates.length === 0 ? (
+              <div className="flex flex-col items-center justify-center gap-3 py-24 text-center">
+                <span className="material-symbols-outlined text-[40px] text-on-surface-variant">group_off</span>
+                <p className="font-body-md text-on-surface-variant">No candidates in this shortlist yet.</p>
+                <Link href="/candidates" className="font-label-md text-primary hover:underline">
+                  Browse candidates to add some →
+                </Link>
+              </div>
+            ) : (
+              <DataTable
+                columns={columns}
+                rows={candidates}
+                getRowKey={(c) => c.id}
+                onRowClick={(c) => router.push(`/candidates/${c.id}`)}
+              />
+            )}
+          </CardContent>
+        </Card>
       </main>
     </AppShell>
   );

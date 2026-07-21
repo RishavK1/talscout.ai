@@ -7,6 +7,11 @@ import { AppShell } from "@/components/app/app-shell";
 import { TopAppBar } from "@/components/app/top-app-bar";
 import { api, ApiError } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardHeader, CardTitle, CardAction, CardContent } from "@/components/ui/card";
+import { StatusBadge, type StatusBadgeProps } from "@/components/ui/status-badge";
+import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 
 interface AutomatedCampaign {
   id: string;
@@ -30,28 +35,39 @@ interface AutomatedLead {
   discoveredAt: string;
 }
 
-const CAMPAIGN_STATUS_META: Record<
-  AutomatedCampaign["status"],
-  { label: string; dot: string; chip: string }
-> = {
-  draft: { label: "Draft", dot: "bg-outline", chip: "bg-surface-container-high text-on-surface-variant border border-border-low-alpha" },
-  active: { label: "Active", dot: "bg-tertiary-container", chip: "status-pill-active border border-tertiary-fixed/40 shadow-sm" },
-  paused: { label: "Paused", dot: "bg-on-secondary-container", chip: "status-pill-invited border border-secondary-fixed-dim/40 shadow-sm" },
-  completed: { label: "Completed", dot: "bg-outline", chip: "bg-surface-container-high text-on-surface-variant border border-border-low-alpha" },
-  error: { label: "Error", dot: "bg-error", chip: "bg-error-container text-on-error-container border border-error/20 shadow-sm" },
+const CAMPAIGN_STATUS_TONE: Record<AutomatedCampaign["status"], NonNullable<StatusBadgeProps["tone"]>> = {
+  draft: "draft",
+  active: "active",
+  paused: "invited",
+  completed: "neutral",
+  error: "error",
 };
 
-const LEAD_STATUS_META: Record<
-  AutomatedLead["status"],
-  { label: string; dot: string; chip: string }
-> = {
-  discovered: { label: "Discovered", dot: "bg-outline", chip: "bg-surface-container-high text-on-surface-variant border border-border-low-alpha" },
-  ready: { label: "Ready", dot: "bg-secondary-fixed-dim", chip: "brass-badge" },
-  queued: { label: "Queued", dot: "bg-on-secondary-container", chip: "bg-secondary-fixed/25 text-on-secondary-container border border-secondary-fixed-dim/30" },
-  sent: { label: "Sent", dot: "bg-tertiary-container", chip: "status-pill-active border border-tertiary-fixed/40 shadow-sm" },
-  replied: { label: "Replied", dot: "bg-on-tertiary-fixed", chip: "bg-gradient-to-r from-tertiary-fixed to-tertiary-fixed-dim text-on-tertiary-fixed shadow-sm" },
-  failed: { label: "Failed", dot: "bg-error", chip: "bg-error-container text-on-error-container border border-error/20 shadow-sm" },
-  skipped: { label: "Skipped", dot: "bg-outline", chip: "bg-surface-container-high text-on-surface-variant border border-border-low-alpha" },
+const CAMPAIGN_STATUS_LABEL: Record<AutomatedCampaign["status"], string> = {
+  draft: "Draft",
+  active: "Active",
+  paused: "Paused",
+  completed: "Completed",
+  error: "Error",
+};
+
+const LEAD_STATUS_TONE: Record<Exclude<AutomatedLead["status"], "replied">, NonNullable<StatusBadgeProps["tone"]>> = {
+  discovered: "neutral",
+  ready: "brass",
+  queued: "invited",
+  sent: "active",
+  failed: "error",
+  skipped: "neutral",
+};
+
+const LEAD_STATUS_LABEL: Record<AutomatedLead["status"], string> = {
+  discovered: "Discovered",
+  ready: "Ready",
+  queued: "Queued",
+  sent: "Sent",
+  replied: "Replied",
+  failed: "Failed",
+  skipped: "Skipped",
 };
 
 const SOURCE_META: Record<
@@ -63,47 +79,52 @@ const SOURCE_META: Record<
   apollo: { label: "Apollo.io", icon: "person_search", badge: "status-pill-active border border-tertiary-fixed/30" },
   google_places: { label: "Google Places", icon: "map", badge: "bg-secondary-fixed/25 text-on-secondary-container border border-secondary-fixed-dim/30" },
   osm: { label: "Map listing", icon: "map", badge: "bg-tertiary-fixed/20 text-tertiary-container border border-tertiary-fixed-dim/30" },
-  firecrawl: { label: "Firecrawl", icon: "travel_explore", badge: "bg-primary text-on-primary border border-primary shadow-sm" },
+  firecrawl: { label: "Firecrawl", icon: "travel_explore", badge: "bg-primary text-on-primary border border-primary" },
   snov: { label: "Snov.io", icon: "alternate_email", badge: "bg-secondary-fixed-dim/20 text-on-secondary-fixed-variant border border-secondary-fixed-dim/40" },
   none: { label: "—", icon: "remove", badge: "bg-surface-container-high text-on-surface-variant border border-border-low-alpha" },
 };
 
 function LeadStatusPill({ status }: { status: AutomatedLead["status"] }) {
-  const meta = LEAD_STATUS_META[status];
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-label-md text-[12px] font-medium whitespace-nowrap",
-        meta.chip,
-      )}
-    >
-      <span className={cn("h-1.5 w-1.5 rounded-full", meta.dot)} />
-      {meta.label}
-    </span>
-  );
+  if (status === "replied") {
+    // Deliberate distinct treatment for the best-outcome status — a flat
+    // solid tone instead of the rest of the scale's light tint, so it stands
+    // out from the rest of the scale without a gradient.
+    return (
+      <StatusBadge
+        tone="active"
+        dot={false}
+        className="gap-1.5 border-transparent bg-tertiary-fixed text-on-tertiary-fixed"
+      >
+        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-on-tertiary-fixed" />
+        {LEAD_STATUS_LABEL.replied}
+      </StatusBadge>
+    );
+  }
+  return <StatusBadge tone={LEAD_STATUS_TONE[status]}>{LEAD_STATUS_LABEL[status]}</StatusBadge>;
 }
 
 function SourceBadge({ source }: { source: AutomatedLead["emailSource"] }) {
   const meta = SOURCE_META[source];
   return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-label-md text-[12px] font-medium whitespace-nowrap",
-        meta.badge,
-      )}
+    <Badge
+      variant="outline"
+      className={cn("gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-label-md font-medium", meta.badge)}
     >
       <span className="material-symbols-outlined text-[14px]">{meta.icon}</span>
       {meta.label}
-    </span>
+    </Badge>
   );
 }
 
 function MetaChip({ icon, children }: { icon: string; children: React.ReactNode }) {
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-border-low-alpha bg-white/70 backdrop-blur-sm px-3 py-1.5 font-label-md text-[12px] text-on-surface-variant shadow-sm">
+    <Badge
+      variant="outline"
+      className="h-auto gap-1.5 rounded-full border-border-low-alpha bg-surface-container-low px-3 py-1.5 text-[12px] font-label-md text-on-surface-variant"
+    >
       <span className="material-symbols-outlined text-[16px] text-primary">{icon}</span>
       {children}
-    </span>
+    </Badge>
   );
 }
 
@@ -189,11 +210,61 @@ export default function AutomatedCampaignDetailPage({
     );
   }
 
-  const statusMeta = CAMPAIGN_STATUS_META[campaign.status];
   const locationLabel =
     "text" in campaign.discoveryQuery.location
       ? campaign.discoveryQuery.location.text
       : `${campaign.discoveryQuery.location.lat}, ${campaign.discoveryQuery.location.lon}`;
+
+  const leadColumns: DataTableColumn<AutomatedLead>[] = [
+    {
+      key: "select",
+      header: (
+        <input
+          type="checkbox"
+          checked={leads.length > 0 && selected.size === leads.length}
+          onChange={() =>
+            setSelected(selected.size === leads.length ? new Set() : new Set(leads.map((l) => l.id)))
+          }
+        />
+      ),
+      headerClassName: "w-10",
+      cellClassName: "w-10",
+      render: (lead) => (
+        <input type="checkbox" checked={selected.has(lead.id)} onChange={() => toggleSelect(lead.id)} />
+      ),
+    },
+    {
+      key: "business",
+      header: "Business",
+      render: (lead) => (
+        <span className="font-body-md text-body-md font-medium text-on-surface">{lead.businessName}</span>
+      ),
+    },
+    {
+      key: "contact",
+      header: "Contact",
+      render: (lead) => (
+        <span className="font-data-mono text-[13px] text-on-surface-variant">{lead.email ?? "—"}</span>
+      ),
+    },
+    {
+      key: "source",
+      header: "Source",
+      render: (lead) => <SourceBadge source={lead.emailSource} />,
+    },
+    {
+      key: "location",
+      header: "Location",
+      render: (lead) => (
+        <span className="block max-w-[220px] truncate text-on-surface-variant">{lead.addressText ?? "—"}</span>
+      ),
+    },
+    {
+      key: "status",
+      header: "Status",
+      render: (lead) => <LeadStatusPill status={lead.status} />,
+    },
+  ];
 
   return (
     <AppShell>
@@ -215,16 +286,10 @@ export default function AutomatedCampaignDetailPage({
           <section className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
               <div className="mb-3 flex flex-wrap items-center gap-3">
-                <h1 className="font-headline-lg text-headline-lg text-gradient-teal">{campaign.name}</h1>
-                <span
-                  className={cn(
-                    "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-label-md text-[12px] font-medium",
-                    statusMeta.chip,
-                  )}
-                >
-                  <span className={cn("h-1.5 w-1.5 rounded-full", statusMeta.dot)} />
-                  {statusMeta.label}
-                </span>
+                <h1 className="font-headline-lg text-headline-lg text-primary">{campaign.name}</h1>
+                <StatusBadge tone={CAMPAIGN_STATUS_TONE[campaign.status]}>
+                  {CAMPAIGN_STATUS_LABEL[campaign.status]}
+                </StatusBadge>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <MetaChip icon="category">{campaign.discoveryQuery.category}</MetaChip>
@@ -247,151 +312,60 @@ export default function AutomatedCampaignDetailPage({
               )}
             </div>
             {(campaign.status === "active" || campaign.status === "paused" || campaign.status === "draft") && (
-              <button
+              <Button
                 type="button"
+                variant="outline"
                 onClick={toggleCampaign}
                 disabled={busy}
-                className="inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-lg border border-primary-container/30 bg-white/70 backdrop-blur-sm px-5 py-2.5 font-label-md text-label-md text-primary shadow-floating transition-all hover:-translate-y-0.5 hover:bg-primary-container/10 disabled:opacity-50 disabled:hover:translate-y-0 sm:w-auto"
+                className="w-full shrink-0 sm:w-auto"
               >
                 <span className="material-symbols-outlined text-[18px]">
                   {busy ? "sync" : campaign.status === "active" ? "pause" : "play_arrow"}
                 </span>
                 {campaign.status === "active" ? "Pause campaign" : "Activate campaign"}
-              </button>
+              </Button>
             )}
           </section>
 
-          <section className="overflow-hidden rounded-[20px] glass-card">
-            <div className="flex flex-col gap-3 border-b border-border-low-alpha p-4 sm:flex-row sm:items-center sm:justify-between sm:p-6">
-              <h3 className="font-headline-md text-headline-md text-primary">
-                Leads{!loading && leads.length > 0 && (
-                  <span className="ml-2 font-label-md text-[13px] text-text-muted">
+          <Card className="overflow-hidden">
+            <CardHeader className="border-b border-border-low-alpha">
+              <CardTitle className="font-body-md text-headline-md font-semibold text-primary">
+                Leads
+                {!loading && leads.length > 0 && (
+                  <span className="ml-2 font-label-md text-[13px] font-normal text-text-muted">
                     {leads.length}
                   </span>
                 )}
-              </h3>
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="rounded-lg border border-border-low-alpha bg-bg-cream/30 px-3 py-2 font-label-md text-label-md focus:outline-none focus:ring-1 focus:ring-primary"
-              >
-                <option value="">All statuses</option>
-                <option value="discovered">Discovered</option>
-                <option value="ready">Ready</option>
-                <option value="queued">Queued</option>
-                <option value="sent">Sent</option>
-                <option value="replied">Replied</option>
-                <option value="failed">Failed</option>
-              </select>
-            </div>
-
-            {/* Desktop table */}
-            <div className="hidden overflow-x-auto md:block">
-              <table className="w-full min-w-[860px] border-collapse text-left">
-                <thead>
-                  <tr className="bg-gradient-to-r from-bg-cream/70 to-tertiary-fixed/10">
-                    <th className="w-10 p-4">
-                      <input
-                        type="checkbox"
-                        checked={selected.size > 0 && selected.size === leads.length}
-                        onChange={() =>
-                          setSelected(
-                            selected.size === leads.length ? new Set() : new Set(leads.map((l) => l.id)),
-                          )
-                        }
-                      />
-                    </th>
-                    <th className="p-4 font-label-md text-label-md font-medium text-outline">Business</th>
-                    <th className="p-4 font-label-md text-label-md font-medium text-outline">Contact</th>
-                    <th className="p-4 font-label-md text-label-md font-medium text-outline">Source</th>
-                    <th className="p-4 font-label-md text-label-md font-medium text-outline">Location</th>
-                    <th className="p-4 font-label-md text-label-md font-medium text-outline">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {loading ? (
-                    <tr>
-                      <td colSpan={6} className="p-8 text-center text-on-surface-variant">
-                        Loading leads...
-                      </td>
-                    </tr>
-                  ) : leads.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="p-8 text-center text-on-surface-variant">
-                        No leads yet — the next scheduled run will discover some.
-                      </td>
-                    </tr>
-                  ) : (
-                    leads.map((lead) => (
-                      <tr
-                        key={lead.id}
-                        className="border-b border-border-low-alpha transition-colors hover:bg-tertiary-fixed/5"
-                      >
-                        <td className="p-4">
-                          <input
-                            type="checkbox"
-                            checked={selected.has(lead.id)}
-                            onChange={() => toggleSelect(lead.id)}
-                          />
-                        </td>
-                        <td className="p-4 font-body-md text-body-md font-medium text-on-surface">
-                          {lead.businessName}
-                        </td>
-                        <td className="p-4 font-data-mono text-[13px] text-on-surface-variant">
-                          {lead.email ?? "—"}
-                        </td>
-                        <td className="p-4">
-                          <SourceBadge source={lead.emailSource} />
-                        </td>
-                        <td className="max-w-[220px] truncate p-4 font-body-md text-body-md text-on-surface-variant">
-                          {lead.addressText ?? "—"}
-                        </td>
-                        <td className="p-4">
-                          <LeadStatusPill status={lead.status} />
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Mobile card list */}
-            <div className="divide-y divide-border-low-alpha md:hidden">
-              {loading ? (
-                <div className="p-8 text-center font-body-md text-on-surface-variant">
-                  Loading leads...
-                </div>
-              ) : leads.length === 0 ? (
-                <div className="p-8 text-center font-body-md text-on-surface-variant">
-                  No leads yet — the next scheduled run will discover some.
-                </div>
-              ) : (
-                leads.map((lead) => (
-                  <div key={lead.id} className="flex flex-col gap-2 p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <span className="min-w-0 truncate font-body-md text-body-md font-medium text-on-surface">
-                        {lead.businessName}
-                      </span>
-                      <LeadStatusPill status={lead.status} />
-                    </div>
-                    {lead.email && (
-                      <div className="flex items-center gap-1.5 font-data-mono text-[13px] text-on-surface-variant">
-                        <span className="material-symbols-outlined text-[16px] text-primary/70">mail</span>
-                        <span className="truncate">{lead.email}</span>
-                      </div>
-                    )}
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 font-label-md text-[12px] text-text-muted">
-                      <SourceBadge source={lead.emailSource} />
-                      {lead.addressText && (
-                        <span className="min-w-0 truncate">{lead.addressText}</span>
-                      )}
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </section>
+              </CardTitle>
+              <CardAction>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="rounded-lg border border-border-low-alpha bg-bg-cream/30 px-3 py-2 font-label-md text-label-md focus:outline-none focus:ring-1 focus:ring-primary"
+                >
+                  <option value="">All statuses</option>
+                  <option value="discovered">Discovered</option>
+                  <option value="ready">Ready</option>
+                  <option value="queued">Queued</option>
+                  <option value="sent">Sent</option>
+                  <option value="replied">Replied</option>
+                  <option value="failed">Failed</option>
+                </select>
+              </CardAction>
+            </CardHeader>
+            <CardContent className="p-0">
+              <DataTable
+                columns={leadColumns}
+                rows={leads}
+                getRowKey={(lead) => lead.id}
+                emptyState={
+                  <span className="font-body-md text-body-md text-on-surface-variant">
+                    {loading ? "Loading leads..." : "No leads yet — the next scheduled run will discover some."}
+                  </span>
+                }
+              />
+            </CardContent>
+          </Card>
         </main>
       </div>
     </AppShell>

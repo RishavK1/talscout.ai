@@ -6,6 +6,8 @@ import { AppShell } from "@/components/app/app-shell";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { TopAppBar } from "@/components/app/top-app-bar";
+import { Card, CardContent } from "@/components/ui/card";
+import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 
 const FETCH_BATCH = 100;
 
@@ -121,18 +123,18 @@ export default function AuditLogPage() {
   const filtered = logs.filter((entry) => {
     const formattedDate = new Date(entry.createdAt).toLocaleDateString("en-US");
     const name = getMemberName(entry.actorEmail);
-    
+
     const matchesQuery =
       query.trim() === "" ||
       [entry.action, name, entry.actorEmail, entry.targetType, entry.targetId]
         .join(" ")
         .toLowerCase()
         .includes(query.trim().toLowerCase());
-    
+
     const matchesMember = member === "All Members" || name === member;
     const matchesAction = action === "All Actions" || entry.action === action;
     const matchesDate = date === "All Dates" || formattedDate === date;
-    
+
     return matchesQuery && matchesMember && matchesAction && matchesDate;
   });
 
@@ -146,6 +148,52 @@ export default function AuditLogPage() {
   useEffect(() => {
     setPage(1);
   }, [query, member, action, date]);
+
+  const logColumns: DataTableColumn<any>[] = [
+    {
+      key: "time",
+      header: "Time (UTC)",
+      headerClassName: "uppercase tracking-widest text-[11px] text-text-muted",
+      render: (entry) => (
+        <span className="font-data-mono text-[13px] text-text-muted">{formatTimestamp(entry.createdAt)}</span>
+      ),
+    },
+    {
+      key: "member",
+      header: "Member",
+      headerClassName: "uppercase tracking-widest text-[11px] text-text-muted",
+      render: (entry) => (
+        <div className="flex items-center gap-3">
+          <div className={`w-7 h-7 rounded-full ${getAvatarWrapper(entry.actorRole)} flex items-center justify-center font-bold text-[10px]`}>
+            {getInitials(entry.actorEmail)}
+          </div>
+          <span className="font-label-md text-on-surface">{getMemberName(entry.actorEmail)}</span>
+        </div>
+      ),
+    },
+    {
+      key: "action",
+      header: "Action",
+      headerClassName: "uppercase tracking-widest text-[11px] text-text-muted",
+      render: (entry) => (
+        <span className={`px-2.5 py-0.5 ${formatPill(entry.action)} font-label-md rounded-full text-[12px]`}>
+          {entry.action}
+        </span>
+      ),
+    },
+    {
+      key: "target",
+      header: "Target",
+      headerClassName: "uppercase tracking-widest text-[11px] text-text-muted",
+      render: (entry) => <span className="font-label-md text-on-surface">{getTargetText(entry)}</span>,
+    },
+    {
+      key: "ip",
+      header: "IP Address",
+      headerClassName: "uppercase tracking-widest text-[11px] text-text-muted",
+      render: (entry) => <span className="font-data-mono text-[13px] text-text-muted">{getIpAddress(entry)}</span>,
+    },
+  ];
 
   return (
     <AppShell>
@@ -184,109 +232,78 @@ export default function AuditLogPage() {
             <Link className="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-primary transition-colors rounded-lg font-label-md" href="/team">Members</Link>
             <Link className="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-primary transition-colors rounded-lg font-label-md" href="/billing">Billing</Link>
             <Link className="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-primary transition-colors rounded-lg font-label-md" href="/security">Security</Link>
-            <Link className="flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-primary-container to-primary text-on-primary font-semibold shadow-floating rounded-lg font-label-md" href="/audit">Audit log</Link>
+            <Link className="flex items-center gap-3 px-4 py-3 bg-primary-container/10 text-primary font-semibold rounded-lg font-label-md" href="/audit">Audit log</Link>
           </nav>
           {/* Main Dashboard Area */}
           <div className="min-w-0 flex-1 space-y-8">
             {/* Header */}
             <section className="flex items-center gap-4">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary-container to-primary text-on-primary shadow-floating">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary-container/10 text-primary-container">
                 <span className="material-symbols-outlined text-[24px]">history_edu</span>
               </div>
               <div>
-                <h2 className="font-headline-lg text-gradient-teal mb-1">Audit log</h2>
+                <h2 className="font-headline-lg text-primary mb-1">Audit log</h2>
                 <p className="font-body-md text-text-muted">Every sensitive action, recorded and secured for compliance and oversight.</p>
               </div>
             </section>
             {/* Filter Toolbar */}
-            <div className="glass-card p-4 rounded-lg flex flex-wrap items-center justify-between gap-4">
-              <div className="flex flex-wrap items-center gap-3">
-                {/* Date Filter */}
-                <div className="flex items-center gap-2 px-3 py-2 bg-bg-cream rounded-lg border border-border-low-alpha cursor-pointer hover:border-primary/30 transition-colors">
-                  <span className="material-symbols-outlined text-[18px] text-primary">calendar_today</span>
-                  <select className="text-label-md bg-transparent border-none focus:outline-none cursor-pointer" value={date} onChange={(e) => setDate(e.target.value)}>
-                    {datesList.map((d) => (
-                      <option key={d} value={d}>{d}</option>
-                    ))}
-                  </select>
+            <Card className="[--card-spacing:--spacing(4)]">
+              <CardContent className="flex flex-wrap items-center justify-between gap-4">
+                <div className="flex flex-wrap items-center gap-3">
+                  {/* Date Filter */}
+                  <div className="flex items-center gap-2 px-3 py-2 bg-bg-cream rounded-lg border border-border-low-alpha cursor-pointer hover:border-primary/30 transition-colors">
+                    <span className="material-symbols-outlined text-[18px] text-primary">calendar_today</span>
+                    <select className="text-label-md bg-transparent border-none focus:outline-none cursor-pointer" value={date} onChange={(e) => setDate(e.target.value)}>
+                      {datesList.map((d) => (
+                        <option key={d} value={d}>{d}</option>
+                      ))}
+                    </select>
+                  </div>
+                  {/* Member Dropdown */}
+                  <div className="flex items-center gap-2 px-3 py-2 bg-bg-cream rounded-lg border border-border-low-alpha cursor-pointer hover:border-primary/30 transition-colors">
+                    <span className="material-symbols-outlined text-[18px] text-secondary">person</span>
+                    <select className="text-label-md bg-transparent border-none focus:outline-none cursor-pointer" value={member} onChange={(e) => setMember(e.target.value)}>
+                      {membersList.map((m) => (
+                        <option key={m} value={m}>{m}</option>
+                      ))}
+                    </select>
+                  </div>
+                  {/* Action Filter */}
+                  <div className="flex items-center gap-2 px-3 py-2 bg-bg-cream rounded-lg border border-border-low-alpha cursor-pointer hover:border-primary/30 transition-colors">
+                    <span className="material-symbols-outlined text-[18px] text-tertiary-fixed-dim">filter_list</span>
+                    <select className="text-label-md bg-transparent border-none focus:outline-none cursor-pointer" value={action} onChange={(e) => setAction(e.target.value)}>
+                      {actionsList.map((a) => (
+                        <option key={a} value={a}>{a}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
-                {/* Member Dropdown */}
-                <div className="flex items-center gap-2 px-3 py-2 bg-bg-cream rounded-lg border border-border-low-alpha cursor-pointer hover:border-primary/30 transition-colors">
-                  <span className="material-symbols-outlined text-[18px] text-secondary">person</span>
-                  <select className="text-label-md bg-transparent border-none focus:outline-none cursor-pointer" value={member} onChange={(e) => setMember(e.target.value)}>
-                    {membersList.map((m) => (
-                      <option key={m} value={m}>{m}</option>
-                    ))}
-                  </select>
-                </div>
-                {/* Action Filter */}
-                <div className="flex items-center gap-2 px-3 py-2 bg-bg-cream rounded-lg border border-border-low-alpha cursor-pointer hover:border-primary/30 transition-colors">
-                  <span className="material-symbols-outlined text-[18px] text-tertiary-fixed-dim">filter_list</span>
-                  <select className="text-label-md bg-transparent border-none focus:outline-none cursor-pointer" value={action} onChange={(e) => setAction(e.target.value)}>
-                    {actionsList.map((a) => (
-                      <option key={a} value={a}>{a}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
             {/* Data Table */}
-            <div className="glass-card rounded-lg overflow-hidden">
-              <div className="overflow-x-auto">
+            <Card className="overflow-hidden">
+              <CardContent className="p-0">
                 {loading ? (
                   <div className="py-16 text-center flex flex-col items-center gap-3 text-text-muted">
                     <span className="material-symbols-outlined animate-spin text-primary">sync</span>
                     <p className="font-label-md">Loading audit entries...</p>
                   </div>
                 ) : (
-                  <table className="w-full min-w-[640px] text-left border-collapse">
-                    <thead>
-                      <tr className="bg-bg-cream/50 border-b border-border-low-alpha">
-                        <th className="px-6 py-4 font-label-md text-text-muted uppercase tracking-widest text-[11px]">Time (UTC)</th>
-                        <th className="px-6 py-4 font-label-md text-text-muted uppercase tracking-widest text-[11px]">Member</th>
-                        <th className="px-6 py-4 font-label-md text-text-muted uppercase tracking-widest text-[11px]">Action</th>
-                        <th className="px-6 py-4 font-label-md text-text-muted uppercase tracking-widest text-[11px]">Target</th>
-                        <th className="px-6 py-4 font-label-md text-text-muted uppercase tracking-widest text-[11px]">IP Address</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border-low-alpha">
-                      {filtered.length === 0 ? (
-                        <tr>
-                          <td colSpan={5} className="px-6 py-16 text-center">
-                            <div className="flex flex-col items-center gap-3 text-text-muted">
-                              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-surface-container-highest text-text-muted">
-                                <span className="material-symbols-outlined text-[28px]">search_off</span>
-                              </div>
-                              <p className="font-label-md">No audit entries match your filters.</p>
-                            </div>
-                          </td>
-                        </tr>
-                      ) : (
-                        paginated.map((entry) => (
-                          <tr key={entry.id} className="table-row-hover transition-colors">
-                            <td className="px-6 py-4 font-data-mono text-[13px] text-text-muted">{formatTimestamp(entry.createdAt)}</td>
-                            <td className="px-6 py-4">
-                              <div className="flex items-center gap-3">
-                                <div className={`w-7 h-7 rounded-full ${getAvatarWrapper(entry.actorRole)} flex items-center justify-center font-bold text-[10px]`}>
-                                  {getInitials(entry.actorEmail)}
-                                </div>
-                                <span className="font-label-md text-on-surface">{getMemberName(entry.actorEmail)}</span>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4">
-                              <span className={`px-2.5 py-0.5 ${formatPill(entry.action)} font-label-md rounded-full text-[12px]`}>
-                                {entry.action}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 font-label-md text-on-surface">{getTargetText(entry)}</td>
-                            <td className="px-6 py-4 font-data-mono text-[13px] text-text-muted">{getIpAddress(entry)}</td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
+                  <DataTable
+                    columns={logColumns}
+                    rows={paginated}
+                    getRowKey={(entry) => entry.id}
+                    emptyState={
+                      <div className="flex flex-col items-center gap-3 text-text-muted">
+                        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-surface-container-highest text-text-muted">
+                          <span className="material-symbols-outlined text-[28px]">search_off</span>
+                        </div>
+                        <p className="font-label-md">No audit entries match your filters.</p>
+                      </div>
+                    }
+                  />
                 )}
-              </div>
+              </CardContent>
               {/* Pagination */}
               {!loading && filtered.length > 0 && (
                 <div className="px-6 py-4 border-t border-border-low-alpha bg-surface-white flex flex-wrap items-center justify-between gap-3">
@@ -346,31 +363,35 @@ export default function AuditLogPage() {
                   </button>
                 </div>
               )}
-            </div>
+            </Card>
             {/* Footer Section Info */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="glass-card p-6 rounded-lg">
-                <div className="flex items-start gap-4">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary-container to-primary text-on-primary shadow-sm">
-                    <span className="material-symbols-outlined text-[20px]">verified_user</span>
+              <Card>
+                <CardContent>
+                  <div className="flex items-start gap-4">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary-container/10 text-primary-container">
+                      <span className="material-symbols-outlined text-[20px]">verified_user</span>
+                    </div>
+                    <div>
+                      <h4 className="font-label-md text-primary font-bold mb-1">Retention Policy</h4>
+                      <p className="text-[13px] text-on-surface-variant leading-relaxed">Audit logs are retained for 365 days for Enterprise accounts. After this period, logs are archived in encrypted cold storage and can be requested through security support.</p>
+                    </div>
                   </div>
-                  <div>
-                    <h4 className="font-label-md text-primary font-bold mb-1">Retention Policy</h4>
-                    <p className="text-[13px] text-on-surface-variant leading-relaxed">Audit logs are retained for 365 days for Enterprise accounts. After this period, logs are archived in encrypted cold storage and can be requested through security support.</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent>
+                  <div className="flex items-start gap-4">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary-container/10 text-primary-container">
+                      <span className="material-symbols-outlined text-[20px]">security</span>
+                    </div>
+                    <div>
+                      <h4 className="font-label-md text-secondary font-bold mb-1">Compliance &amp; Auditing</h4>
+                      <p className="text-[13px] text-on-surface-variant leading-relaxed">This log is tamper-evident and SOC2 Type II compliant. Every entry is cryptographically signed at the time of creation to ensure the highest integrity of your organization&apos;s data.</p>
+                    </div>
                   </div>
-                </div>
-              </div>
-              <div className="glass-card p-6 rounded-lg">
-                <div className="flex items-start gap-4">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-tertiary-fixed text-on-tertiary-fixed shadow-sm">
-                    <span className="material-symbols-outlined text-[20px]">security</span>
-                  </div>
-                  <div>
-                    <h4 className="font-label-md text-secondary font-bold mb-1">Compliance &amp; Auditing</h4>
-                    <p className="text-[13px] text-on-surface-variant leading-relaxed">This log is tamper-evident and SOC2 Type II compliant. Every entry is cryptographically signed at the time of creation to ensure the highest integrity of your organization&apos;s data.</p>
-                  </div>
-                </div>
-              </div>
+                </CardContent>
+              </Card>
             </div>
           </div>
         </main>

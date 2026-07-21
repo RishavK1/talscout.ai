@@ -9,6 +9,12 @@ import { toast } from "sonner";
 import { Modal } from "@/components/ui/modal";
 import { TopAppBar } from "@/components/app/top-app-bar";
 import { PageSpinner } from "@/components/ui/page-spinner";
+import { AdminGate } from "@/components/app/admin-gate";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
+import { StatusBadge } from "@/components/ui/status-badge";
 
 
 interface BillingInfo {
@@ -19,6 +25,15 @@ interface BillingInfo {
   seatsUsed: number;
   renewsAt: string | null;
   invoices?: { id: string; date: string; amount: string; status: string; plan?: string; seats?: number }[];
+}
+
+interface Invoice {
+  id: string;
+  date: string;
+  amount: string;
+  status: string;
+  plan?: string;
+  seats?: number;
 }
 
 export default function BillingPage() {
@@ -119,28 +134,7 @@ export default function BillingPage() {
 
   if (profile && profile.role !== "admin") {
     return (
-      <AppShell>
-        <main className="min-h-screen flex flex-col items-center justify-center p-6 bg-aurora-soft relative overflow-hidden">
-          <div className="pointer-events-none absolute -left-24 top-10 h-72 w-72 rounded-full bg-primary-container/10 blur-3xl" />
-          <div className="pointer-events-none absolute -right-16 bottom-10 h-80 w-80 rounded-full bg-tertiary-fixed/20 blur-3xl" />
-          <div className="max-w-md w-full text-center glass-card p-8 rounded-2xl relative z-10">
-            <div className="w-16 h-16 bg-gradient-to-br from-error/80 to-error text-on-error rounded-full flex items-center justify-center mx-auto mb-6 shadow-floating">
-              <span className="material-symbols-outlined text-[36px]">shield_person</span>
-            </div>
-            <h2 className="font-headline-md text-[24px] text-primary serif-text mb-3">Admin Access Required</h2>
-            <p className="font-body-md text-on-surface-variant mb-6 text-[14px]">
-              Only workspace administrators can view billing information and manage subscription plans.
-            </p>
-            <Link
-              href="/dashboard"
-              className="inline-flex items-center gap-2 bg-primary-container text-on-primary px-6 py-2.5 rounded-lg font-label-md shadow-floating transition-all hover:-translate-y-0.5 active:scale-[0.97]"
-            >
-              <span className="material-symbols-outlined text-[18px]">dashboard</span>
-              Back to Dashboard
-            </Link>
-          </div>
-        </main>
-      </AppShell>
+      <AdminGate description="Only workspace administrators can view billing information and manage subscription plans." />
     );
   }
 
@@ -158,7 +152,41 @@ export default function BillingPage() {
     return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
   };
 
-
+  const invoiceColumns: DataTableColumn<Invoice>[] = [
+    {
+      key: "date",
+      header: "Date",
+      render: (inv) => (
+        <span className="font-data-mono text-data-mono text-on-surface">{inv.date}</span>
+      ),
+    },
+    {
+      key: "id",
+      header: "Invoice ID",
+      render: (inv) => (
+        <div className="flex items-center flex-wrap gap-2">
+          <span className="font-label-md text-label-md text-on-surface-variant">{inv.id}</span>
+          {inv.plan && (
+            <Badge variant="outline" className="rounded-md font-data-mono text-[10px] uppercase bg-surface-container-low text-on-surface-variant border-border-low-alpha">
+              {inv.plan} • {inv.seats} {inv.seats === 1 ? "seat" : "seats"}
+            </Badge>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: "amount",
+      header: "Amount",
+      render: (inv) => (
+        <span className="font-data-mono text-data-mono text-on-surface">{inv.amount}</span>
+      ),
+    },
+    {
+      key: "status",
+      header: "Status",
+      render: (inv) => <StatusBadge tone="active">{inv.status}</StatusBadge>,
+    },
+  ];
 
   return (
     <AppShell>
@@ -170,9 +198,9 @@ export default function BillingPage() {
           </div>
         }
         rightContent={
-          <Link href="/upload" className="bg-primary-container text-on-primary px-5 py-2.5 rounded-lg font-label-md text-label-md shadow-floating transition-all hover:-translate-y-0.5 hover:bg-primary active:scale-[0.97] whitespace-nowrap">
-            + Upload résumés
-          </Link>
+          <Button asChild variant="gradient" className="whitespace-nowrap">
+            <Link href="/upload">+ Upload résumés</Link>
+          </Button>
         }
       />
 
@@ -180,11 +208,11 @@ export default function BillingPage() {
       <main className="pt-8 sm:pt-12 lg:pt-24 px-4 sm:px-6 lg:px-12 pb-12 sm:pb-16 lg:pb-24 max-w-[1440px] mx-auto">
         {/* Header */}
         <header className="mb-10 flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary-container to-primary text-on-primary shadow-floating">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary-container/10 text-primary-container">
             <span className="material-symbols-outlined text-[24px]">credit_card</span>
           </div>
           <div>
-            <h1 className="font-headline-lg text-headline-lg text-gradient-teal mb-1">Billing</h1>
+            <h1 className="font-headline-lg text-headline-lg text-primary mb-1">Billing</h1>
             <p className="font-body-md text-body-md text-text-muted">Manage your workspace subscription, payment methods, and billing history.</p>
           </div>
         </header>
@@ -192,121 +220,92 @@ export default function BillingPage() {
         {billingInfo && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             {/* Section 1: Current Plan */}
-            <section className="lg:col-span-8">
-              <div className="plan-card-selected pricing-card relative rounded-[12px] p-8 ring-2 ring-tertiary-fixed shadow-floating">
-                <span className="absolute -top-3 left-8 inline-flex items-center gap-1.5 rounded-full bg-tertiary-fixed px-3 py-1 font-data-mono text-[11px] font-semibold text-on-tertiary-fixed shadow-sm">
-                  <span className="material-symbols-outlined text-[14px]">verified</span>
-                  Current plan
-                </span>
-                <div className="flex justify-between items-start mb-6">
-                  <div>
-                    <h2 className="font-label-md text-label-md uppercase tracking-wider text-text-muted mb-4">Current Plan</h2>
-                    <p className="font-headline-md text-headline-md text-primary mb-1">
-                      {planDisplayName} — ${billingInfo.pricePerSeat}/seat/mo
-                    </p>
-                    <p className="font-body-md text-body-md text-on-surface-variant">
-                      {billingInfo.seats} {billingInfo.seats === 1 ? "seat" : "seats"} · ${totalMonthlyPrice.toLocaleString()}/mo
-                    </p>
-                    <p className="font-body-sm text-[12px] text-outline mt-1">
-                      {billingInfo.seatsUsed} {billingInfo.seatsUsed === 1 ? "seat" : "seats"} currently active.
-                    </p>
+            <section className="lg:col-span-8 relative">
+              <span className="absolute -top-3 left-8 z-10 inline-flex items-center gap-1.5 rounded-full bg-tertiary-fixed px-3 py-1 font-data-mono text-[11px] font-semibold text-on-tertiary-fixed shadow-sm">
+                <span className="material-symbols-outlined text-[14px]">verified</span>
+                Current plan
+              </span>
+              <Card className="h-full border-2 border-primary-container [--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
+                <CardContent>
+                  <div className="flex justify-between items-start mb-6">
+                    <div>
+                      <h2 className="font-label-md text-label-md uppercase tracking-wider text-text-muted mb-4">Current Plan</h2>
+                      <p className="font-headline-md text-headline-md text-primary mb-1">
+                        {planDisplayName} — ${billingInfo.pricePerSeat}/seat/mo
+                      </p>
+                      <p className="font-body-md text-body-md text-on-surface-variant">
+                        {billingInfo.seats} {billingInfo.seats === 1 ? "seat" : "seats"} · ${totalMonthlyPrice.toLocaleString()}/mo
+                      </p>
+                      <p className="font-body-sm text-[12px] text-outline mt-1">
+                        {billingInfo.seatsUsed} {billingInfo.seatsUsed === 1 ? "seat" : "seats"} currently active.
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <span className="brass-badge font-label-md text-label-md px-3 py-1 rounded-full uppercase tracking-wider text-[11px] font-semibold">
+                        {billingInfo.status}
+                      </span>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <span className="brass-badge font-label-md text-label-md px-3 py-1 rounded-full uppercase tracking-wider text-[11px] font-semibold">
-                      {billingInfo.status}
-                    </span>
+                  {billingInfo.renewsAt && (
+                    <div className="flex items-center gap-2 mb-8 text-on-surface-variant">
+                      <span className="material-symbols-outlined text-[20px]">calendar_today</span>
+                      <span className="font-body-md text-body-md">Next renewal date:</span>
+                      <span className="font-data-mono text-data-mono font-medium">
+                        {formatRenewalDate(billingInfo.renewsAt)}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex gap-4">
+                    <Button type="button" variant="gradient" onClick={() => setShowModal(true)}>
+                      Manage plan &amp; seats
+                    </Button>
                   </div>
-                </div>
-                {billingInfo.renewsAt && (
-                  <div className="flex items-center gap-2 mb-8 text-on-surface-variant">
-                    <span className="material-symbols-outlined text-[20px]">calendar_today</span>
-                    <span className="font-body-md text-body-md">Next renewal date:</span>
-                    <span className="font-data-mono text-data-mono font-medium">
-                      {formatRenewalDate(billingInfo.renewsAt)}
-                    </span>
-                  </div>
-                )}
-                <div className="flex gap-4">
-                  <button
-                    type="button"
-                    onClick={() => setShowModal(true)}
-                    className="px-6 py-2.5 rounded-lg font-label-md text-label-md bg-primary-container text-on-primary shadow-floating transition-all hover:-translate-y-0.5 hover:bg-primary active:scale-[0.97]"
-                  >
-                    Manage plan &amp; seats
-                  </button>
-                </div>
-              </div>
+                </CardContent>
+              </Card>
             </section>
 
             {/* Section 2: Payment Method */}
             <section className="lg:col-span-4">
-              <div className="glass-card rounded-[12px] p-8 h-full flex flex-col">
-                <h2 className="font-label-md text-label-md uppercase tracking-wider text-text-muted mb-6">Payment Method</h2>
-                <div className="flex items-center gap-4 mb-auto">
-                  <div className="w-14 h-10 bg-gradient-to-br from-secondary-fixed to-secondary-fixed-dim rounded border border-border-low-alpha flex items-center justify-center p-2 shadow-sm">
-                    <span className="font-label-md text-[12px] font-semibold text-on-secondary-fixed tracking-wide">CARD</span>
+              <Card className="h-full flex flex-col [--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
+                <CardContent className="flex-1 flex flex-col">
+                  <h2 className="font-label-md text-label-md uppercase tracking-wider text-text-muted mb-6">Payment Method</h2>
+                  <div className="flex items-center gap-4 mb-auto">
+                    <div className="w-14 h-10 bg-secondary-fixed rounded border border-border-low-alpha flex items-center justify-center p-2">
+                      <span className="font-label-md text-[12px] font-semibold text-on-secondary-fixed tracking-wide">CARD</span>
+                    </div>
+                    <div>
+                      <p className="font-label-md text-label-md text-on-surface">Stripe Billing Enabled</p>
+                      <p className="font-data-mono text-[12px] text-text-muted">Automatic renewal</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-label-md text-label-md text-on-surface">Stripe Billing Enabled</p>
-                    <p className="font-data-mono text-[12px] text-text-muted">Automatic renewal</p>
-                  </div>
-                </div>
-              </div>
+                </CardContent>
+              </Card>
             </section>
 
             {/* Section 3: Invoices */}
             <section className="lg:col-span-12 mt-4">
-              <div className="glass-card rounded-[12px] overflow-hidden">
-                <div className="p-8 border-b border-border-low-alpha flex justify-between items-center gap-3">
+              <Card className="overflow-hidden">
+                <div className="px-6 py-6 border-b border-border-low-alpha flex justify-between items-center gap-3">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-secondary-fixed text-on-secondary-fixed shadow-sm">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-container/10 text-primary-container">
                       <span className="material-symbols-outlined text-[18px]">receipt_long</span>
                     </div>
                     <h2 className="font-headline-md text-headline-md text-on-surface">Invoice History</h2>
                   </div>
                 </div>
-                <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-                  <table className="w-full min-w-[640px] text-left">
-                    <thead>
-                      <tr className="bg-bg-secondary/50 border-b border-border-low-alpha">
-                        <th className="px-8 py-4 font-label-md text-label-md text-text-muted">Date</th>
-                        <th className="px-8 py-4 font-label-md text-label-md text-text-muted">Invoice ID</th>
-                        <th className="px-8 py-4 font-label-md text-label-md text-text-muted">Amount</th>
-                        <th className="px-8 py-4 font-label-md text-label-md text-text-muted">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border-low-alpha">
-                      {invoices.length === 0 ? (
-                        <tr>
-                          <td colSpan={4} className="px-8 py-12 text-center text-text-muted font-body-md">
-                            No invoices found. Billed history is generated after checkout.
-                          </td>
-                        </tr>
-                      ) : (
-                        invoices.map((inv) => (
-                          <tr key={inv.id} className="hover:bg-bg-secondary/30 transition-colors group">
-                            <td className="px-8 py-5 font-data-mono text-data-mono text-on-surface">{inv.date}</td>
-                            <td className="px-8 py-5 font-label-md text-label-md text-on-surface-variant flex items-center flex-wrap gap-2">
-                              <span>{inv.id}</span>
-                              {inv.plan && (
-                                <span className="text-[10px] uppercase font-bold text-text-muted bg-bg-cream border border-border-low-alpha/50 px-2 py-0.5 rounded">
-                                  {inv.plan} • {inv.seats} {inv.seats === 1 ? "seat" : "seats"}
-                                </span>
-                              )}
-                            </td>
-                            <td className="px-8 py-5 font-data-mono text-data-mono text-on-surface">{inv.amount}</td>
-                            <td className="px-8 py-5">
-                              <span className="status-pill-active inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full font-label-md text-[12px]">
-                                <span className="w-1.5 h-1.5 rounded-full bg-tertiary"></span> {inv.status}
-                              </span>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+                <CardContent className="p-0">
+                  <DataTable
+                    columns={invoiceColumns}
+                    rows={invoices}
+                    getRowKey={(inv) => inv.id}
+                    emptyState={
+                      <span className="font-body-md text-body-md text-text-muted">
+                        No invoices found. Billed history is generated after checkout.
+                      </span>
+                    }
+                  />
+                </CardContent>
+              </Card>
             </section>
           </div>
         )}
@@ -352,7 +351,7 @@ export default function BillingPage() {
               Must be at least {billingInfo?.seatsUsed || 1} seats (currently active). Current plan has {billingInfo?.seats || 1} seats.
             </p>
           </div>
-          
+
           {!isUpgrade() && (
             <div className="p-3 bg-error/10 text-error rounded-lg font-label-md text-[13px] border border-error/20">
               Selected plan/seat count must be an upgrade from your current {billingInfo?.plan.toUpperCase()} plan ({billingInfo?.seats} seats).
@@ -360,25 +359,15 @@ export default function BillingPage() {
           )}
 
           <div className="flex justify-end gap-3 pt-2">
-            <button
-              type="button"
-              onClick={() => setShowModal(false)}
-              disabled={updating}
-              className="rounded-lg border border-outline px-5 py-2.5 font-label-md text-primary transition-colors hover:bg-surface-container-low"
-            >
+            <Button type="button" variant="outline" onClick={() => setShowModal(false)} disabled={updating}>
               Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={updating || !isUpgrade()}
-              className="rounded-lg bg-primary-container px-5 py-2.5 font-label-md text-on-primary shadow-floating transition-all hover:-translate-y-0.5 hover:bg-primary active:scale-[0.97] flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0"
-            >
+            </Button>
+            <Button type="submit" variant="gradient" disabled={updating || !isUpgrade()}>
               {updating ? "Redirecting..." : "Checkout & Update"}
-            </button>
+            </Button>
           </div>
         </form>
       </Modal>
     </AppShell>
   );
 }
-

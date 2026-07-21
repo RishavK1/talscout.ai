@@ -5,6 +5,8 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 
 export default function InviteTeamOnboardingPage() {
   const router = useRouter();
@@ -62,9 +64,9 @@ export default function InviteTeamOnboardingPage() {
     }
   };
   return (
-    <div className="relative min-h-screen flex flex-col bg-aurora font-body-md text-body-md overflow-x-hidden">
+    <div className="min-h-screen flex flex-col bg-bg-cream font-body-md text-body-md">
       {/* Top Logo Section */}
-      <header className="relative z-10 w-full flex justify-center pt-12 pb-8">
+      <header className="w-full flex justify-center pt-12 pb-8">
         <Link
           href="/"
           className="font-headline-lg text-headline-md text-primary tracking-tight"
@@ -73,16 +75,17 @@ export default function InviteTeamOnboardingPage() {
         </Link>
       </header>
 
-      <main className="relative z-10 flex-grow flex flex-col items-center px-4 sm:px-6 pb-12 sm:pb-16 lg:pb-24">
+      <main className="flex-grow flex flex-col items-center px-4 sm:px-6 pb-12 sm:pb-16 lg:pb-24">
         {/* Progress Indicator (Step 3 of 3) */}
         <div className="flex items-center gap-2 mb-12 w-full max-w-[400px]">
-          <div className="h-1 flex-1 rounded-full bg-gradient-to-r from-primary-container to-primary"></div>
-          <div className="h-1 flex-1 rounded-full bg-gradient-to-r from-primary-container to-primary"></div>
-          <div className="h-1.5 flex-1 rounded-full bg-gradient-to-r from-primary-container to-primary"></div>
+          <div className="h-1 flex-1 rounded-full bg-primary-container"></div>
+          <div className="h-1 flex-1 rounded-full bg-primary-container"></div>
+          <div className="h-1.5 flex-1 rounded-full bg-primary-container"></div>
         </div>
 
         {/* Central Card Container */}
-        <div className="rounded-3xl border border-border-low-alpha bg-surface-white/80 shadow-floating backdrop-blur-sm w-full max-w-[640px] p-4 sm:p-6 lg:p-12 flex flex-col items-center text-center">
+        <Card className="w-full max-w-[640px] items-center text-center [--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
+          <CardContent className="flex flex-col items-center text-center w-full">
           {/* Headline & Subtext */}
           <h1 className="font-headline-lg text-headline-lg text-on-surface mb-2">
             Invite your recruiters
@@ -140,15 +143,16 @@ export default function InviteTeamOnboardingPage() {
           </div>
 
           {/* Add Another Button */}
-          <button
+          <Button
             type="button"
+            variant="ghost"
             onClick={handleAddRow}
             disabled={loading}
-            className="flex items-center gap-2 text-primary font-label-md text-label-md hover:opacity-80 transition-opacity mb-8 group disabled:opacity-50"
+            className="mb-8"
           >
             <span className="material-symbols-outlined text-[20px]">add</span>
             <span>Add another</span>
-          </button>
+          </Button>
 
           {/* Usage Note */}
           <div className="bg-bg-cream/50 px-4 py-2 rounded-full mb-12">
@@ -163,25 +167,20 @@ export default function InviteTeamOnboardingPage() {
 
           {/* Action Buttons */}
           <div className="w-full flex flex-wrap items-center justify-between gap-3 pt-8 border-t border-border-low-alpha">
-            <Link
-              href="/dashboard"
-              className="px-6 py-3 font-label-md text-label-md text-text-muted hover:text-primary transition-colors"
-            >
-              Skip for now
-            </Link>
-            <button
+            <Button asChild variant="ghost">
+              <Link href="/dashboard">Skip for now</Link>
+            </Button>
+            <Button
               onClick={handleSubmit}
               disabled={loading}
-              className="px-8 py-3 bg-gradient-to-r from-primary-container to-primary text-on-primary font-label-md text-label-md rounded-lg shadow-floating transition-all hover:-translate-y-0.5 active:scale-[0.97] disabled:opacity-50 disabled:hover:translate-y-0"
+              variant="gradient"
+              className="px-8 py-3 h-auto"
             >
               {loading ? "Sending..." : "Send invites & finish"}
-            </button>
+            </Button>
           </div>
-        </div>
-
-        {/* Decorative Background Elements (Subtle Brass Gradient) */}
-        <div className="fixed -bottom-64 -right-64 w-[600px] h-[600px] bg-secondary-fixed/5 rounded-full blur-[120px] pointer-events-none"></div>
-        <div className="fixed -top-64 -left-64 w-[500px] h-[500px] bg-primary/5 rounded-full blur-[100px] pointer-events-none"></div>
+          </CardContent>
+        </Card>
       </main>
 
       {/* Simple Footer Copyright */}

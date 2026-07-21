@@ -9,6 +9,9 @@ import { TopAppBar } from "@/components/app/top-app-bar";
 import { SpotlightCard } from "@/components/marketing/spotlight-card";
 import { api, ApiError } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { StatusBadge, type StatusBadgeProps } from "@/components/ui/status-badge";
 
 interface BlueprintProofPoint {
   label: string;
@@ -42,27 +45,10 @@ interface Blueprint {
   updatedAt: string;
 }
 
-const STATUS_STYLES: Record<Blueprint["status"], string> = {
-  draft: "brass-badge",
-  active: "status-pill-active",
-  archived: "bg-error/10 text-error",
-};
-
-// Purely decorative icon-chip variety so the section grid reads with the
-// same colorful mix as the landing page's feature bento — keyed by the
-// existing `icon` prop, no new props introduced.
-const SECTION_ICON_STYLES: Record<string, string> = {
-  badge: "bg-gradient-to-br from-primary-container to-primary text-on-primary",
-  sell: "bg-tertiary-fixed text-on-tertiary-fixed",
-  group: "bg-secondary-fixed text-on-secondary-fixed",
-  star: "bg-gradient-to-br from-primary-container to-primary text-on-primary",
-  history: "bg-surface-container-high text-on-surface-variant",
-  healing: "bg-tertiary-fixed text-on-tertiary-fixed",
-  record_voice_over: "bg-secondary-fixed text-on-secondary-fixed",
-  verified: "bg-gradient-to-br from-primary-container to-primary text-on-primary",
-  person_search: "bg-tertiary-fixed text-on-tertiary-fixed",
-  quiz: "bg-secondary-fixed text-on-secondary-fixed",
-  gavel: "bg-gradient-to-br from-primary-container to-primary text-on-primary",
+const STATUS_TONE: Record<Blueprint["status"], NonNullable<StatusBadgeProps["tone"]>> = {
+  draft: "draft",
+  active: "active",
+  archived: "error",
 };
 
 function Section({
@@ -75,19 +61,18 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <SpotlightCard className="glass-card rounded-[20px] p-6">
-      <div className="mb-3 flex items-center gap-2.5">
-        <div
-          className={cn(
-            "rounded-lg p-1.5 shadow-sm",
-            SECTION_ICON_STYLES[icon] ?? "bg-primary/10 text-primary",
-          )}
-        >
-          <span className="material-symbols-outlined text-[18px]">{icon}</span>
-        </div>
-        <h3 className="font-headline-md text-[16px] text-primary">{title}</h3>
-      </div>
-      {children}
+    <SpotlightCard>
+      <Card className="border border-border-low-alpha bg-surface-white [--card-spacing:--spacing(6)]">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2.5 font-sans font-semibold text-[16px] text-primary">
+            <span className="flex items-center justify-center rounded-lg bg-primary-container/10 p-1.5 text-primary-container">
+              <span className="material-symbols-outlined text-[18px]">{icon}</span>
+            </span>
+            {title}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>{children}</CardContent>
+      </Card>
     </SpotlightCard>
   );
 }
@@ -202,84 +187,81 @@ export default function BlueprintDetailPage({
           }
         />
         <main className="flex-1 p-4 sm:p-6 lg:p-12 max-w-[1000px] mx-auto w-full">
-          <section className="relative flex flex-col gap-4 overflow-hidden rounded-[24px] bg-aurora-soft p-6 mb-8 sm:flex-row sm:items-start sm:justify-between sm:p-8">
-            <span
-              aria-hidden
-              className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-tertiary-fixed/15 blur-3xl"
-            />
-            <div className="relative">
-              <div className="flex items-center gap-3 mb-2">
-                <h1 className="font-headline-lg text-headline-lg text-primary">{blueprint.name}</h1>
-                <span
-                  className={cn(
-                    "inline-flex items-center px-2.5 py-1 rounded-full font-label-md text-[12px] capitalize shadow-sm",
-                    STATUS_STYLES[blueprint.status],
-                  )}
-                >
-                  {blueprint.status}
-                </span>
+          <Card className="mb-8 border border-border-low-alpha bg-surface-white [--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
+            <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <div className="flex items-center gap-3 mb-2">
+                  <h1 className="font-headline-lg text-headline-lg text-primary">{blueprint.name}</h1>
+                  <StatusBadge tone={STATUS_TONE[blueprint.status]} className="capitalize">
+                    {blueprint.status}
+                  </StatusBadge>
+                </div>
+                {blueprint.websiteUrl && (
+                  <a
+                    href={blueprint.websiteUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="font-body-md text-body-md text-primary hover:underline"
+                  >
+                    {blueprint.websiteUrl}
+                  </a>
+                )}
               </div>
-              {blueprint.websiteUrl && (
-                <a
-                  href={blueprint.websiteUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="font-body-md text-body-md text-primary hover:underline"
+              <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleRegenerate}
+                  disabled={regenerating}
+                  className="text-primary"
                 >
-                  {blueprint.websiteUrl}
-                </a>
-              )}
-            </div>
-            <div className="relative flex flex-wrap items-center gap-2 sm:shrink-0">
-              <button
-                type="button"
-                onClick={handleRegenerate}
-                disabled={regenerating}
-                className="rounded-lg border border-border-low-alpha bg-surface-white/70 px-4 py-2 font-label-md text-label-md text-primary backdrop-blur-sm transition-all hover:-translate-y-0.5 hover:bg-white hover:shadow-sm flex items-center gap-2 disabled:opacity-50 disabled:hover:translate-y-0"
-              >
-                <span
-                  className={cn(
-                    "material-symbols-outlined text-[18px]",
-                    regenerating && "animate-spin",
-                  )}
+                  <span
+                    className={cn(
+                      "material-symbols-outlined text-[18px]",
+                      regenerating && "animate-spin",
+                    )}
+                  >
+                    sync
+                  </span>
+                  {regenerating ? "Regenerating..." : "Regenerate"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleToggleArchive}
+                  disabled={archiving}
                 >
-                  sync
-                </span>
-                {regenerating ? "Regenerating..." : "Regenerate"}
-              </button>
-              <button
-                type="button"
-                onClick={handleToggleArchive}
-                disabled={archiving}
-                className="rounded-lg border border-border-low-alpha bg-surface-white/70 px-4 py-2 font-label-md text-label-md text-on-surface-variant backdrop-blur-sm transition-all hover:-translate-y-0.5 hover:bg-white hover:shadow-sm disabled:opacity-50 disabled:hover:translate-y-0"
-              >
-                {blueprint.status === "archived" ? "Restore" : "Archive"}
-              </button>
-              <button
-                type="button"
-                onClick={handleDelete}
-                className="rounded-lg border border-error/30 bg-surface-white/70 px-4 py-2 font-label-md text-label-md text-error backdrop-blur-sm transition-all hover:-translate-y-0.5 hover:bg-error/5"
-              >
-                Delete
-              </button>
-            </div>
-          </section>
+                  {blueprint.status === "archived" ? "Restore" : "Archive"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  onClick={handleDelete}
+                >
+                  Delete
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
 
           {!s ? (
-            <div className="glass-card rounded-[20px] p-8 text-center">
-              <span className="material-symbols-outlined text-outline text-[32px]">description</span>
-              <p className="mt-3 font-body-md text-body-md text-text-muted">
-                No sections generated yet.
-              </p>
-              <button
-                type="button"
-                onClick={handleRegenerate}
-                disabled={regenerating}
-                className="mt-4 rounded-lg bg-gradient-to-br from-primary-container to-primary px-5 py-2.5 font-label-md text-label-md text-on-primary shadow-floating transition-all hover:-translate-y-0.5 active:scale-[0.97] disabled:opacity-50 disabled:hover:translate-y-0"
-              >
-                Generate now
-              </button>
-            </div>
+            <Card className="border border-border-low-alpha bg-surface-white text-center [--card-spacing:--spacing(8)]">
+              <CardContent>
+                <span className="material-symbols-outlined text-outline text-[32px]">description</span>
+                <p className="mt-3 font-body-md text-body-md text-text-muted">
+                  No sections generated yet.
+                </p>
+                <Button
+                  type="button"
+                  variant="gradient"
+                  onClick={handleRegenerate}
+                  disabled={regenerating}
+                  className="mt-4 justify-center"
+                >
+                  Generate now
+                </Button>
+              </CardContent>
+            </Card>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Section title="Who we are" icon="badge">

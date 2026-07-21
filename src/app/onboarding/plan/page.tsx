@@ -5,6 +5,9 @@ import { useState, useEffect } from "react";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { PLANS as PLAN_CATALOG, PLAN_ORDER, type PlanId } from "@/lib/plans";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { StatusBadge } from "@/components/ui/status-badge";
 
 // Derived from the shared catalog so onboarding, pricing and backend agree.
 const PLANS: {
@@ -108,9 +111,7 @@ export default function ChoosePlanPage() {
 
   if (checking) {
     return (
-      <main className="relative overflow-hidden bg-aurora w-full max-w-[1000px] mx-auto min-h-screen flex flex-col items-center justify-center py-20 px-4">
-        <div className="pointer-events-none absolute -left-24 top-24 h-72 w-72 rounded-full bg-primary-container/10 blur-3xl" />
-        <div className="pointer-events-none absolute -right-16 top-10 h-80 w-80 rounded-full bg-tertiary-fixed/20 blur-3xl" />
+      <main className="bg-bg-cream w-full max-w-[1000px] mx-auto min-h-screen flex flex-col items-center justify-center py-20 px-4">
         <span className="material-symbols-outlined animate-spin text-primary text-3xl">sync</span>
         <p className="mt-4 font-label-md text-text-muted">Checking current subscription plan...</p>
       </main>
@@ -118,24 +119,22 @@ export default function ChoosePlanPage() {
   }
 
   return (
-    <main className="relative overflow-hidden bg-aurora w-full max-w-[1000px] mx-auto min-h-screen flex flex-col items-center justify-center py-12 sm:py-16 lg:py-20 px-4 sm:px-6">
-      {/* Decorative floating color orbs */}
-      <div className="pointer-events-none absolute -left-24 top-24 h-72 w-72 rounded-full bg-primary-container/10 blur-3xl" />
-      <div className="pointer-events-none absolute -right-16 top-10 h-80 w-80 rounded-full bg-tertiary-fixed/20 blur-3xl" />
+    <main className="bg-bg-cream w-full max-w-[1000px] mx-auto min-h-screen flex flex-col items-center justify-center py-12 sm:py-16 lg:py-20 px-4 sm:px-6">
       {/* Logo/Header */}
-      <div className="relative z-10 flex justify-center mb-12">
+      <div className="flex justify-center mb-12">
         <Link href="/" className="font-headline-lg text-headline-lg text-primary tracking-tight">
           TalScout
         </Link>
       </div>
       {/* Onboarding Step Indicator */}
-      <div className="relative z-10 flex items-center justify-center space-x-3 mb-10">
-        <div className="h-1.5 w-16 rounded-full bg-gradient-to-r from-primary-container to-primary"></div>
-        <div className="h-1.5 w-16 rounded-full bg-gradient-to-r from-primary-container to-primary shadow-sm"></div>
+      <div className="flex items-center justify-center space-x-3 mb-10">
+        <div className="h-1.5 w-16 rounded-full bg-primary-container"></div>
+        <div className="h-1.5 w-16 rounded-full bg-primary-container"></div>
         <div className="h-1.5 w-16 rounded-full bg-border-low-alpha"></div>
       </div>
       {/* Main Card Content */}
-      <section className="relative z-10 w-full rounded-3xl border border-border-low-alpha bg-surface-white/80 shadow-floating backdrop-blur-sm p-6 sm:p-8 lg:p-12">
+      <Card className="w-full [--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
+        <CardContent>
         <div className="text-center mb-10">
           <h2 className="font-headline-lg text-headline-lg text-on-surface mb-3">Choose your plan</h2>
           <p className="font-body-md text-body-md text-text-muted max-w-lg mx-auto">
@@ -198,14 +197,18 @@ export default function ChoosePlanPage() {
                   isDowngrade
                     ? "opacity-40 cursor-not-allowed border border-border-low-alpha bg-surface-container-high rounded-xl p-6 flex flex-col pointer-events-none"
                     : isSelected
-                    ? `plan-card-selected relative rounded-xl p-6 flex flex-col cursor-pointer transition-all shadow-md${plan.popular ? " ring-2 ring-tertiary-fixed" : ""}`
+                    ? `plan-card-selected relative rounded-xl p-6 flex flex-col cursor-pointer transition-all${plan.popular ? " ring-2 ring-tertiary-fixed" : ""}`
                     : `plan-card-unselected relative rounded-xl p-6 flex flex-col cursor-pointer hover:border-outline-variant transition-colors group${plan.popular ? " ring-2 ring-tertiary-fixed" : ""}`
                 }
               >
                 {plan.popular && !isDowngrade && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-tertiary-fixed text-on-tertiary-fixed text-[10px] font-bold tracking-widest uppercase shadow-sm">
+                  <StatusBadge
+                    tone="brass"
+                    dot={false}
+                    className="absolute -top-3 left-1/2 -translate-x-1/2 text-[10px] font-bold tracking-widest uppercase shadow-sm"
+                  >
                     Most Popular
-                  </div>
+                  </StatusBadge>
                 )}
                 {isDowngrade ? (
                   <div className="absolute top-4 right-4 text-error font-label-md text-[10px] uppercase font-bold tracking-wider">
@@ -299,23 +302,24 @@ export default function ChoosePlanPage() {
         </div>
         {/* Actions */}
         <div className="flex flex-col md:flex-row items-center justify-between mt-12 pt-8 border-t border-border-low-alpha gap-4">
-          <Link
-            href="/onboarding/workspace"
-            className="px-8 py-3 rounded-lg font-label-md text-label-md text-on-surface-variant hover:text-primary transition-all flex items-center space-x-2"
-          >
-            <span className="material-symbols-outlined text-sm" data-icon="arrow_back">arrow_back</span>
-            <span>Back</span>
-          </Link>
-          <button
+          <Button asChild variant="ghost">
+            <Link href="/onboarding/workspace">
+              <span className="material-symbols-outlined text-sm" data-icon="arrow_back">arrow_back</span>
+              <span>Back</span>
+            </Link>
+          </Button>
+          <Button
             type="button"
             disabled={loading || !isUpgrade()}
             onClick={handlePayment}
-            className="w-full md:w-auto px-10 py-4 bg-gradient-to-r from-primary-container to-primary text-on-primary rounded-xl font-label-md text-label-md font-semibold shadow-floating transition-all hover:-translate-y-0.5 active:scale-[0.97] text-center disabled:opacity-50 disabled:hover:translate-y-0 cursor-pointer disabled:cursor-not-allowed"
+            variant="gradient"
+            className="w-full md:w-auto px-10 py-4 h-auto text-center"
           >
             {loading ? "Preparing payment..." : "Continue to payment"}
-          </button>
+          </Button>
         </div>
-      </section>
+        </CardContent>
+      </Card>
       {/* Trust Indicator */}
       <div className="mt-8 flex items-center justify-center gap-2 text-center opacity-60">
         <span className="material-symbols-outlined text-[16px] text-text-muted">lock</span>

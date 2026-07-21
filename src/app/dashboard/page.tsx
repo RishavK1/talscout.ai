@@ -8,7 +8,10 @@ import { useAuth } from "@/components/app/auth-provider";
 import { api } from "@/lib/api";
 import { TopAppBar } from "@/components/app/top-app-bar";
 import { getRecentSearches } from "@/lib/recent-searches";
-import { SpotlightCard } from "@/components/marketing/spotlight-card";
+import { Button } from "@/components/ui/button";
+import { Card, CardHeader, CardTitle, CardAction, CardContent } from "@/components/ui/card";
+import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
+import { StatusBadge } from "@/components/ui/status-badge";
 
 
 interface SimpleCandidate {
@@ -120,6 +123,48 @@ export default function DashboardPage() {
     }
   };
 
+  const uploadColumns: DataTableColumn<SimpleCandidate>[] = [
+    {
+      key: "name",
+      header: "Candidate Name",
+      render: (c) => (
+        <span className="font-body-md text-body-md text-on-surface font-medium">
+          {c.fullName || "Unnamed Draft"}
+        </span>
+      ),
+    },
+    {
+      key: "role",
+      header: "Role Parsed",
+      render: (c) => (
+        <span className="font-body-md text-body-md text-on-surface-variant">
+          {c.currentTitle || "Not Parsed Yet"}
+        </span>
+      ),
+    },
+    {
+      key: "date",
+      header: "Date Uploaded",
+      render: (c) => (
+        <span className="font-data-mono text-data-mono text-on-surface-variant">
+          {formatUploadedDate(c.createdAt)}
+        </span>
+      ),
+    },
+    {
+      key: "status",
+      header: "AI Status",
+      render: (c) =>
+        c.status === "ready" ? (
+          <StatusBadge tone="active">Parsed</StatusBadge>
+        ) : c.status === "processing" ? (
+          <StatusBadge tone="invited">In Progress</StatusBadge>
+        ) : (
+          <StatusBadge tone="error">Error</StatusBadge>
+        ),
+    },
+  ];
+
   return (
     <AppShell>
       {/* Main Content Area */}
@@ -147,18 +192,16 @@ export default function DashboardPage() {
             </form>
           }
           rightContent={
-            <Link href="/upload" className="group bg-gradient-to-r from-primary-container to-primary text-white px-5 py-2.5 rounded-lg font-label-md text-label-md shadow-floating transition-all hover:-translate-y-0.5 active:scale-[0.97] whitespace-nowrap">
-              + Upload résumés
-            </Link>
+            <Button asChild variant="gradient" className="whitespace-nowrap">
+              <Link href="/upload">+ Upload résumés</Link>
+            </Button>
           }
         />
         {/* Main Canvas */}
         <main className="flex-1 p-4 sm:p-6 lg:p-12 max-w-[1440px] mx-auto w-full">
           {/* Greeting Section */}
-          <section className="relative mb-12 overflow-hidden rounded-3xl bg-aurora-soft p-6 sm:p-8">
-            <div className="pointer-events-none absolute -right-10 -top-16 h-56 w-56 rounded-full bg-tertiary-fixed/15 blur-3xl" />
-            <div className="pointer-events-none absolute -left-10 bottom-0 h-40 w-40 rounded-full bg-primary-container/10 blur-3xl" />
-            <div className="relative">
+          <Card className="mb-12 [--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
+            <CardContent>
               <h1 className="font-headline-lg text-headline-lg text-primary mb-2">{greeting}, {displayName}.</h1>
               <p className="font-body-lg text-body-lg text-text-muted">Here is the latest intelligence on your recruitment pipeline.</p>
               {slowLoad && (
@@ -167,156 +210,115 @@ export default function DashboardPage() {
                   Waking things up — this can take a moment on the first visit of the day.
                 </p>
               )}
-            </div>
-          </section>
+            </CardContent>
+          </Card>
           {/* Semantic Search Bar (Central) */}
           <section className="mb-16">
-            <form
-              onSubmit={handleSemanticSearchSubmit}
-              className="glass-card p-2 rounded-2xl shadow-floating flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-0 focus-within:border-primary transition-colors"
-            >
-              <div className="hidden sm:flex sm:items-center sm:justify-center h-11 w-11 ml-1 rounded-xl bg-tertiary-fixed text-on-tertiary-fixed">
-                <span className="material-symbols-outlined text-[24px]">robot_2</span>
-              </div>
-              <input value={semanticQuery} onChange={(e) => setSemanticQuery(e.target.value)} className="flex-1 bg-transparent border-none py-4 px-2 font-body-lg text-body-lg text-on-surface placeholder:text-outline-variant focus:outline-none focus:ring-0" placeholder="Try semantic search: 'Senior Python developers in Berlin with FinTech experience...'" type="text" />
-              <button type="submit" className="bg-tertiary-fixed text-on-tertiary-fixed px-6 py-4 rounded-xl font-label-md text-label-md shadow-floating transition-all hover:-translate-y-0.5 hover:bg-tertiary-fixed-dim active:scale-[0.97] flex items-center justify-center gap-2 cursor-pointer">
-                <span className="material-symbols-outlined text-[20px]">magic_button</span>
-                Find Candidates
-              </button>
+            <form onSubmit={handleSemanticSearchSubmit}>
+              <Card className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-0 p-2 focus-within:border-primary transition-colors">
+                <div className="hidden sm:flex sm:items-center sm:justify-center h-11 w-11 ml-1 rounded-xl bg-tertiary-fixed text-on-tertiary-fixed">
+                  <span className="material-symbols-outlined text-[24px]">robot_2</span>
+                </div>
+                <input value={semanticQuery} onChange={(e) => setSemanticQuery(e.target.value)} className="flex-1 bg-transparent border-none py-4 px-2 font-body-lg text-body-lg text-on-surface placeholder:text-outline-variant focus:outline-none focus:ring-0" placeholder="Try semantic search: 'Senior Python developers in Berlin with FinTech experience...'" type="text" />
+                <Button
+                  type="submit"
+                  variant="secondary"
+                  size="lg"
+                  className="justify-center bg-tertiary-fixed text-on-tertiary-fixed hover:bg-tertiary-fixed-dim active:scale-[0.97]"
+                >
+                  <span className="material-symbols-outlined text-[20px]">magic_button</span>
+                  Find Candidates
+                </Button>
+              </Card>
             </form>
           </section>
           {/* Stat Cards Bento */}
           <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
             {/* Total Candidates */}
-            <SpotlightCard className="glass-card p-6 rounded-[20px] flex flex-col justify-between">
-              <div className="flex justify-between items-start mb-4">
-                <div className="p-2.5 bg-gradient-to-br from-primary-container to-primary text-on-primary rounded-lg shadow-sm">
-                  <span className="material-symbols-outlined">folder_shared</span>
+            <Card className="h-full [--card-spacing:--spacing(5)]">
+              <CardContent className="flex h-full flex-col justify-center gap-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-container/10 text-primary-container">
+                    <span className="material-symbols-outlined text-[20px]">folder_shared</span>
+                  </div>
+                  <p className="font-label-md text-label-md text-on-surface-variant">Total Candidates</p>
                 </div>
-              </div>
-              <div>
-                <p className="font-label-md text-label-md text-on-surface-variant mb-1">Total Candidates</p>
                 <p className="font-data-mono text-display-lg text-primary tracking-tight">
                   {loading ? "..." : totalCandidates.toLocaleString()}
                 </p>
-              </div>
-            </SpotlightCard>
+              </CardContent>
+            </Card>
             {/* Processed Resumes */}
-            <SpotlightCard className="glass-card p-6 rounded-[20px] flex flex-col justify-between">
-              <div className="flex justify-between items-start mb-4">
-                <div className="p-2.5 bg-tertiary-fixed text-on-tertiary-fixed rounded-lg shadow-sm">
-                  <span className="material-symbols-outlined">document_scanner</span>
+            <Card className="h-full [--card-spacing:--spacing(5)]">
+              <CardContent className="flex h-full flex-col justify-center gap-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-container/10 text-primary-container">
+                    <span className="material-symbols-outlined text-[20px]">document_scanner</span>
+                  </div>
+                  <p className="font-label-md text-label-md text-on-surface-variant">Parsed / Ready Candidates</p>
                 </div>
-              </div>
-              <div>
-                <p className="font-label-md text-label-md text-on-surface-variant mb-1">Parsed / Ready Candidates</p>
                 <p className="font-data-mono text-display-lg text-primary tracking-tight">
                   {loading ? "..." : processedCandidates.toLocaleString()}
                 </p>
-              </div>
-            </SpotlightCard>
+              </CardContent>
+            </Card>
             {/* In Processing */}
-            <SpotlightCard className="glass-card p-6 rounded-[20px] flex flex-col justify-between">
-              <div className="flex justify-between items-start mb-4">
-                <div className="p-2.5 bg-primary-fixed text-on-primary-fixed rounded-lg shadow-sm">
-                  <span className="material-symbols-outlined">hourglass_top</span>
+            <Card className="h-full [--card-spacing:--spacing(5)]">
+              <CardContent className="flex h-full flex-col justify-center gap-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-container/10 text-primary-container">
+                    <span className="material-symbols-outlined text-[20px]">hourglass_top</span>
+                  </div>
+                  <p className="font-label-md text-label-md text-on-surface-variant">Résumés Processing</p>
                 </div>
-              </div>
-              <div>
-                <p className="font-label-md text-label-md text-on-surface-variant mb-1">Résumés Processing</p>
                 <p className="font-data-mono text-display-lg text-primary tracking-tight">
                   {loading ? "..." : processingCandidates.toLocaleString()}
                 </p>
-              </div>
-            </SpotlightCard>
+              </CardContent>
+            </Card>
             {/* Shortlisted */}
-            <SpotlightCard className="glass-card p-6 rounded-[20px] flex flex-col justify-between">
-              <div className="flex justify-between items-start mb-4">
-                <div className="p-2.5 bg-secondary-fixed text-on-secondary-fixed rounded-lg shadow-sm">
-                  <span className="material-symbols-outlined" data-weight="fill">star</span>
+            <Card className="h-full [--card-spacing:--spacing(5)]">
+              <CardContent className="flex h-full flex-col justify-center gap-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-container/10 text-primary-container">
+                    <span className="material-symbols-outlined text-[20px]" data-weight="fill">star</span>
+                  </div>
+                  <p className="font-label-md text-label-md text-on-surface-variant">Shortlisted</p>
                 </div>
-              </div>
-              <div>
-                <p className="font-label-md text-label-md text-on-surface-variant mb-1">Shortlisted</p>
                 <p className="font-data-mono text-display-lg text-primary tracking-tight">{loading ? "..." : shortlistedCount.toLocaleString()}</p>
-              </div>
-            </SpotlightCard>
+              </CardContent>
+            </Card>
           </section>
           {/* Tables Section (Asymmetric Split) */}
           <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Recent Uploads (Takes up 2 columns) */}
-            <SpotlightCard className="lg:col-span-2 glass-card rounded-[20px] overflow-hidden flex flex-col">
-              <div className="p-6 border-b border-border-low-alpha flex justify-between items-center">
-                <h3 className="font-headline-md text-headline-md text-primary">Recent Uploads</h3>
-                <Link className="font-label-md text-label-md text-primary hover:underline" href="/candidates">View All</Link>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[640px] text-left border-collapse">
-                  <thead>
-                    <tr className="bg-bg-cream/50">
-                      <th className="p-4 font-label-md text-label-md text-outline font-medium">Candidate Name</th>
-                      <th className="p-4 font-label-md text-label-md text-outline font-medium">Role Parsed</th>
-                      <th className="p-4 font-label-md text-label-md text-outline font-medium">Date Uploaded</th>
-                      <th className="p-4 font-label-md text-label-md text-outline font-medium">AI Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {loading ? (
-                      <tr>
-                        <td colSpan={4} className="p-8 text-center text-on-surface-variant">
-                          Loading candidates...
-                        </td>
-                      </tr>
-                    ) : recentCandidates.length === 0 ? (
-                      <tr>
-                        <td colSpan={4} className="p-8 text-center text-on-surface-variant">
-                          No candidates found. Upload some résumés to get started!
-                        </td>
-                      </tr>
-                    ) : (
-                      recentCandidates.map((c) => (
-                        <tr
-                          key={c.id}
-                          onClick={() => router.push(`/candidates/${c.id}`)}
-                          className="border-b border-border-low-alpha hover:bg-surface-container-lowest transition-colors cursor-pointer"
-                        >
-                          <td className="p-4 font-body-md text-body-md text-on-surface font-medium">
-                            {c.fullName || "Unnamed Draft"}
-                          </td>
-                          <td className="p-4 font-body-md text-body-md text-on-surface-variant">
-                            {c.currentTitle || "Not Parsed Yet"}
-                          </td>
-                          <td className="p-4 font-data-mono text-data-mono text-on-surface-variant">
-                            {formatUploadedDate(c.createdAt)}
-                          </td>
-                          <td className="p-4">
-                            {c.status === "ready" ? (
-                              <span className="status-pill-active inline-flex items-center px-2 py-1 rounded-full font-label-md text-[12px]">
-                                <span className="material-symbols-outlined text-[14px] mr-1">check_circle</span> Parsed
-                              </span>
-                            ) : c.status === "processing" ? (
-                              <span className="status-pill-invited inline-flex items-center px-2 py-1 rounded-full font-label-md text-[12px]">
-                                <span className="material-symbols-outlined text-[14px] mr-1 animate-spin">sync</span> In Progress
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center px-2 py-1 bg-error/10 text-error rounded-full font-label-md text-[12px]">
-                                <span className="material-symbols-outlined text-[14px] mr-1">error</span> Error
-                              </span>
-                            )}
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </SpotlightCard>
+            <Card className="lg:col-span-2 h-full flex flex-col overflow-hidden">
+              <CardHeader className="border-b border-border-low-alpha">
+                <CardTitle className="font-body-md font-semibold text-headline-md text-primary">Recent Uploads</CardTitle>
+                <CardAction>
+                  <Link className="font-label-md text-label-md text-primary hover:underline" href="/candidates">View All</Link>
+                </CardAction>
+              </CardHeader>
+              <CardContent className="p-0">
+                <DataTable
+                  columns={uploadColumns}
+                  rows={recentCandidates}
+                  getRowKey={(c) => c.id}
+                  onRowClick={(c) => router.push(`/candidates/${c.id}`)}
+                  emptyState={
+                    <span className="font-body-md text-body-md text-on-surface-variant">
+                      {loading ? "Loading candidates..." : "No candidates found. Upload some résumés to get started!"}
+                    </span>
+                  }
+                />
+              </CardContent>
+            </Card>
             {/* Recent Searches (Takes 1 column) */}
-            <SpotlightCard className="lg:col-span-1 glass-card rounded-[20px] overflow-hidden flex flex-col">
-              <div className="p-6 border-b border-border-low-alpha">
-                <h3 className="font-headline-md text-headline-md text-primary">Recent Searches</h3>
-              </div>
-              <div className="flex-grow p-4 space-y-2">
+            <Card className="lg:col-span-1 h-full flex flex-col overflow-hidden">
+              <CardHeader className="border-b border-border-low-alpha">
+                <CardTitle className="font-body-md font-semibold text-headline-md text-primary">Recent Searches</CardTitle>
+              </CardHeader>
+              <CardContent className="flex-grow p-4 space-y-2">
                 {recentSearches.length > 0 ? (
                   recentSearches.map((searchQuery, index) => (
                     <button
@@ -324,7 +326,7 @@ export default function DashboardPage() {
                       onClick={() => router.push(`/search?q=${encodeURIComponent(searchQuery)}`)}
                       className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-surface-container-low transition-colors text-left"
                     >
-                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary-container/20 to-primary/10 text-primary">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-container/10 text-primary-container">
                         <span className="material-symbols-outlined text-[18px]">history</span>
                       </div>
                       <span className="font-body-md text-on-surface truncate flex-1">{searchQuery}</span>
@@ -336,8 +338,8 @@ export default function DashboardPage() {
                     <p className="font-body-md text-text-muted">No recent searches yet.</p>
                   </div>
                 )}
-              </div>
-            </SpotlightCard>
+              </CardContent>
+            </Card>
           </section>
         </main>
       </div>
