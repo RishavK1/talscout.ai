@@ -208,8 +208,11 @@
   --sidebar-foreground: var(--color-on-surface-variant);
   --sidebar-primary: var(--color-primary-container);
   --sidebar-primary-foreground: var(--color-on-primary);
-  --sidebar-accent: var(--color-tertiary-fixed);
-  --sidebar-accent-foreground: var(--color-primary);
+  /* Selected/hovered nav rows use the same solid teal as the primary CTA
+     (Invite Team button) — was the landing page's bright lime accent, which
+     read as jarring/off-brand for a persistent selected state. */
+  --sidebar-accent: var(--color-primary-container);
+  --sidebar-accent-foreground: var(--color-on-primary);
   --sidebar-border: var(--color-border-low-alpha);
   --sidebar-ring: var(--color-primary-container);
 }

@@ -71,11 +71,12 @@ function NavLink({
     return (
       <SidebarMenuButton
         asChild
+        size="lg"
         tooltip={`${item.label} — upgrade to unlock`}
         className="text-sidebar-foreground/50"
       >
         <Link href="/billing">
-          <span className="material-symbols-outlined">{item.icon}</span>
+          <span className="material-symbols-outlined text-[20px]">{item.icon}</span>
           <span>{item.label}</span>
           <span className="material-symbols-outlined ml-auto text-[16px] text-sidebar-foreground/50">
             lock
@@ -87,17 +88,14 @@ function NavLink({
   return (
     <SidebarMenuButton
       asChild
+      size="lg"
       isActive={active}
       tooltip={item.label}
-      className={cn(
-        // Flat light-tint pill for the active item — no gradient, no shadow.
-        active && "bg-primary-container/10 text-primary font-semibold hover:bg-primary-container/10 hover:text-primary",
-        !active && "text-sidebar-foreground hover:bg-surface-container-low hover:text-primary",
-      )}
+      className="text-sidebar-foreground"
     >
       <Link href={item.href}>
         <span
-          className="material-symbols-outlined shrink-0"
+          className="material-symbols-outlined shrink-0 text-[20px]"
           {...(active ? { "data-weight": "fill" } : {})}
         >
           {item.icon}
@@ -205,7 +203,7 @@ function AppSidebar({ onInvite }: { onInvite: () => void }) {
       <SidebarContent className="px-2">
         <SidebarGroup>
           <SidebarGroupLabel className="uppercase tracking-wider">Main</SidebarGroupLabel>
-          <SidebarMenu>
+          <SidebarMenu className="gap-1">
             {mainNav.map((item) => (
               <SidebarMenuItem key={item.href}>
                 <NavLink item={item} active={isActive(item.href)} />
@@ -230,7 +228,7 @@ function AppSidebar({ onInvite }: { onInvite: () => void }) {
         )}
         <SidebarGroup className="p-0">
           <SidebarGroupLabel className="uppercase tracking-wider">Workspace</SidebarGroupLabel>
-          <SidebarMenu>
+          <SidebarMenu className="gap-1">
             {footerNav.map((item) => (
               <SidebarMenuItem key={item.href}>
                 <NavLink

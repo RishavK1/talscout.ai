@@ -30,6 +30,8 @@ export default function DashboardPage() {
   const [processedCandidates, setProcessedCandidates] = useState(0);
   const [processingCandidates, setProcessingCandidates] = useState(0);
   const [shortlistedCount, setShortlistedCount] = useState(0);
+  const [activeCampaignsCount, setActiveCampaignsCount] = useState(0);
+  const [blueprintsCount, setBlueprintsCount] = useState(0);
   const [recentCandidates, setRecentCandidates] = useState<SimpleCandidate[]>([]);
   const [loading, setLoading] = useState(true);
   // After a few seconds of loading, tell the user we're waking things up so a
@@ -75,12 +77,15 @@ export default function DashboardPage() {
         // Fire all requests in parallel instead of awaiting each in series.
         // The recent-candidates list (limit=5) already returns `total`, so we
         // reuse it for the Total Candidates stat — one fewer round-trip.
-        const [recentRes, processedRes, processingRes, shortlistsRes] = await Promise.all([
-          api.get<{ candidates: SimpleCandidate[]; total: number }>("/api/candidates?limit=5"),
-          api.get<{ total: number }>("/api/candidates?status=ready&limit=1"),
-          api.get<{ total: number }>("/api/candidates?status=processing&limit=1"),
-          api.get<{ shortlists: any[] }>("/api/shortlists"),
-        ]);
+        const [recentRes, processedRes, processingRes, shortlistsRes, campaignsRes, blueprintsRes] =
+          await Promise.all([
+            api.get<{ candidates: SimpleCandidate[]; total: number }>("/api/candidates?limit=5"),
+            api.get<{ total: number }>("/api/candidates?status=ready&limit=1"),
+            api.get<{ total: number }>("/api/candidates?status=processing&limit=1"),
+            api.get<{ shortlists: any[] }>("/api/shortlists"),
+            api.get<{ campaigns: any[] }>("/api/automated-campaigns"),
+            api.get<{ blueprints: any[] }>("/api/blueprints"),
+          ]);
 
         setTotalCandidates(recentRes.total);
         setRecentCandidates(recentRes.candidates);
@@ -92,6 +97,10 @@ export default function DashboardPage() {
           0,
         );
         setShortlistedCount(totalShortlisted);
+        setActiveCampaignsCount(
+          campaignsRes.campaigns.filter((c: any) => c.status === "active").length,
+        );
+        setBlueprintsCount(blueprintsRes.blueprints.length);
       } catch (err) {
         console.error("Error loading dashboard data:", err);
       } finally {
@@ -198,9 +207,9 @@ export default function DashboardPage() {
           }
         />
         {/* Main Canvas */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-12 max-w-[1440px] mx-auto w-full">
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-[1440px] mx-auto w-full">
           {/* Greeting Section */}
-          <Card className="mb-12 [--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
+          <Card className="mb-6 [--card-spacing:--spacing(5)]">
             <CardContent>
               <h1 className="font-headline-lg text-headline-lg text-primary mb-2">{greeting}, {displayName}.</h1>
               <p className="font-body-lg text-body-lg text-text-muted">Here is the latest intelligence on your recruitment pipeline.</p>
@@ -213,13 +222,13 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
           {/* Semantic Search Bar (Central) */}
-          <section className="mb-16">
+          <section className="mb-6">
             <form onSubmit={handleSemanticSearchSubmit}>
               <Card className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-0 p-2 focus-within:border-primary transition-colors">
-                <div className="hidden sm:flex sm:items-center sm:justify-center h-11 w-11 ml-1 rounded-xl bg-tertiary-fixed text-on-tertiary-fixed">
-                  <span className="material-symbols-outlined text-[24px]">robot_2</span>
+                <div className="hidden sm:flex sm:items-center sm:justify-center h-10 w-10 ml-1 rounded-xl bg-tertiary-fixed text-on-tertiary-fixed">
+                  <span className="material-symbols-outlined text-[22px]">robot_2</span>
                 </div>
-                <input value={semanticQuery} onChange={(e) => setSemanticQuery(e.target.value)} className="flex-1 bg-transparent border-none py-4 px-2 font-body-lg text-body-lg text-on-surface placeholder:text-outline-variant focus:outline-none focus:ring-0" placeholder="Try semantic search: 'Senior Python developers in Berlin with FinTech experience...'" type="text" />
+                <input value={semanticQuery} onChange={(e) => setSemanticQuery(e.target.value)} className="flex-1 bg-transparent border-none py-3 px-2 font-body-lg text-body-lg text-on-surface placeholder:text-outline-variant focus:outline-none focus:ring-0" placeholder="Try semantic search: 'Senior Python developers in Berlin with FinTech experience...'" type="text" />
                 <Button
                   type="submit"
                   variant="secondary"
@@ -232,62 +241,130 @@ export default function DashboardPage() {
               </Card>
             </form>
           </section>
-          {/* Stat Cards Bento */}
-          <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
-            {/* Total Candidates */}
-            <Card className="h-full [--card-spacing:--spacing(5)]">
-              <CardContent className="flex h-full flex-col justify-center gap-3">
-                <div className="flex items-center gap-2.5">
+          {/* Quick Actions */}
+          <section className="mb-6">
+            <p className="mb-2 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">
+              Quick actions
+            </p>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              {[
+                { href: "/upload", icon: "upload_file", label: "Upload résumés" },
+                { href: "/search", icon: "search", label: "Search candidates" },
+                { href: "/blueprints/new", icon: "description", label: "New blueprint" },
+                { href: "/automated-outreach/new", icon: "auto_awesome", label: "New campaign" },
+              ].map((action) => (
+                <Link key={action.href} href={action.href}>
+                  <Card className="h-full [--card-spacing:--spacing(3.5)] hover:border-primary-container/40 hover:bg-primary-container/[0.04] transition-colors">
+                    <CardContent className="flex items-center gap-3">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-container/10 text-primary-container">
+                        <span className="material-symbols-outlined text-[20px]">{action.icon}</span>
+                      </div>
+                      <span className="font-label-md text-label-md text-on-surface font-medium">{action.label}</span>
+                    </CardContent>
+                  </Card>
+                </Link>
+              ))}
+            </div>
+          </section>
+          {/* Stat Cards — candidate pipeline */}
+          <section className="mb-6">
+            <p className="mb-2 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">
+              Candidate pipeline
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Total Candidates */}
+              <Card className="h-full [--card-spacing:--spacing(4)]">
+                <CardContent className="flex items-center gap-3">
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-container/10 text-primary-container">
                     <span className="material-symbols-outlined text-[20px]">folder_shared</span>
                   </div>
-                  <p className="font-label-md text-label-md text-on-surface-variant">Total Candidates</p>
-                </div>
-                <p className="font-data-mono text-display-lg text-primary tracking-tight">
-                  {loading ? "..." : totalCandidates.toLocaleString()}
-                </p>
-              </CardContent>
-            </Card>
-            {/* Processed Resumes */}
-            <Card className="h-full [--card-spacing:--spacing(5)]">
-              <CardContent className="flex h-full flex-col justify-center gap-3">
-                <div className="flex items-center gap-2.5">
+                  <div>
+                    <p className="font-label-md text-label-md text-on-surface-variant">Total Candidates</p>
+                    <p className="font-data-mono text-headline-lg text-primary tracking-tight">
+                      {loading ? "..." : totalCandidates.toLocaleString()}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+              {/* Processed Resumes */}
+              <Card className="h-full [--card-spacing:--spacing(4)]">
+                <CardContent className="flex items-center gap-3">
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-container/10 text-primary-container">
                     <span className="material-symbols-outlined text-[20px]">document_scanner</span>
                   </div>
-                  <p className="font-label-md text-label-md text-on-surface-variant">Parsed / Ready Candidates</p>
-                </div>
-                <p className="font-data-mono text-display-lg text-primary tracking-tight">
-                  {loading ? "..." : processedCandidates.toLocaleString()}
-                </p>
-              </CardContent>
-            </Card>
-            {/* In Processing */}
-            <Card className="h-full [--card-spacing:--spacing(5)]">
-              <CardContent className="flex h-full flex-col justify-center gap-3">
-                <div className="flex items-center gap-2.5">
+                  <div>
+                    <p className="font-label-md text-label-md text-on-surface-variant">Parsed / Ready</p>
+                    <p className="font-data-mono text-headline-lg text-primary tracking-tight">
+                      {loading ? "..." : processedCandidates.toLocaleString()}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+              {/* In Processing */}
+              <Card className="h-full [--card-spacing:--spacing(4)]">
+                <CardContent className="flex items-center gap-3">
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-container/10 text-primary-container">
                     <span className="material-symbols-outlined text-[20px]">hourglass_top</span>
                   </div>
-                  <p className="font-label-md text-label-md text-on-surface-variant">Résumés Processing</p>
-                </div>
-                <p className="font-data-mono text-display-lg text-primary tracking-tight">
-                  {loading ? "..." : processingCandidates.toLocaleString()}
-                </p>
-              </CardContent>
-            </Card>
-            {/* Shortlisted */}
-            <Card className="h-full [--card-spacing:--spacing(5)]">
-              <CardContent className="flex h-full flex-col justify-center gap-3">
-                <div className="flex items-center gap-2.5">
+                  <div>
+                    <p className="font-label-md text-label-md text-on-surface-variant">Processing</p>
+                    <p className="font-data-mono text-headline-lg text-primary tracking-tight">
+                      {loading ? "..." : processingCandidates.toLocaleString()}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+              {/* Shortlisted */}
+              <Card className="h-full [--card-spacing:--spacing(4)]">
+                <CardContent className="flex items-center gap-3">
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-container/10 text-primary-container">
                     <span className="material-symbols-outlined text-[20px]" data-weight="fill">star</span>
                   </div>
-                  <p className="font-label-md text-label-md text-on-surface-variant">Shortlisted</p>
-                </div>
-                <p className="font-data-mono text-display-lg text-primary tracking-tight">{loading ? "..." : shortlistedCount.toLocaleString()}</p>
-              </CardContent>
-            </Card>
+                  <div>
+                    <p className="font-label-md text-label-md text-on-surface-variant">Shortlisted</p>
+                    <p className="font-data-mono text-headline-lg text-primary tracking-tight">{loading ? "..." : shortlistedCount.toLocaleString()}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </section>
+          {/* Stat Cards — outreach activity */}
+          <section className="mb-6">
+            <p className="mb-2 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">
+              Outreach activity
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Link href="/automated-outreach">
+                <Card className="h-full [--card-spacing:--spacing(4)] hover:border-primary-container/40 transition-colors">
+                  <CardContent className="flex items-center gap-3">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-container/10 text-primary-container">
+                      <span className="material-symbols-outlined text-[20px]">auto_awesome</span>
+                    </div>
+                    <div>
+                      <p className="font-label-md text-label-md text-on-surface-variant">Active Campaigns</p>
+                      <p className="font-data-mono text-headline-lg text-primary tracking-tight">
+                        {loading ? "..." : activeCampaignsCount.toLocaleString()}
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+              <Link href="/blueprints">
+                <Card className="h-full [--card-spacing:--spacing(4)] hover:border-primary-container/40 transition-colors">
+                  <CardContent className="flex items-center gap-3">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-container/10 text-primary-container">
+                      <span className="material-symbols-outlined text-[20px]">description</span>
+                    </div>
+                    <div>
+                      <p className="font-label-md text-label-md text-on-surface-variant">Blueprints</p>
+                      <p className="font-data-mono text-headline-lg text-primary tracking-tight">
+                        {loading ? "..." : blueprintsCount.toLocaleString()}
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+            </div>
           </section>
           {/* Tables Section (Asymmetric Split) */}
           <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
