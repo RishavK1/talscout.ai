@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/components/app/auth-provider";
 
 import { TopAppBar } from "@/components/app/top-app-bar";
+import { SpotlightCard } from "@/components/marketing/spotlight-card";
 
 interface Shortlist {
   id: string;
@@ -91,7 +92,7 @@ export default function ShortlistsPage() {
                 <input value={search} onChange={e => setSearch(e.target.value)} className="bg-surface-container-low border-none rounded-full px-10 py-2 w-full sm:w-64 text-label-md focus:ring-1 focus:ring-primary transition-all" placeholder="Search shortlists..." type="text" />
                 <span className="material-symbols-outlined absolute left-3 top-2.5 text-outline text-[20px]">search</span>
               </div>
-              <Link href="/upload" className="flex items-center gap-2 bg-primary text-white px-5 py-2.5 rounded-lg font-label-md hover:opacity-90 transition-all active:scale-95">
+              <Link href="/upload" className="flex items-center gap-2 bg-gradient-to-br from-primary-container to-primary text-on-primary px-5 py-2.5 rounded-lg font-label-md shadow-floating transition-all hover:-translate-y-0.5 active:scale-[0.97]">
                 <span className="material-symbols-outlined text-sm">upload</span>
                 + Upload résumés
               </Link>
@@ -111,15 +112,23 @@ export default function ShortlistsPage() {
         {/* Main Body */}
         <div className="p-4 sm:p-6 lg:p-12 max-w-[1440px] mx-auto w-full flex-1">
           {/* Page Header Section */}
-          <section className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4 mb-12">
-            <div className="space-y-2">
-              <h2 className="font-headline-lg text-headline-lg text-on-surface">Shortlists</h2>
-              <p className="text-text-muted font-body-md max-w-lg">Manage your curated candidate pools and AI-driven talent matches for ongoing hiring campaigns.</p>
+          <section className="relative overflow-hidden rounded-2xl bg-aurora-soft p-6 mb-12">
+            <div className="pointer-events-none absolute -right-12 -top-12 h-48 w-48 rounded-full bg-tertiary-fixed/15 blur-3xl" />
+            <div className="relative flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-primary-container to-primary text-on-primary shadow-sm shrink-0">
+                  <span className="material-symbols-outlined text-[22px]">bookmarks</span>
+                </div>
+                <div className="space-y-1">
+                  <h2 className="font-headline-lg text-headline-lg text-on-surface">Shortlists</h2>
+                  <p className="text-text-muted font-body-md max-w-lg">Manage your curated candidate pools and AI-driven talent matches for ongoing hiring campaigns.</p>
+                </div>
+              </div>
+              <button type="button" onClick={handleOpenModal} className="bg-gradient-to-br from-primary-container to-primary text-on-primary px-6 py-3 rounded-lg font-label-md shadow-floating transition-all hover:-translate-y-0.5 active:scale-[0.97] flex items-center gap-2">
+                <span className="material-symbols-outlined">add_circle</span>
+                + New shortlist
+              </button>
             </div>
-            <button type="button" onClick={handleOpenModal} className="bg-primary text-white px-6 py-3 rounded-xl font-label-md hover:shadow-lg transition-all duration-300 flex items-center gap-2">
-              <span className="material-symbols-outlined">add_circle</span>
-              + New shortlist
-            </button>
           </section>
           {/* Bento/Grid Content */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -133,35 +142,37 @@ export default function ShortlistsPage() {
                 <p className="text-text-muted font-label-md mt-1">Start a fresh talent pool for a new role</p>
               </div>
             </div>
-            
+
             {/* Dynamic Shortlist Cards */}
             {loading ? (
               <div className="flex items-center justify-center col-span-1 md:col-span-2 lg:col-span-3 min-h-[200px] text-text-muted font-body-md">
                 Loading shortlists...
               </div>
             ) : filtered.map(s => (
-              <Link key={s.id} href={`/shortlists/${s.id}`} className="bg-white rounded-[20px] p-8 soft-shadow border border-border-low-alpha group hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between">
-                <div>
-                  <div className="flex justify-between items-start mb-6">
-                    <h3 className="font-headline-md text-[20px] text-on-surface leading-snug">{s.name}</h3>
-                    <span className="text-text-muted group-hover:text-on-surface transition-colors">
-                      <span className="material-symbols-outlined">more_vert</span>
-                    </span>
+              <SpotlightCard key={s.id} className="glass-card rounded-[20px] group hover:-translate-y-1 transition-all duration-300">
+                <Link href={`/shortlists/${s.id}`} className="p-8 flex flex-col justify-between h-full">
+                  <div>
+                    <div className="flex justify-between items-start mb-6">
+                      <h3 className="font-headline-md text-[20px] text-on-surface leading-snug">{s.name}</h3>
+                      <span className="text-text-muted group-hover:text-on-surface transition-colors">
+                        <span className="material-symbols-outlined">more_vert</span>
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 mb-8">
+                      <span className="brass-pill inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium">General</span>
+                      <span className="text-text-muted font-label-md">• {s.candidateCount} candidates</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2 mb-8">
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-secondary-container/20 text-on-secondary-container">General</span>
-                    <span className="text-text-muted font-label-md">• {s.candidateCount} candidates</span>
+                  <div className="space-y-6">
+                    <div className="flex justify-between items-center pt-4 border-t border-border-low-alpha">
+                      <span className="font-data-mono text-[12px] text-text-muted">
+                        Last updated: {s.lastUpdated ? new Date(s.lastUpdated).toLocaleDateString() : "Never"}
+                      </span>
+                      <span className="material-symbols-outlined text-primary text-[20px] opacity-0 group-hover:opacity-100 transition-opacity">arrow_forward</span>
+                    </div>
                   </div>
-                </div>
-                <div className="space-y-6">
-                  <div className="flex justify-between items-center pt-4 border-t border-border-low-alpha">
-                    <span className="font-data-mono text-[12px] text-text-muted">
-                      Last updated: {s.lastUpdated ? new Date(s.lastUpdated).toLocaleDateString() : "Never"}
-                    </span>
-                    <span className="material-symbols-outlined text-primary text-[20px] opacity-0 group-hover:opacity-100 transition-opacity">arrow_forward</span>
-                  </div>
-                </div>
-              </Link>
+                </Link>
+              </SpotlightCard>
             ))}
           </div>
         </div>

@@ -184,7 +184,7 @@ export default function CandidateProfilePage() {
             </div>
           }
           rightContent={
-            <Link href="/upload" className="bg-primary text-white px-5 py-2.5 rounded-xl font-label-md text-label-md hover:shadow-lg transition-all active:scale-[0.98] whitespace-nowrap">
+            <Link href="/upload" className="bg-gradient-to-br from-primary-container to-primary text-on-primary px-5 py-2.5 rounded-lg font-label-md text-label-md shadow-floating transition-all hover:-translate-y-0.5 active:scale-[0.97] whitespace-nowrap">
               + Upload résumés
             </Link>
           }
@@ -200,20 +200,21 @@ export default function CandidateProfilePage() {
         </div>
 
         {/* Profile Canvas */}
-        <div className="flex-1 p-4 sm:p-6 lg:p-12 max-w-[1440px] mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        <div className="relative flex-1 p-4 sm:p-6 lg:p-12 max-w-[1440px] mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           {/* Left Column: Main Profile (8 cols) */}
           <div className="lg:col-span-8 space-y-8">
             {/* Header Card */}
-            <div className="glass-card rounded-xl p-5 sm:p-8 flex flex-col md:flex-row gap-8 items-start relative overflow-hidden bg-white border border-border-low-alpha shadow-sm">
+            <div className="glass-card rounded-xl p-5 sm:p-8 flex flex-col md:flex-row gap-8 items-start relative overflow-hidden bg-aurora-soft">
               <div className="absolute top-0 right-0 w-64 h-64 bg-tertiary-fixed/20 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
-              <div className="w-32 h-32 rounded-full flex items-center justify-center border-4 border-surface-white ambient-shadow z-10 shrink-0 bg-surface-container-high text-primary font-headline-lg text-headline-lg">
+              <div className="absolute bottom-0 left-1/3 w-48 h-48 bg-primary-container/15 rounded-full blur-3xl -mb-16 pointer-events-none"></div>
+              <div className="w-32 h-32 rounded-full flex items-center justify-center border-4 border-surface-white ambient-shadow z-10 shrink-0 bg-gradient-to-br from-primary-container to-primary text-on-primary font-headline-lg text-headline-lg">
                 {initials}
               </div>
               <div className="flex-1 z-10">
                 <div className="flex flex-wrap items-center gap-3 mb-2">
                   <h2 className="font-headline-lg text-headline-lg text-primary">{name}</h2>
                   {candidate.hasResume && candidate.status === "ready" ? (
-                    <span className="px-2 py-1 bg-tertiary-fixed/30 text-on-tertiary-fixed-variant rounded-md font-label-md text-[12px] flex items-center shadow-sm">
+                    <span className="brass-badge px-2 py-1 rounded-md font-label-md text-[12px] flex items-center shadow-sm">
                       <span className="material-symbols-outlined text-[14px] mr-1" data-icon="verified">verified</span> AI Scanned
                     </span>
                   ) : !candidate.hasResume ? (
@@ -245,7 +246,7 @@ export default function CandidateProfilePage() {
             </div>
 
             {/* AI Summary */}
-            <div className="glass-card rounded-xl p-8 bg-white border border-border-low-alpha shadow-sm">
+            <div className="glass-card rounded-xl p-8">
               <h3 className="font-headline-md text-headline-md text-primary mb-4 flex items-center">
                 <span className="material-symbols-outlined mr-2 text-tertiary-fixed-dim" data-icon="auto_awesome">auto_awesome</span>
                 Executive Summary
@@ -256,7 +257,7 @@ export default function CandidateProfilePage() {
             </div>
 
             {/* Experience Timeline */}
-            <div className="glass-card rounded-xl p-8 bg-white border border-border-low-alpha shadow-sm">
+            <div className="glass-card rounded-xl p-8">
               <h3 className="font-headline-md text-headline-md text-primary mb-6">Experience</h3>
               {jobs.length === 0 ? (
                 <p className="font-body-md text-on-surface-variant">No work history parsed for this candidate.</p>
@@ -306,7 +307,7 @@ export default function CandidateProfilePage() {
 
             {/* Education */}
             {education.length > 0 && (
-              <div className="glass-card rounded-xl p-8 bg-white border border-border-low-alpha shadow-sm">
+              <div className="glass-card rounded-xl p-8">
                 <h3 className="font-headline-md text-headline-md text-primary mb-6">Education</h3>
                 <div className="space-y-5">
                   {education.map((e, i) => (
@@ -326,7 +327,7 @@ export default function CandidateProfilePage() {
 
             {/* Projects */}
             {projects.length > 0 && (
-              <div className="glass-card rounded-xl p-8 bg-white border border-border-low-alpha shadow-sm">
+              <div className="glass-card rounded-xl p-8">
                 <h3 className="font-headline-md text-headline-md text-primary mb-6">Projects</h3>
                 <div className="space-y-6">
                   {projects.map((p, i) => (
@@ -350,7 +351,7 @@ export default function CandidateProfilePage() {
           {/* Right Column: Sidebar Actions (4 cols) */}
           <div className="lg:col-span-4 space-y-6">
             {/* Primary Actions */}
-            <div className="glass-card rounded-xl p-6 flex flex-col gap-3 bg-white border border-border-low-alpha shadow-sm">
+            <div className="glass-card rounded-xl p-6 flex flex-col gap-3">
               <AddToShortlistButton candidateId={candidate.id} name={name} />
               
               <MessageCandidate candidateId={candidate.id} name={name} email={candidate.emails?.[0] || ""} />
@@ -370,19 +371,19 @@ export default function CandidateProfilePage() {
             </div>
 
             {/* Status & Details */}
-            <div className="glass-card rounded-xl p-6 bg-white border border-border-low-alpha shadow-sm">
+            <div className="glass-card rounded-xl p-6">
               <h4 className="font-label-md text-label-md text-outline mb-4 uppercase tracking-wider text-[12px]">Profile Details</h4>
               <div className="space-y-4">
                 <div>
                   <span className="block font-label-md text-[12px] text-outline mb-1">Current Status</span>
                   {candidate.status === "ready" ? (
-                    <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-tertiary-fixed/30 text-on-tertiary-fixed-variant font-label-md text-[13px]">
-                      <div className="w-1.5 h-1.5 rounded-full bg-tertiary mr-2"></div>
+                    <span className="status-pill-active inline-flex items-center px-2.5 py-1 rounded-md font-label-md text-[13px]">
+                      <div className="w-1.5 h-1.5 rounded-full bg-tertiary-fixed-dim mr-2"></div>
                       Parsed
                     </span>
                   ) : candidate.status === "processing" ? (
-                    <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-surface-container-high text-on-surface-variant font-label-md text-[13px]">
-                      <div className="w-1.5 h-1.5 rounded-full bg-outline-variant mr-2 animate-pulse"></div>
+                    <span className="status-pill-invited inline-flex items-center px-2.5 py-1 rounded-md font-label-md text-[13px]">
+                      <div className="w-1.5 h-1.5 rounded-full bg-secondary-fixed-dim mr-2 animate-pulse"></div>
                       Processing
                     </span>
                   ) : (
@@ -412,7 +413,7 @@ export default function CandidateProfilePage() {
             </div>
 
             {/* Skills */}
-            <div className="glass-card rounded-xl p-6 bg-white border border-border-low-alpha shadow-sm">
+            <div className="glass-card rounded-xl p-6">
               <h4 className="font-label-md text-label-md text-outline mb-4 uppercase tracking-wider text-[12px]">Top Skills</h4>
               {candidate.skills && candidate.skills.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
@@ -436,7 +437,7 @@ export default function CandidateProfilePage() {
 
             {/* Certifications */}
             {certifications.length > 0 && (
-              <div className="glass-card rounded-xl p-6 bg-white border border-border-low-alpha shadow-sm">
+              <div className="glass-card rounded-xl p-6">
                 <h4 className="font-label-md text-label-md text-outline mb-4 uppercase tracking-wider text-[12px]">Certifications</h4>
                 <ul className="space-y-2">
                   {certifications.map((c, i) => (
@@ -451,7 +452,7 @@ export default function CandidateProfilePage() {
 
             {/* Languages */}
             {languages.length > 0 && (
-              <div className="glass-card rounded-xl p-6 bg-white border border-border-low-alpha shadow-sm">
+              <div className="glass-card rounded-xl p-6">
                 <h4 className="font-label-md text-label-md text-outline mb-4 uppercase tracking-wider text-[12px]">Languages</h4>
                 <div className="flex flex-wrap gap-2">
                   {languages.map((l, i) => (

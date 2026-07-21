@@ -9,6 +9,7 @@ import { AppShell } from "@/components/app/app-shell";
 import { api } from "@/lib/api";
 import { useAuth } from "@/components/app/auth-provider";
 import { TopAppBar } from "@/components/app/top-app-bar";
+import { PointerGlow } from "@/components/marketing/pointer-glow";
 
 
 type ViewMode = "list" | "grid";
@@ -130,7 +131,7 @@ function SearchPageContent() {
         <TopAppBar
           leftContent={null}
           rightContent={
-            <Link href="/upload" className="bg-primary text-white px-5 py-2.5 rounded-xl font-label-md text-label-md hover:shadow-lg transition-all active:scale-[0.98] whitespace-nowrap">
+            <Link href="/upload" className="group bg-gradient-to-r from-primary-container to-primary text-white px-5 py-2.5 rounded-lg font-label-md text-label-md shadow-floating transition-all hover:-translate-y-0.5 active:scale-[0.97] whitespace-nowrap">
               + Upload résumé
             </Link>
           }
@@ -140,10 +141,14 @@ function SearchPageContent() {
         <main className="flex-1 p-4 sm:p-6 lg:p-8">
           <div className="max-w-[1000px] mx-auto">
             {/* Hero Search Area */}
-            <div className="mb-12">
+            <PointerGlow
+              className="mb-12 rounded-3xl"
+              glowColor="rgba(0, 90, 95, 0.10)"
+              glowSize={520}
+            >
               <h1 className="font-headline-lg text-headline-lg text-primary mb-6">Semantic Search</h1>
               {/* Large Search Input */}
-              <form onSubmit={handleSearchSubmit} className="relative flex flex-col sm:flex-row items-stretch sm:items-center w-full bg-white rounded-xl ambient-shadow p-2 border border-border-low-alpha focus-within:border-primary transition-colors shadow-sm gap-2">
+              <form onSubmit={handleSearchSubmit} className="relative flex flex-col sm:flex-row items-stretch sm:items-center w-full glass-card rounded-xl p-2 focus-within:border-primary transition-colors shadow-floating gap-2">
                 <div className="flex flex-grow items-center min-w-0">
                   <span className="material-symbols-outlined text-outline ml-4 mr-2" style={{ fontVariationSettings: "'FILL' 0" }}>search</span>
                   <input
@@ -158,7 +163,7 @@ function SearchPageContent() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="bg-tertiary-fixed text-on-tertiary-fixed px-6 py-3 rounded-lg font-label-md text-label-md hover:bg-tertiary-fixed-dim transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 w-full sm:w-auto"
+                  className="bg-tertiary-fixed text-on-tertiary-fixed px-6 py-3 rounded-lg font-label-md text-label-md shadow-floating transition-all hover:-translate-y-0.5 hover:bg-tertiary-fixed-dim active:scale-[0.97] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:hover:translate-y-0 w-full sm:w-auto"
                 >
                   <span className="material-symbols-outlined text-[18px]">auto_awesome</span>
                   Search
@@ -263,7 +268,7 @@ function SearchPageContent() {
                   )}
                 </div>
               </div>
-            </div>
+            </PointerGlow>
 
             {/* Results Section */}
             <div className="mb-8 flex justify-between items-end">
@@ -305,14 +310,16 @@ function SearchPageContent() {
 
             {/* Loading Indicator */}
             {loading ? (
-              <div className="bg-surface-white rounded-xl ambient-shadow p-12 border border-border-low-alpha flex flex-col items-center justify-center text-center">
-                <span className="material-symbols-outlined text-[48px] text-primary mb-3 animate-spin">sync</span>
-                <p className="font-body-md text-body-md text-on-surface-variant">Finding candidates that match your criteria...</p>
+              <div className="relative overflow-hidden glass-card rounded-xl p-12 flex flex-col items-center justify-center text-center">
+                <div className="pointer-events-none absolute -right-12 -top-12 h-48 w-48 rounded-full bg-primary-container/10 blur-3xl" />
+                <span className="relative material-symbols-outlined text-[48px] text-primary mb-3 animate-spin">sync</span>
+                <p className="relative font-body-md text-body-md text-on-surface-variant">Finding candidates that match your criteria...</p>
               </div>
             ) : results.length === 0 ? (
-              <div className="bg-surface-white rounded-xl ambient-shadow p-12 border border-border-low-alpha flex flex-col items-center justify-center text-center">
-                <span className="material-symbols-outlined text-[48px] text-outline-variant mb-3" style={{ fontVariationSettings: "'FILL' 0" }}>search_off</span>
-                <p className="font-body-md text-body-md text-on-surface-variant">No candidates match your search.</p>
+              <div className="relative overflow-hidden glass-card rounded-xl p-12 flex flex-col items-center justify-center text-center">
+                <div className="pointer-events-none absolute -left-12 -bottom-12 h-48 w-48 rounded-full bg-tertiary-fixed/10 blur-3xl" />
+                <span className="relative material-symbols-outlined text-[48px] text-outline-variant mb-3" style={{ fontVariationSettings: "'FILL' 0" }}>search_off</span>
+                <p className="relative font-body-md text-body-md text-on-surface-variant">No candidates match your search.</p>
               </div>
             ) : view === "grid" ? (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -327,11 +334,11 @@ function SearchPageContent() {
                   const displayScore = c.score ? Math.round(c.score * 100) : null;
                   
                   return (
-                    <div key={c.id} className="bg-surface-white rounded-xl ambient-shadow p-5 border border-border-low-alpha relative overflow-hidden group hover:border-primary/30 transition-colors flex flex-col shadow-sm">
+                    <div key={c.id} className="glass-card rounded-xl p-5 relative overflow-hidden group hover:border-primary/30 transition-colors flex flex-col">
                       {/* Top Row: Profile & Score */}
                       <div className="flex justify-between items-start mb-3 gap-3">
                         <div className="flex items-center gap-3 min-w-0">
-                          <Link href={`/candidates/${c.id}`} className="w-11 h-11 rounded-full overflow-hidden bg-surface-container-high flex items-center justify-center text-primary font-headline-md flex-shrink-0">{initials}</Link>
+                          <Link href={`/candidates/${c.id}`} className="w-11 h-11 rounded-full overflow-hidden bg-gradient-to-br from-primary-container/25 to-primary/15 flex items-center justify-center text-primary font-headline-md flex-shrink-0">{initials}</Link>
                           <div className="min-w-0">
                             <h3 className="font-headline-md text-headline-md text-on-surface flex items-center gap-1.5 truncate">
                               <Link href={`/candidates/${c.id}`} className="hover:underline truncate">{name}</Link>
@@ -358,7 +365,7 @@ function SearchPageContent() {
                       </div>
                       {/* Actions */}
                       <div className="flex items-center gap-2 border-t border-border-low-alpha pt-4 mt-auto">
-                        <Link href={`/candidates/${c.id}`} className="px-4 py-2 bg-primary text-on-primary rounded-lg font-label-md text-label-md hover:bg-primary-container transition-colors text-center">
+                        <Link href={`/candidates/${c.id}`} className="px-4 py-2 bg-gradient-to-r from-primary-container to-primary text-on-primary rounded-lg font-label-md text-label-md shadow-floating transition-all hover:-translate-y-0.5 active:scale-[0.97] text-center">
                           View Profile
                         </Link>
                       </div>
@@ -379,11 +386,11 @@ function SearchPageContent() {
                   const displayScore = c.score ? Math.round(c.score * 100) : null;
                   
                   return (
-                    <div key={c.id} className="bg-surface-white rounded-xl ambient-shadow p-6 border border-border-low-alpha relative overflow-hidden group hover:border-primary/30 transition-colors shadow-sm">
+                    <div key={c.id} className="glass-card rounded-xl p-6 relative overflow-hidden group hover:border-primary/30 transition-colors">
                       {/* Top Row: Profile & Score */}
                       <div className="flex justify-between items-start mb-4">
                         <div className="flex items-center gap-4">
-                          <Link href={`/candidates/${c.id}`} className="w-14 h-14 rounded-full overflow-hidden bg-surface-container-high flex items-center justify-center text-primary font-headline-md flex-shrink-0">{initials}</Link>
+                          <Link href={`/candidates/${c.id}`} className="w-14 h-14 rounded-full overflow-hidden bg-gradient-to-br from-primary-container/25 to-primary/15 flex items-center justify-center text-primary font-headline-md flex-shrink-0">{initials}</Link>
                           <div>
                             <h3 className="font-headline-md text-headline-md text-on-surface flex items-center gap-2">
                               <Link href={`/candidates/${c.id}`} className="hover:underline">{name}</Link>
@@ -442,7 +449,7 @@ function SearchPageContent() {
                       </div>
                       {/* Actions */}
                       <div className="flex flex-col sm:flex-row sm:items-center gap-3 border-t border-border-low-alpha pt-4">
-                        <Link href={`/candidates/${c.id}`} className="px-4 py-2 bg-primary text-on-primary rounded-lg font-label-md text-label-md hover:bg-primary-container transition-colors text-center">
+                        <Link href={`/candidates/${c.id}`} className="px-4 py-2 bg-gradient-to-r from-primary-container to-primary text-on-primary rounded-lg font-label-md text-label-md shadow-floating transition-all hover:-translate-y-0.5 active:scale-[0.97] text-center">
                           View Profile
                         </Link>
                       </div>

@@ -111,11 +111,12 @@ export default function ShortlistDetailPage({ params }: { params: Promise<{ id: 
   if (notFound) {
     return (
       <AppShell>
-        <main className="flex min-h-screen flex-col items-center justify-center gap-4 p-12 text-center">
-          <span className="material-symbols-outlined text-[48px] text-on-surface-variant">search_off</span>
-          <h1 className="font-headline-lg text-headline-lg text-primary">Shortlist not found</h1>
-          <p className="font-body-md text-on-surface-variant">It may have been deleted, or you may not have access to it.</p>
-          <Link href="/shortlists" className="rounded-lg bg-primary px-5 py-2.5 font-label-md text-on-primary transition-colors hover:bg-primary-container">
+        <main className="relative flex min-h-screen flex-col items-center justify-center gap-4 overflow-hidden bg-aurora-soft p-12 text-center">
+          <div className="pointer-events-none absolute left-1/2 top-1/3 h-64 w-64 -translate-x-1/2 rounded-full bg-tertiary-fixed/15 blur-3xl" />
+          <span className="material-symbols-outlined relative z-10 text-[48px] text-on-surface-variant">search_off</span>
+          <h1 className="relative z-10 font-headline-lg text-headline-lg text-primary">Shortlist not found</h1>
+          <p className="relative z-10 font-body-md text-on-surface-variant">It may have been deleted, or you may not have access to it.</p>
+          <Link href="/shortlists" className="relative z-10 rounded-lg bg-gradient-to-br from-primary-container to-primary px-5 py-2.5 font-label-md text-on-primary shadow-floating transition-all hover:-translate-y-0.5 active:scale-[0.97]">
             Back to Shortlists
           </Link>
         </main>
@@ -134,31 +135,40 @@ export default function ShortlistDetailPage({ params }: { params: Promise<{ id: 
           </div>
         }
         rightContent={
-          <Link href="/upload" className="bg-primary text-white px-5 py-2.5 rounded-xl font-label-md text-label-md hover:shadow-lg transition-all active:scale-[0.98] whitespace-nowrap">
+          <Link href="/upload" className="bg-gradient-to-br from-primary-container to-primary text-on-primary px-5 py-2.5 rounded-lg font-label-md text-label-md shadow-floating transition-all hover:-translate-y-0.5 active:scale-[0.97] whitespace-nowrap">
             + Upload résumés
           </Link>
         }
       />
       <main className="mx-auto max-w-[1160px] p-4 sm:p-6 lg:p-12 min-h-screen">
-        <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-          <div>
-            <h1 className="font-headline-lg text-headline-lg text-primary mb-2">{shortlistName || "Shortlist"}</h1>
-            <p className="font-body-md text-body-md text-on-surface-variant">
-              {loading ? "Loading..." : `${candidates.length} candidate${candidates.length === 1 ? "" : "s"} in this shortlist.`}
-            </p>
+        <div className="relative overflow-hidden rounded-2xl bg-aurora-soft mb-8 p-4 sm:p-6">
+          <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-tertiary-fixed/15 blur-3xl" />
+          <div className="relative flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-primary-container to-primary text-on-primary shadow-sm shrink-0">
+                <span className="material-symbols-outlined text-[22px]">bookmark</span>
+              </div>
+              <div>
+                <h1 className="font-headline-lg text-headline-lg text-primary mb-1">{shortlistName || "Shortlist"}</h1>
+                <p className="font-body-md text-body-md text-on-surface-variant">
+                  {loading ? "Loading..." : `${candidates.length} candidate${candidates.length === 1 ? "" : "s"} in this shortlist.`}
+                </p>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div className="overflow-hidden overflow-x-auto rounded-xl border border-border-low-alpha bg-surface-white shadow-[0_4px_12px_rgba(44,35,34,0.03)]">
+        <div className="glass-card overflow-hidden overflow-x-auto rounded-xl">
           {loading ? (
             <div className="flex items-center justify-center py-24 font-body-md text-on-surface-variant">
               <span className="material-symbols-outlined mr-2 animate-spin">sync</span> Loading shortlist...
             </div>
           ) : candidates.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-3 py-24 text-center">
-              <span className="material-symbols-outlined text-[40px] text-on-surface-variant">group_off</span>
-              <p className="font-body-md text-on-surface-variant">No candidates in this shortlist yet.</p>
-              <Link href="/candidates" className="font-label-md text-primary hover:underline">
+            <div className="relative overflow-hidden flex flex-col items-center justify-center gap-3 py-24 text-center bg-aurora-soft">
+              <div className="pointer-events-none absolute -top-10 left-1/2 h-40 w-40 -translate-x-1/2 rounded-full bg-tertiary-fixed/20 blur-3xl" />
+              <span className="material-symbols-outlined relative z-10 text-[40px] text-on-surface-variant">group_off</span>
+              <p className="relative z-10 font-body-md text-on-surface-variant">No candidates in this shortlist yet.</p>
+              <Link href="/candidates" className="relative z-10 font-label-md text-primary hover:underline">
                 Browse candidates to add some →
               </Link>
             </div>
@@ -179,7 +189,7 @@ export default function ShortlistDetailPage({ params }: { params: Promise<{ id: 
                   <tr key={c.id} className="group cursor-pointer transition-colors hover:bg-bg-cream/30" onClick={() => router.push(`/candidates/${c.id}`)}>
                     <td className="py-4 pl-6 pr-3">
                       <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full border border-border-low-alpha bg-surface-container-high font-headline-md text-primary">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-primary-container to-primary font-headline-md text-on-primary shadow-sm">
                           {c.initials}
                         </div>
                         <div>
@@ -200,11 +210,11 @@ export default function ShortlistDetailPage({ params }: { params: Promise<{ id: 
                     </td>
                     <td className="py-4 px-3">
                       {c.status === "Ready" ? (
-                        <span className="inline-flex items-center gap-1.5 rounded-full bg-tertiary-fixed/20 px-2.5 py-1 font-label-md text-[12px] text-on-tertiary-fixed-variant">
-                          <span className="h-1.5 w-1.5 rounded-full bg-tertiary" /> Ready
+                        <span className="status-pill-active inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-label-md text-[12px]">
+                          <span className="h-1.5 w-1.5 rounded-full bg-tertiary-fixed-dim" /> Ready
                         </span>
                       ) : c.status === "Processing" ? (
-                        <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-container-high px-2.5 py-1 font-label-md text-[12px] text-on-surface-variant">
+                        <span className="status-pill-invited inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-label-md text-[12px]">
                           <span className="material-symbols-outlined animate-spin text-[14px]">sync</span> AI Processing
                         </span>
                       ) : (

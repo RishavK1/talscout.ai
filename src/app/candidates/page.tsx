@@ -7,6 +7,7 @@ import { AppShell } from "@/components/app/app-shell";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { TopAppBar } from "@/components/app/top-app-bar";
+import { SpotlightCard } from "@/components/marketing/spotlight-card";
 
 
 interface ApiCandidate {
@@ -195,7 +196,7 @@ export default function CandidatesPage() {
           </div>
         }
         rightContent={
-          <Link href="/upload" className="bg-primary text-white px-5 py-2.5 rounded-xl font-label-md text-label-md hover:shadow-lg transition-all active:scale-[0.98] whitespace-nowrap">
+          <Link href="/upload" className="bg-gradient-to-br from-primary-container to-primary text-on-primary px-5 py-2.5 rounded-lg font-label-md text-label-md shadow-floating transition-all hover:-translate-y-0.5 active:scale-[0.97] whitespace-nowrap">
             + Upload résumés
           </Link>
         }
@@ -203,15 +204,23 @@ export default function CandidatesPage() {
 
       {/* Main Content Canvas */}
       <main className="p-4 sm:p-6 lg:p-12 max-w-[1160px] mx-auto min-h-screen">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 gap-4">
-          <div>
-            <h1 className="font-headline-lg text-headline-lg text-primary mb-2">Candidates</h1>
-            <p className="font-body-md text-body-md text-on-surface-variant">Review and manage your talent pool. AI analysis is processing new uploads.</p>
+        <div className="relative overflow-hidden rounded-2xl bg-aurora-soft mb-8 p-4 sm:p-6">
+          <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-tertiary-fixed/15 blur-3xl" />
+          <div className="relative flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-primary-container to-primary text-on-primary shadow-sm shrink-0">
+                <span className="material-symbols-outlined text-[22px]">groups</span>
+              </div>
+              <div>
+                <h1 className="font-headline-lg text-headline-lg text-primary mb-1">Candidates</h1>
+                <p className="font-body-md text-body-md text-on-surface-variant">Review and manage your talent pool. AI analysis is processing new uploads.</p>
+              </div>
+            </div>
           </div>
         </div>
 
         {/* Toolbar */}
-        <div className="bg-surface-white rounded-t-xl border border-border-low-alpha p-4 flex flex-wrap items-center justify-between gap-4 shadow-[0_2px_8px_rgba(44,35,34,0.02)]">
+        <div className="glass-card rounded-t-xl p-4 flex flex-wrap items-center justify-between gap-4">
           <div className="flex flex-wrap items-center gap-3 flex-1">
             <div className="relative w-full md:w-64">
               <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant/60 text-[20px]">filter_list</span>
@@ -300,7 +309,7 @@ export default function CandidatesPage() {
         </div>
 
         {/* Data Table Canvas */}
-        <div className="bg-surface-white border-x border-b border-border-low-alpha rounded-b-xl overflow-hidden shadow-[0_4px_12px_rgba(44,35,34,0.03)] overflow-x-auto">
+        <div className="glass-card rounded-b-xl overflow-hidden overflow-x-auto">
           {loading ? (
             <div className="flex items-center justify-center py-24 text-on-surface-variant font-body-md">
               <span className="material-symbols-outlined animate-spin mr-2">sync</span> Loading candidate database...
@@ -332,7 +341,7 @@ export default function CandidatesPage() {
                     </td>
                     <td className="py-4 px-3">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full flex items-center justify-center bg-surface-container-high text-primary font-headline-md border border-border-low-alpha">
+                        <div className="w-10 h-10 rounded-full flex items-center justify-center bg-gradient-to-br from-primary-container to-primary text-on-primary font-headline-md shadow-sm">
                           {c.initials}
                         </div>
                         <div>
@@ -356,11 +365,11 @@ export default function CandidatesPage() {
                     </td>
                     <td className="py-4 pr-6 pl-3">
                       {c.status === "Ready" ? (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-tertiary-fixed/20 text-on-tertiary-fixed-variant font-label-md text-[12px]">
-                          <span className="w-1.5 h-1.5 rounded-full bg-tertiary"></span> Ready
+                        <span className="status-pill-active inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-label-md text-[12px]">
+                          <span className="w-1.5 h-1.5 rounded-full bg-tertiary-fixed-dim"></span> Ready
                         </span>
                       ) : c.status === "Processing" ? (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-container-high text-on-surface-variant font-label-md text-[12px]">
+                        <span className="status-pill-invited inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-label-md text-[12px]">
                           <span className="material-symbols-outlined text-[14px] animate-spin">sync</span> AI Processing
                         </span>
                       ) : (
@@ -376,58 +385,60 @@ export default function CandidatesPage() {
           ) : (
             <div className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 xl:grid-cols-3">
               {paged.map((c) => (
-                <div
-                  key={c.id}
-                  onClick={() => router.push(`/candidates/${c.id}`)}
-                  className="block rounded-xl border border-border-low-alpha bg-surface-white p-4 transition-shadow hover:shadow-[0_4px_20px_rgba(44,35,34,0.06)] cursor-pointer group"
-                >
-                  <div className="mb-3 flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full flex items-center justify-center bg-surface-container-high text-primary font-headline-md border border-border-low-alpha">
-                      {c.initials}
+                <SpotlightCard key={c.id} className="rounded-xl glass-card overflow-hidden transition-shadow hover:shadow-floating">
+                  <div
+                    onClick={() => router.push(`/candidates/${c.id}`)}
+                    className="block p-4 cursor-pointer group"
+                  >
+                    <div className="mb-3 flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center bg-gradient-to-br from-primary-container to-primary text-on-primary font-headline-md shadow-sm">
+                        {c.initials}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="truncate font-label-md text-label-md font-semibold text-primary group-hover:text-tertiary-container transition-colors">{c.name}</div>
+                        <div className="truncate font-body-md text-[13px] text-on-surface-variant">{c.title}</div>
+                      </div>
                     </div>
-                    <div className="min-w-0">
-                      <div className="truncate font-label-md text-label-md font-semibold text-primary group-hover:text-tertiary-container transition-colors">{c.name}</div>
-                      <div className="truncate font-body-md text-[13px] text-on-surface-variant">{c.title}</div>
+                    <div className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1 font-body-md text-[13px] text-on-surface-variant">
+                      <span className="inline-flex items-center gap-1">
+                        <span className="material-symbols-outlined text-[16px]">location_on</span>
+                        {c.location}
+                      </span>
+                      <span>·</span>
+                      <span className="font-data-mono text-data-mono">{c.expLabel} yrs</span>
                     </div>
-                  </div>
-                  <div className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1 font-body-md text-[13px] text-on-surface-variant">
-                    <span className="inline-flex items-center gap-1">
-                      <span className="material-symbols-outlined text-[16px]">location_on</span>
-                      {c.location}
+                    <div className="mb-4 flex flex-wrap gap-1.5">
+                      {c.skills.slice(0, 3).map((skill, i) => (
+                        <span key={skill} className={getSkillBadgeClass(i)}>{skill}</span>
+                      ))}
+                      {c.skills.length > 3 && (
+                        <span className={SKILL_PLAIN}>+{c.skills.length - 3}</span>
+                      )}
+                    </div>
+                    {c.status === "Ready" ? (
+                      <span className="status-pill-active inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-label-md text-[12px]">
+                        <span className="w-1.5 h-1.5 rounded-full bg-tertiary-fixed-dim"></span> Ready
+                      </span>
+                    ) : c.status === "Processing" ? (
+                      <span className="status-pill-invited inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-label-md text-[12px]">
+                        <span className="material-symbols-outlined text-[14px] animate-spin">sync</span> AI Processing
                     </span>
-                    <span>·</span>
-                    <span className="font-data-mono text-data-mono">{c.expLabel} yrs</span>
-                  </div>
-                  <div className="mb-4 flex flex-wrap gap-1.5">
-                    {c.skills.slice(0, 3).map((skill, i) => (
-                      <span key={skill} className={getSkillBadgeClass(i)}>{skill}</span>
-                    ))}
-                    {c.skills.length > 3 && (
-                      <span className={SKILL_PLAIN}>+{c.skills.length - 3}</span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-error/10 text-error font-label-md text-[12px]">
+                        <span className="w-1.5 h-1.5 rounded-full bg-error"></span> Error
+                      </span>
                     )}
                   </div>
-                  {c.status === "Ready" ? (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-tertiary-fixed/20 text-on-tertiary-fixed-variant font-label-md text-[12px]">
-                      <span className="w-1.5 h-1.5 rounded-full bg-tertiary"></span> Ready
-                    </span>
-                  ) : c.status === "Processing" ? (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-container-high text-on-surface-variant font-label-md text-[12px]">
-                      <span className="material-symbols-outlined text-[14px] animate-spin">sync</span> AI Processing
-                  </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-error/10 text-error font-label-md text-[12px]">
-                      <span className="w-1.5 h-1.5 rounded-full bg-error"></span> Error
-                    </span>
-                  )}
-                </div>
+                </SpotlightCard>
               ))}
             </div>
           )}
 
           {!loading && paged.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
-              <span className="material-symbols-outlined text-[40px] text-on-surface-variant/40 mb-3">person_search</span>
-              <p className="font-body-md text-body-md text-on-surface-variant">No candidates match your filters.</p>
+            <div className="relative overflow-hidden flex flex-col items-center justify-center py-16 px-6 text-center bg-aurora-soft">
+              <div className="pointer-events-none absolute -top-10 left-1/2 h-40 w-40 -translate-x-1/2 rounded-full bg-tertiary-fixed/20 blur-3xl" />
+              <span className="material-symbols-outlined relative z-10 text-[40px] text-on-surface-variant/40 mb-3">person_search</span>
+              <p className="relative z-10 font-body-md text-body-md text-on-surface-variant">No candidates match your filters.</p>
             </div>
           )}
 
@@ -464,7 +475,7 @@ export default function CandidatesPage() {
                     className={
                       "w-8 h-8 rounded font-label-md text-[13px] flex items-center justify-center transition-colors " +
                       (p === currentPage
-                        ? "bg-primary text-on-primary"
+                        ? "bg-gradient-to-br from-primary-container to-primary text-on-primary shadow-sm"
                         : "border border-border-low-alpha text-on-surface-variant hover:bg-bg-cream")
                     }
                   >

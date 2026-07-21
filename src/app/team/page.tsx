@@ -103,9 +103,11 @@ export default function TeamSeatsPage() {
   if (profile && profile.role !== "admin") {
     return (
       <AppShell>
-        <main className="min-h-screen flex flex-col items-center justify-center p-6 bg-bg-cream/30">
-          <div className="max-w-md w-full text-center bg-white p-8 rounded-2xl premium-shadow border border-border-low-alpha">
-            <div className="w-16 h-16 bg-error/10 text-error rounded-full flex items-center justify-center mx-auto mb-6">
+        <main className="min-h-screen flex flex-col items-center justify-center p-6 bg-aurora-soft relative overflow-hidden">
+          <div className="pointer-events-none absolute -left-24 top-10 h-72 w-72 rounded-full bg-primary-container/10 blur-3xl" />
+          <div className="pointer-events-none absolute -right-16 bottom-10 h-80 w-80 rounded-full bg-tertiary-fixed/20 blur-3xl" />
+          <div className="max-w-md w-full text-center glass-card p-8 rounded-2xl relative z-10">
+            <div className="w-16 h-16 bg-gradient-to-br from-error/80 to-error text-on-error rounded-full flex items-center justify-center mx-auto mb-6 shadow-floating">
               <span className="material-symbols-outlined text-[36px]">shield_person</span>
             </div>
             <h2 className="font-headline-md text-[24px] text-primary serif-text mb-3">Admin Access Required</h2>
@@ -114,7 +116,7 @@ export default function TeamSeatsPage() {
             </p>
             <Link
               href="/dashboard"
-              className="inline-flex items-center gap-2 bg-primary text-white px-6 py-2.5 rounded-lg font-label-md hover:shadow-lg transition-all active:scale-[0.98]"
+              className="inline-flex items-center gap-2 bg-primary-container text-on-primary px-6 py-2.5 rounded-lg font-label-md shadow-floating transition-all hover:-translate-y-0.5 active:scale-[0.97]"
             >
               <span className="material-symbols-outlined text-[18px]">dashboard</span>
               Back to Dashboard
@@ -148,7 +150,7 @@ export default function TeamSeatsPage() {
             </div>
           }
           rightContent={
-            <Link href="/upload" className="bg-primary text-white px-5 py-2.5 rounded-xl font-label-md text-label-md hover:shadow-lg transition-all active:scale-[0.98] whitespace-nowrap">
+            <Link href="/upload" className="bg-primary-container text-on-primary px-5 py-2.5 rounded-lg font-label-md text-label-md shadow-floating transition-all hover:-translate-y-0.5 hover:bg-primary active:scale-[0.97] whitespace-nowrap">
               + Upload résumés
             </Link>
           }
@@ -157,13 +159,18 @@ export default function TeamSeatsPage() {
         {/* Main Content */}
         <section className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-12 py-12">
           {/* Page Heading */}
-          <div className="mb-10">
-            <h2 className="font-headline-lg text-headline-lg text-primary mb-2">Team &amp; seats</h2>
-            <p className="text-on-surface-variant max-w-2xl">Manage your organizational structure, invite recruitment partners, and control access levels across the TalScout platform.</p>
+          <div className="mb-10 flex items-center gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary-container to-primary text-on-primary shadow-floating">
+              <span className="material-symbols-outlined text-[24px]">groups</span>
+            </div>
+            <div>
+              <h2 className="font-headline-lg text-headline-lg text-gradient-teal mb-1">Team &amp; seats</h2>
+              <p className="text-on-surface-variant max-w-2xl">Manage your organizational structure, invite recruitment partners, and control access levels across the TalScout platform.</p>
+            </div>
           </div>
 
           {/* Seats Usage Card */}
-          <div className="bg-white rounded-xl p-8 shadow-soft border border-border-low-alpha flex flex-col md:flex-row items-center justify-between mb-8">
+          <div className="glass-card rounded-xl p-8 flex flex-col md:flex-row items-center justify-between mb-8">
             <div className="w-full md:w-2/3">
               <div className="flex items-end justify-between mb-4">
                 <div>
@@ -173,7 +180,7 @@ export default function TeamSeatsPage() {
                 <span className="font-data-mono text-data-mono text-primary font-semibold">{usagePercentage}%</span>
               </div>
               <div className="w-full h-2 bg-surface-container rounded-full overflow-hidden">
-                <div className="h-full bg-primary rounded-full transition-all duration-1000 ease-out" style={{ width: `${usagePercentage}%` }}></div>
+                <div className="h-full bg-gradient-to-r from-primary-container to-tertiary-fixed rounded-full transition-all duration-1000 ease-out" style={{ width: `${usagePercentage}%` }}></div>
               </div>
             </div>
             <div className="mt-6 md:mt-0">
@@ -186,8 +193,8 @@ export default function TeamSeatsPage() {
           </div>
 
           {/* Members Table Card */}
-          <div className="bg-white rounded-xl shadow-soft border border-border-low-alpha overflow-hidden">
-            <div className="px-8 py-6 border-b border-border-low-alpha flex flex-wrap gap-3 justify-between items-center bg-surface-white">
+          <div className="glass-card rounded-xl overflow-hidden">
+            <div className="px-8 py-6 border-b border-border-low-alpha flex flex-wrap gap-3 justify-between items-center">
               <h3 className="font-headline-md text-[20px] text-primary">Active Members</h3>
               <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
                 <div className="relative flex-1 sm:flex-none">
@@ -211,7 +218,9 @@ export default function TeamSeatsPage() {
                     <tr>
                       <td colSpan={4} className="px-8 py-16">
                         <div className="flex flex-col items-center justify-center text-center">
-                          <span className="material-symbols-outlined text-on-surface-variant text-[40px] mb-3">person_search</span>
+                          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-secondary-fixed text-on-secondary-fixed mb-3">
+                            <span className="material-symbols-outlined text-[28px]">person_search</span>
+                          </div>
                           <p className="font-body-md text-on-surface-variant">No members match your search.</p>
                         </div>
                       </td>
@@ -233,7 +242,7 @@ export default function TeamSeatsPage() {
                             </div>
                           </td>
                           <td className="px-8 py-5">
-                            <span className="font-label-md text-label-md text-on-surface-variant">
+                            <span className="brass-badge inline-flex items-center px-3 py-1 rounded-full text-[12px] font-semibold uppercase tracking-tight">
                               {m.role.charAt(0).toUpperCase() + m.role.slice(1)}
                             </span>
                           </td>
@@ -268,20 +277,26 @@ export default function TeamSeatsPage() {
 
           {/* Additional Help/Links */}
           <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="p-6 border border-border-low-alpha rounded-xl hover:bg-white hover:shadow-soft transition-all group">
-              <span className="material-symbols-outlined text-secondary mb-4 group-hover:scale-110 transition-transform">security</span>
+            <div className="glass-card p-6 rounded-xl hover:-translate-y-0.5 transition-all group">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-tertiary-fixed text-on-tertiary-fixed mb-4 group-hover:scale-110 transition-transform">
+                <span className="material-symbols-outlined text-[20px]">security</span>
+              </div>
               <h4 className="font-headline-md text-[18px] text-primary mb-2">Role Permissions</h4>
               <p className="font-body-md text-on-surface-variant text-[14px]">Understand the different access levels for Admin, Recruiter, and Viewer roles.</p>
               <Link className="mt-4 inline-block font-label-md text-label-md text-secondary font-semibold hover:underline" href="/settings">Read documentation →</Link>
             </div>
-            <div className="p-6 border border-border-low-alpha rounded-xl hover:bg-white hover:shadow-soft transition-all group">
-              <span className="material-symbols-outlined text-secondary mb-4 group-hover:scale-110 transition-transform">account_balance_wallet</span>
+            <div className="glass-card p-6 rounded-xl hover:-translate-y-0.5 transition-all group">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary-fixed text-on-secondary-fixed mb-4 group-hover:scale-110 transition-transform">
+                <span className="material-symbols-outlined text-[20px]">account_balance_wallet</span>
+              </div>
               <h4 className="font-headline-md text-[18px] text-primary mb-2">Billing &amp; Seats</h4>
               <p className="font-body-md text-on-surface-variant text-[14px]">Upgrade your plan or add more seats to your current subscription cycle.</p>
               <Link className="mt-4 inline-block font-label-md text-label-md text-secondary font-semibold hover:underline" href="/billing">Manage billing →</Link>
             </div>
-            <div className="p-6 border border-border-low-alpha rounded-xl hover:bg-white hover:shadow-soft transition-all group">
-              <span className="material-symbols-outlined text-secondary mb-4 group-hover:scale-110 transition-transform">history_edu</span>
+            <div className="glass-card p-6 rounded-xl hover:-translate-y-0.5 transition-all group">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-primary-container to-primary text-on-primary mb-4 group-hover:scale-110 transition-transform">
+                <span className="material-symbols-outlined text-[20px]">history_edu</span>
+              </div>
               <h4 className="font-headline-md text-[18px] text-primary mb-2">Activity Audit Log</h4>
               <p className="font-body-md text-on-surface-variant text-[14px]">View a detailed record of all member actions and invitation history.</p>
               <Link className="mt-4 inline-block font-label-md text-label-md text-secondary font-semibold hover:underline" href="/audit">View logs →</Link>

@@ -90,8 +90,8 @@ function NavLink({
         "flex items-center rounded-lg p-3 transition-all duration-200 ease-in-out",
         collapsed ? "justify-center" : "gap-3",
         active
-          ? "bg-white text-primary shadow-sm font-semibold"
-          : "text-on-surface-variant hover:bg-white/50 hover:text-primary",
+          ? "bg-gradient-to-r from-primary-container to-primary text-on-primary shadow-floating font-semibold"
+          : "text-on-surface-variant hover:bg-tertiary-fixed/10 hover:text-primary",
       )}
     >
       <span
@@ -129,19 +129,23 @@ function SidebarContent({
   const logoUrl = profile?.logo;
 
   return (
-    <div className="flex h-full flex-col p-6">
+    <div className="relative flex h-full flex-col overflow-hidden p-6">
+      {/* decorative ambient glow behind the brand mark */}
+      <div className="pointer-events-none absolute -left-10 -top-16 h-48 w-48 rounded-full bg-tertiary-fixed/20 blur-3xl" />
+      <div className="pointer-events-none absolute -right-16 top-40 h-56 w-56 rounded-full bg-primary-container/10 blur-3xl" />
+
       {/* Brand */}
       <Link
         href="/dashboard"
         onClick={onNavigate}
         title={collapsed ? workspaceName || "Workspace" : undefined}
-        className={cn("mb-8 flex items-center gap-3", collapsed && "justify-center")}
+        className={cn("relative z-10 mb-6 flex shrink-0 items-center gap-3", collapsed && "justify-center")}
       >
         {logoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={logoUrl} alt="Logo" className="h-10 w-10 shrink-0 rounded object-cover border border-border-low-alpha" />
         ) : (
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded bg-primary text-on-primary">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary-container to-primary text-on-primary shadow-floating">
             <span className="material-symbols-outlined">work</span>
           </div>
         )}
@@ -179,7 +183,7 @@ function SidebarContent({
             onClick={onInvite}
             title={collapsed ? "Invite Team" : undefined}
             className={cn(
-              "mb-4 flex w-full items-center justify-center rounded-lg bg-primary font-label-md text-label-md text-on-primary transition-all duration-200 hover:bg-primary-container active:scale-[0.98]",
+              "mb-4 flex w-full items-center justify-center rounded-lg bg-gradient-to-r from-primary-container to-primary font-label-md text-label-md text-on-primary shadow-floating transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98]",
               collapsed ? "px-0 py-2" : "gap-2 px-4 py-2",
             )}
           >
@@ -274,22 +278,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, [open]);
 
   return (
-    <div className="min-h-dvh bg-bg-cream">
+    <div className="min-h-dvh bg-aurora-soft">
       {/* Desktop sidebar */}
       <nav
         style={{ width: collapsed ? SIDEBAR_COLLAPSED : SIDEBAR_EXPANDED }}
         className={cn(
-          "fixed left-0 top-0 z-40 hidden h-full bg-bg-secondary lg:block",
+          "fixed left-0 top-0 z-40 hidden h-full border-r border-border-low-alpha bg-surface-white/85 shadow-floating backdrop-blur-xl lg:block",
           sidebarReady && "transition-[width] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]",
         )}
       >
+        {/* glossy top accent strip */}
+        <div aria-hidden className="absolute inset-x-0 top-0 z-10 h-1 bg-lime-gradient" />
         <SidebarContent collapsed={collapsed} onInvite={openInvite} />
         <button
           type="button"
           onClick={toggleCollapsed}
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          className="absolute -right-3 top-20 flex h-6 w-6 items-center justify-center rounded-full border border-border-low-alpha bg-white text-on-surface-variant shadow-[0_2px_8px_rgba(44,35,34,0.12)] transition-colors hover:text-primary"
+          className="absolute -right-3 top-20 z-20 flex h-6 w-6 items-center justify-center rounded-full border border-border-low-alpha bg-white text-on-surface-variant shadow-floating transition-colors hover:text-primary"
         >
           <span
             className={cn(
@@ -303,7 +309,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </nav>
 
       {/* Mobile top bar */}
-      <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border-low-alpha bg-surface/90 px-4 backdrop-blur-md lg:hidden">
+      <header className="glass-header sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border-low-alpha px-4 lg:hidden">
         <button
           type="button"
           aria-label="Open menu"

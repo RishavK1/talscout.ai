@@ -63,12 +63,12 @@ export default function AuditLogPage() {
   const formatPill = (action: string) => {
     const act = action.toLowerCase();
     if (act.includes("delete") || act.includes("remove") || act.includes("cancel")) {
-      return "bg-error-container/20 text-error";
+      return "bg-error-container/40 text-on-error-container";
     }
     if (act.includes("create") || act.includes("invite") || act.includes("add") || act.includes("upload")) {
-      return "bg-secondary-container/20 text-secondary";
+      return "bg-tertiary-fixed text-on-tertiary-fixed";
     }
-    return "bg-surface-container-highest text-on-surface-variant";
+    return "brass-badge";
   };
 
   const getInitials = (email: string | null) => {
@@ -184,21 +184,26 @@ export default function AuditLogPage() {
             <Link className="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-primary transition-colors rounded-lg font-label-md" href="/team">Members</Link>
             <Link className="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-primary transition-colors rounded-lg font-label-md" href="/billing">Billing</Link>
             <Link className="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-primary transition-colors rounded-lg font-label-md" href="/security">Security</Link>
-            <Link className="flex items-center gap-3 px-4 py-3 bg-white text-primary font-semibold shadow-sm rounded-lg font-label-md border-l-4 border-secondary" href="/audit">Audit log</Link>
+            <Link className="flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-primary-container to-primary text-on-primary font-semibold shadow-floating rounded-lg font-label-md" href="/audit">Audit log</Link>
           </nav>
           {/* Main Dashboard Area */}
           <div className="min-w-0 flex-1 space-y-8">
             {/* Header */}
-            <section>
-              <h2 className="font-headline-lg text-primary mb-1">Audit log</h2>
-              <p className="font-body-md text-text-muted">Every sensitive action, recorded and secured for compliance and oversight.</p>
+            <section className="flex items-center gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary-container to-primary text-on-primary shadow-floating">
+                <span className="material-symbols-outlined text-[24px]">history_edu</span>
+              </div>
+              <div>
+                <h2 className="font-headline-lg text-gradient-teal mb-1">Audit log</h2>
+                <p className="font-body-md text-text-muted">Every sensitive action, recorded and secured for compliance and oversight.</p>
+              </div>
             </section>
             {/* Filter Toolbar */}
-            <div className="bg-white p-4 rounded-lg premium-shadow border border-border-low-alpha flex flex-wrap items-center justify-between gap-4">
+            <div className="glass-card p-4 rounded-lg flex flex-wrap items-center justify-between gap-4">
               <div className="flex flex-wrap items-center gap-3">
                 {/* Date Filter */}
                 <div className="flex items-center gap-2 px-3 py-2 bg-bg-cream rounded-lg border border-border-low-alpha cursor-pointer hover:border-primary/30 transition-colors">
-                  <span className="material-symbols-outlined text-[18px]">calendar_today</span>
+                  <span className="material-symbols-outlined text-[18px] text-primary">calendar_today</span>
                   <select className="text-label-md bg-transparent border-none focus:outline-none cursor-pointer" value={date} onChange={(e) => setDate(e.target.value)}>
                     {datesList.map((d) => (
                       <option key={d} value={d}>{d}</option>
@@ -207,7 +212,7 @@ export default function AuditLogPage() {
                 </div>
                 {/* Member Dropdown */}
                 <div className="flex items-center gap-2 px-3 py-2 bg-bg-cream rounded-lg border border-border-low-alpha cursor-pointer hover:border-primary/30 transition-colors">
-                  <span className="material-symbols-outlined text-[18px]">person</span>
+                  <span className="material-symbols-outlined text-[18px] text-secondary">person</span>
                   <select className="text-label-md bg-transparent border-none focus:outline-none cursor-pointer" value={member} onChange={(e) => setMember(e.target.value)}>
                     {membersList.map((m) => (
                       <option key={m} value={m}>{m}</option>
@@ -216,7 +221,7 @@ export default function AuditLogPage() {
                 </div>
                 {/* Action Filter */}
                 <div className="flex items-center gap-2 px-3 py-2 bg-bg-cream rounded-lg border border-border-low-alpha cursor-pointer hover:border-primary/30 transition-colors">
-                  <span className="material-symbols-outlined text-[18px]">filter_list</span>
+                  <span className="material-symbols-outlined text-[18px] text-tertiary-fixed-dim">filter_list</span>
                   <select className="text-label-md bg-transparent border-none focus:outline-none cursor-pointer" value={action} onChange={(e) => setAction(e.target.value)}>
                     {actionsList.map((a) => (
                       <option key={a} value={a}>{a}</option>
@@ -226,7 +231,7 @@ export default function AuditLogPage() {
               </div>
             </div>
             {/* Data Table */}
-            <div className="bg-white rounded-lg premium-shadow border border-border-low-alpha overflow-hidden">
+            <div className="glass-card rounded-lg overflow-hidden">
               <div className="overflow-x-auto">
                 {loading ? (
                   <div className="py-16 text-center flex flex-col items-center gap-3 text-text-muted">
@@ -249,7 +254,9 @@ export default function AuditLogPage() {
                         <tr>
                           <td colSpan={5} className="px-6 py-16 text-center">
                             <div className="flex flex-col items-center gap-3 text-text-muted">
-                              <span className="material-symbols-outlined text-[40px] opacity-40">search_off</span>
+                              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-surface-container-highest text-text-muted">
+                                <span className="material-symbols-outlined text-[28px]">search_off</span>
+                              </div>
                               <p className="font-label-md">No audit entries match your filters.</p>
                             </div>
                           </td>
@@ -342,10 +349,10 @@ export default function AuditLogPage() {
             </div>
             {/* Footer Section Info */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="bg-primary/5 p-6 rounded-lg border border-primary/10">
+              <div className="glass-card p-6 rounded-lg">
                 <div className="flex items-start gap-4">
-                  <div className="p-2 bg-primary/10 rounded-lg text-primary">
-                    <span className="material-symbols-outlined">verified_user</span>
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary-container to-primary text-on-primary shadow-sm">
+                    <span className="material-symbols-outlined text-[20px]">verified_user</span>
                   </div>
                   <div>
                     <h4 className="font-label-md text-primary font-bold mb-1">Retention Policy</h4>
@@ -353,10 +360,10 @@ export default function AuditLogPage() {
                   </div>
                 </div>
               </div>
-              <div className="bg-secondary/5 p-6 rounded-lg border border-secondary/10">
+              <div className="glass-card p-6 rounded-lg">
                 <div className="flex items-start gap-4">
-                  <div className="p-2 bg-secondary/10 rounded-lg text-secondary">
-                    <span className="material-symbols-outlined">security</span>
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-tertiary-fixed text-on-tertiary-fixed shadow-sm">
+                    <span className="material-symbols-outlined text-[20px]">security</span>
                   </div>
                   <div>
                     <h4 className="font-label-md text-secondary font-bold mb-1">Compliance &amp; Auditing</h4>

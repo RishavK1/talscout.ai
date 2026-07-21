@@ -325,7 +325,7 @@ export default function UploadPage() {
             <button
               type="button"
               onClick={triggerBrowse}
-              className="bg-primary text-white px-5 py-2.5 rounded-xl font-label-md text-label-md hover:shadow-lg transition-all active:scale-[0.98] whitespace-nowrap cursor-pointer"
+              className="group bg-gradient-to-r from-primary-container to-primary text-white px-5 py-2.5 rounded-lg font-label-md text-label-md shadow-floating transition-all hover:-translate-y-0.5 active:scale-[0.97] whitespace-nowrap cursor-pointer"
             >
               + Upload résumés
             </button>
@@ -334,16 +334,17 @@ export default function UploadPage() {
 
         {/* Canvas Area */}
         <div className="flex-1 max-w-5xl mx-auto w-full px-4 sm:px-6 lg:px-12 py-8 sm:py-10 lg:py-12">
-          <section className="mb-10">
-            <h1 className="font-headline-lg text-headline-lg text-primary mb-2">Upload résumés</h1>
-            <p className="font-body-lg text-body-lg text-text-muted">
+          <section className="relative mb-10 overflow-hidden rounded-3xl bg-aurora-soft p-6 sm:p-8">
+            <div className="pointer-events-none absolute -right-10 -top-14 h-48 w-48 rounded-full bg-tertiary-fixed/15 blur-3xl" />
+            <h1 className="relative font-headline-lg text-headline-lg text-primary mb-2">Upload résumés</h1>
+            <p className="relative font-body-lg text-body-lg text-text-muted">
               Drop PDFs, DOCX, or text files. We&apos;ll read, analyze, and structure them automatically with AI.
             </p>
           </section>
 
           {/* Drag & Drop Zone */}
           <div
-            className={`bg-white border-2 border-dashed rounded-lg p-8 sm:p-12 lg:p-16 mb-12 flex flex-col items-center justify-center text-center transition-all cursor-pointer group custom-shadow ${
+            className={`bg-white border-2 border-dashed rounded-lg p-8 sm:p-12 lg:p-16 mb-12 flex flex-col items-center justify-center text-center transition-all cursor-pointer group shadow-floating ${
               dragging ? "border-primary bg-primary/5 scale-[1.01]" : "border-outline-variant hover:border-primary"
             }`}
             id="drop-zone"
@@ -352,8 +353,8 @@ export default function UploadPage() {
             onDrop={handleDrop}
             onClick={triggerBrowse}
           >
-            <div className="w-16 h-16 bg-surface-container rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-              <span className="material-symbols-outlined text-primary text-4xl">cloud_upload</span>
+            <div className="w-16 h-16 bg-gradient-to-br from-primary-container to-primary rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+              <span className="material-symbols-outlined text-on-primary text-4xl">cloud_upload</span>
             </div>
             <h3 className="font-headline-md text-headline-md text-on-surface mb-1">
               Drag &amp; drop résumés here
@@ -381,8 +382,8 @@ export default function UploadPage() {
               </div>
               <div className="space-y-3">
                 {uploadList.map((file) => (
-                  <div key={file.id} className="bg-white p-4 rounded-lg custom-shadow flex flex-wrap items-center gap-4 sm:gap-6 border border-border-low-alpha shadow-sm">
-                    <div className="w-10 h-10 rounded bg-primary-container/10 flex items-center justify-center text-primary shrink-0">
+                  <div key={file.id} className="glass-card p-4 rounded-lg flex flex-wrap items-center gap-4 sm:gap-6">
+                    <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary-container to-primary flex items-center justify-center text-on-primary shrink-0">
                       <span className="material-symbols-outlined">description</span>
                     </div>
                     <div className="flex-1 min-w-[160px]">
@@ -409,13 +410,13 @@ export default function UploadPage() {
                     {file.status === "ready" ? (
                       <Link
                         href={`/candidates/${file.candidateId}`}
-                        className="flex items-center gap-2 px-3 py-1 bg-tertiary-container/10 text-tertiary rounded-full border border-tertiary/20 hover:bg-tertiary-container/20 transition-colors"
+                        className="status-pill-active flex items-center gap-2 px-3 py-1 rounded-full transition-colors hover:brightness-95"
                       >
                         <span className="material-symbols-outlined text-sm">check_circle</span>
                         <span className="font-label-md text-label-md">Ready (View profile)</span>
                       </Link>
                     ) : file.status === "processing" ? (
-                      <div className="flex items-center gap-2 px-3 py-1 bg-secondary-container/30 text-secondary rounded-full border border-secondary/20">
+                      <div className="status-pill-invited flex items-center gap-2 px-3 py-1 rounded-full">
                         <span className="material-symbols-outlined text-sm animate-spin">
                           sync
                         </span>
@@ -430,7 +431,7 @@ export default function UploadPage() {
                         <span className="font-label-md text-label-md">Error</span>
                       </div>
                     ) : (
-                      <div className="flex items-center gap-2 px-3 py-1 bg-secondary-container/30 text-secondary rounded-full border border-secondary/20">
+                      <div className="status-pill-invited flex items-center gap-2 px-3 py-1 rounded-full">
                         <span className="material-symbols-outlined text-sm animate-pulse">
                           progress_activity
                         </span>
@@ -444,9 +445,9 @@ export default function UploadPage() {
           )}
 
           {/* Footer Card: ATS Import — Growth+ feature (ats_export capability) */}
-          <div className="bg-surface-white/50 border border-border-low-alpha rounded-lg p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 custom-shadow">
+          <div className="glass-card rounded-lg p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-4">
-              <div className={`w-12 h-12 rounded-full flex items-center justify-center ${authLoading ? "bg-bg-cream text-on-surface-variant/50 animate-pulse" : !canAtsExport ? "bg-bg-cream text-on-surface-variant/50" : connectedAts ? "bg-tertiary/10 text-tertiary" : "bg-bg-cream text-primary"}`}>
+              <div className={`w-12 h-12 rounded-full flex items-center justify-center ${authLoading ? "bg-bg-cream text-on-surface-variant/50 animate-pulse" : !canAtsExport ? "bg-bg-cream text-on-surface-variant/50" : connectedAts ? "bg-gradient-to-br from-tertiary-fixed to-tertiary-fixed-dim text-on-tertiary-fixed" : "bg-gradient-to-br from-primary-container to-primary text-on-primary"}`}>
                 <span className="material-symbols-outlined">{authLoading ? "sync" : !canAtsExport ? "lock" : connectedAts ? "check_circle" : "sync"}</span>
               </div>
               <div>
@@ -504,7 +505,7 @@ export default function UploadPage() {
                   setSyncProgress(0);
                   setShowAtsModal(true);
                 }}
-                className="px-6 py-2 border border-primary text-primary rounded-lg font-label-md text-label-md hover:bg-primary/5 transition-colors w-full sm:w-auto"
+                className="px-6 py-2 bg-gradient-to-r from-primary-container to-primary text-white rounded-lg font-label-md text-label-md shadow-floating transition-all hover:-translate-y-0.5 active:scale-[0.97] w-full sm:w-auto"
               >
                 Connect
               </button>
@@ -515,7 +516,7 @@ export default function UploadPage() {
         {/* ATS Import Modal */}
         {canAtsExport && showAtsModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 transition-opacity duration-300">
-            <div className="bg-white rounded-2xl w-full max-w-lg p-6 sm:p-8 premium-shadow border border-border-low-alpha relative flex flex-col">
+            <div className="glass-card rounded-2xl w-full max-w-lg p-6 sm:p-8 shadow-floating relative flex flex-col">
               <button
                 type="button"
                 onClick={() => {
@@ -569,7 +570,7 @@ export default function UploadPage() {
                             }}
                             className={`p-4 rounded-xl border flex flex-col items-center gap-2 transition-all ${
                               selected
-                                ? "border-primary bg-primary/5 shadow-sm scale-[1.02]"
+                                ? "border-primary bg-gradient-to-br from-primary-container/10 to-primary/5 shadow-floating scale-[1.02]"
                                 : "border-border-low-alpha hover:border-outline-variant"
                             }`}
                           >
@@ -610,7 +611,7 @@ export default function UploadPage() {
                       <button
                         type="button"
                         onClick={handleConnectAndSync}
-                        className="w-full bg-primary text-white py-3 rounded-xl font-label-md hover:shadow-lg transition-all active:scale-[0.98] mt-6"
+                        className="w-full bg-gradient-to-r from-primary-container to-primary text-white py-3 rounded-xl font-label-md shadow-floating transition-all hover:-translate-y-0.5 active:scale-[0.97] mt-6"
                       >
                         Connect &amp; Sync Candidates
                       </button>
