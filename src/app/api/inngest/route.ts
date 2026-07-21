@@ -21,6 +21,10 @@ import {
 import { syncWhatsAppTemplates } from "@/server/jobs/sync-whatsapp-templates";
 import { runAutomatedCampaigns } from "@/server/jobs/run-automated-campaign";
 import { pollAutomatedReplies } from "@/server/jobs/poll-automated-replies";
+import {
+  sendAutomatedEmail,
+  type SendAutomatedEmailPayload,
+} from "@/server/jobs/send-automated-email";
 import { getServices } from "@/server/container";
 import { withTenantTx } from "@/server/db/tx";
 import {
@@ -28,6 +32,7 @@ import {
   outreachLeadRepo,
   outreachCampaignRepo,
 } from "@/server/repositories/outreach.repo";
+import { automatedSendRepo, automatedLeadRepo } from "@/server/repositories/automated-outreach.repo";
 import { logger } from "@/server/observability/logger";
 
 const parseResumeFunction = inngest.createFunction(
@@ -97,6 +102,47 @@ const sendOutreachEmailFunction = inngest.createFunction(
     await step.run("send", async () => {
       const services = getServices();
       await sendOutreachEmail(payload, services);
+    });
+  }
+);
+
+/**
+ * Automated-outreach counterpart of sendOutreachEmailFunction above — same
+ * durable-sleep shape, fully separate job/queue from Bulk Fire. Enqueued
+ * once per row by run-automated-campaign.ts, each carrying its own
+ * `targetSendAt` computed by the same block+jitter pacing algorithm
+ * (scheduleSends) Bulk Fire uses, so a whole campaign's leads never fire in
+ * the same minute.
+ */
+const sendAutomatedEmailFunction = inngest.createFunction(
+  {
+    id: "send-automated-email",
+    name: "Automated Outreach Send Email",
+    triggers: [{ event: "job/send-automated-email" }],
+    // Same defense-in-depth as sendOutreachEmailFunction.onFailure above.
+    onFailure: async ({ event, error }) => {
+      const { tenantId, sendId } = event.data.event.data as SendAutomatedEmailPayload;
+      logger.error({ err: error, sendId }, "send_automated_email_exhausted_retries");
+      await withTenantTx({ tenantId }, async (ctx) => {
+        const send = await automatedSendRepo.getById(ctx, sendId);
+        if (!send || send.status !== "scheduled") return;
+        await automatedSendRepo.markFailed(ctx, sendId, error.message || "exhausted_retries");
+        await automatedLeadRepo.setStatus(ctx, send.leadId, "failed");
+      });
+    },
+  },
+  async ({
+    event,
+    step,
+  }: {
+    event: { data: SendAutomatedEmailPayload & { targetSendAt: string } };
+    step: GetStepTools<typeof inngest>;
+  }) => {
+    const { targetSendAt, ...payload } = event.data;
+    await step.sleepUntil("wait-for-send-slot", targetSendAt);
+    await step.run("send", async () => {
+      const services = getServices();
+      await sendAutomatedEmail(payload, services);
     });
   }
 );
@@ -248,5 +294,6 @@ export const { GET, POST, PUT } = serve({
     syncWhatsAppTemplatesFunction,
     runAutomatedCampaignsFunction,
     pollAutomatedRepliesFunction,
+    sendAutomatedEmailFunction,
   ],
 });

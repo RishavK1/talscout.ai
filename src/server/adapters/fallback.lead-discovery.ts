@@ -1,28 +1,35 @@
 import type { LeadDiscovery, LeadDiscoveryQuery, DiscoveredLead } from "@/server/ports";
 
 /**
- * Composes a primary (free) lead-discovery source with an optional secondary
- * fallback — the secondary is only ever called to TOP UP a short primary
- * result, never as the first choice. In container.ts, `secondary` is
- * `undefined` unless GOOGLE_PLACES_API_KEY is configured, so no Google
- * Places code path is reachable without it — this class has no import-time
- * or construction-time dependency on that adapter existing.
+ * Composes a primary (free) lead-discovery source with an ordered list of
+ * fallbacks — each fallback is only ever called to TOP UP a short result
+ * from everything tried before it, never as the first choice, and the chain
+ * stops as soon as the limit is met. In container.ts, fallbacks are built
+ * from an array that's empty/short unless their respective API keys are
+ * configured (e.g. Google Places only ever appears in the array — and is
+ * only ever constructed — when GOOGLE_PLACES_API_KEY is set), so no
+ * unconfigured provider's code path is ever reachable.
  */
 export class FallbackLeadDiscovery implements LeadDiscovery {
   constructor(
     private primary: LeadDiscovery,
-    private secondary?: LeadDiscovery,
+    private fallbacks: LeadDiscovery[] = [],
   ) {}
 
   async discover(query: LeadDiscoveryQuery): Promise<DiscoveredLead[]> {
-    const primaryResults = await this.primary.discover(query);
-    if (!this.secondary || primaryResults.length >= query.limit) {
-      return primaryResults;
+    const results = await this.primary.discover(query);
+    const seen = new Set(results.map((l) => l.sourcePlaceId));
+
+    for (const fallback of this.fallbacks) {
+      if (results.length >= query.limit) break;
+      const remaining = query.limit - results.length;
+      const topUp = await fallback.discover({ ...query, limit: remaining });
+      for (const lead of topUp) {
+        if (seen.has(lead.sourcePlaceId)) continue;
+        seen.add(lead.sourcePlaceId);
+        results.push(lead);
+      }
     }
-    const seen = new Set(primaryResults.map((l) => l.sourcePlaceId));
-    const remaining = query.limit - primaryResults.length;
-    const secondaryResults = await this.secondary.discover({ ...query, limit: remaining });
-    const deduped = secondaryResults.filter((l) => !seen.has(l.sourcePlaceId));
-    return [...primaryResults, ...deduped];
+    return results;
   }
 }

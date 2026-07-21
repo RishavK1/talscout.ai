@@ -130,6 +130,11 @@ export const automatedLeadEmailSource = pgEnum("automated_lead_email_source", [
   /** The business's own OpenStreetMap listing carried an email tag —
    *  found at discovery time, no enrichment call needed. */
   "osm",
+  /** JS-rendering scrape fallback (Firecrawl) for sites our own plain fetch
+   *  can't read. */
+  "firecrawl",
+  /** Snov.io free-tier domain search. */
+  "snov",
   "none",
 ]);
 export const automatedSendStatus = pgEnum("automated_send_status", [

@@ -25,11 +25,14 @@ import {
 } from "@/server/adapters/gemini.blueprint";
 import { MockLeadDiscovery } from "@/server/adapters/mock.lead-discovery";
 import { OverpassLeadDiscovery } from "@/server/adapters/overpass.lead-discovery";
+import { GeoapifyLeadDiscovery } from "@/server/adapters/geoapify.lead-discovery";
 import { GooglePlacesLeadDiscovery } from "@/server/adapters/google-places.lead-discovery";
 import { FallbackLeadDiscovery } from "@/server/adapters/fallback.lead-discovery";
 import { MockEmailFinder } from "@/server/adapters/mock.email-finder";
 import { SiteScrapeEmailFinder } from "@/server/adapters/site-scrape.email-finder";
+import { FirecrawlEmailFinder } from "@/server/adapters/firecrawl.email-finder";
 import { HunterEmailFinder } from "@/server/adapters/hunter.email-finder";
+import { SnovEmailFinder } from "@/server/adapters/snov.email-finder";
 import { ApolloEmailFinder } from "@/server/adapters/apollo.email-finder";
 import { WaterfallEmailFinder } from "@/server/adapters/waterfall.email-finder";
 import { MockOutreachCopywriter } from "@/server/adapters/mock.outreach-copywriter";
@@ -82,6 +85,11 @@ import {
   pollAutomatedReplies,
   POLL_AUTOMATED_REPLIES_JOB,
 } from "@/server/jobs/poll-automated-replies";
+import {
+  sendAutomatedEmail,
+  SEND_AUTOMATED_EMAIL_JOB,
+  type SendAutomatedEmailPayload,
+} from "@/server/jobs/send-automated-email";
 
 let services: Services | null = null;
 
@@ -160,6 +168,14 @@ export function getServices(): Services {
     queue.register(POLL_AUTOMATED_REPLIES_JOB, () =>
       pollAutomatedReplies(services as Services),
     );
+    // Same inline-vs-deferred caveat as SEND_OUTREACH_EMAIL_JOB above.
+    queue.register(SEND_AUTOMATED_EMAIL_JOB, (payload) => {
+      const data = payload as SendAutomatedEmailPayload & { targetSendAt: string };
+      return sendAutomatedEmail(
+        { tenantId: data.tenantId, sendId: data.sendId },
+        services as Services,
+      );
+    });
   } else {
     // APP_MODE=live — real services.
     // In serverless production, use InngestQueue to prevent background job freezing.
@@ -206,21 +222,31 @@ export function getServices(): Services {
       : new MockBlueprintGenerator();
 
     // Automated outreach: lead discovery is free-by-default (OpenStreetMap,
-    // no key). Google Places is an OPTIONAL, NOT-free last-resort fallback —
+    // no key). Fallbacks are tried in order, each only topping up a short
+    // result: Geoapify (free, 3,000 credits/day) first if configured, then
+    // Google Places — the one OPTIONAL, NOT-free source in the chain,
     // constructed and referenced ONLY when GOOGLE_PLACES_API_KEY is set, so
     // there is no code path that ever touches it without that key present.
     const overpassDiscovery = new OverpassLeadDiscovery();
-    const leadDiscovery = env.GOOGLE_PLACES_API_KEY
-      ? new FallbackLeadDiscovery(overpassDiscovery, new GooglePlacesLeadDiscovery())
+    const discoveryFallbacks = [
+      env.GEOAPIFY_API_KEY ? new GeoapifyLeadDiscovery() : null,
+      env.GOOGLE_PLACES_API_KEY ? new GooglePlacesLeadDiscovery() : null,
+    ].filter((f): f is NonNullable<typeof f> => f !== null);
+    const leadDiscovery = discoveryFallbacks.length
+      ? new FallbackLeadDiscovery(overpassDiscovery, discoveryFallbacks)
       : overpassDiscovery;
 
-    // Email finding: free website-scrape first, then Hunter/Apollo free
-    // tiers only if their keys are configured. Each stays free-forever; the
-    // waterfall degrades gracefully with fewer sources if keys are absent.
+    // Email finding: free website-scrape first (plus Firecrawl's JS-rendering
+    // scrape as a same-tier fallback for client-rendered sites), then
+    // Hunter/Snov/Apollo free tiers only if their keys are configured. Each
+    // stays free-forever; the waterfall degrades gracefully with fewer
+    // sources if keys are absent.
     const emailFinder = new WaterfallEmailFinder(
       [
         new SiteScrapeEmailFinder(),
+        env.FIRECRAWL_API_KEY ? new FirecrawlEmailFinder() : null,
         env.HUNTER_API_KEY ? new HunterEmailFinder() : null,
+        env.SNOV_CLIENT_ID && env.SNOV_CLIENT_SECRET ? new SnovEmailFinder() : null,
         env.APOLLO_API_KEY ? new ApolloEmailFinder() : null,
       ].filter((f): f is NonNullable<typeof f> => f !== null),
     );
@@ -288,6 +314,13 @@ export function getServices(): Services {
       queue.register(POLL_AUTOMATED_REPLIES_JOB, () =>
         pollAutomatedReplies(services as Services),
       );
+      queue.register(SEND_AUTOMATED_EMAIL_JOB, (payload) => {
+        const data = payload as SendAutomatedEmailPayload & { targetSendAt: string };
+        return sendAutomatedEmail(
+          { tenantId: data.tenantId, sendId: data.sendId },
+          services as Services,
+        );
+      });
     }
   }
 

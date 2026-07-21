@@ -1,0 +1,154 @@
+import { withTenantTx } from "@/server/db/tx";
+import {
+  automatedCampaignRepo,
+  automatedLeadRepo,
+  automatedSendRepo,
+} from "@/server/repositories/automated-outreach.repo";
+import { senderAccountRepo } from "@/server/repositories/outreach.repo";
+import { toCredentials, generateMessageId } from "@/server/lib/automated-mail-credentials";
+import { logger } from "@/server/observability/logger";
+import type {
+  Services,
+  SenderAccountCredentials,
+  OutreachSendArgs,
+  OutreachSendResult,
+} from "@/server/ports";
+
+export interface SendAutomatedEmailPayload {
+  tenantId: string;
+  sendId: string;
+}
+
+// Same transient-vs-permanent classification as send-outreach-email.ts, kept
+// as an independent copy — this file must never import from a
+// bulk-fire-owned job file.
+const TRANSIENT_NODEMAILER_CODES = new Set([
+  "ETIMEDOUT",
+  "ESOCKET",
+  "ECONNECTION",
+  "ECONNRESET",
+  "EDNS",
+]);
+
+function isTransientSendError(e: unknown): boolean {
+  if (!(e instanceof Error)) return false;
+  const code = (e as { code?: string | number }).code;
+  if (typeof code === "string" && TRANSIENT_NODEMAILER_CODES.has(code)) return true;
+  const status =
+    (e as { status?: number }).status ?? (e as { responseCode?: number }).responseCode;
+  if (typeof status === "number" && (status === 429 || status >= 500)) return true;
+  return false;
+}
+
+async function sendWithRetry(
+  mailer: Services["outreachMailer"],
+  creds: SenderAccountCredentials,
+  message: OutreachSendArgs,
+): Promise<OutreachSendResult> {
+  const backoffMs = [0, 1000, 3000];
+  let lastErr: unknown;
+  for (let attempt = 0; attempt < backoffMs.length; attempt++) {
+    if (backoffMs[attempt]) await new Promise((r) => setTimeout(r, backoffMs[attempt]));
+    try {
+      return await mailer.send(creds, message);
+    } catch (e) {
+      lastErr = e;
+      if (!isTransientSendError(e)) throw e;
+      logger.warn({ err: e, attempt: attempt + 1 }, "automated_send_transient_failure_retrying");
+    }
+  }
+  throw lastErr;
+}
+
+/**
+ * Sends one scheduled `automated_sends` row. Triggered by the Inngest
+ * function in src/app/api/inngest/route.ts only after `step.sleepUntil`
+ * durably waits out the row's own staggered `scheduledAt` — the pacing
+ * mechanism that keeps a mailbox looking human-paced instead of firing a
+ * whole batch in the same minute (same block+jitter algorithm Bulk Fire
+ * uses — see scheduleSends in server/lib/spintax.ts).
+ *
+ * Re-checks the campaign's status on every run, not just at schedule time —
+ * pausing a campaign after sends are already queued must still stop them
+ * from going out; this mirrors send-outreach-email.ts's Pause/Stop check.
+ */
+export async function sendAutomatedEmail(
+  payload: SendAutomatedEmailPayload,
+  services: Services,
+): Promise<void> {
+  const { tenantId, sendId } = payload;
+
+  const snapshot = await withTenantTx({ tenantId }, async (ctx) => {
+    const send = await automatedSendRepo.getById(ctx, sendId);
+    if (!send) return null;
+    const [lead, campaign] = await Promise.all([
+      automatedLeadRepo.getById(ctx, send.leadId),
+      automatedCampaignRepo.getById(ctx, send.campaignId),
+    ]);
+    const sender = campaign
+      ? await senderAccountRepo.getById(ctx, campaign.senderAccountId)
+      : null;
+    return { send, lead, campaign, sender };
+  });
+
+  if (!snapshot) return; // send deleted mid-flight
+  const { send, lead, campaign, sender } = snapshot;
+  if (send.status !== "scheduled") return; // idempotent — already processed
+
+  if (!campaign || campaign.status !== "active") {
+    await withTenantTx({ tenantId }, (ctx) =>
+      automatedSendRepo.markSkipped(ctx, sendId, "campaign_not_active"),
+    );
+    return;
+  }
+
+  if (!lead || !lead.email) {
+    await withTenantTx({ tenantId }, async (ctx) => {
+      await automatedSendRepo.markSkipped(ctx, sendId, "lead_missing_email");
+      if (lead) await automatedLeadRepo.setStatus(ctx, lead.id, "skipped");
+    });
+    return;
+  }
+
+  if (!sender || sender.deletedAt || !sender.isActive) {
+    await withTenantTx({ tenantId }, (ctx) =>
+      automatedSendRepo.markSkipped(ctx, sendId, "sender_unavailable"),
+    );
+    return;
+  }
+
+  let errorReason: string | null = null;
+  let sendResult: OutreachSendResult | null = null;
+  let messageId: string | null = null;
+  try {
+    const creds = toCredentials(sender);
+    messageId = generateMessageId(sender.email);
+    sendResult = await sendWithRetry(services.outreachMailer, creds, {
+      from: sender.email,
+      fromName: sender.fromName ?? undefined,
+      to: lead.email,
+      subject: send.subject,
+      text: send.body,
+      replyTo: sender.email,
+      messageId,
+    });
+  } catch (e) {
+    errorReason = e instanceof Error ? e.message : "send_failed";
+  }
+
+  await withTenantTx({ tenantId }, async (ctx) => {
+    if (errorReason) {
+      await automatedSendRepo.markFailed(ctx, sendId, errorReason);
+      await automatedLeadRepo.setStatus(ctx, lead.id, "failed");
+    } else {
+      await automatedSendRepo.markSent(ctx, sendId, {
+        sentAt: new Date(),
+        rfc822MessageId: messageId as string,
+        gmailThreadId: sendResult?.gmailThreadId,
+      });
+      await automatedLeadRepo.setStatus(ctx, lead.id, "sent");
+    }
+  });
+}
+
+export const SEND_AUTOMATED_EMAIL_JOB = "sendAutomatedEmail";

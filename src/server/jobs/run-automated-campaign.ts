@@ -5,45 +5,22 @@ import {
   automatedSendRepo,
 } from "@/server/repositories/automated-outreach.repo";
 import { blueprintRepo } from "@/server/repositories/blueprint.repo";
-import { senderAccountRepo } from "@/server/repositories/outreach.repo";
-import { decryptSecret } from "@/server/lib/secret-box";
+import { scheduleSends } from "@/server/lib/spintax";
 import {
   lockTenantForAutomatedDailyCap,
   AUTOMATED_DAILY_SEND_CAP,
 } from "@/server/services/automated-outreach.service";
+import { SEND_AUTOMATED_EMAIL_JOB } from "@/server/jobs/send-automated-email";
 import { logger } from "@/server/observability/logger";
-import type { Services, SenderAccountCredentials, BlueprintSections } from "@/server/ports";
-import type { senderAccounts, automatedCampaigns } from "@/server/db/schema";
+import type { Services, BlueprintSections } from "@/server/ports";
+import type { automatedCampaigns } from "@/server/db/schema";
 
-/** Independent copy of send-outreach-email.ts's toCredentials/
- *  generateMessageId — this job must never import from a bulk-fire-owned
- *  job file, so the small helper is duplicated rather than shared. */
-function toCredentials(sender: typeof senderAccounts.$inferSelect): SenderAccountCredentials {
-  if (sender.type === "gmail") {
-    if (!sender.gmailRefreshTokenEnc) throw new Error("gmail_account_missing_refresh_token");
-    return {
-      type: "gmail",
-      refreshToken: decryptSecret(sender.gmailRefreshTokenEnc),
-      hasReadScope: sender.gmailHasReadScope,
-    };
-  }
-  if (!sender.smtpHost || !sender.smtpPort || !sender.smtpUsername || !sender.smtpPasswordEnc) {
-    throw new Error("smtp_account_missing_credentials");
-  }
-  return {
-    type: "smtp",
-    host: sender.smtpHost,
-    port: sender.smtpPort,
-    secure: sender.smtpSecure ?? true,
-    username: sender.smtpUsername,
-    password: decryptSecret(sender.smtpPasswordEnc),
-  };
-}
-
-function generateMessageId(senderEmail: string): string {
-  const domain = senderEmail.includes("@") ? senderEmail.split("@")[1] : "talscout.local";
-  return `<${crypto.randomUUID()}@${domain}>`;
-}
+/** Minutes per pacing block — mirrors Bulk Fire's default `blockMinutes`
+ *  (see outreachCampaigns.blockMinutes), applied here via the exact same
+ *  block+jitter algorithm (scheduleSends) so a single mailbox never fires a
+ *  whole batch in the same minute. Lighter than Bulk Fire's per-campaign
+ *  configurability for now — a fixed, sane default. */
+const AUTOMATED_SEND_BLOCK_MINUTES = 4;
 
 /**
  * Cron-triggered (see the Inngest function registration in
@@ -194,19 +171,32 @@ async function runOneCampaign(
   // Authoritative, lock-protected cap re-check + insert — fast, DB-only.
   // `onConflictDoNothing` on (campaignId, leadId) is the idempotency
   // backstop; the slice to `remainingNow` is the actual cap enforcement.
+  // Each row gets a STAGGERED scheduledAt via the same block+jitter
+  // algorithm Bulk Fire uses (scheduleSends) — this is what stops a whole
+  // batch firing in the same minute and reading as a spam blast.
   const scheduledRows = await withTenantTx({ tenantId }, async (ctx) => {
     await lockTenantForAutomatedDailyCap(ctx);
     const sentNow = await automatedSendRepo.countScheduledOrSentTodayForTenant(ctx);
     const remainingNow = Math.max(AUTOMATED_DAILY_SEND_CAP - sentNow, 0);
-    const toInsert = generated.slice(0, remainingNow).map((g) => ({
+    const toSchedule = generated.slice(0, remainingNow);
+    if (toSchedule.length === 0) return [];
+
+    const timing = scheduleSends({
+      leadIds: toSchedule.map((g) => g.leadId),
+      senderAccountIds: [campaign.senderAccountId],
+      blockMinutes: AUTOMATED_SEND_BLOCK_MINUTES,
+      now: new Date(),
+    });
+    const scheduledAtByLeadId = new Map(timing.map((t) => [t.leadId, t.scheduledAt]));
+
+    const toInsert = toSchedule.map((g) => ({
       campaignId: campaign.id,
       leadId: g.leadId,
       senderAccountId: campaign.senderAccountId,
       subject: g.subject,
       body: g.body,
-      scheduledAt: new Date(),
+      scheduledAt: scheduledAtByLeadId.get(g.leadId) ?? new Date(),
     }));
-    if (toInsert.length === 0) return [];
     const inserted = await automatedSendRepo.bulkInsert(ctx, toInsert);
     await automatedLeadRepo.setStatusMany(
       ctx,
@@ -217,50 +207,35 @@ async function runOneCampaign(
   });
   if (scheduledRows.length === 0) return;
 
-  // ---- Phase 4: send (same OutreachMailer port bulk-fire uses) ----
-  const sender = await withTenantTx({ tenantId }, (ctx) =>
-    senderAccountRepo.getById(ctx, campaign.senderAccountId),
-  );
-  if (!sender || sender.deletedAt) {
-    logger.warn({ campaignId: campaign.id }, "automated_campaign_sender_unavailable");
-    return;
-  }
-  const creds = toCredentials(sender);
-  const emailByLeadId = new Map(generated.map((g) => [g.leadId, g.email]));
-
-  for (const send of scheduledRows) {
-    const to = emailByLeadId.get(send.leadId);
-    if (!to) continue; // shouldn't happen — defensive
-    try {
-      const messageId = generateMessageId(sender.email);
-      const result = await services.outreachMailer.send(creds, {
-        from: sender.email,
-        fromName: sender.fromName ?? undefined,
-        to,
-        subject: send.subject,
-        text: send.body,
-        replyTo: sender.email,
-        messageId,
-      });
-      await withTenantTx({ tenantId }, async (ctx) => {
-        await automatedSendRepo.markSent(ctx, send.id, {
-          sentAt: new Date(),
-          rfc822MessageId: messageId,
-          gmailThreadId: result.gmailThreadId,
-        });
-        await automatedLeadRepo.setStatus(ctx, send.leadId, "sent");
-      });
-    } catch (err) {
-      logger.warn({ err, sendId: send.id }, "automated_send_failed");
-      await withTenantTx({ tenantId }, async (ctx) => {
-        await automatedSendRepo.markFailed(
-          ctx,
-          send.id,
-          err instanceof Error ? err.message : "send_failed",
-        );
-        await automatedLeadRepo.setStatus(ctx, send.leadId, "failed");
-      });
-    }
+  // ---- Phase 4: enqueue each send as its own durable, delayed job ----
+  // Never send synchronously here — each row's own staggered scheduledAt
+  // is honored by the Inngest function's step.sleepUntil (see
+  // send-automated-email.ts and its registration in api/inngest/route.ts),
+  // exactly mirroring Bulk Fire's fireCampaign -> queue.enqueueBatch shape.
+  // Enqueue happens OUTSIDE any transaction (the insert above already
+  // committed) so a queue hiccup can never roll back writes that already
+  // landed.
+  try {
+    await services.queue.enqueueBatch(
+      SEND_AUTOMATED_EMAIL_JOB,
+      scheduledRows.map((s) => ({
+        tenantId,
+        sendId: s.id,
+        targetSendAt: s.scheduledAt.toISOString(),
+      })),
+    );
+  } catch (err) {
+    // Rows are already "scheduled" in the DB but never made it to the
+    // queue — log loudly; they'll simply sit unsent until manually
+    // recovered (a background cron re-triggering this campaign is not a
+    // safe auto-recovery here, since it could pick a fresh sender rotation
+    // for unrelated leads). This mirrors fireCampaign's enqueue-failure
+    // logging, minus the same-request rollback (that pattern relies on an
+    // HTTP caller to report to; this is an unattended background tick).
+    logger.error(
+      { err, campaignId: campaign.id, count: scheduledRows.length },
+      "automated_campaign_enqueue_failed",
+    );
   }
 }
 

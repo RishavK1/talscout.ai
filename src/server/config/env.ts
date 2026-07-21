@@ -77,6 +77,19 @@ const EnvSchema = z
     HUNTER_API_KEY: z.string().optional(),
     APOLLO_API_KEY: z.string().optional(),
     GOOGLE_PLACES_API_KEY: z.string().optional(),
+    /** Geoapify Places API (free: 3,000 credits/day, no card) — OSM-based,
+     *  wired as a discovery fallback alongside Overpass to top up sparse
+     *  results before ever reaching the paid Google Places fallback. */
+    GEOAPIFY_API_KEY: z.string().optional(),
+    /** Snov.io (free: 50 credits/month, no card) — OAuth2 client-credentials
+     *  domain search, another rung in the email-finder waterfall. Both must
+     *  be set together; the adapter is only constructed when both are present. */
+    SNOV_CLIENT_ID: z.string().optional(),
+    SNOV_CLIENT_SECRET: z.string().optional(),
+    /** Firecrawl (free: 1,000 credits/month, no card) — JS-rendering scrape
+     *  fallback for the site-scrape email-finder step, for sites our own
+     *  plain fetch can't read (client-rendered contact pages). */
+    FIRECRAWL_API_KEY: z.string().optional(),
 
     /** ---- live-mode tuning (all optional, sensible defaults) ---- */
     ANTHROPIC_MODEL: z.string().default("claude-haiku-4-5"),

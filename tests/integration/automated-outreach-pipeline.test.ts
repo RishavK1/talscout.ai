@@ -93,8 +93,8 @@ afterAll(async () => {
   await closePools();
 });
 
-describe("runAutomatedCampaigns — discover → enrich → generate → send", () => {
-  it("discovers, enriches, writes copy, and sends for every eligible lead", async () => {
+describe("runAutomatedCampaigns — discover → enrich → generate → schedule", () => {
+  it("discovers, enriches, and writes staggered-send copy for every eligible lead", async () => {
     const { tenant, token } = await makeUser("recruiter");
     const blueprint = await seedActiveBlueprint(tenant.id);
     const sender = await seedGmailSender(tenant.id);
@@ -104,13 +104,23 @@ describe("runAutomatedCampaigns — discover → enrich → generate → send", 
 
     const leads = await leadsForCampaign(campaignId);
     expect(leads).toHaveLength(5);
-    expect(leads.every((l) => l.status === "sent")).toBe(true);
+    // "queued", not "sent" — the actual send is a separately-scheduled,
+    // paced job (see send-automated-email.test.ts), never fired inline here.
+    expect(leads.every((l) => l.status === "queued")).toBe(true);
     expect(leads.every((l) => l.email)).toBe(true);
 
     const sends = await sendsForCampaign(campaignId);
     expect(sends).toHaveLength(5);
-    expect(sends.every((s) => s.status === "sent")).toBe(true);
+    expect(sends.every((s) => s.status === "scheduled")).toBe(true);
     expect(sends.every((s) => s.body.includes("Jane Doe"))).toBe(true); // signature appended
+
+    // The whole point of this change: sends must NOT all land in the same
+    // minute (the exact bug that got 12 emails fired back-to-back and put
+    // the sending mailbox at spam risk). Block+jitter scheduling (the same
+    // algorithm Bulk Fire uses) spreads 5 sends across ~4 pacing blocks.
+    const scheduledTimes = sends.map((s) => s.scheduledAt.getTime()).sort((a, b) => a - b);
+    const spanMs = scheduledTimes[scheduledTimes.length - 1] - scheduledTimes[0];
+    expect(spanMs).toBeGreaterThan(3 * 60_000); // well over "all in one minute"
   });
 
   it("excludes leads with no findable email from the send pipeline entirely", async () => {
@@ -239,9 +249,9 @@ describe("runAutomatedCampaigns — discover → enrich → generate → send", 
     expect(sends).toHaveLength(2); // only what's left of the 50/day cap
 
     const leads = await leadsForCampaign(campaignId);
-    const sentLeads = leads.filter((l) => l.status === "sent");
+    const queuedLeads = leads.filter((l) => l.status === "queued");
     const readyLeads = leads.filter((l) => l.status === "ready");
-    expect(sentLeads).toHaveLength(2);
+    expect(queuedLeads).toHaveLength(2);
     expect(readyLeads).toHaveLength(3); // left for the next tick, not lost
   });
 });

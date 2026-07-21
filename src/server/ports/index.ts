@@ -414,7 +414,14 @@ export interface LeadDiscovery {
   discover(query: LeadDiscoveryQuery): Promise<DiscoveredLead[]>;
 }
 
-export type EmailSourceType = "site_scrape" | "hunter" | "apollo" | "google_places" | "osm";
+export type EmailSourceType =
+  | "site_scrape"
+  | "hunter"
+  | "apollo"
+  | "google_places"
+  | "osm"
+  | "firecrawl"
+  | "snov";
 
 export interface EmailFinderResult {
   email: string;

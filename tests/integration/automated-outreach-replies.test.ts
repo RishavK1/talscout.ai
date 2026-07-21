@@ -13,9 +13,11 @@ import { resetDb } from "../helpers/seed";
 import { makeUser } from "../helpers/auth-fixtures";
 import { call } from "../helpers/http";
 import { adminDb, closePools } from "../../src/server/db/client";
-import { blueprints, senderAccounts, automatedReplyDrafts } from "../../src/server/db/schema";
+import { blueprints, senderAccounts, automatedReplyDrafts, automatedSends } from "../../src/server/db/schema";
 import { encryptSecret } from "../../src/server/lib/secret-box";
+import { withTenantTx } from "../../src/server/db/tx";
 import { runAutomatedCampaigns } from "../../src/server/jobs/run-automated-campaign";
+import { sendAutomatedEmail } from "../../src/server/jobs/send-automated-email";
 import { pollAutomatedReplies } from "../../src/server/jobs/poll-automated-replies";
 import { getServices } from "../../src/server/container";
 import type { MockOutreachMailer } from "../../src/server/adapters/mock.outreach-mailer";
@@ -85,6 +87,23 @@ function mockMailer(): MockOutreachMailer {
   return getServices().outreachMailer as MockOutreachMailer;
 }
 
+/** Runs discovery/enrichment/copy-gen (which now only SCHEDULES paced sends,
+ *  never fires them inline — see automated-outreach-pipeline.test.ts), then
+ *  directly drains every scheduled row through the send job itself rather
+ *  than waiting on real wall-clock pacing delays. These reply-flow tests
+ *  care about what happens once a send has gone out, not about pacing. */
+async function runCampaignAndCompleteSends(tenantId: string) {
+  await runAutomatedCampaigns(getServices());
+  const scheduled = await withTenantTx({ tenantId }, (ctx) =>
+    ctx.tx.select().from(automatedSends).where(eq(automatedSends.tenantId, tenantId)),
+  );
+  for (const send of scheduled) {
+    if (send.status === "scheduled") {
+      await sendAutomatedEmail({ tenantId, sendId: send.id }, getServices());
+    }
+  }
+}
+
 async function draftsForTenant() {
   return await adminDb().select().from(automatedReplyDrafts);
 }
@@ -105,7 +124,7 @@ describe("pollAutomatedReplies — drafts replies for human review", () => {
     const sender = await seedGmailSender(tenant.id);
     const campaignId = await createActiveReplyPollingCampaign(token, blueprint.id, sender.id);
 
-    await runAutomatedCampaigns(getServices());
+    await runCampaignAndCompleteSends(tenant.id);
 
     mockMailer().threadReplyState = "replied";
     mockMailer().threadReplyContent = { subject: "Re: intro", body: "Tell me more" };
@@ -128,7 +147,7 @@ describe("pollAutomatedReplies — drafts replies for human review", () => {
     const blueprint = await seedActiveBlueprint(tenant.id);
     const sender = await seedGmailSender(tenant.id);
     await createActiveReplyPollingCampaign(token, blueprint.id, sender.id);
-    await runAutomatedCampaigns(getServices());
+    await runCampaignAndCompleteSends(tenant.id);
     mockMailer().threadReplyState = "replied";
     mockMailer().threadReplyContent = { subject: "Re: intro", body: "Tell me more" };
 
@@ -146,7 +165,7 @@ describe("reply review actions", () => {
     const blueprint = await seedActiveBlueprint(tenant.id);
     const sender = await seedGmailSender(tenant.id);
     await createActiveReplyPollingCampaign(token, blueprint.id, sender.id);
-    await runAutomatedCampaigns(getServices());
+    await runCampaignAndCompleteSends(tenant.id);
     mockMailer().threadReplyState = "replied";
     mockMailer().threadReplyContent = { subject: "Re: intro", body: "Tell me more" };
     await pollAutomatedReplies(getServices());

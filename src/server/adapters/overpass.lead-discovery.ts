@@ -1,4 +1,5 @@
 import { logger } from "@/server/observability/logger";
+import { resolveCenterViaNominatim, GEOCODE_USER_AGENT } from "@/server/lib/geocode";
 import type { LeadDiscovery, LeadDiscoveryQuery, DiscoveredLead } from "@/server/ports";
 
 /**
@@ -31,13 +32,12 @@ const OVERPASS_HEADERS = {
   accept: "application/json",
   "accept-encoding": "identity",
 };
-const NOMINATIM_ENDPOINT = "https://nominatim.openstreetmap.org/search";
 /** OSM's usage policy wants an HONEST, identifying user-agent — and it's
  *  enforced: overpass.openstreetmap.fr 403s masquerading strings (verified
  *  directly: "Mozilla/5.0 (compatible; ...Bot...)" → 403, this plain app
  *  identifier → 200, same request otherwise). Never make this look like a
  *  browser. */
-const USER_AGENT = "TalScout/1.0 (automated-outreach; contact: rishavkamboj50@gmail.com)";
+const USER_AGENT = GEOCODE_USER_AGENT;
 /** Radius used for free-text locations (a city name). 10km covers a metro's
  *  commercial spread without flooding results; explicit lat/lon queries carry
  *  their own radius. */
@@ -202,39 +202,6 @@ export class OverpassLeadDiscovery implements LeadDiscovery {
     location: LeadDiscoveryQuery["location"],
   ): Promise<{ lat: number; lon: number } | null> {
     if ("lat" in location) return { lat: location.lat, lon: location.lon };
-    try {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 10_000);
-      // limit=5 (not 1): Nominatim's top hit for a bare place name is often
-      // the administrative-boundary RELATION, whose centroid can land far
-      // from the actual settlement (confirmed by direct testing — a major
-      // city's boundary centroid landed in a sparse area with zero nearby
-      // POIs of any kind, while its `place`/city node, ~15km away, sat
-      // right in the dense urban core). Fetching a few candidates lets us
-      // prefer the actual place point over the boundary shape.
-      const url = `${NOMINATIM_ENDPOINT}?format=json&limit=5&q=${encodeURIComponent(location.text)}`;
-      const res = await fetch(url, {
-        signal: controller.signal,
-        headers: { "user-agent": USER_AGENT },
-      });
-      clearTimeout(timer);
-      if (!res.ok) return null;
-      const rows = (await res.json()) as {
-        lat: string;
-        lon: string;
-        class?: string;
-      }[];
-      if (rows.length === 0) return null;
-      // A `place` result (city/town/village point) represents the named
-      // settlement itself — the right anchor for "find businesses near
-      // here." `boundary`/administrative results represent the governed
-      // area's shape, which for a large or irregular region can center
-      // nowhere near where people or businesses actually are.
-      const best = rows.find((r) => r.class === "place") ?? rows[0];
-      return { lat: parseFloat(best.lat), lon: parseFloat(best.lon) };
-    } catch (err) {
-      logger.warn({ err }, "nominatim_geocode_failed");
-      return null;
-    }
+    return resolveCenterViaNominatim(location.text);
   }
 }

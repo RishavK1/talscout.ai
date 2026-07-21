@@ -403,6 +403,22 @@ export const automatedSendRepo = {
       .where(and(eq(automatedSends.id, id), eq(automatedSends.tenantId, ctx.tenantId)));
   },
 
+  /** Set by the delayed send job when it wakes and finds the campaign no
+   *  longer active (paused/deleted since scheduling) — the send never went
+   *  out, distinct from "failed" (a real attempt that errored). */
+  async markSkipped(ctx: TenantContext, id: string, reason: string) {
+    await ctx.tx
+      .update(automatedSends)
+      .set({ status: "skipped", errorReason: reason })
+      .where(
+        and(
+          eq(automatedSends.id, id),
+          eq(automatedSends.tenantId, ctx.tenantId),
+          eq(automatedSends.status, "scheduled"),
+        ),
+      );
+  },
+
   async getById(ctx: TenantContext, id: string) {
     const [row] = await ctx.tx
       .select()

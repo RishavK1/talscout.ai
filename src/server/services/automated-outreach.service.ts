@@ -9,7 +9,7 @@ import {
 import { blueprintRepo } from "@/server/repositories/blueprint.repo";
 import { senderAccountRepo } from "@/server/repositories/outreach.repo";
 import { getServices } from "@/server/container";
-import { decryptSecret } from "@/server/lib/secret-box";
+import { toCredentials, generateMessageId } from "@/server/lib/automated-mail-credentials";
 import { NotFound, Conflict, BadRequest } from "@/server/http/errors";
 import { logger } from "@/server/observability/logger";
 import type {
@@ -17,11 +17,7 @@ import type {
   UpdateAutomatedCampaignBody,
   ListAutomatedLeadsQuery,
 } from "@/server/validation/automated-outreach";
-import type {
-  BlueprintSections,
-  SenderAccountCredentials,
-} from "@/server/ports";
-import type { senderAccounts } from "@/server/db/schema";
+import type { BlueprintSections } from "@/server/ports";
 
 /** Independent of Bulk Fire's plan-based daily cap — an entirely separate
  *  counter against automated_sends, enforced with its own advisory-lock
@@ -59,36 +55,6 @@ async function assertSenderUsable(
     );
   }
   return sender;
-}
-
-/** Mirrors send-outreach-email.ts's toCredentials/generateMessageId exactly
- *  in shape but kept as local, independent copies — this file must never
- *  import from a bulk-fire-owned job file. */
-function toCredentials(sender: typeof senderAccounts.$inferSelect): SenderAccountCredentials {
-  if (sender.type === "gmail") {
-    if (!sender.gmailRefreshTokenEnc) throw new Error("gmail_account_missing_refresh_token");
-    return {
-      type: "gmail",
-      refreshToken: decryptSecret(sender.gmailRefreshTokenEnc),
-      hasReadScope: sender.gmailHasReadScope,
-    };
-  }
-  if (!sender.smtpHost || !sender.smtpPort || !sender.smtpUsername || !sender.smtpPasswordEnc) {
-    throw new Error("smtp_account_missing_credentials");
-  }
-  return {
-    type: "smtp",
-    host: sender.smtpHost,
-    port: sender.smtpPort,
-    secure: sender.smtpSecure ?? true,
-    username: sender.smtpUsername,
-    password: decryptSecret(sender.smtpPasswordEnc),
-  };
-}
-
-function generateMessageId(senderEmail: string): string {
-  const domain = senderEmail.includes("@") ? senderEmail.split("@")[1] : "talscout.local";
-  return `<${crypto.randomUUID()}@${domain}>`;
 }
 
 export const automatedOutreachService = {
