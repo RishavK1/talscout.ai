@@ -115,7 +115,8 @@ export default function NewAutomatedCampaignPage() {
               <span className="material-symbols-outlined animate-spin text-primary text-[32px]">sync</span>
             </div>
           ) : blueprints.length === 0 ? (
-            <div className="bg-white rounded-[20px] p-6 sm:p-8 ambient-shadow border border-border-low-alpha text-center">
+            <div className="glass-card relative overflow-hidden rounded-[20px] p-6 text-center sm:p-8">
+              <div className="pointer-events-none absolute -right-12 -top-12 h-40 w-40 rounded-full bg-tertiary-fixed/15 blur-3xl" />
               <span className="material-symbols-outlined text-outline text-[32px]">description</span>
               <p className="mt-3 font-body-md text-body-md text-text-muted">
                 You need at least one generated Blueprint before creating an
@@ -123,16 +124,37 @@ export default function NewAutomatedCampaignPage() {
               </p>
               <Link
                 href="/blueprints/new"
-                className="mt-4 inline-block rounded-lg bg-primary px-5 py-2.5 font-label-md text-label-md text-on-primary hover:bg-primary-container transition-colors"
+                className="mt-4 inline-flex items-center gap-2 rounded-lg bg-primary-container px-5 py-2.5 font-label-md text-label-md text-on-primary shadow-floating transition-all hover:-translate-y-0.5 hover:bg-primary active:scale-[0.97]"
               >
                 Create a Blueprint
               </Link>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="bg-white rounded-[20px] p-6 sm:p-8 ambient-shadow border border-border-low-alpha space-y-6">
+              <div className="mb-2 flex items-center justify-center gap-2">
+                {[
+                  { n: 1, label: "Basics" },
+                  { n: 2, label: "Who to find" },
+                  { n: 3, label: "Voice" },
+                  { n: 4, label: "Replies" },
+                ].map((s, i, arr) => (
+                  <div key={s.n} className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-tertiary-fixed to-tertiary-fixed-dim font-data-mono text-[11px] font-semibold text-on-tertiary-fixed shadow-sm">
+                        {s.n}
+                      </span>
+                      <span className="hidden font-label-md text-[12px] text-text-muted sm:inline">
+                        {s.label}
+                      </span>
+                    </div>
+                    {i < arr.length - 1 && <span className="h-px w-6 bg-border-low-alpha sm:w-10" />}
+                  </div>
+                ))}
+              </div>
+
+              <div className="glass-card rounded-[20px] p-6 sm:p-8 space-y-6">
                 <div className="flex items-center gap-3">
-                  <div className="rounded-xl bg-primary/10 p-2 text-primary">
+                  <div className="rounded-xl bg-gradient-to-br from-primary-container to-primary p-2 text-on-primary shadow-sm">
                     <span className="material-symbols-outlined text-[20px]">flag</span>
                   </div>
                   <h2 className="font-headline-md text-headline-md text-primary">Campaign basics</h2>
@@ -190,9 +212,9 @@ export default function NewAutomatedCampaignPage() {
                 </div>
               </div>
 
-              <div className="bg-white rounded-[20px] p-6 sm:p-8 ambient-shadow border border-border-low-alpha space-y-6">
+              <div className="glass-card rounded-[20px] p-6 sm:p-8 space-y-6">
                 <div className="flex items-center gap-3">
-                  <div className="rounded-xl bg-primary/10 p-2 text-primary">
+                  <div className="rounded-xl bg-tertiary-fixed p-2 text-on-tertiary-fixed shadow-sm">
                     <span className="material-symbols-outlined text-[20px]">travel_explore</span>
                   </div>
                   <h2 className="font-headline-md text-headline-md text-primary">Who to find</h2>
@@ -243,9 +265,9 @@ export default function NewAutomatedCampaignPage() {
                 </div>
               </div>
 
-              <div className="bg-white rounded-[20px] p-6 sm:p-8 ambient-shadow border border-border-low-alpha space-y-6">
+              <div className="glass-card rounded-[20px] p-6 sm:p-8 space-y-6">
                 <div className="flex items-center gap-3">
-                  <div className="rounded-xl bg-primary/10 p-2 text-primary">
+                  <div className="rounded-xl bg-secondary-fixed p-2 text-on-secondary-fixed shadow-sm">
                     <span className="material-symbols-outlined text-[20px]">signature</span>
                   </div>
                   <h2 className="font-headline-md text-headline-md text-primary">
@@ -308,11 +330,11 @@ export default function NewAutomatedCampaignPage() {
                 </div>
               </div>
 
-              <div className="bg-white rounded-[20px] p-6 sm:p-8 ambient-shadow border border-border-low-alpha">
+              <div className="glass-card rounded-[20px] p-6 sm:p-8">
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <div className="mb-1 flex items-center gap-3">
-                      <div className="rounded-xl bg-primary/10 p-2 text-primary">
+                      <div className="rounded-xl bg-gradient-to-br from-primary-container to-primary p-2 text-on-primary shadow-sm">
                         <span className="material-symbols-outlined text-[20px]">forum</span>
                       </div>
                       <h2 className="font-headline-md text-headline-md text-primary">
@@ -336,13 +358,13 @@ export default function NewAutomatedCampaignPage() {
                     onClick={() => setReplyPollingEnabled((v) => !v)}
                     disabled={!senderQualifiesForReplyPolling}
                     className={cn(
-                      "shrink-0 w-12 h-7 rounded-full transition-colors relative disabled:opacity-40",
-                      replyPollingEnabled ? "bg-primary" : "bg-surface-container-high",
+                      "shrink-0 w-12 h-7 rounded-full transition-colors relative disabled:opacity-40 shadow-inner",
+                      replyPollingEnabled ? "bg-gradient-to-r from-tertiary-fixed-dim to-tertiary-fixed" : "bg-surface-container-high",
                     )}
                   >
                     <span
                       className={cn(
-                        "absolute top-1 h-5 w-5 rounded-full bg-white transition-transform",
+                        "absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-transform",
                         replyPollingEnabled ? "translate-x-6" : "translate-x-1",
                       )}
                     />
@@ -354,7 +376,7 @@ export default function NewAutomatedCampaignPage() {
                 <button
                   type="submit"
                   disabled={creating}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3 font-label-md text-label-md text-on-primary transition-colors hover:bg-primary-container active:scale-[0.98] disabled:opacity-50 sm:w-auto"
+                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary-container px-6 py-3 font-label-md text-label-md text-on-primary shadow-floating transition-all hover:-translate-y-0.5 hover:bg-primary active:scale-[0.97] disabled:opacity-50 disabled:hover:translate-y-0 sm:w-auto"
                 >
                   {creating ? (
                     <>

@@ -34,33 +34,36 @@ const CAMPAIGN_STATUS_META: Record<
   AutomatedCampaign["status"],
   { label: string; dot: string; chip: string }
 > = {
-  draft: { label: "Draft", dot: "bg-outline", chip: "bg-surface-container-high text-on-surface-variant" },
-  active: { label: "Active", dot: "bg-tertiary-container", chip: "bg-tertiary-fixed/25 text-tertiary-container" },
-  paused: { label: "Paused", dot: "bg-on-secondary-container", chip: "bg-secondary-fixed/25 text-on-secondary-container" },
-  completed: { label: "Completed", dot: "bg-outline", chip: "bg-surface-container-high text-on-surface-variant" },
-  error: { label: "Error", dot: "bg-error", chip: "bg-error/10 text-error" },
+  draft: { label: "Draft", dot: "bg-outline", chip: "bg-surface-container-high text-on-surface-variant border border-border-low-alpha" },
+  active: { label: "Active", dot: "bg-tertiary-container", chip: "status-pill-active border border-tertiary-fixed/40 shadow-sm" },
+  paused: { label: "Paused", dot: "bg-on-secondary-container", chip: "status-pill-invited border border-secondary-fixed-dim/40 shadow-sm" },
+  completed: { label: "Completed", dot: "bg-outline", chip: "bg-surface-container-high text-on-surface-variant border border-border-low-alpha" },
+  error: { label: "Error", dot: "bg-error", chip: "bg-error-container text-on-error-container border border-error/20 shadow-sm" },
 };
 
 const LEAD_STATUS_META: Record<
   AutomatedLead["status"],
   { label: string; dot: string; chip: string }
 > = {
-  discovered: { label: "Discovered", dot: "bg-outline", chip: "bg-surface-container-high text-on-surface-variant" },
-  ready: { label: "Ready", dot: "bg-on-secondary-container", chip: "bg-secondary-fixed/25 text-on-secondary-container" },
-  queued: { label: "Queued", dot: "bg-on-secondary-container", chip: "bg-secondary-fixed/25 text-on-secondary-container" },
-  sent: { label: "Sent", dot: "bg-tertiary-container", chip: "bg-tertiary-fixed/25 text-tertiary-container" },
-  replied: { label: "Replied", dot: "bg-tertiary-container", chip: "bg-tertiary-fixed/40 text-tertiary-container" },
-  failed: { label: "Failed", dot: "bg-error", chip: "bg-error/10 text-error" },
-  skipped: { label: "Skipped", dot: "bg-outline", chip: "bg-surface-container-high text-on-surface-variant" },
+  discovered: { label: "Discovered", dot: "bg-outline", chip: "bg-surface-container-high text-on-surface-variant border border-border-low-alpha" },
+  ready: { label: "Ready", dot: "bg-secondary-fixed-dim", chip: "brass-badge" },
+  queued: { label: "Queued", dot: "bg-on-secondary-container", chip: "bg-secondary-fixed/25 text-on-secondary-container border border-secondary-fixed-dim/30" },
+  sent: { label: "Sent", dot: "bg-tertiary-container", chip: "status-pill-active border border-tertiary-fixed/40 shadow-sm" },
+  replied: { label: "Replied", dot: "bg-on-tertiary-fixed", chip: "bg-gradient-to-r from-tertiary-fixed to-tertiary-fixed-dim text-on-tertiary-fixed shadow-sm" },
+  failed: { label: "Failed", dot: "bg-error", chip: "bg-error-container text-on-error-container border border-error/20 shadow-sm" },
+  skipped: { label: "Skipped", dot: "bg-outline", chip: "bg-surface-container-high text-on-surface-variant border border-border-low-alpha" },
 };
 
-const SOURCE_META: Record<AutomatedLead["emailSource"], { label: string; icon: string }> = {
-  site_scrape: { label: "Website", icon: "language" },
-  hunter: { label: "Hunter.io", icon: "person_search" },
-  apollo: { label: "Apollo.io", icon: "person_search" },
-  google_places: { label: "Google Places", icon: "map" },
-  osm: { label: "Map listing", icon: "map" },
-  none: { label: "—", icon: "remove" },
+const SOURCE_META: Record<
+  AutomatedLead["emailSource"],
+  { label: string; icon: string; badge: string }
+> = {
+  site_scrape: { label: "Website", icon: "language", badge: "bg-primary/10 text-primary border border-primary/20" },
+  hunter: { label: "Hunter.io", icon: "person_search", badge: "brass-badge" },
+  apollo: { label: "Apollo.io", icon: "person_search", badge: "status-pill-active border border-tertiary-fixed/30" },
+  google_places: { label: "Google Places", icon: "map", badge: "bg-secondary-fixed/25 text-on-secondary-container border border-secondary-fixed-dim/30" },
+  osm: { label: "Map listing", icon: "map", badge: "bg-tertiary-fixed/20 text-tertiary-container border border-tertiary-fixed-dim/30" },
+  none: { label: "—", icon: "remove", badge: "bg-surface-container-high text-on-surface-variant border border-border-low-alpha" },
 };
 
 function LeadStatusPill({ status }: { status: AutomatedLead["status"] }) {
@@ -68,7 +71,7 @@ function LeadStatusPill({ status }: { status: AutomatedLead["status"] }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-label-md text-[12px] whitespace-nowrap",
+        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-label-md text-[12px] font-medium whitespace-nowrap",
         meta.chip,
       )}
     >
@@ -78,9 +81,24 @@ function LeadStatusPill({ status }: { status: AutomatedLead["status"] }) {
   );
 }
 
+function SourceBadge({ source }: { source: AutomatedLead["emailSource"] }) {
+  const meta = SOURCE_META[source];
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-label-md text-[12px] font-medium whitespace-nowrap",
+        meta.badge,
+      )}
+    >
+      <span className="material-symbols-outlined text-[14px]">{meta.icon}</span>
+      {meta.label}
+    </span>
+  );
+}
+
 function MetaChip({ icon, children }: { icon: string; children: React.ReactNode }) {
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-border-low-alpha bg-white px-3 py-1.5 font-label-md text-[12px] text-on-surface-variant">
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-border-low-alpha bg-white/70 backdrop-blur-sm px-3 py-1.5 font-label-md text-[12px] text-on-surface-variant shadow-sm">
       <span className="material-symbols-outlined text-[16px] text-primary">{icon}</span>
       {children}
     </span>
@@ -195,10 +213,10 @@ export default function AutomatedCampaignDetailPage({
           <section className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
               <div className="mb-3 flex flex-wrap items-center gap-3">
-                <h1 className="font-headline-lg text-headline-lg text-primary">{campaign.name}</h1>
+                <h1 className="font-headline-lg text-headline-lg text-gradient-teal">{campaign.name}</h1>
                 <span
                   className={cn(
-                    "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-label-md text-[12px]",
+                    "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-label-md text-[12px] font-medium",
                     statusMeta.chip,
                   )}
                 >
@@ -231,7 +249,7 @@ export default function AutomatedCampaignDetailPage({
                 type="button"
                 onClick={toggleCampaign}
                 disabled={busy}
-                className="inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-xl border border-border-low-alpha bg-white px-5 py-2.5 font-label-md text-label-md text-primary transition-colors hover:bg-surface-container-low disabled:opacity-50 sm:w-auto"
+                className="inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-lg border border-primary-container/30 bg-white/70 backdrop-blur-sm px-5 py-2.5 font-label-md text-label-md text-primary shadow-floating transition-all hover:-translate-y-0.5 hover:bg-primary-container/10 disabled:opacity-50 disabled:hover:translate-y-0 sm:w-auto"
               >
                 <span className="material-symbols-outlined text-[18px]">
                   {busy ? "sync" : campaign.status === "active" ? "pause" : "play_arrow"}
@@ -241,7 +259,7 @@ export default function AutomatedCampaignDetailPage({
             )}
           </section>
 
-          <section className="overflow-hidden rounded-[20px] border border-border-low-alpha bg-white ambient-shadow">
+          <section className="overflow-hidden rounded-[20px] glass-card">
             <div className="flex flex-col gap-3 border-b border-border-low-alpha p-4 sm:flex-row sm:items-center sm:justify-between sm:p-6">
               <h3 className="font-headline-md text-headline-md text-primary">
                 Leads{!loading && leads.length > 0 && (
@@ -269,7 +287,7 @@ export default function AutomatedCampaignDetailPage({
             <div className="hidden overflow-x-auto md:block">
               <table className="w-full min-w-[860px] border-collapse text-left">
                 <thead>
-                  <tr className="bg-bg-cream/50">
+                  <tr className="bg-gradient-to-r from-bg-cream/70 to-tertiary-fixed/10">
                     <th className="w-10 p-4">
                       <input
                         type="checkbox"
@@ -305,7 +323,7 @@ export default function AutomatedCampaignDetailPage({
                     leads.map((lead) => (
                       <tr
                         key={lead.id}
-                        className="border-b border-border-low-alpha transition-colors hover:bg-surface-container-lowest"
+                        className="border-b border-border-low-alpha transition-colors hover:bg-tertiary-fixed/5"
                       >
                         <td className="p-4">
                           <input
@@ -321,12 +339,7 @@ export default function AutomatedCampaignDetailPage({
                           {lead.email ?? "—"}
                         </td>
                         <td className="p-4">
-                          <span className="inline-flex items-center gap-1.5 font-body-md text-body-md text-on-surface-variant">
-                            <span className="material-symbols-outlined text-[16px] text-primary/70">
-                              {SOURCE_META[lead.emailSource].icon}
-                            </span>
-                            {SOURCE_META[lead.emailSource].label}
-                          </span>
+                          <SourceBadge source={lead.emailSource} />
                         </td>
                         <td className="max-w-[220px] truncate p-4 font-body-md text-body-md text-on-surface-variant">
                           {lead.addressText ?? "—"}
@@ -367,12 +380,7 @@ export default function AutomatedCampaignDetailPage({
                       </div>
                     )}
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 font-label-md text-[12px] text-text-muted">
-                      <span className="inline-flex items-center gap-1">
-                        <span className="material-symbols-outlined text-[14px]">
-                          {SOURCE_META[lead.emailSource].icon}
-                        </span>
-                        {SOURCE_META[lead.emailSource].label}
-                      </span>
+                      <SourceBadge source={lead.emailSource} />
                       {lead.addressText && (
                         <span className="min-w-0 truncate">{lead.addressText}</span>
                       )}

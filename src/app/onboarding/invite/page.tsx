@@ -62,9 +62,9 @@ export default function InviteTeamOnboardingPage() {
     }
   };
   return (
-    <div className="min-h-screen flex flex-col font-body-md text-body-md overflow-x-hidden">
+    <div className="relative min-h-screen flex flex-col bg-aurora font-body-md text-body-md overflow-x-hidden">
       {/* Top Logo Section */}
-      <header className="w-full flex justify-center pt-12 pb-8">
+      <header className="relative z-10 w-full flex justify-center pt-12 pb-8">
         <Link
           href="/"
           className="font-headline-lg text-headline-md text-primary tracking-tight"
@@ -73,16 +73,16 @@ export default function InviteTeamOnboardingPage() {
         </Link>
       </header>
 
-      <main className="flex-grow flex flex-col items-center px-4 sm:px-6 pb-12 sm:pb-16 lg:pb-24">
+      <main className="relative z-10 flex-grow flex flex-col items-center px-4 sm:px-6 pb-12 sm:pb-16 lg:pb-24">
         {/* Progress Indicator (Step 3 of 3) */}
         <div className="flex items-center gap-2 mb-12 w-full max-w-[400px]">
-          <div className="h-1 flex-1 bg-primary/20 rounded-full"></div>
-          <div className="h-1 flex-1 bg-primary/20 rounded-full"></div>
-          <div className="h-1.5 flex-1 bg-primary rounded-full"></div>
+          <div className="h-1 flex-1 rounded-full bg-gradient-to-r from-primary-container to-primary"></div>
+          <div className="h-1 flex-1 rounded-full bg-gradient-to-r from-primary-container to-primary"></div>
+          <div className="h-1.5 flex-1 rounded-full bg-gradient-to-r from-primary-container to-primary"></div>
         </div>
 
         {/* Central Card Container */}
-        <div className="bg-surface-white w-full max-w-[640px] rounded-[16px] shadow-soft p-4 sm:p-6 lg:p-12 flex flex-col items-center text-center">
+        <div className="rounded-3xl border border-border-low-alpha bg-surface-white/80 shadow-floating backdrop-blur-sm w-full max-w-[640px] p-4 sm:p-6 lg:p-12 flex flex-col items-center text-center">
           {/* Headline & Subtext */}
           <h1 className="font-headline-lg text-headline-lg text-on-surface mb-2">
             Invite your recruiters
@@ -172,7 +172,7 @@ export default function InviteTeamOnboardingPage() {
             <button
               onClick={handleSubmit}
               disabled={loading}
-              className="px-8 py-3 bg-primary text-white font-label-md text-label-md rounded-lg hover:shadow-lg active:scale-95 transition-all disabled:opacity-50"
+              className="px-8 py-3 bg-gradient-to-r from-primary-container to-primary text-on-primary font-label-md text-label-md rounded-lg shadow-floating transition-all hover:-translate-y-0.5 active:scale-[0.97] disabled:opacity-50 disabled:hover:translate-y-0"
             >
               {loading ? "Sending..." : "Send invites & finish"}
             </button>

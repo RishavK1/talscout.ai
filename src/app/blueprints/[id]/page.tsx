@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { AppShell } from "@/components/app/app-shell";
 import { TopAppBar } from "@/components/app/top-app-bar";
+import { SpotlightCard } from "@/components/marketing/spotlight-card";
 import { api, ApiError } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -42,9 +43,26 @@ interface Blueprint {
 }
 
 const STATUS_STYLES: Record<Blueprint["status"], string> = {
-  draft: "bg-surface-container-high text-on-surface-variant",
-  active: "bg-tertiary-fixed/20 text-tertiary-container",
+  draft: "brass-badge",
+  active: "status-pill-active",
   archived: "bg-error/10 text-error",
+};
+
+// Purely decorative icon-chip variety so the section grid reads with the
+// same colorful mix as the landing page's feature bento — keyed by the
+// existing `icon` prop, no new props introduced.
+const SECTION_ICON_STYLES: Record<string, string> = {
+  badge: "bg-gradient-to-br from-primary-container to-primary text-on-primary",
+  sell: "bg-tertiary-fixed text-on-tertiary-fixed",
+  group: "bg-secondary-fixed text-on-secondary-fixed",
+  star: "bg-gradient-to-br from-primary-container to-primary text-on-primary",
+  history: "bg-surface-container-high text-on-surface-variant",
+  healing: "bg-tertiary-fixed text-on-tertiary-fixed",
+  record_voice_over: "bg-secondary-fixed text-on-secondary-fixed",
+  verified: "bg-gradient-to-br from-primary-container to-primary text-on-primary",
+  person_search: "bg-tertiary-fixed text-on-tertiary-fixed",
+  quiz: "bg-secondary-fixed text-on-secondary-fixed",
+  gavel: "bg-gradient-to-br from-primary-container to-primary text-on-primary",
 };
 
 function Section({
@@ -57,15 +75,20 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <div className="bg-white rounded-[20px] p-6 ambient-shadow border border-border-low-alpha">
+    <SpotlightCard className="glass-card rounded-[20px] p-6">
       <div className="mb-3 flex items-center gap-2.5">
-        <div className="rounded-lg bg-primary/10 p-1.5 text-primary">
+        <div
+          className={cn(
+            "rounded-lg p-1.5 shadow-sm",
+            SECTION_ICON_STYLES[icon] ?? "bg-primary/10 text-primary",
+          )}
+        >
           <span className="material-symbols-outlined text-[18px]">{icon}</span>
         </div>
         <h3 className="font-headline-md text-[16px] text-primary">{title}</h3>
       </div>
       {children}
-    </div>
+    </SpotlightCard>
   );
 }
 
@@ -179,13 +202,17 @@ export default function BlueprintDetailPage({
           }
         />
         <main className="flex-1 p-4 sm:p-6 lg:p-12 max-w-[1000px] mx-auto w-full">
-          <section className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 mb-8">
-            <div>
+          <section className="relative flex flex-col gap-4 overflow-hidden rounded-[24px] bg-aurora-soft p-6 mb-8 sm:flex-row sm:items-start sm:justify-between sm:p-8">
+            <span
+              aria-hidden
+              className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-tertiary-fixed/15 blur-3xl"
+            />
+            <div className="relative">
               <div className="flex items-center gap-3 mb-2">
                 <h1 className="font-headline-lg text-headline-lg text-primary">{blueprint.name}</h1>
                 <span
                   className={cn(
-                    "inline-flex items-center px-2 py-1 rounded-full font-label-md text-[12px] capitalize",
+                    "inline-flex items-center px-2.5 py-1 rounded-full font-label-md text-[12px] capitalize shadow-sm",
                     STATUS_STYLES[blueprint.status],
                   )}
                 >
@@ -203,12 +230,12 @@ export default function BlueprintDetailPage({
                 </a>
               )}
             </div>
-            <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
+            <div className="relative flex flex-wrap items-center gap-2 sm:shrink-0">
               <button
                 type="button"
                 onClick={handleRegenerate}
                 disabled={regenerating}
-                className="rounded-lg border border-border-low-alpha px-4 py-2 font-label-md text-label-md text-primary hover:bg-surface-container-low transition-colors flex items-center gap-2 disabled:opacity-50"
+                className="rounded-lg border border-border-low-alpha bg-surface-white/70 px-4 py-2 font-label-md text-label-md text-primary backdrop-blur-sm transition-all hover:-translate-y-0.5 hover:bg-white hover:shadow-sm flex items-center gap-2 disabled:opacity-50 disabled:hover:translate-y-0"
               >
                 <span
                   className={cn(
@@ -224,14 +251,14 @@ export default function BlueprintDetailPage({
                 type="button"
                 onClick={handleToggleArchive}
                 disabled={archiving}
-                className="rounded-lg border border-border-low-alpha px-4 py-2 font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-low transition-colors disabled:opacity-50"
+                className="rounded-lg border border-border-low-alpha bg-surface-white/70 px-4 py-2 font-label-md text-label-md text-on-surface-variant backdrop-blur-sm transition-all hover:-translate-y-0.5 hover:bg-white hover:shadow-sm disabled:opacity-50 disabled:hover:translate-y-0"
               >
                 {blueprint.status === "archived" ? "Restore" : "Archive"}
               </button>
               <button
                 type="button"
                 onClick={handleDelete}
-                className="rounded-lg border border-error/30 px-4 py-2 font-label-md text-label-md text-error hover:bg-error/5 transition-colors"
+                className="rounded-lg border border-error/30 bg-surface-white/70 px-4 py-2 font-label-md text-label-md text-error backdrop-blur-sm transition-all hover:-translate-y-0.5 hover:bg-error/5"
               >
                 Delete
               </button>
@@ -239,7 +266,7 @@ export default function BlueprintDetailPage({
           </section>
 
           {!s ? (
-            <div className="bg-white rounded-[20px] p-8 ambient-shadow border border-border-low-alpha text-center">
+            <div className="glass-card rounded-[20px] p-8 text-center">
               <span className="material-symbols-outlined text-outline text-[32px]">description</span>
               <p className="mt-3 font-body-md text-body-md text-text-muted">
                 No sections generated yet.
@@ -248,7 +275,7 @@ export default function BlueprintDetailPage({
                 type="button"
                 onClick={handleRegenerate}
                 disabled={regenerating}
-                className="mt-4 rounded-lg bg-primary px-5 py-2.5 font-label-md text-label-md text-on-primary hover:bg-primary-container transition-colors disabled:opacity-50"
+                className="mt-4 rounded-lg bg-gradient-to-br from-primary-container to-primary px-5 py-2.5 font-label-md text-label-md text-on-primary shadow-floating transition-all hover:-translate-y-0.5 active:scale-[0.97] disabled:opacity-50 disabled:hover:translate-y-0"
               >
                 Generate now
               </button>

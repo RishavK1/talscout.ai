@@ -124,17 +124,17 @@ export default function AutomatedRepliesPage() {
           {/* Left pane: pending list */}
           <div
             className={cn(
-              "w-full flex-col border-r border-border-low-alpha bg-white/60 lg:flex lg:w-[400px] lg:shrink-0",
+              "w-full flex-col border-r border-border-low-alpha glass-panel lg:flex lg:w-[400px] lg:shrink-0",
               selected ? "hidden" : "flex",
             )}
           >
             <div className="shrink-0 border-b border-border-low-alpha p-4 sm:p-5">
               <div className="flex items-center gap-2.5">
-                <div className="rounded-xl bg-primary/10 p-2 text-primary">
+                <div className="rounded-xl bg-gradient-to-br from-primary-container to-primary p-2 text-on-primary shadow-sm">
                   <span className="material-symbols-outlined text-[20px]">forum</span>
                 </div>
                 <div>
-                  <h2 className="font-headline-md text-headline-md text-primary">
+                  <h2 className="font-headline-md text-headline-md text-gradient-teal">
                     Pending replies{!loading && ` (${drafts.length})`}
                   </h2>
                   <p className="font-body-md text-[12px] text-text-muted">
@@ -167,11 +167,11 @@ export default function AutomatedRepliesPage() {
                     className={cn(
                       "flex w-full gap-3 border-b border-border-low-alpha p-4 text-left transition-colors",
                       selectedId === d.id
-                        ? "border-l-2 border-l-primary bg-primary/5"
-                        : "hover:bg-surface-container-lowest",
+                        ? "border-l-2 border-l-tertiary-fixed-dim bg-tertiary-fixed/10"
+                        : "hover:bg-tertiary-fixed/5",
                     )}
                   >
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-container text-primary">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary-container to-primary text-on-primary shadow-sm">
                       <span className="material-symbols-outlined text-[18px]">mail</span>
                     </div>
                     <div className="min-w-0 flex-1">
@@ -220,7 +220,7 @@ export default function AutomatedRepliesPage() {
                   Back to inbox
                 </button>
 
-                <div className="rounded-[20px] border border-border-low-alpha bg-white p-5 ambient-shadow sm:p-6">
+                <div className="glass-card rounded-[20px] p-5 sm:p-6">
                   <div className="mb-3 flex items-center gap-2.5">
                     <div className="rounded-lg bg-surface-container-high p-1.5 text-on-surface-variant">
                       <span className="material-symbols-outlined text-[18px]">move_to_inbox</span>
@@ -237,21 +237,22 @@ export default function AutomatedRepliesPage() {
                   </p>
                 </div>
 
-                <div className="rounded-[20px] border border-border-low-alpha bg-white p-5 ambient-shadow sm:p-6">
-                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <div className="relative overflow-hidden rounded-[20px] bg-teal-gradient p-5 shadow-floating sm:p-6">
+                  <span aria-hidden className="pointer-events-none absolute inset-0 bg-grid-dark opacity-60" />
+                  <div className="relative z-10 mb-3 flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2.5">
-                      <div className="rounded-lg bg-primary/10 p-1.5 text-primary">
+                      <div className="rounded-lg bg-white/10 p-1.5 text-tertiary-fixed">
                         <span className="material-symbols-outlined text-[18px]">auto_awesome</span>
                       </div>
-                      <h3 className="font-headline-md text-[16px] text-primary">AI-drafted reply</h3>
+                      <h3 className="font-headline-md text-[16px] text-white">AI-drafted reply</h3>
                     </div>
                     {confidence != null && (
                       <span
                         className={cn(
-                          "inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-label-md text-[11px]",
+                          "inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-label-md text-[11px] font-semibold shadow-sm",
                           confidence >= 0.7
-                            ? "bg-tertiary-fixed/25 text-tertiary-container"
-                            : "bg-surface-container-high text-on-surface-variant",
+                            ? "bg-tertiary-fixed text-on-tertiary-fixed"
+                            : "bg-white/10 text-white/80",
                         )}
                       >
                         <span className="material-symbols-outlined text-[14px]">insights</span>
@@ -263,11 +264,11 @@ export default function AutomatedRepliesPage() {
                     value={editBody}
                     onChange={(e) => setEditBody(e.target.value)}
                     rows={8}
-                    className="w-full rounded-xl border border-border-low-alpha bg-bg-cream/30 px-4 py-3 font-body-md focus:outline-none focus:ring-1 focus:ring-primary"
+                    className="relative z-10 w-full rounded-xl border border-white/10 bg-white/[0.06] px-4 py-3 font-body-md text-white placeholder-white/40 backdrop-blur-sm focus:outline-none focus:ring-1 focus:ring-tertiary-fixed"
                   />
                   {selected.reasoning && (
-                    <p className="mt-3 rounded-xl bg-surface-container-lowest p-3 font-body-md text-[13px] text-text-muted">
-                      <span className="font-medium text-on-surface-variant">AI reasoning:</span>{" "}
+                    <p className="relative z-10 mt-3 rounded-xl border border-white/10 bg-white/[0.04] p-3 font-body-md text-[13px] text-white/70">
+                      <span className="font-medium text-white/90">AI reasoning:</span>{" "}
                       {selected.reasoning}
                     </p>
                   )}
@@ -279,7 +280,7 @@ export default function AutomatedRepliesPage() {
                       type="button"
                       onClick={reject}
                       disabled={busy}
-                      className="rounded-xl border border-error/30 px-5 py-2.5 font-label-md text-label-md text-error transition-colors hover:bg-error/5 disabled:opacity-50"
+                      className="rounded-lg border border-error/30 px-5 py-2.5 font-label-md text-label-md text-error shadow-floating transition-all hover:-translate-y-0.5 hover:bg-error/5 active:scale-[0.97] disabled:opacity-50 disabled:hover:translate-y-0"
                     >
                       Reject
                     </button>
@@ -287,7 +288,7 @@ export default function AutomatedRepliesPage() {
                       type="button"
                       onClick={regenerate}
                       disabled={busy}
-                      className="rounded-xl border border-border-low-alpha px-5 py-2.5 font-label-md text-label-md text-primary transition-colors hover:bg-surface-container-low disabled:opacity-50"
+                      className="rounded-lg border border-primary-container/40 px-5 py-2.5 font-label-md text-label-md text-primary shadow-floating transition-all hover:-translate-y-0.5 hover:bg-primary-container/10 active:scale-[0.97] disabled:opacity-50 disabled:hover:translate-y-0"
                     >
                       Regenerate
                     </button>
@@ -295,7 +296,7 @@ export default function AutomatedRepliesPage() {
                       type="button"
                       onClick={approve}
                       disabled={busy}
-                      className="flex items-center justify-center gap-2 rounded-xl bg-primary px-6 py-2.5 font-label-md text-label-md text-on-primary transition-colors hover:bg-primary-container disabled:opacity-50"
+                      className="flex items-center justify-center gap-2 rounded-lg bg-tertiary-fixed px-6 py-2.5 font-label-md text-label-md text-on-tertiary-fixed shadow-floating transition-all hover:-translate-y-0.5 hover:bg-tertiary-fixed-dim active:scale-[0.97] disabled:opacity-50 disabled:hover:translate-y-0"
                     >
                       <span className={cn("material-symbols-outlined text-[18px]", busy && "animate-spin")}>
                         {busy ? "sync" : "send"}

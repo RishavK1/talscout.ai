@@ -108,7 +108,9 @@ export default function ChoosePlanPage() {
 
   if (checking) {
     return (
-      <main className="w-full max-w-[1000px] mx-auto min-h-screen flex flex-col items-center justify-center py-20 px-4">
+      <main className="relative overflow-hidden bg-aurora w-full max-w-[1000px] mx-auto min-h-screen flex flex-col items-center justify-center py-20 px-4">
+        <div className="pointer-events-none absolute -left-24 top-24 h-72 w-72 rounded-full bg-primary-container/10 blur-3xl" />
+        <div className="pointer-events-none absolute -right-16 top-10 h-80 w-80 rounded-full bg-tertiary-fixed/20 blur-3xl" />
         <span className="material-symbols-outlined animate-spin text-primary text-3xl">sync</span>
         <p className="mt-4 font-label-md text-text-muted">Checking current subscription plan...</p>
       </main>
@@ -116,21 +118,24 @@ export default function ChoosePlanPage() {
   }
 
   return (
-    <main className="w-full max-w-[1000px] mx-auto min-h-screen flex flex-col items-center justify-center py-12 sm:py-16 lg:py-20 px-4 sm:px-6">
+    <main className="relative overflow-hidden bg-aurora w-full max-w-[1000px] mx-auto min-h-screen flex flex-col items-center justify-center py-12 sm:py-16 lg:py-20 px-4 sm:px-6">
+      {/* Decorative floating color orbs */}
+      <div className="pointer-events-none absolute -left-24 top-24 h-72 w-72 rounded-full bg-primary-container/10 blur-3xl" />
+      <div className="pointer-events-none absolute -right-16 top-10 h-80 w-80 rounded-full bg-tertiary-fixed/20 blur-3xl" />
       {/* Logo/Header */}
-      <div className="flex justify-center mb-12">
+      <div className="relative z-10 flex justify-center mb-12">
         <Link href="/" className="font-headline-lg text-headline-lg text-primary tracking-tight">
           TalScout
         </Link>
       </div>
       {/* Onboarding Step Indicator */}
-      <div className="flex items-center justify-center space-x-3 mb-10">
-        <div className="h-1.5 w-16 rounded-full bg-primary/20"></div>
-        <div className="h-1.5 w-16 rounded-full bg-primary shadow-sm"></div>
+      <div className="relative z-10 flex items-center justify-center space-x-3 mb-10">
+        <div className="h-1.5 w-16 rounded-full bg-gradient-to-r from-primary-container to-primary"></div>
+        <div className="h-1.5 w-16 rounded-full bg-gradient-to-r from-primary-container to-primary shadow-sm"></div>
         <div className="h-1.5 w-16 rounded-full bg-border-low-alpha"></div>
       </div>
       {/* Main Card Content */}
-      <section className="w-full bg-surface-white rounded-xl p-6 sm:p-8 lg:p-12 shadow-soft border border-border-low-alpha">
+      <section className="relative z-10 w-full rounded-3xl border border-border-low-alpha bg-surface-white/80 shadow-floating backdrop-blur-sm p-6 sm:p-8 lg:p-12">
         <div className="text-center mb-10">
           <h2 className="font-headline-lg text-headline-lg text-on-surface mb-3">Choose your plan</h2>
           <p className="font-body-md text-body-md text-text-muted max-w-lg mx-auto">
@@ -193,12 +198,12 @@ export default function ChoosePlanPage() {
                   isDowngrade
                     ? "opacity-40 cursor-not-allowed border border-border-low-alpha bg-surface-container-high rounded-xl p-6 flex flex-col pointer-events-none"
                     : isSelected
-                    ? "plan-card-selected relative rounded-xl p-6 flex flex-col cursor-pointer transition-all shadow-md"
-                    : "plan-card-unselected relative rounded-xl p-6 flex flex-col cursor-pointer hover:border-outline-variant transition-colors group"
+                    ? `plan-card-selected relative rounded-xl p-6 flex flex-col cursor-pointer transition-all shadow-md${plan.popular ? " ring-2 ring-tertiary-fixed" : ""}`
+                    : `plan-card-unselected relative rounded-xl p-6 flex flex-col cursor-pointer hover:border-outline-variant transition-colors group${plan.popular ? " ring-2 ring-tertiary-fixed" : ""}`
                 }
               >
                 {plan.popular && !isDowngrade && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 brass-pill rounded-full text-[10px] font-bold tracking-widest uppercase">
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-tertiary-fixed text-on-tertiary-fixed text-[10px] font-bold tracking-widest uppercase shadow-sm">
                     Most Popular
                   </div>
                 )}
@@ -305,7 +310,7 @@ export default function ChoosePlanPage() {
             type="button"
             disabled={loading || !isUpgrade()}
             onClick={handlePayment}
-            className="w-full md:w-auto px-10 py-4 bg-primary text-on-primary rounded-xl font-label-md text-label-md font-semibold hover:opacity-90 active:scale-[0.98] transition-all shadow-md text-center disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
+            className="w-full md:w-auto px-10 py-4 bg-gradient-to-r from-primary-container to-primary text-on-primary rounded-xl font-label-md text-label-md font-semibold shadow-floating transition-all hover:-translate-y-0.5 active:scale-[0.97] text-center disabled:opacity-50 disabled:hover:translate-y-0 cursor-pointer disabled:cursor-not-allowed"
           >
             {loading ? "Preparing payment..." : "Continue to payment"}
           </button>

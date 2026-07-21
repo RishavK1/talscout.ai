@@ -71,10 +71,10 @@ const DAYS = 14;
 type StatTone = "default" | "positive" | "negative" | "neutral";
 
 const STAT_TONES: Record<StatTone, string> = {
-  default: "bg-primary/10 text-primary",
-  positive: "bg-tertiary-fixed/30 text-tertiary-container",
-  negative: "bg-error/10 text-error",
-  neutral: "bg-surface-container-high text-on-surface-variant",
+  default: "bg-gradient-to-br from-primary-container to-primary text-on-primary shadow-sm",
+  positive: "bg-tertiary-fixed text-on-tertiary-fixed shadow-sm",
+  negative: "bg-error text-on-error shadow-sm",
+  neutral: "bg-secondary-fixed text-on-secondary-fixed shadow-sm",
 };
 
 function StatCard({
@@ -91,7 +91,7 @@ function StatCard({
   tone?: StatTone;
 }) {
   return (
-    <div className="bg-white p-5 sm:p-6 rounded-[20px] ambient-shadow border border-border-low-alpha flex flex-col justify-between gap-4">
+    <div className="glass-card p-5 sm:p-6 rounded-[20px] flex flex-col justify-between gap-4 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-floating">
       <div className={`w-fit rounded-xl p-2 ${STAT_TONES[tone]}`}>
         <span className="material-symbols-outlined">{icon}</span>
       </div>
@@ -292,8 +292,12 @@ export default function AnalyticsPage() {
           }
         />
         <main className="flex-1 p-4 sm:p-6 lg:p-12 max-w-[1440px] mx-auto w-full">
-          <section className="mb-10">
-            <div className="mb-2 flex flex-wrap items-center gap-3">
+          <section className="relative mb-10 overflow-hidden rounded-[24px] bg-aurora-soft p-6 sm:p-8">
+            <span
+              aria-hidden
+              className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-tertiary-fixed/15 blur-3xl"
+            />
+            <div className="relative mb-2 flex flex-wrap items-center gap-3">
               <h1 className="font-headline-lg text-headline-lg text-primary">
                 Outreach Analytics
               </h1>
@@ -305,7 +309,7 @@ export default function AnalyticsPage() {
                 Live · every {POLL_MS / 1000}s
               </span>
             </div>
-            <p className="font-body-lg text-body-lg text-text-muted">
+            <p className="relative font-body-lg text-body-lg text-text-muted">
               Real-time send performance across your email campaigns.
             </p>
           </section>
@@ -319,13 +323,13 @@ export default function AnalyticsPage() {
           </section>
 
           <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
-            <div className="lg:col-span-2 bg-white rounded-[20px] ambient-shadow border border-border-low-alpha p-6">
+            <div className="lg:col-span-2 glass-card rounded-[20px] p-6">
               <h3 className="font-headline-md text-headline-md text-primary mb-4">
                 Sent per day (last {DAYS} days)
               </h3>
               <TrendChart data={overview?.daily ?? []} loading={loading} />
             </div>
-            <div className="bg-white rounded-[20px] ambient-shadow border border-border-low-alpha p-6">
+            <div className="glass-card rounded-[20px] p-6">
               <h3 className="font-headline-md text-headline-md text-primary mb-4">
                 Reply &amp; open tracking
               </h3>
@@ -346,7 +350,7 @@ export default function AnalyticsPage() {
             </div>
           </section>
 
-          <section className="bg-white rounded-[20px] ambient-shadow border border-border-low-alpha overflow-hidden">
+          <section className="glass-card rounded-[20px] overflow-hidden">
             <div className="p-6 border-b border-border-low-alpha">
               <h3 className="font-headline-md text-headline-md text-primary">By campaign</h3>
             </div>
@@ -405,9 +409,10 @@ export default function AnalyticsPage() {
             </div>
           </section>
 
-          <section className="mb-6 mt-16">
+          <div className="relative mt-16 rounded-[32px] border border-tertiary-fixed/25 bg-gradient-to-b from-tertiary-fixed/10 via-tertiary-fixed/[0.03] to-transparent p-4 sm:p-6 lg:p-8">
+          <section className="mb-6">
             <div className="mb-2 flex items-center gap-3">
-              <div className="rounded-xl bg-primary/10 p-2 text-primary">
+              <div className="rounded-xl bg-tertiary-fixed text-on-tertiary-fixed p-2 shadow-sm">
                 <span className="material-symbols-outlined">auto_awesome</span>
               </div>
               <h2 className="font-headline-lg text-headline-lg text-primary">
@@ -456,14 +461,14 @@ export default function AnalyticsPage() {
             />
           </section>
 
-          <section className="mb-10 bg-white rounded-[20px] ambient-shadow border border-border-low-alpha p-6">
+          <section className="mb-10 glass-card rounded-[20px] p-6">
             <h3 className="font-headline-md text-headline-md text-primary mb-4">
               Automated sent per day (last {DAYS} days)
             </h3>
             <TrendChart data={overview?.automated.daily ?? []} loading={loading} />
           </section>
 
-          <section className="bg-white rounded-[20px] ambient-shadow border border-border-low-alpha overflow-hidden">
+          <section className="glass-card rounded-[20px] overflow-hidden">
             <div className="p-6 border-b border-border-low-alpha">
               <h3 className="font-headline-md text-headline-md text-primary">
                 By automated campaign
@@ -525,6 +530,7 @@ export default function AnalyticsPage() {
               </table>
             </div>
           </section>
+          </div>
         </main>
       </div>
     </AppShell>

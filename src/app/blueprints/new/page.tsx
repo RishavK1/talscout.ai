@@ -143,11 +143,11 @@ export default function NewBlueprintPage() {
                 <div className="flex items-center gap-2.5">
                   <div
                     className={cn(
-                      "flex h-9 w-9 shrink-0 items-center justify-center rounded-full font-label-md text-label-md transition-colors",
+                      "flex h-9 w-9 shrink-0 items-center justify-center rounded-full font-label-md text-label-md transition-all",
                       i < step
-                        ? "bg-tertiary-fixed text-on-tertiary-fixed"
+                        ? "bg-gradient-to-br from-tertiary-fixed to-tertiary-fixed-dim text-on-tertiary-fixed shadow-sm"
                         : i === step
-                          ? "bg-primary text-white shadow-sm"
+                          ? "bg-gradient-to-br from-primary-container to-primary text-on-primary shadow-floating"
                           : "bg-surface-container text-on-surface-variant",
                     )}
                   >
@@ -169,8 +169,8 @@ export default function NewBlueprintPage() {
                 {i < STEPS.length - 1 && (
                   <div
                     className={cn(
-                      "mx-3 h-px flex-1 rounded-full sm:mx-4",
-                      i < step ? "bg-tertiary-container/40" : "bg-border-low-alpha",
+                      "mx-3 h-px flex-1 rounded-full sm:mx-4 transition-colors",
+                      i < step ? "bg-gradient-to-r from-tertiary-fixed to-tertiary-fixed-dim" : "bg-border-low-alpha",
                     )}
                   />
                 )}
@@ -179,9 +179,13 @@ export default function NewBlueprintPage() {
           </div>
 
           {step === 0 && (
-            <div className="bg-white rounded-[20px] p-6 sm:p-8 ambient-shadow border border-border-low-alpha">
-              <div className="mb-2 flex items-center gap-3">
-                <div className="rounded-xl bg-primary/10 p-2 text-primary">
+            <div className="relative overflow-hidden glass-card rounded-[20px] p-6 sm:p-8">
+              <span
+                aria-hidden
+                className="pointer-events-none absolute -right-12 -top-12 h-40 w-40 rounded-full bg-tertiary-fixed/10 blur-3xl"
+              />
+              <div className="relative mb-2 flex items-center gap-3">
+                <div className="rounded-xl bg-gradient-to-br from-primary-container to-primary p-2 text-on-primary shadow-sm">
                   <span className="material-symbols-outlined">storefront</span>
                 </div>
                 <h2 className="font-headline-md text-headline-md text-primary">
@@ -222,7 +226,7 @@ export default function NewBlueprintPage() {
                   <button
                     type="submit"
                     disabled={researching || !name.trim() || !websiteUrl.trim()}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3 font-label-md text-label-md text-on-primary transition-colors hover:bg-primary-container active:scale-[0.98] disabled:opacity-50 sm:w-auto"
+                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-br from-primary-container to-primary px-6 py-3 font-label-md text-label-md text-on-primary shadow-floating transition-all hover:-translate-y-0.5 active:scale-[0.97] disabled:opacity-50 disabled:hover:translate-y-0 sm:w-auto"
                   >
                     {researching ? (
                       <>
@@ -243,7 +247,7 @@ export default function NewBlueprintPage() {
 
           {step === 1 && suggestions && (
             <div className="space-y-6">
-              <div className="bg-white rounded-[20px] p-6 ambient-shadow border border-border-low-alpha">
+              <div className="glass-card rounded-[20px] p-6">
                 <p className="font-body-md text-body-md text-text-muted">
                   Here&apos;s what we found for{" "}
                   <span className="text-on-surface font-semibold">
@@ -256,7 +260,7 @@ export default function NewBlueprintPage() {
               {suggestions.fields.map((field) => (
                 <div
                   key={field.field}
-                  className="bg-white rounded-[20px] p-6 ambient-shadow border border-border-low-alpha"
+                  className="glass-card rounded-[20px] p-6"
                 >
                   <h3 className="font-headline-md text-[16px] text-on-surface mb-4">
                     {field.question}
@@ -273,10 +277,10 @@ export default function NewBlueprintPage() {
                         type="button"
                         onClick={() => toggleOption(field, option)}
                         className={cn(
-                          "inline-flex items-center gap-1.5 rounded-full border px-4 py-2 font-label-md text-label-md transition-all",
+                          "inline-flex items-center gap-1.5 rounded-full border px-4 py-2 font-label-md text-label-md transition-all hover:-translate-y-0.5",
                           isSelected(field, option)
-                            ? "border-primary bg-primary text-white shadow-sm"
-                            : "border-border-low-alpha bg-surface-container-low text-on-surface-variant hover:border-primary/40 hover:bg-white",
+                            ? "border-transparent bg-gradient-to-br from-primary-container to-primary text-on-primary shadow-floating"
+                            : "brass-badge border-transparent hover:shadow-sm",
                         )}
                       >
                         {isSelected(field, option) && (
@@ -298,7 +302,7 @@ export default function NewBlueprintPage() {
                           key={custom}
                           type="button"
                           onClick={() => toggleOption(field, custom)}
-                          className="inline-flex items-center gap-1.5 rounded-full border border-primary bg-primary px-4 py-2 font-label-md text-label-md text-white shadow-sm"
+                          className="inline-flex items-center gap-1.5 rounded-full border border-transparent bg-gradient-to-br from-primary-container to-primary px-4 py-2 font-label-md text-label-md text-on-primary shadow-floating"
                         >
                           <span className="material-symbols-outlined text-[16px]">check</span>
                           {custom}
@@ -335,7 +339,7 @@ export default function NewBlueprintPage() {
                 <button
                   type="button"
                   onClick={() => setStep(0)}
-                  className="rounded-xl border border-outline px-5 py-2.5 font-label-md text-label-md text-primary hover:bg-surface-container-low transition-colors"
+                  className="rounded-lg border border-border-low-alpha bg-surface-white/60 px-5 py-2.5 font-label-md text-label-md text-primary backdrop-blur-sm transition-all hover:-translate-y-0.5 hover:bg-white active:scale-[0.97]"
                 >
                   Back
                 </button>
@@ -343,7 +347,7 @@ export default function NewBlueprintPage() {
                   type="button"
                   onClick={handleConfirmAnswers}
                   disabled={generating}
-                  className="flex items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3 font-label-md text-label-md text-on-primary transition-colors hover:bg-primary-container active:scale-[0.98] disabled:opacity-50"
+                  className="flex items-center justify-center gap-2 rounded-lg bg-gradient-to-br from-primary-container to-primary px-6 py-3 font-label-md text-label-md text-on-primary shadow-floating transition-all hover:-translate-y-0.5 active:scale-[0.97] disabled:opacity-50 disabled:hover:translate-y-0"
                 >
                   {generating ? (
                     <>
@@ -362,7 +366,7 @@ export default function NewBlueprintPage() {
           )}
 
           {step === 2 && (
-            <div className="bg-white rounded-[20px] p-8 ambient-shadow border border-border-low-alpha text-center">
+            <div className="glass-card rounded-[20px] p-8 text-center">
               <span className="material-symbols-outlined text-primary text-[40px] animate-spin">sync</span>
               <p className="mt-4 font-body-md text-body-md text-text-muted">
                 Taking you to your new blueprint...

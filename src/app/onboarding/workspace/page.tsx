@@ -38,7 +38,10 @@ export default function SetUpWorkspacePage() {
   };
 
   return (
-    <div className="bg-bg-cream min-h-screen flex items-center justify-center font-body-md text-on-surface antialiased p-4 sm:p-6 md:p-12">
+    <div className="relative overflow-hidden bg-aurora min-h-screen flex items-center justify-center font-body-md text-on-surface antialiased p-4 sm:p-6 md:p-12">
+      {/* Decorative floating color orbs */}
+      <div className="pointer-events-none absolute -left-24 top-24 h-72 w-72 rounded-full bg-primary-container/10 blur-3xl" />
+      <div className="pointer-events-none absolute -right-16 top-10 h-80 w-80 rounded-full bg-tertiary-fixed/20 blur-3xl" />
       {/* Top Left Brand */}
       <div className="fixed top-6 left-6 lg:top-12 lg:left-12 hidden md:block">
         <Link href="/">
@@ -46,18 +49,23 @@ export default function SetUpWorkspacePage() {
         </Link>
       </div>
       {/* Main Container */}
-      <main className="w-full max-w-[560px] mx-auto">
+      <main className="relative z-10 w-full max-w-[560px] mx-auto">
         {/* Progress Indicator */}
         <div className="mb-8 flex flex-col items-center">
-          <span className="font-label-md text-label-md text-on-surface-variant mb-3">Step 1 of 3</span>
+          <span className="mb-3 inline-flex items-center gap-2 rounded-full border border-border-low-alpha bg-surface-white/70 px-3 py-1.5 font-label-md text-label-md text-on-surface-variant backdrop-blur-sm">
+            <span className="flex h-4 w-4 items-center justify-center rounded-full bg-tertiary-fixed">
+              <span className="material-symbols-outlined text-[12px] text-on-tertiary-fixed">bolt</span>
+            </span>
+            Step 1 of 3
+          </span>
           <div className="flex gap-2 w-48">
-            <div className="h-1 flex-1 bg-primary rounded-full"></div>
+            <div className="h-1 flex-1 rounded-full bg-gradient-to-r from-primary-container to-primary"></div>
             <div className="h-1 flex-1 bg-border-low-alpha rounded-full"></div>
             <div className="h-1 flex-1 bg-border-low-alpha rounded-full"></div>
           </div>
         </div>
         {/* Card */}
-        <div className="bg-surface-white rounded-[16px] shadow-[0_4px_24px_rgba(44,35,34,0.05)] p-6 sm:p-8 md:p-10 border border-border-low-alpha/50">
+        <div className="rounded-3xl border border-border-low-alpha bg-surface-white/80 shadow-floating backdrop-blur-sm p-6 sm:p-8 md:p-10">
           <header className="mb-8 text-center">
             <h2 className="font-headline-lg text-headline-lg text-on-surface mb-2">Create Workspace</h2>
             <p className="font-body-md text-body-md text-on-surface-variant">Set up your agency&apos;s digital headquarters to start collaborating with your team.</p>
@@ -109,7 +117,7 @@ export default function SetUpWorkspacePage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-primary text-on-primary font-label-md text-label-md py-3 px-6 rounded-lg shadow-sm hover:bg-primary-container transition-colors duration-200 flex justify-center items-center gap-2 disabled:opacity-50 cursor-pointer"
+                className="w-full bg-gradient-to-r from-primary-container to-primary text-on-primary font-label-md text-label-md py-3 px-6 rounded-lg shadow-floating transition-all hover:-translate-y-0.5 active:scale-[0.97] flex justify-center items-center gap-2 disabled:opacity-50 disabled:hover:translate-y-0 cursor-pointer"
               >
                 <span>{loading ? "Creating..." : "Continue"}</span>
                 <span className="material-symbols-outlined" style={{ fontSize: "18px" }}>arrow_forward</span>

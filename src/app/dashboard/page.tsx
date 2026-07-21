@@ -8,6 +8,7 @@ import { useAuth } from "@/components/app/auth-provider";
 import { api } from "@/lib/api";
 import { TopAppBar } from "@/components/app/top-app-bar";
 import { getRecentSearches } from "@/lib/recent-searches";
+import { SpotlightCard } from "@/components/marketing/spotlight-card";
 
 
 interface SimpleCandidate {
@@ -146,7 +147,7 @@ export default function DashboardPage() {
             </form>
           }
           rightContent={
-            <Link href="/upload" className="bg-primary text-white px-5 py-2.5 rounded-xl font-label-md text-label-md hover:shadow-lg transition-all active:scale-[0.98] whitespace-nowrap">
+            <Link href="/upload" className="group bg-gradient-to-r from-primary-container to-primary text-white px-5 py-2.5 rounded-lg font-label-md text-label-md shadow-floating transition-all hover:-translate-y-0.5 active:scale-[0.97] whitespace-nowrap">
               + Upload résumés
             </Link>
           }
@@ -154,27 +155,31 @@ export default function DashboardPage() {
         {/* Main Canvas */}
         <main className="flex-1 p-4 sm:p-6 lg:p-12 max-w-[1440px] mx-auto w-full">
           {/* Greeting Section */}
-          <section className="mb-12">
-            <h1 className="font-headline-lg text-headline-lg text-primary mb-2">{greeting}, {displayName}.</h1>
-            <p className="font-body-lg text-body-lg text-text-muted">Here is the latest intelligence on your recruitment pipeline.</p>
-            {slowLoad && (
-              <p className="mt-3 flex items-center gap-2 font-body-md text-body-md text-text-muted">
-                <span className="material-symbols-outlined text-[18px] animate-spin">progress_activity</span>
-                Waking things up — this can take a moment on the first visit of the day.
-              </p>
-            )}
+          <section className="relative mb-12 overflow-hidden rounded-3xl bg-aurora-soft p-6 sm:p-8">
+            <div className="pointer-events-none absolute -right-10 -top-16 h-56 w-56 rounded-full bg-tertiary-fixed/15 blur-3xl" />
+            <div className="pointer-events-none absolute -left-10 bottom-0 h-40 w-40 rounded-full bg-primary-container/10 blur-3xl" />
+            <div className="relative">
+              <h1 className="font-headline-lg text-headline-lg text-primary mb-2">{greeting}, {displayName}.</h1>
+              <p className="font-body-lg text-body-lg text-text-muted">Here is the latest intelligence on your recruitment pipeline.</p>
+              {slowLoad && (
+                <p className="mt-3 flex items-center gap-2 font-body-md text-body-md text-text-muted">
+                  <span className="material-symbols-outlined text-[18px] animate-spin">progress_activity</span>
+                  Waking things up — this can take a moment on the first visit of the day.
+                </p>
+              )}
+            </div>
           </section>
           {/* Semantic Search Bar (Central) */}
           <section className="mb-16">
             <form
               onSubmit={handleSemanticSearchSubmit}
-              className="bg-white p-2 rounded-2xl ambient-shadow border border-border-low-alpha flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-0 focus-within:border-primary transition-colors"
+              className="glass-card p-2 rounded-2xl shadow-floating flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-0 focus-within:border-primary transition-colors"
             >
-              <div className="hidden sm:block pl-4 pr-2 text-primary">
-                <span className="material-symbols-outlined text-[28px]">robot_2</span>
+              <div className="hidden sm:flex sm:items-center sm:justify-center h-11 w-11 ml-1 rounded-xl bg-tertiary-fixed text-on-tertiary-fixed">
+                <span className="material-symbols-outlined text-[24px]">robot_2</span>
               </div>
               <input value={semanticQuery} onChange={(e) => setSemanticQuery(e.target.value)} className="flex-1 bg-transparent border-none py-4 px-2 font-body-lg text-body-lg text-on-surface placeholder:text-outline-variant focus:outline-none focus:ring-0" placeholder="Try semantic search: 'Senior Python developers in Berlin with FinTech experience...'" type="text" />
-              <button type="submit" className="bg-tertiary-fixed text-on-tertiary-fixed px-6 py-4 rounded-xl font-label-md text-label-md hover:bg-tertiary-fixed-dim transition-colors flex items-center justify-center gap-2 cursor-pointer">
+              <button type="submit" className="bg-tertiary-fixed text-on-tertiary-fixed px-6 py-4 rounded-xl font-label-md text-label-md shadow-floating transition-all hover:-translate-y-0.5 hover:bg-tertiary-fixed-dim active:scale-[0.97] flex items-center justify-center gap-2 cursor-pointer">
                 <span className="material-symbols-outlined text-[20px]">magic_button</span>
                 Find Candidates
               </button>
@@ -183,9 +188,9 @@ export default function DashboardPage() {
           {/* Stat Cards Bento */}
           <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
             {/* Total Candidates */}
-            <div className="bg-white p-6 rounded-[20px] ambient-shadow border border-border-low-alpha flex flex-col justify-between">
+            <SpotlightCard className="glass-card p-6 rounded-[20px] flex flex-col justify-between">
               <div className="flex justify-between items-start mb-4">
-                <div className="p-2 bg-surface-container rounded-lg text-primary">
+                <div className="p-2.5 bg-gradient-to-br from-primary-container to-primary text-on-primary rounded-lg shadow-sm">
                   <span className="material-symbols-outlined">folder_shared</span>
                 </div>
               </div>
@@ -195,11 +200,11 @@ export default function DashboardPage() {
                   {loading ? "..." : totalCandidates.toLocaleString()}
                 </p>
               </div>
-            </div>
+            </SpotlightCard>
             {/* Processed Resumes */}
-            <div className="bg-white p-6 rounded-[20px] ambient-shadow border border-border-low-alpha flex flex-col justify-between">
+            <SpotlightCard className="glass-card p-6 rounded-[20px] flex flex-col justify-between">
               <div className="flex justify-between items-start mb-4">
-                <div className="p-2 bg-surface-container rounded-lg text-primary">
+                <div className="p-2.5 bg-tertiary-fixed text-on-tertiary-fixed rounded-lg shadow-sm">
                   <span className="material-symbols-outlined">document_scanner</span>
                 </div>
               </div>
@@ -209,11 +214,11 @@ export default function DashboardPage() {
                   {loading ? "..." : processedCandidates.toLocaleString()}
                 </p>
               </div>
-            </div>
+            </SpotlightCard>
             {/* In Processing */}
-            <div className="bg-white p-6 rounded-[20px] ambient-shadow border border-border-low-alpha flex flex-col justify-between">
+            <SpotlightCard className="glass-card p-6 rounded-[20px] flex flex-col justify-between">
               <div className="flex justify-between items-start mb-4">
-                <div className="p-2 bg-surface-container rounded-lg text-primary">
+                <div className="p-2.5 bg-primary-fixed text-on-primary-fixed rounded-lg shadow-sm">
                   <span className="material-symbols-outlined">hourglass_top</span>
                 </div>
               </div>
@@ -223,11 +228,11 @@ export default function DashboardPage() {
                   {loading ? "..." : processingCandidates.toLocaleString()}
                 </p>
               </div>
-            </div>
+            </SpotlightCard>
             {/* Shortlisted */}
-            <div className="bg-white p-6 rounded-[20px] ambient-shadow border border-border-low-alpha flex flex-col justify-between">
+            <SpotlightCard className="glass-card p-6 rounded-[20px] flex flex-col justify-between">
               <div className="flex justify-between items-start mb-4">
-                <div className="p-2 bg-secondary-fixed text-on-secondary-fixed rounded-lg">
+                <div className="p-2.5 bg-secondary-fixed text-on-secondary-fixed rounded-lg shadow-sm">
                   <span className="material-symbols-outlined" data-weight="fill">star</span>
                 </div>
               </div>
@@ -235,12 +240,12 @@ export default function DashboardPage() {
                 <p className="font-label-md text-label-md text-on-surface-variant mb-1">Shortlisted</p>
                 <p className="font-data-mono text-display-lg text-primary tracking-tight">{loading ? "..." : shortlistedCount.toLocaleString()}</p>
               </div>
-            </div>
+            </SpotlightCard>
           </section>
           {/* Tables Section (Asymmetric Split) */}
           <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Recent Uploads (Takes up 2 columns) */}
-            <div className="lg:col-span-2 bg-white rounded-[20px] ambient-shadow border border-border-low-alpha overflow-hidden flex flex-col">
+            <SpotlightCard className="lg:col-span-2 glass-card rounded-[20px] overflow-hidden flex flex-col">
               <div className="p-6 border-b border-border-low-alpha flex justify-between items-center">
                 <h3 className="font-headline-md text-headline-md text-primary">Recent Uploads</h3>
                 <Link className="font-label-md text-label-md text-primary hover:underline" href="/candidates">View All</Link>
@@ -286,11 +291,11 @@ export default function DashboardPage() {
                           </td>
                           <td className="p-4">
                             {c.status === "ready" ? (
-                              <span className="inline-flex items-center px-2 py-1 bg-tertiary-fixed/20 text-tertiary-container rounded-full font-label-md text-[12px]">
+                              <span className="status-pill-active inline-flex items-center px-2 py-1 rounded-full font-label-md text-[12px]">
                                 <span className="material-symbols-outlined text-[14px] mr-1">check_circle</span> Parsed
                               </span>
                             ) : c.status === "processing" ? (
-                              <span className="inline-flex items-center px-2 py-1 bg-surface-container-high text-on-surface-variant rounded-full font-label-md text-[12px]">
+                              <span className="status-pill-invited inline-flex items-center px-2 py-1 rounded-full font-label-md text-[12px]">
                                 <span className="material-symbols-outlined text-[14px] mr-1 animate-spin">sync</span> In Progress
                               </span>
                             ) : (
@@ -305,9 +310,9 @@ export default function DashboardPage() {
                   </tbody>
                 </table>
               </div>
-            </div>
+            </SpotlightCard>
             {/* Recent Searches (Takes 1 column) */}
-            <div className="lg:col-span-1 bg-white rounded-[20px] ambient-shadow border border-border-low-alpha overflow-hidden flex flex-col">
+            <SpotlightCard className="lg:col-span-1 glass-card rounded-[20px] overflow-hidden flex flex-col">
               <div className="p-6 border-b border-border-low-alpha">
                 <h3 className="font-headline-md text-headline-md text-primary">Recent Searches</h3>
               </div>
@@ -319,7 +324,7 @@ export default function DashboardPage() {
                       onClick={() => router.push(`/search?q=${encodeURIComponent(searchQuery)}`)}
                       className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-surface-container-low transition-colors text-left"
                     >
-                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/5 text-primary">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary-container/20 to-primary/10 text-primary">
                         <span className="material-symbols-outlined text-[18px]">history</span>
                       </div>
                       <span className="font-body-md text-on-surface truncate flex-1">{searchQuery}</span>
@@ -332,7 +337,7 @@ export default function DashboardPage() {
                   </div>
                 )}
               </div>
-            </div>
+            </SpotlightCard>
           </section>
         </main>
       </div>

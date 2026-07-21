@@ -25,7 +25,7 @@ function Card({
   children: React.ReactNode;
 }) {
   return (
-    <section className="bg-white rounded-[20px] p-6 sm:p-8 premium-shadow border border-border-low-alpha">
+    <section className="glass-card rounded-[20px] p-6 sm:p-8">
       <div className="mb-8">
         <h3 className="font-headline-md text-headline-md text-primary serif-text mb-1">
           {title}
@@ -111,7 +111,7 @@ function WorkspaceCard({ workspaceName, tenantId }: { workspaceName: string; ten
               accept="image/*"
               className="hidden"
             />
-            <div className="w-32 h-32 rounded-full bg-bg-cream/40 border-2 border-dashed border-outline-variant flex items-center justify-center overflow-hidden relative transition-all group-hover:border-primary group-hover:shadow-md">
+            <div className="w-32 h-32 rounded-full bg-gradient-to-br from-bg-cream to-surface-container-high border-2 border-dashed border-tertiary-fixed-dim flex items-center justify-center overflow-hidden relative transition-all group-hover:border-primary group-hover:shadow-floating">
               {logoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={logoUrl} alt="Agency Logo" className="w-full h-full object-cover" />
@@ -131,7 +131,7 @@ function WorkspaceCard({ workspaceName, tenantId }: { workspaceName: string; ten
         <button
           type="button"
           onClick={handleSave}
-          className="bg-primary text-white px-8 py-3 rounded-xl font-label-md hover:shadow-lg transition-all active:scale-[0.98]"
+          className="bg-primary-container text-on-primary px-8 py-3 rounded-lg font-label-md shadow-floating transition-all hover:-translate-y-0.5 hover:bg-primary active:scale-[0.97]"
         >
           Save changes
         </button>
@@ -297,7 +297,7 @@ function SecurityCard() {
             <button
               type="button"
               onClick={() => setPwOpen(true)}
-              className="px-5 py-2 border border-outline rounded-lg text-primary font-label-md hover:bg-surface-container-low transition-colors"
+              className="px-5 py-2 border border-primary-container/25 rounded-lg text-primary font-label-md shadow-sm transition-all hover:-translate-y-0.5 hover:bg-primary-container/5 active:scale-[0.97]"
             >
               Change password
             </button>
@@ -306,7 +306,7 @@ function SecurityCard() {
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <p className="font-label-md text-primary">Two-factor authentication</p>
-                <span className="bg-surface-container-high text-on-surface-variant text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
+                <span className="brass-pill text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
                   Coming soon
                 </span>
               </div>
@@ -320,7 +320,9 @@ function SecurityCard() {
             <div className="bg-bg-cream/40 rounded-xl p-4">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <span className="material-symbols-outlined text-outline">devices</span>
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-tertiary-fixed text-on-tertiary-fixed">
+                    <span className="material-symbols-outlined text-[18px]">devices</span>
+                  </div>
                   <div>
                     <p className="text-label-md text-on-surface">
                       This device — signed in as {profile?.email || "you"}
@@ -380,7 +382,7 @@ function SecurityCard() {
             <button
               type="submit"
               disabled={changing}
-              className="rounded-lg bg-primary px-5 py-2.5 font-label-md text-on-primary transition-colors hover:bg-primary-container active:scale-[0.98] disabled:opacity-50"
+              className="rounded-lg bg-primary-container px-5 py-2.5 font-label-md text-on-primary shadow-floating transition-all hover:-translate-y-0.5 hover:bg-primary active:scale-[0.97] disabled:opacity-50 disabled:hover:translate-y-0"
             >
               {changing ? "Updating..." : "Update password"}
             </button>
@@ -489,7 +491,7 @@ function DataPanel({ profile, signOut }: { profile: any; signOut: () => void }) 
               type="button"
               onClick={handleExportData}
               disabled={exporting}
-              className="px-5 py-2 border border-outline rounded-lg text-primary font-label-md hover:bg-surface-container-low transition-colors disabled:opacity-50"
+              className="px-5 py-2 border border-primary-container/25 rounded-lg text-primary font-label-md shadow-sm transition-all hover:-translate-y-0.5 hover:bg-primary-container/5 active:scale-[0.97] disabled:opacity-50"
             >
               {exporting ? "Exporting..." : "Export data"}
             </button>
@@ -501,7 +503,7 @@ function DataPanel({ profile, signOut }: { profile: any; signOut: () => void }) 
             </div>
             <Link
               href="/audit"
-              className="px-5 py-2 border border-outline rounded-lg text-primary font-label-md hover:bg-surface-container-low transition-colors"
+              className="px-5 py-2 border border-primary-container/25 rounded-lg text-primary font-label-md shadow-sm transition-all hover:-translate-y-0.5 hover:bg-primary-container/5 active:scale-[0.97]"
             >
               View audit log
             </Link>
@@ -518,7 +520,7 @@ function DataPanel({ profile, signOut }: { profile: any; signOut: () => void }) 
                 setIsDeleteModalOpen(true);
               }}
               disabled={deleting}
-              className="px-5 py-2 border border-error/40 text-error rounded-lg font-label-md hover:bg-error/5 transition-colors disabled:opacity-50"
+              className="px-5 py-2 border border-error/40 text-error rounded-lg font-label-md shadow-sm transition-all hover:-translate-y-0.5 hover:bg-error/5 active:scale-[0.97] disabled:opacity-50"
             >
               {deleting ? "Deleting..." : "Delete"}
             </button>
@@ -535,8 +537,10 @@ function DataPanel({ profile, signOut }: { profile: any; signOut: () => void }) 
         subtitle="This action is permanent and cannot be undone."
       >
         <div className="space-y-6">
-          <div className="bg-error/10 border border-error/20 rounded-xl p-4 flex gap-3">
-            <span className="material-symbols-outlined text-error shrink-0 mt-0.5">warning</span>
+          <div className="bg-error/10 backdrop-blur-sm border border-error/20 rounded-xl p-4 flex gap-3 shadow-ambient">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-error text-on-error">
+              <span className="material-symbols-outlined text-[18px]">warning</span>
+            </div>
             <div className="text-body-md text-[14px] leading-relaxed text-error">
               <span className="font-semibold">WARNING:</span> Are you absolutely sure you want to permanently delete this workspace? This will remove all candidates, resumes, team members, and billing details.
             </div>
@@ -560,7 +564,7 @@ function DataPanel({ profile, signOut }: { profile: any; signOut: () => void }) 
               type="button"
               onClick={() => setIsDeleteModalOpen(false)}
               disabled={deleting}
-              className="px-5 py-2.5 border border-outline rounded-xl font-label-md hover:bg-surface-container-low transition-colors text-primary"
+              className="px-5 py-2.5 border border-outline rounded-lg font-label-md hover:bg-surface-container-low transition-colors text-primary"
             >
               Cancel
             </button>
@@ -568,7 +572,7 @@ function DataPanel({ profile, signOut }: { profile: any; signOut: () => void }) 
               type="button"
               onClick={executeDeleteWorkspace}
               disabled={deleteConfirmText !== "DELETE" || deleting}
-              className="px-5 py-2.5 bg-error text-white hover:opacity-90 disabled:opacity-50 rounded-xl font-label-md transition-all active:scale-[0.98]"
+              className="px-5 py-2.5 bg-error text-on-error shadow-floating hover:opacity-90 disabled:opacity-50 disabled:hover:translate-y-0 rounded-lg font-label-md transition-all hover:-translate-y-0.5 active:scale-[0.97]"
             >
               {deleting ? "Deleting..." : "Delete permanently"}
             </button>
@@ -582,16 +586,16 @@ function DataPanel({ profile, signOut }: { profile: any; signOut: () => void }) 
 function DeveloperCard({ plan }: { plan: string }) {
   if (plan !== "scale") {
     return (
-      <section className="relative overflow-hidden bg-white rounded-[20px] p-8 sm:p-12 premium-shadow border border-border-low-alpha text-center">
-        <div className="absolute -right-10 -top-10 w-40 h-40 rounded-full bg-primary/5 blur-3xl" />
-        <div className="absolute -left-10 -bottom-10 w-40 h-40 rounded-full bg-secondary/5 blur-3xl" />
+      <section className="relative overflow-hidden glass-card rounded-[20px] p-8 sm:p-12 text-center">
+        <div className="pointer-events-none absolute -right-10 -top-10 w-40 h-40 rounded-full bg-tertiary-fixed/20 blur-3xl" />
+        <div className="pointer-events-none absolute -left-10 -bottom-10 w-40 h-40 rounded-full bg-primary-container/10 blur-3xl" />
 
-        <div className="max-w-md mx-auto py-8">
-          <div className="w-16 h-16 rounded-2xl bg-amber-500/10 text-amber-600 flex items-center justify-center mx-auto mb-6 border border-amber-500/20 shadow-sm">
+        <div className="max-w-md mx-auto py-8 relative z-10">
+          <div className="w-16 h-16 rounded-2xl bg-secondary-fixed text-on-secondary-fixed flex items-center justify-center mx-auto mb-6 shadow-floating">
             <span className="material-symbols-outlined text-[32px] animate-pulse">lock</span>
           </div>
 
-          <span className="inline-block bg-primary/10 text-primary text-[11px] px-3 py-1 rounded-full font-bold uppercase tracking-wider mb-3">
+          <span className="brass-badge inline-block text-[11px] px-3 py-1 rounded-full font-bold uppercase tracking-wider mb-3">
             Scale Plan Exclusive
           </span>
 
@@ -605,7 +609,7 @@ function DeveloperCard({ plan }: { plan: string }) {
 
           <Link
             href="/billing"
-            className="inline-flex items-center justify-center gap-2 bg-primary text-white px-8 py-3.5 rounded-xl font-label-md hover:shadow-lg hover:opacity-95 transition-all active:scale-[0.98]"
+            className="inline-flex items-center justify-center gap-2 bg-primary-container text-on-primary px-8 py-3.5 rounded-lg font-label-md shadow-floating transition-all hover:-translate-y-0.5 hover:bg-primary active:scale-[0.97]"
           >
             Upgrade subscription to Scale
             <span className="material-symbols-outlined text-[18px]">workspace_premium</span>
@@ -624,13 +628,13 @@ function DeveloperCard({ plan }: { plan: string }) {
       subtitle="Programmatic access for your Scale workspace."
     >
       <div className="flex items-start gap-4">
-        <div className="w-12 h-12 shrink-0 rounded-xl bg-secondary-container/20 text-secondary flex items-center justify-center border border-secondary/20">
+        <div className="w-12 h-12 shrink-0 rounded-xl bg-tertiary-fixed text-on-tertiary-fixed flex items-center justify-center shadow-sm">
           <span className="material-symbols-outlined text-[24px]">construction</span>
         </div>
         <div>
           <div className="flex items-center gap-2 mb-2">
             <p className="font-label-md text-primary font-semibold">In development</p>
-            <span className="bg-secondary-container/30 text-secondary text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
+            <span className="brass-pill text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
               Included in Scale
             </span>
           </div>
@@ -711,7 +715,7 @@ export default function SettingsPage() {
           rightContent={
             <Link
               href="/upload"
-              className="bg-primary text-white px-5 py-2.5 rounded-xl font-label-md text-label-md hover:shadow-lg transition-all active:scale-[0.98] whitespace-nowrap"
+              className="bg-primary-container text-on-primary px-5 py-2.5 rounded-lg font-label-md text-label-md shadow-floating transition-all hover:-translate-y-0.5 hover:bg-primary active:scale-[0.97] whitespace-nowrap"
             >
               + Upload résumés
             </Link>
@@ -720,9 +724,14 @@ export default function SettingsPage() {
 
         {/* Content Canvas */}
         <div className="flex-1 p-4 sm:p-6 lg:p-12 max-w-6xl mx-auto w-full">
-          <h1 className="font-headline-lg text-3xl sm:text-display-lg text-primary mb-8 lg:mb-12 serif-text">
-            Settings
-          </h1>
+          <div className="flex items-center gap-4 mb-8 lg:mb-12">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary-container to-primary text-on-primary shadow-floating">
+              <span className="material-symbols-outlined text-[24px]">tune</span>
+            </div>
+            <h1 className="font-headline-lg text-3xl sm:text-display-lg text-gradient-teal serif-text">
+              Settings
+            </h1>
+          </div>
           <div className="flex flex-col lg:flex-row gap-8 lg:gap-12">
             {/* Sub-nav column */}
             <aside className="w-full lg:w-56 lg:shrink-0">
@@ -737,7 +746,7 @@ export default function SettingsPage() {
                       className={
                         "flex items-center whitespace-nowrap px-4 py-3 rounded-lg transition-all text-left " +
                         (active
-                           ? "bg-primary/5 text-primary font-semibold lg:border-l-4 lg:border-primary"
+                           ? "bg-gradient-to-r from-primary-container to-primary text-on-primary font-semibold shadow-floating"
                           : "text-on-surface-variant hover:bg-surface-container-low")
                       }
                     >
