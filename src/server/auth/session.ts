@@ -1,5 +1,6 @@
 import { verifyJwt, extractBearer } from "./verify-jwt";
 import { getCachedSessionIdentity } from "./session-cache";
+import { reclaimOrphanedAccount } from "./reclaim-orphaned-account";
 import { Unauthorized, Forbidden } from "@/server/http/errors";
 import type { Role } from "./rbac";
 
@@ -28,7 +29,16 @@ export async function authenticate(
 export async function resolveSession(req: Request): Promise<Session> {
   const { authUserId, email } = await authenticate(req);
 
-  const identity = await getCachedSessionIdentity(authUserId);
+  let identity = await getCachedSessionIdentity(authUserId);
+  if (!identity && email) {
+    // Self-heal: this email may already have an account whose Supabase Auth
+    // identity was deleted and recreated (see reclaim-orphaned-account.ts) —
+    // recover it instead of treating a returning user as brand new. Runs
+    // only on the failure path, so the normal (found-on-first-try) case
+    // pays zero extra cost.
+    const reclaimed = await reclaimOrphanedAccount(authUserId, email);
+    if (reclaimed) identity = reclaimed;
+  }
   if (!identity) throw new Unauthorized("No account provisioned"); // AUTH-05
   const { user, tenant } = identity;
   if (user.status !== "active") throw new Forbidden("Account is disabled"); // RBAC-04
