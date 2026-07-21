@@ -1,4 +1,6 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
 /* ============================================================
    TalScout — design tokens ported 1:1 from the Stitch project
@@ -122,6 +124,44 @@
   --font-body-lg: var(--font-be-vietnam), system-ui, sans-serif;
   --font-label-md: var(--font-be-vietnam), system-ui, sans-serif;
   --font-data-mono: var(--font-geist-mono), monospace;
+  --font-heading: var(--font-sans);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  /* --radius-lg/xl/2xl/3xl are intentionally NOT redeclared here — the
+     original Stitch @theme block above already sets them (0.5/0.75/1/1.25rem)
+     and must stay authoritative. shadcn components use `rounded-*` utility
+     classes, which resolve against those; --radius-sm/md fall through to
+     Tailwind's own built-in defaults, which is fine since Stitch never
+     defined those two sizes either. */
 }
 
 /* Custom easing curves (Emil's craft rules) */
@@ -129,6 +169,49 @@
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+
+  /* ---- shadcn/ui semantic slots, mapped onto the Stitch tokens above ----
+     shadcn's primitives (Card/Button/Sidebar/etc.) read these slot names;
+     aliasing them to the EXISTING brand colors (rather than shadcn's default
+     neutral palette) is what keeps every new component on-brand without a
+     second color system. No .dark overrides — this app has no dark mode. */
+  --background: var(--color-bg-cream);
+  --foreground: var(--color-on-surface);
+  --card: var(--color-surface-white);
+  --card-foreground: var(--color-on-surface);
+  --popover: var(--color-surface-white);
+  --popover-foreground: var(--color-on-surface);
+  --primary: var(--color-primary-container);
+  --primary-foreground: var(--color-on-primary);
+  /* shadcn's "secondary" is a muted-button role, not the brand gold — the
+     gold palette is exposed separately via StatusBadge's "brass" tone
+     instead, so a plain shadcn secondary Button doesn't turn gold by accident. */
+  --secondary: var(--color-surface-container-low);
+  --secondary-foreground: var(--color-on-surface);
+  --muted: var(--color-surface-container-low);
+  --muted-foreground: var(--color-on-surface-variant);
+  --accent: var(--color-tertiary-fixed);
+  --accent-foreground: var(--color-on-tertiary-fixed);
+  --destructive: var(--color-error);
+  --destructive-foreground: var(--color-on-error);
+  --border: var(--color-border-low-alpha);
+  --input: var(--color-border-low-alpha);
+  --ring: var(--color-primary-container);
+  --radius: 0.75rem; /* == --radius-xl above; see the @theme inline note */
+  /* Chart palette (unused today, kept so --color-chart-* utilities aren't dangling). */
+  --chart-1: var(--color-primary-container);
+  --chart-2: var(--color-tertiary-fixed);
+  --chart-3: var(--color-secondary-fixed-dim);
+  --chart-4: var(--color-primary-fixed-dim);
+  --chart-5: var(--color-outline);
+  --sidebar: var(--color-surface-white);
+  --sidebar-foreground: var(--color-on-surface-variant);
+  --sidebar-primary: var(--color-primary-container);
+  --sidebar-primary-foreground: var(--color-on-primary);
+  --sidebar-accent: var(--color-tertiary-fixed);
+  --sidebar-accent-foreground: var(--color-primary);
+  --sidebar-border: var(--color-border-low-alpha);
+  --sidebar-ring: var(--color-primary-container);
 }
 
 html {
@@ -159,6 +242,15 @@ body {
   button:not(:disabled),
   [role="button"]:not(:disabled) {
     cursor: pointer;
+  }
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
   }
 }
 

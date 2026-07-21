@@ -8,6 +8,10 @@ import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { TopAppBar } from "@/components/app/top-app-bar";
 import { useAuth } from "@/components/app/auth-provider";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { StatusBadge } from "@/components/ui/status-badge";
 
 
 interface UploadingFile {
@@ -225,7 +229,7 @@ export default function UploadPage() {
 
   const processUpload = async (file: File, id: string) => {
     updateFileStatus(id, { status: "uploading", progress: 5 });
-    
+
     let candidateId = "";
     let fileKey = "";
 
@@ -322,215 +326,219 @@ export default function UploadPage() {
             </div>
           }
           rightContent={
-            <button
-              type="button"
-              onClick={triggerBrowse}
-              className="group bg-gradient-to-r from-primary-container to-primary text-white px-5 py-2.5 rounded-lg font-label-md text-label-md shadow-floating transition-all hover:-translate-y-0.5 active:scale-[0.97] whitespace-nowrap cursor-pointer"
-            >
+            <Button type="button" variant="gradient" onClick={triggerBrowse} className="whitespace-nowrap">
               + Upload résumés
-            </button>
+            </Button>
           }
         />
 
         {/* Canvas Area */}
         <div className="flex-1 max-w-5xl mx-auto w-full px-4 sm:px-6 lg:px-12 py-8 sm:py-10 lg:py-12">
-          <section className="relative mb-10 overflow-hidden rounded-3xl bg-aurora-soft p-6 sm:p-8">
-            <div className="pointer-events-none absolute -right-10 -top-14 h-48 w-48 rounded-full bg-tertiary-fixed/15 blur-3xl" />
-            <h1 className="relative font-headline-lg text-headline-lg text-primary mb-2">Upload résumés</h1>
-            <p className="relative font-body-lg text-body-lg text-text-muted">
-              Drop PDFs, DOCX, or text files. We&apos;ll read, analyze, and structure them automatically with AI.
-            </p>
-          </section>
+          <Card className="mb-10 [--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
+            <CardContent>
+              <h1 className="font-headline-lg text-headline-lg text-primary mb-2">Upload résumés</h1>
+              <p className="font-body-lg text-body-lg text-text-muted">
+                Drop PDFs, DOCX, or text files. We&apos;ll read, analyze, and structure them automatically with AI.
+              </p>
+            </CardContent>
+          </Card>
 
           {/* Drag & Drop Zone */}
-          <div
-            className={`bg-white border-2 border-dashed rounded-lg p-8 sm:p-12 lg:p-16 mb-12 flex flex-col items-center justify-center text-center transition-all cursor-pointer group shadow-floating ${
-              dragging ? "border-primary bg-primary/5 scale-[1.01]" : "border-outline-variant hover:border-primary"
-            }`}
+          <Card
+            className={cn(
+              "mb-12 cursor-pointer bg-white border-2 border-dashed transition-all group [--card-spacing:--spacing(8)] sm:[--card-spacing:--spacing(12)] lg:[--card-spacing:--spacing(16)]",
+              dragging ? "border-primary bg-primary/5 scale-[1.01]" : "border-outline-variant hover:border-primary",
+            )}
             id="drop-zone"
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
             onClick={triggerBrowse}
           >
-            <div className="w-16 h-16 bg-gradient-to-br from-primary-container to-primary rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-              <span className="material-symbols-outlined text-on-primary text-4xl">cloud_upload</span>
-            </div>
-            <h3 className="font-headline-md text-headline-md text-on-surface mb-1">
-              Drag &amp; drop résumés here
-            </h3>
-            <p className="font-body-md text-body-md text-text-muted mb-6">
-              or{" "}
-              <span className="text-primary font-semibold underline underline-offset-4">
-                browse files
-              </span>
-            </p>
-            <div className="px-4 py-2 bg-bg-cream rounded-full border border-border-low-alpha">
-              <span className="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">
-                PDF, DOCX, TXT · up to 10MB each
-              </span>
-            </div>
-          </div>
+            <CardContent className="flex flex-col items-center">
+              <div className="w-16 h-16 bg-primary-container rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                <span className="material-symbols-outlined text-on-primary text-4xl">cloud_upload</span>
+              </div>
+              <h3 className="font-body-md font-semibold text-headline-md text-on-surface mb-1">
+                Drag &amp; drop résumés here
+              </h3>
+              <p className="font-body-md text-body-md text-text-muted mb-6">
+                or{" "}
+                <span className="text-primary font-semibold underline underline-offset-4">
+                  browse files
+                </span>
+              </p>
+              <div className="px-4 py-2 bg-bg-cream rounded-full border border-border-low-alpha">
+                <span className="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">
+                  PDF, DOCX, TXT · up to 10MB each
+                </span>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Uploading List */}
           {uploadList.length > 0 && (
             <section className="mb-12">
               <div className="flex items-center justify-between mb-6">
-                <h2 className="font-headline-md text-headline-md text-on-surface">
+                <h2 className="font-body-md font-semibold text-headline-md text-on-surface">
                   Uploading <span className="font-data-mono text-text-muted ml-2">({uploadList.length})</span>
                 </h2>
               </div>
               <div className="space-y-3">
                 {uploadList.map((file) => (
-                  <div key={file.id} className="glass-card p-4 rounded-lg flex flex-wrap items-center gap-4 sm:gap-6">
-                    <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary-container to-primary flex items-center justify-center text-on-primary shrink-0">
-                      <span className="material-symbols-outlined">description</span>
-                    </div>
-                    <div className="flex-1 min-w-[160px]">
-                      <div className="flex justify-between items-end mb-2">
-                        <span className="font-label-md text-label-md text-on-surface truncate max-w-[240px]">
-                          {file.name}
-                        </span>
-                        <span className="font-data-mono text-label-md text-text-muted">{file.progress}%</span>
+                  <Card key={file.id} className="[--card-spacing:--spacing(4)]">
+                    <CardContent className="flex flex-wrap items-center gap-4 sm:gap-6">
+                      <div className="w-10 h-10 rounded-lg bg-primary-container flex items-center justify-center text-on-primary shrink-0">
+                        <span className="material-symbols-outlined">description</span>
                       </div>
-                      <div className="h-1.5 w-full bg-surface-container-highest rounded-full overflow-hidden">
-                        <div
-                          className={`h-full transition-all duration-300 ${
-                            file.status === "ready"
-                              ? "bg-tertiary"
-                              : file.status === "error"
-                              ? "bg-error"
-                              : "bg-primary"
-                          }`}
-                          style={{ width: `${file.progress}%` }}
-                        ></div>
+                      <div className="flex-1 min-w-[160px]">
+                        <div className="flex justify-between items-end mb-2">
+                          <span className="font-label-md text-label-md text-on-surface truncate max-w-[240px]">
+                            {file.name}
+                          </span>
+                          <span className="font-data-mono text-label-md text-text-muted">{file.progress}%</span>
+                        </div>
+                        <div className="h-1.5 w-full bg-surface-container-highest rounded-full overflow-hidden">
+                          <div
+                            className={`h-full transition-all duration-300 ${
+                              file.status === "ready"
+                                ? "bg-tertiary"
+                                : file.status === "error"
+                                ? "bg-error"
+                                : "bg-primary"
+                            }`}
+                            style={{ width: `${file.progress}%` }}
+                          ></div>
+                        </div>
                       </div>
-                    </div>
-                    
-                    {file.status === "ready" ? (
-                      <Link
-                        href={`/candidates/${file.candidateId}`}
-                        className="status-pill-active flex items-center gap-2 px-3 py-1 rounded-full transition-colors hover:brightness-95"
-                      >
-                        <span className="material-symbols-outlined text-sm">check_circle</span>
-                        <span className="font-label-md text-label-md">Ready (View profile)</span>
-                      </Link>
-                    ) : file.status === "processing" ? (
-                      <div className="status-pill-invited flex items-center gap-2 px-3 py-1 rounded-full">
-                        <span className="material-symbols-outlined text-sm animate-spin">
-                          sync
-                        </span>
-                        <span className="font-label-md text-label-md">AI Parsing...</span>
-                      </div>
-                    ) : file.status === "error" ? (
-                      <div
-                        title={file.errorMsg}
-                        className="flex items-center gap-2 px-3 py-1 bg-error/10 text-error rounded-full border border-error/20"
-                      >
-                        <span className="material-symbols-outlined text-sm">error</span>
-                        <span className="font-label-md text-label-md">Error</span>
-                      </div>
-                    ) : (
-                      <div className="status-pill-invited flex items-center gap-2 px-3 py-1 rounded-full">
-                        <span className="material-symbols-outlined text-sm animate-pulse">
-                          progress_activity
-                        </span>
-                        <span className="font-label-md text-label-md">Uploading...</span>
-                      </div>
-                    )}
-                  </div>
+
+                      {file.status === "ready" ? (
+                        <Link
+                          href={`/candidates/${file.candidateId}`}
+                          className="transition-colors hover:brightness-95"
+                        >
+                          <StatusBadge tone="active" dot={false}>
+                            <span className="material-symbols-outlined text-sm">check_circle</span>
+                            Ready (View profile)
+                          </StatusBadge>
+                        </Link>
+                      ) : file.status === "processing" ? (
+                        <StatusBadge tone="invited" dot={false}>
+                          <span className="material-symbols-outlined text-sm animate-spin">sync</span>
+                          AI Parsing...
+                        </StatusBadge>
+                      ) : file.status === "error" ? (
+                        <StatusBadge tone="error" dot={false} title={file.errorMsg}>
+                          <span className="material-symbols-outlined text-sm">error</span>
+                          Error
+                        </StatusBadge>
+                      ) : (
+                        <StatusBadge tone="invited" dot={false}>
+                          <span className="material-symbols-outlined text-sm animate-pulse">
+                            progress_activity
+                          </span>
+                          Uploading...
+                        </StatusBadge>
+                      )}
+                    </CardContent>
+                  </Card>
                 ))}
               </div>
             </section>
           )}
 
           {/* Footer Card: ATS Import — Growth+ feature (ats_export capability) */}
-          <div className="glass-card rounded-lg p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <div className={`w-12 h-12 rounded-full flex items-center justify-center ${authLoading ? "bg-bg-cream text-on-surface-variant/50 animate-pulse" : !canAtsExport ? "bg-bg-cream text-on-surface-variant/50" : connectedAts ? "bg-gradient-to-br from-tertiary-fixed to-tertiary-fixed-dim text-on-tertiary-fixed" : "bg-gradient-to-br from-primary-container to-primary text-on-primary"}`}>
-                <span className="material-symbols-outlined">{authLoading ? "sync" : !canAtsExport ? "lock" : connectedAts ? "check_circle" : "sync"}</span>
+          <Card>
+            <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-4">
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center ${authLoading ? "bg-bg-cream text-on-surface-variant/50 animate-pulse" : !canAtsExport ? "bg-bg-cream text-on-surface-variant/50" : connectedAts ? "bg-tertiary-fixed text-on-tertiary-fixed" : "bg-primary-container text-on-primary"}`}>
+                  <span className="material-symbols-outlined">{authLoading ? "sync" : !canAtsExport ? "lock" : connectedAts ? "check_circle" : "sync"}</span>
+                </div>
+                <div>
+                  <h4 className="font-label-md text-body-md text-on-surface font-semibold flex items-center gap-2">
+                    {authLoading ? (
+                      "Import from your ATS"
+                    ) : !canAtsExport ? (
+                      "ATS import & export"
+                    ) : connectedAts ? (
+                      <>
+                        <span className="capitalize">{connectedAts}</span> Connected
+                      </>
+                    ) : (
+                      "Import from your ATS"
+                    )}
+                  </h4>
+                  <p className="text-label-md text-text-muted">
+                    {authLoading ? (
+                      "Checking your plan…"
+                    ) : !canAtsExport ? (
+                      "Sync with Bullhorn, Greenhouse, or Lever — available on Growth and Scale plans."
+                    ) : connectedAts ? (
+                      `Demo import of 3 sample candidates completed at ${lastSynced || "just now"}.`
+                    ) : (
+                      "Preview the Bullhorn / Greenhouse / Lever workflow (demo — native sync coming soon)."
+                    )}
+                  </p>
+                </div>
               </div>
-              <div>
-                <h4 className="font-label-md text-body-md text-on-surface font-semibold flex items-center gap-2">
-                  {authLoading ? (
-                    "Import from your ATS"
-                  ) : !canAtsExport ? (
-                    "ATS import & export"
-                  ) : connectedAts ? (
-                    <>
-                      <span className="capitalize">{connectedAts}</span> Connected
-                    </>
-                  ) : (
-                    "Import from your ATS"
-                  )}
-                </h4>
-                <p className="text-label-md text-text-muted">
-                  {authLoading ? (
-                    "Checking your plan…"
-                  ) : !canAtsExport ? (
-                    "Sync with Bullhorn, Greenhouse, or Lever — available on Growth and Scale plans."
-                  ) : connectedAts ? (
-                    `Demo import of 3 sample candidates completed at ${lastSynced || "just now"}.`
-                  ) : (
-                    "Preview the Bullhorn / Greenhouse / Lever workflow (demo — native sync coming soon)."
-                  )}
-                </p>
-              </div>
-            </div>
-            {authLoading ? null : !canAtsExport ? (
-              <Link
-                href="/billing"
-                title="Upgrade to Growth to connect your ATS"
-                className="px-6 py-2 border border-primary text-primary rounded-lg font-label-md text-label-md hover:bg-primary/5 transition-colors w-full sm:w-auto text-center flex items-center justify-center gap-2"
-              >
-                <span className="material-symbols-outlined text-[16px]">lock</span>
-                Upgrade to unlock
-              </Link>
-            ) : connectedAts ? (
-              <button
-                type="button"
-                onClick={handleDisconnect}
-                className="px-6 py-2 border border-error/20 text-error rounded-lg font-label-md text-label-md hover:bg-error/5 transition-colors w-full sm:w-auto"
-              >
-                Disconnect
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedAts(null);
-                  setApiUrl("");
-                  setApiKey("");
-                  setSyncState("idle");
-                  setSyncProgress(0);
-                  setShowAtsModal(true);
-                }}
-                className="px-6 py-2 bg-gradient-to-r from-primary-container to-primary text-white rounded-lg font-label-md text-label-md shadow-floating transition-all hover:-translate-y-0.5 active:scale-[0.97] w-full sm:w-auto"
-              >
-                Connect
-              </button>
-            )}
-          </div>
+              {authLoading ? null : !canAtsExport ? (
+                <Button asChild variant="outline" className="w-full justify-center sm:w-auto">
+                  <Link href="/billing" title="Upgrade to Growth to connect your ATS">
+                    <span className="material-symbols-outlined text-[16px]">lock</span>
+                    Upgrade to unlock
+                  </Link>
+                </Button>
+              ) : connectedAts ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleDisconnect}
+                  className="w-full border-error/20 text-error hover:bg-error/5 hover:text-error sm:w-auto"
+                >
+                  Disconnect
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  variant="gradient"
+                  onClick={() => {
+                    setSelectedAts(null);
+                    setApiUrl("");
+                    setApiKey("");
+                    setSyncState("idle");
+                    setSyncProgress(0);
+                    setShowAtsModal(true);
+                  }}
+                  className="w-full justify-center sm:w-auto"
+                >
+                  Connect
+                </Button>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
         {/* ATS Import Modal */}
         {canAtsExport && showAtsModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 transition-opacity duration-300">
-            <div className="glass-card rounded-2xl w-full max-w-lg p-6 sm:p-8 shadow-floating relative flex flex-col">
-              <button
+            <Card className="relative w-full max-w-lg [--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
+              <CardContent>
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon"
                 onClick={() => {
                   if (syncState === "idle" || syncState === "completed") {
                     setShowAtsModal(false);
                   }
                 }}
                 disabled={syncState !== "idle" && syncState !== "completed"}
-                className="absolute top-4 right-4 text-on-surface-variant hover:bg-surface-container-low p-2 rounded-full transition-colors disabled:opacity-30"
+                className="absolute top-4 right-4 rounded-full text-on-surface-variant hover:bg-surface-container-low disabled:opacity-30"
               >
                 <span className="material-symbols-outlined">close</span>
-              </button>
+              </Button>
 
-              <h3 className="font-headline-md text-headline-md text-primary serif-text mb-4">
+              <h3 className="font-body-md font-semibold text-headline-md text-primary mb-4">
                 Connect ATS Integration
               </h3>
 
@@ -570,7 +578,7 @@ export default function UploadPage() {
                             }}
                             className={`p-4 rounded-xl border flex flex-col items-center gap-2 transition-all ${
                               selected
-                                ? "border-primary bg-gradient-to-br from-primary-container/10 to-primary/5 shadow-floating scale-[1.02]"
+                                ? "border-primary bg-primary-container/10"
                                 : "border-border-low-alpha hover:border-outline-variant"
                             }`}
                           >
@@ -608,13 +616,14 @@ export default function UploadPage() {
                           placeholder="••••••••••••••••••••••••••••••••"
                         />
                       </div>
-                      <button
+                      <Button
                         type="button"
+                        variant="gradient"
                         onClick={handleConnectAndSync}
-                        className="w-full bg-gradient-to-r from-primary-container to-primary text-white py-3 rounded-xl font-label-md shadow-floating transition-all hover:-translate-y-0.5 active:scale-[0.97] mt-6"
+                        className="mt-6 h-auto w-full justify-center rounded-xl py-3"
                       >
                         Connect &amp; Sync Candidates
-                      </button>
+                      </Button>
                     </div>
                   )}
                 </div>
@@ -655,7 +664,8 @@ export default function UploadPage() {
                   <span className="font-data-mono text-[11px] text-text-muted">{syncProgress}%</span>
                 </div>
               )}
-            </div>
+              </CardContent>
+            </Card>
           </div>
         )}
       </main>

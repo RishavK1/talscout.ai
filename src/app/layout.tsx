@@ -79,6 +79,7 @@ export const metadata: Metadata = {
 };
 
 import { AuthProvider } from "@/components/app/auth-provider";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 // Nonce-based CSP (src/proxy.ts) requires every page to be dynamically
 // rendered — a statically-generated page has no request to read a nonce
@@ -103,9 +104,11 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-dvh bg-bg-cream text-on-surface">
-        <AuthProvider>
-          {children}
-        </AuthProvider>
+        <TooltipProvider delayDuration={200}>
+          <AuthProvider>
+            {children}
+          </AuthProvider>
+        </TooltipProvider>
         <Analytics />
         <Toaster
           position="bottom-right"

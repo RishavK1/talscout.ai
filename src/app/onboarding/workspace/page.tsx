@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/app/auth-provider";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 
 export default function SetUpWorkspacePage() {
   const router = useRouter();
@@ -38,10 +40,7 @@ export default function SetUpWorkspacePage() {
   };
 
   return (
-    <div className="relative overflow-hidden bg-aurora min-h-screen flex items-center justify-center font-body-md text-on-surface antialiased p-4 sm:p-6 md:p-12">
-      {/* Decorative floating color orbs */}
-      <div className="pointer-events-none absolute -left-24 top-24 h-72 w-72 rounded-full bg-primary-container/10 blur-3xl" />
-      <div className="pointer-events-none absolute -right-16 top-10 h-80 w-80 rounded-full bg-tertiary-fixed/20 blur-3xl" />
+    <div className="bg-bg-cream min-h-screen flex items-center justify-center font-body-md text-on-surface antialiased p-4 sm:p-6 md:p-12">
       {/* Top Left Brand */}
       <div className="fixed top-6 left-6 lg:top-12 lg:left-12 hidden md:block">
         <Link href="/">
@@ -49,23 +48,24 @@ export default function SetUpWorkspacePage() {
         </Link>
       </div>
       {/* Main Container */}
-      <main className="relative z-10 w-full max-w-[560px] mx-auto">
+      <main className="w-full max-w-[560px] mx-auto">
         {/* Progress Indicator */}
         <div className="mb-8 flex flex-col items-center">
-          <span className="mb-3 inline-flex items-center gap-2 rounded-full border border-border-low-alpha bg-surface-white/70 px-3 py-1.5 font-label-md text-label-md text-on-surface-variant backdrop-blur-sm">
+          <span className="mb-3 inline-flex items-center gap-2 rounded-full border border-border-low-alpha bg-surface-white px-3 py-1.5 font-label-md text-label-md text-on-surface-variant">
             <span className="flex h-4 w-4 items-center justify-center rounded-full bg-tertiary-fixed">
               <span className="material-symbols-outlined text-[12px] text-on-tertiary-fixed">bolt</span>
             </span>
             Step 1 of 3
           </span>
           <div className="flex gap-2 w-48">
-            <div className="h-1 flex-1 rounded-full bg-gradient-to-r from-primary-container to-primary"></div>
+            <div className="h-1 flex-1 rounded-full bg-primary-container"></div>
             <div className="h-1 flex-1 bg-border-low-alpha rounded-full"></div>
             <div className="h-1 flex-1 bg-border-low-alpha rounded-full"></div>
           </div>
         </div>
         {/* Card */}
-        <div className="rounded-3xl border border-border-low-alpha bg-surface-white/80 shadow-floating backdrop-blur-sm p-6 sm:p-8 md:p-10">
+        <Card className="[--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
+          <CardContent>
           <header className="mb-8 text-center">
             <h2 className="font-headline-lg text-headline-lg text-on-surface mb-2">Create Workspace</h2>
             <p className="font-body-md text-body-md text-on-surface-variant">Set up your agency&apos;s digital headquarters to start collaborating with your team.</p>
@@ -114,14 +114,15 @@ export default function SetUpWorkspacePage() {
             </div>
             {/* Actions */}
             <div className="pt-4">
-              <button
+              <Button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-gradient-to-r from-primary-container to-primary text-on-primary font-label-md text-label-md py-3 px-6 rounded-lg shadow-floating transition-all hover:-translate-y-0.5 active:scale-[0.97] flex justify-center items-center gap-2 disabled:opacity-50 disabled:hover:translate-y-0 cursor-pointer"
+                variant="gradient"
+                className="w-full justify-center py-3 px-6 h-auto"
               >
                 <span>{loading ? "Creating..." : "Continue"}</span>
                 <span className="material-symbols-outlined" style={{ fontSize: "18px" }}>arrow_forward</span>
-              </button>
+              </Button>
             </div>
           </form>
           {/* Contextual Help */}
@@ -131,7 +132,8 @@ export default function SetUpWorkspacePage() {
               Need help setting up?
             </a>
           </div>
-        </div>
+          </CardContent>
+        </Card>
       </main>
     </div>
   );

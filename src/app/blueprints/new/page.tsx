@@ -7,6 +7,9 @@ import { AppShell } from "@/components/app/app-shell";
 import { TopAppBar } from "@/components/app/top-app-bar";
 import { api, ApiError } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Stepper } from "@/components/ui/stepper";
 
 interface SuggestedField {
   field: string;
@@ -135,219 +138,181 @@ export default function NewBlueprintPage() {
           }
         />
         <main className="flex-1 p-4 sm:p-6 lg:p-12 max-w-[900px] mx-auto w-full">
-          {/* Step indicator: completed steps get a check, the connector line
-              fills as you progress; labels collapse on small screens. */}
-          <div className="mb-10 flex items-center">
-            {STEPS.map((label, i) => (
-              <div key={label} className={cn("flex items-center", i < STEPS.length - 1 && "flex-1")}>
-                <div className="flex items-center gap-2.5">
-                  <div
-                    className={cn(
-                      "flex h-9 w-9 shrink-0 items-center justify-center rounded-full font-label-md text-label-md transition-all",
-                      i < step
-                        ? "bg-gradient-to-br from-tertiary-fixed to-tertiary-fixed-dim text-on-tertiary-fixed shadow-sm"
-                        : i === step
-                          ? "bg-gradient-to-br from-primary-container to-primary text-on-primary shadow-floating"
-                          : "bg-surface-container text-on-surface-variant",
-                    )}
-                  >
-                    {i < step ? (
-                      <span className="material-symbols-outlined text-[18px]">check</span>
-                    ) : (
-                      i + 1
-                    )}
-                  </div>
-                  <span
-                    className={cn(
-                      "font-label-md text-label-md whitespace-nowrap",
-                      i === step ? "text-on-surface font-semibold" : "hidden text-text-muted sm:inline",
-                    )}
-                  >
-                    {label}
-                  </span>
-                </div>
-                {i < STEPS.length - 1 && (
-                  <div
-                    className={cn(
-                      "mx-3 h-px flex-1 rounded-full sm:mx-4 transition-colors",
-                      i < step ? "bg-gradient-to-r from-tertiary-fixed to-tertiary-fixed-dim" : "bg-border-low-alpha",
-                    )}
-                  />
-                )}
-              </div>
-            ))}
-          </div>
+          <Stepper steps={STEPS} currentStep={step} />
 
           {step === 0 && (
-            <div className="relative overflow-hidden glass-card rounded-[20px] p-6 sm:p-8">
-              <span
-                aria-hidden
-                className="pointer-events-none absolute -right-12 -top-12 h-40 w-40 rounded-full bg-tertiary-fixed/10 blur-3xl"
-              />
-              <div className="relative mb-2 flex items-center gap-3">
-                <div className="rounded-xl bg-gradient-to-br from-primary-container to-primary p-2 text-on-primary shadow-sm">
-                  <span className="material-symbols-outlined">storefront</span>
+            <Card className="border border-border-low-alpha bg-surface-white [--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
+              <CardContent>
+                <div className="mb-2 flex items-center gap-3">
+                  <div className="rounded-xl bg-primary-container/10 p-2 text-primary-container">
+                    <span className="material-symbols-outlined">storefront</span>
+                  </div>
+                  <h2 className="font-sans font-semibold text-headline-md text-primary">
+                    Tell us about your business
+                  </h2>
                 </div>
-                <h2 className="font-headline-md text-headline-md text-primary">
-                  Tell us about your business
-                </h2>
-              </div>
-              <p className="font-body-md text-body-md text-text-muted mb-8">
-                We&apos;ll read your website and suggest answers you can confirm or edit
-                — no blank page.
-              </p>
-              <form onSubmit={handleResearch} className="space-y-6">
-                <div>
-                  <label className="block font-label-md text-label-md text-primary mb-2">
-                    Business / offer name
-                  </label>
-                  <input
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    required
-                    autoFocus
-                    placeholder="e.g. Acme Scheduling"
-                    className="w-full rounded-xl border border-border-low-alpha bg-bg-cream/30 px-4 py-3 font-body-md focus:outline-none focus:ring-1 focus:ring-primary placeholder-outline"
-                  />
-                </div>
-                <div>
-                  <label className="block font-label-md text-label-md text-primary mb-2">
-                    Website link
-                  </label>
-                  <input
-                    value={websiteUrl}
-                    onChange={(e) => setWebsiteUrl(e.target.value)}
-                    required
-                    placeholder="https://yourcompany.com"
-                    className="w-full rounded-xl border border-border-low-alpha bg-bg-cream/30 px-4 py-3 font-body-md focus:outline-none focus:ring-1 focus:ring-primary placeholder-outline"
-                  />
-                </div>
-                <div className="flex justify-end pt-2">
-                  <button
-                    type="submit"
-                    disabled={researching || !name.trim() || !websiteUrl.trim()}
-                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-br from-primary-container to-primary px-6 py-3 font-label-md text-label-md text-on-primary shadow-floating transition-all hover:-translate-y-0.5 active:scale-[0.97] disabled:opacity-50 disabled:hover:translate-y-0 sm:w-auto"
-                  >
-                    {researching ? (
-                      <>
-                        <span className="material-symbols-outlined animate-spin text-[18px]">sync</span>
-                        Researching your site...
-                      </>
-                    ) : (
-                      <>
-                        Continue
-                        <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              </form>
-            </div>
+                <p className="font-body-md text-body-md text-text-muted mb-8">
+                  We&apos;ll read your website and suggest answers you can confirm or edit
+                  — no blank page.
+                </p>
+                <form onSubmit={handleResearch} className="space-y-6">
+                  <div>
+                    <label className="block font-label-md text-label-md text-primary mb-2">
+                      Business / offer name
+                    </label>
+                    <input
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      required
+                      autoFocus
+                      placeholder="e.g. Acme Scheduling"
+                      className="w-full rounded-xl border border-border-low-alpha bg-bg-cream/30 px-4 py-3 font-body-md focus:outline-none focus:ring-1 focus:ring-primary placeholder-outline"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-label-md text-label-md text-primary mb-2">
+                      Website link
+                    </label>
+                    <input
+                      value={websiteUrl}
+                      onChange={(e) => setWebsiteUrl(e.target.value)}
+                      required
+                      placeholder="https://yourcompany.com"
+                      className="w-full rounded-xl border border-border-low-alpha bg-bg-cream/30 px-4 py-3 font-body-md focus:outline-none focus:ring-1 focus:ring-primary placeholder-outline"
+                    />
+                  </div>
+                  <div className="flex justify-end pt-2">
+                    <Button
+                      type="submit"
+                      variant="gradient"
+                      disabled={researching || !name.trim() || !websiteUrl.trim()}
+                      className="w-full justify-center sm:w-auto"
+                    >
+                      {researching ? (
+                        <>
+                          <span className="material-symbols-outlined animate-spin text-[18px]">sync</span>
+                          Researching your site...
+                        </>
+                      ) : (
+                        <>
+                          Continue
+                          <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
           )}
 
           {step === 1 && suggestions && (
             <div className="space-y-6">
-              <div className="glass-card rounded-[20px] p-6">
-                <p className="font-body-md text-body-md text-text-muted">
-                  Here&apos;s what we found for{" "}
-                  <span className="text-on-surface font-semibold">
-                    {suggestions.businessName || name}
-                  </span>
-                  . Pick the options that fit best, or add your own.
-                </p>
-              </div>
+              <Card className="border border-border-low-alpha bg-surface-white [--card-spacing:--spacing(6)]">
+                <CardContent>
+                  <p className="font-body-md text-body-md text-text-muted">
+                    Here&apos;s what we found for{" "}
+                    <span className="text-on-surface font-semibold">
+                      {suggestions.businessName || name}
+                    </span>
+                    . Pick the options that fit best, or add your own.
+                  </p>
+                </CardContent>
+              </Card>
 
               {suggestions.fields.map((field) => (
-                <div
-                  key={field.field}
-                  className="glass-card rounded-[20px] p-6"
-                >
-                  <h3 className="font-headline-md text-[16px] text-on-surface mb-4">
-                    {field.question}
-                    {field.multi && (
-                      <span className="ml-2 font-label-md text-[12px] text-text-muted">
-                        (select any that apply)
-                      </span>
-                    )}
-                  </h3>
-                  <div className="flex flex-wrap gap-2 mb-3">
-                    {field.options.map((option) => (
-                      <button
-                        key={option}
-                        type="button"
-                        onClick={() => toggleOption(field, option)}
-                        className={cn(
-                          "inline-flex items-center gap-1.5 rounded-full border px-4 py-2 font-label-md text-label-md transition-all hover:-translate-y-0.5",
-                          isSelected(field, option)
-                            ? "border-transparent bg-gradient-to-br from-primary-container to-primary text-on-primary shadow-floating"
-                            : "brass-badge border-transparent hover:shadow-sm",
-                        )}
-                      >
-                        {isSelected(field, option) && (
-                          <span className="material-symbols-outlined text-[16px]">check</span>
-                        )}
-                        {option}
-                      </button>
-                    ))}
-                    {/* Custom values the user has added, if not already a suggested option */}
-                    {(Array.isArray(answers[field.field])
-                      ? (answers[field.field] as string[])
-                      : answers[field.field]
-                        ? [answers[field.field] as string]
-                        : []
-                    )
-                      .filter((v) => !field.options.includes(v))
-                      .map((custom) => (
+                <Card key={field.field} className="border border-border-low-alpha bg-surface-white [--card-spacing:--spacing(6)]">
+                  <CardContent>
+                    <h3 className="font-sans font-semibold text-[16px] text-on-surface mb-4">
+                      {field.question}
+                      {field.multi && (
+                        <span className="ml-2 font-label-md text-[12px] text-text-muted">
+                          (select any that apply)
+                        </span>
+                      )}
+                    </h3>
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {field.options.map((option) => (
                         <button
-                          key={custom}
+                          key={option}
                           type="button"
-                          onClick={() => toggleOption(field, custom)}
-                          className="inline-flex items-center gap-1.5 rounded-full border border-transparent bg-gradient-to-br from-primary-container to-primary px-4 py-2 font-label-md text-label-md text-on-primary shadow-floating"
+                          onClick={() => toggleOption(field, option)}
+                          className={cn(
+                            "inline-flex items-center gap-1.5 rounded-full border px-4 py-2 font-label-md text-label-md transition-colors",
+                            isSelected(field, option)
+                              ? "border-transparent bg-primary-container text-on-primary"
+                              : "brass-badge border-transparent",
+                          )}
                         >
-                          <span className="material-symbols-outlined text-[16px]">check</span>
-                          {custom}
+                          {isSelected(field, option) && (
+                            <span className="material-symbols-outlined text-[16px]">check</span>
+                          )}
+                          {option}
                         </button>
                       ))}
-                  </div>
-                  <div className="flex gap-2">
-                    <input
-                      value={customInputs[field.field] || ""}
-                      onChange={(e) =>
-                        setCustomInputs((prev) => ({ ...prev, [field.field]: e.target.value }))
-                      }
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          addCustomOption(field);
+                      {/* Custom values the user has added, if not already a suggested option */}
+                      {(Array.isArray(answers[field.field])
+                        ? (answers[field.field] as string[])
+                        : answers[field.field]
+                          ? [answers[field.field] as string]
+                          : []
+                      )
+                        .filter((v) => !field.options.includes(v))
+                        .map((custom) => (
+                          <button
+                            key={custom}
+                            type="button"
+                            onClick={() => toggleOption(field, custom)}
+                            className="inline-flex items-center gap-1.5 rounded-full border border-transparent bg-primary-container px-4 py-2 font-label-md text-label-md text-on-primary"
+                          >
+                            <span className="material-symbols-outlined text-[16px]">check</span>
+                            {custom}
+                          </button>
+                        ))}
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        value={customInputs[field.field] || ""}
+                        onChange={(e) =>
+                          setCustomInputs((prev) => ({ ...prev, [field.field]: e.target.value }))
                         }
-                      }}
-                      placeholder="Write your own answer..."
-                      className="flex-1 rounded-lg border border-border-low-alpha bg-bg-cream/30 px-3 py-2 font-body-md text-body-md focus:outline-none focus:ring-1 focus:ring-primary placeholder-outline"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => addCustomOption(field)}
-                      className="rounded-lg border border-border-low-alpha px-3 py-2 font-label-md text-label-md text-primary hover:bg-surface-container-low transition-colors"
-                    >
-                      Add
-                    </button>
-                  </div>
-                </div>
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            addCustomOption(field);
+                          }
+                        }}
+                        placeholder="Write your own answer..."
+                        className="flex-1 rounded-lg border border-border-low-alpha bg-bg-cream/30 px-3 py-2 font-body-md text-body-md focus:outline-none focus:ring-1 focus:ring-primary placeholder-outline"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => addCustomOption(field)}
+                        className="border-border-low-alpha text-primary"
+                      >
+                        Add
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
               ))}
 
               <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-between">
-                <button
+                <Button
                   type="button"
+                  variant="outline"
                   onClick={() => setStep(0)}
-                  className="rounded-lg border border-border-low-alpha bg-surface-white/60 px-5 py-2.5 font-label-md text-label-md text-primary backdrop-blur-sm transition-all hover:-translate-y-0.5 hover:bg-white active:scale-[0.97]"
+                  className="text-primary"
                 >
                   Back
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
+                  variant="gradient"
                   onClick={handleConfirmAnswers}
                   disabled={generating}
-                  className="flex items-center justify-center gap-2 rounded-lg bg-gradient-to-br from-primary-container to-primary px-6 py-3 font-label-md text-label-md text-on-primary shadow-floating transition-all hover:-translate-y-0.5 active:scale-[0.97] disabled:opacity-50 disabled:hover:translate-y-0"
+                  className="justify-center"
                 >
                   {generating ? (
                     <>
@@ -360,18 +325,20 @@ export default function NewBlueprintPage() {
                       <span className="material-symbols-outlined text-[18px]">auto_awesome</span>
                     </>
                   )}
-                </button>
+                </Button>
               </div>
             </div>
           )}
 
           {step === 2 && (
-            <div className="glass-card rounded-[20px] p-8 text-center">
-              <span className="material-symbols-outlined text-primary text-[40px] animate-spin">sync</span>
-              <p className="mt-4 font-body-md text-body-md text-text-muted">
-                Taking you to your new blueprint...
-              </p>
-            </div>
+            <Card className="border border-border-low-alpha bg-surface-white text-center [--card-spacing:--spacing(8)]">
+              <CardContent>
+                <span className="material-symbols-outlined text-primary text-[40px] animate-spin">sync</span>
+                <p className="mt-4 font-body-md text-body-md text-text-muted">
+                  Taking you to your new blueprint...
+                </p>
+              </CardContent>
+            </Card>
           )}
         </main>
       </div>

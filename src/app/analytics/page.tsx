@@ -5,6 +5,9 @@ import { toast } from "sonner";
 import { AppShell } from "@/components/app/app-shell";
 import { TopAppBar } from "@/components/app/top-app-bar";
 import { api } from "@/lib/api";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 
 interface DailyPoint {
   day: string;
@@ -70,13 +73,17 @@ const DAYS = 14;
 
 type StatTone = "default" | "positive" | "negative" | "neutral";
 
+// One flat treatment across every stat, regardless of tone — the `tone` prop
+// stays (call sites still pass it) but no longer maps to a rainbow of colors.
 const STAT_TONES: Record<StatTone, string> = {
-  default: "bg-gradient-to-br from-primary-container to-primary text-on-primary shadow-sm",
-  positive: "bg-tertiary-fixed text-on-tertiary-fixed shadow-sm",
-  negative: "bg-error text-on-error shadow-sm",
-  neutral: "bg-secondary-fixed text-on-secondary-fixed shadow-sm",
+  default: "bg-primary-container/10 text-primary-container",
+  positive: "bg-primary-container/10 text-primary-container",
+  negative: "bg-primary-container/10 text-primary-container",
+  neutral: "bg-primary-container/10 text-primary-container",
 };
 
+// Kept local (rather than promoted to a shared component) since it carries
+// analytics-specific tone coloring per stat, unlike dashboard's plain stat tiles.
 function StatCard({
   icon,
   label,
@@ -91,17 +98,19 @@ function StatCard({
   tone?: StatTone;
 }) {
   return (
-    <div className="glass-card p-5 sm:p-6 rounded-[20px] flex flex-col justify-between gap-4 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-floating">
-      <div className={`w-fit rounded-xl p-2 ${STAT_TONES[tone]}`}>
-        <span className="material-symbols-outlined">{icon}</span>
-      </div>
-      <div className="min-w-0">
-        <p className="font-label-md text-label-md text-on-surface-variant mb-1 truncate">{label}</p>
+    <Card className="h-full border border-border-low-alpha bg-surface-white">
+      <CardContent className="flex h-full flex-col justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md ${STAT_TONES[tone]}`}>
+            <span className="material-symbols-outlined text-[16px]">{icon}</span>
+          </span>
+          <p className="font-label-md text-label-md text-on-surface-variant truncate">{label}</p>
+        </div>
         <p className="font-data-mono text-display-lg text-primary tracking-tight">
           {loading ? "…" : value.toLocaleString()}
         </p>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -249,14 +258,6 @@ function TrendChart({ data, loading }: { data: DailyPoint[]; loading: boolean })
   );
 }
 
-function ComingSoonBadge() {
-  return (
-    <span className="inline-flex items-center px-2 py-0.5 rounded-full font-label-md text-[11px] bg-surface-container-high text-on-surface-variant">
-      Coming soon
-    </span>
-  );
-}
-
 export default function AnalyticsPage() {
   const [overview, setOverview] = useState<AnalyticsOverview | null>(null);
   const [loading, setLoading] = useState(true);
@@ -281,6 +282,100 @@ export default function AnalyticsPage() {
 
   const totals = overview?.totals;
 
+  const campaignColumns: DataTableColumn<CampaignBreakdownRow>[] = [
+    {
+      key: "name",
+      header: "Campaign",
+      render: (row) => (
+        <span className="font-body-md text-body-md text-on-surface font-medium">{row.campaignName}</span>
+      ),
+    },
+    {
+      key: "status",
+      header: "Status",
+      render: (row) => (
+        <span className="font-body-md text-body-md text-on-surface-variant capitalize">{row.status}</span>
+      ),
+    },
+    {
+      key: "sent",
+      header: "Sent",
+      render: (row) => <span className="font-data-mono text-data-mono text-on-surface">{row.sent}</span>,
+    },
+    {
+      key: "scheduled",
+      header: "Scheduled",
+      render: (row) => (
+        <span className="font-data-mono text-data-mono text-on-surface-variant">{row.scheduled}</span>
+      ),
+    },
+    {
+      key: "failed",
+      header: "Failed",
+      render: (row) => <span className="font-data-mono text-data-mono text-error">{row.failed}</span>,
+    },
+    {
+      key: "skipped",
+      header: "Skipped",
+      render: (row) => (
+        <span className="font-data-mono text-data-mono text-on-surface-variant">{row.skipped}</span>
+      ),
+    },
+    {
+      key: "bounced",
+      header: "Bounced",
+      render: (row) => <span className="font-data-mono text-data-mono text-error">{row.bounced}</span>,
+    },
+  ];
+
+  const automatedCampaignColumns: DataTableColumn<AutomatedCampaignBreakdownRow>[] = [
+    {
+      key: "name",
+      header: "Campaign",
+      render: (row) => (
+        <span className="font-body-md text-body-md text-on-surface font-medium">{row.campaignName}</span>
+      ),
+    },
+    {
+      key: "status",
+      header: "Status",
+      render: (row) => (
+        <span className="font-body-md text-body-md text-on-surface-variant capitalize">{row.status}</span>
+      ),
+    },
+    {
+      key: "sent",
+      header: "Sent",
+      render: (row) => <span className="font-data-mono text-data-mono text-on-surface">{row.sent}</span>,
+    },
+    {
+      key: "scheduled",
+      header: "Scheduled",
+      render: (row) => (
+        <span className="font-data-mono text-data-mono text-on-surface-variant">{row.scheduled}</span>
+      ),
+    },
+    {
+      key: "failed",
+      header: "Failed",
+      render: (row) => <span className="font-data-mono text-data-mono text-error">{row.failed}</span>,
+    },
+    {
+      key: "skipped",
+      header: "Skipped",
+      render: (row) => (
+        <span className="font-data-mono text-data-mono text-on-surface-variant">{row.skipped}</span>
+      ),
+    },
+    {
+      key: "noEmail",
+      header: "No email",
+      render: (row) => (
+        <span className="font-data-mono text-data-mono text-on-surface-variant">{row.noEmail}</span>
+      ),
+    },
+  ];
+
   return (
     <AppShell>
       <div className="min-h-screen flex flex-col">
@@ -292,27 +387,25 @@ export default function AnalyticsPage() {
           }
         />
         <main className="flex-1 p-4 sm:p-6 lg:p-12 max-w-[1440px] mx-auto w-full">
-          <section className="relative mb-10 overflow-hidden rounded-[24px] bg-aurora-soft p-6 sm:p-8">
-            <span
-              aria-hidden
-              className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-tertiary-fixed/15 blur-3xl"
-            />
-            <div className="relative mb-2 flex flex-wrap items-center gap-3">
-              <h1 className="font-headline-lg text-headline-lg text-primary">
-                Outreach Analytics
-              </h1>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-tertiary-fixed/25 px-3 py-1 font-label-md text-[12px] text-tertiary-container">
-                <span className="relative flex h-2 w-2">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-tertiary-container opacity-50" />
-                  <span className="relative inline-flex h-2 w-2 rounded-full bg-tertiary-container" />
+          <Card className="mb-10 border border-border-low-alpha bg-surface-white [--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
+            <CardContent>
+              <div className="mb-2 flex flex-wrap items-center gap-3">
+                <h1 className="font-headline-lg text-headline-lg text-primary">
+                  Outreach Analytics
+                </h1>
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-primary-container/10 px-3 py-1 font-label-md text-[12px] text-primary-container">
+                  <span className="relative flex h-2 w-2">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary-container opacity-50" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-primary-container" />
+                  </span>
+                  Live · every {POLL_MS / 1000}s
                 </span>
-                Live · every {POLL_MS / 1000}s
-              </span>
-            </div>
-            <p className="relative font-body-lg text-body-lg text-text-muted">
-              Real-time send performance across your email campaigns.
-            </p>
-          </section>
+              </div>
+              <p className="font-body-lg text-body-lg text-text-muted">
+                Real-time send performance across your email campaigns.
+              </p>
+            </CardContent>
+          </Card>
 
           <section className="grid grid-cols-2 lg:grid-cols-5 gap-4 sm:gap-6 mb-10">
             <StatCard icon="mark_email_read" label="Sent" value={totals?.sent ?? 0} loading={loading} tone="positive" />
@@ -323,103 +416,65 @@ export default function AnalyticsPage() {
           </section>
 
           <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
-            <div className="lg:col-span-2 glass-card rounded-[20px] p-6">
-              <h3 className="font-headline-md text-headline-md text-primary mb-4">
-                Sent per day (last {DAYS} days)
-              </h3>
-              <TrendChart data={overview?.daily ?? []} loading={loading} />
-            </div>
-            <div className="glass-card rounded-[20px] p-6">
-              <h3 className="font-headline-md text-headline-md text-primary mb-4">
-                Reply &amp; open tracking
-              </h3>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="font-body-md text-body-md text-on-surface-variant">Opened</span>
-                  <ComingSoonBadge />
+            <Card className="border border-border-low-alpha bg-surface-white lg:col-span-2">
+              <CardHeader>
+                <CardTitle className="font-sans font-semibold text-headline-md text-primary">
+                  Sent per day (last {DAYS} days)
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <TrendChart data={overview?.daily ?? []} loading={loading} />
+              </CardContent>
+            </Card>
+            <Card className="border border-border-low-alpha bg-surface-white">
+              <CardHeader>
+                <CardTitle className="font-sans font-semibold text-headline-md text-primary">
+                  Reply &amp; open tracking
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="font-body-md text-body-md text-on-surface-variant">Opened</span>
+                    <Badge variant="secondary">Coming soon</Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="font-body-md text-body-md text-on-surface-variant">Replied</span>
+                    <Badge variant="secondary">Coming soon</Badge>
+                  </div>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="font-body-md text-body-md text-on-surface-variant">Replied</span>
-                  <ComingSoonBadge />
-                </div>
-              </div>
-              <p className="mt-4 font-body-md text-[13px] text-text-muted">
-                These signals aren&apos;t instrumented yet — only real, persisted
-                data is shown on this dashboard.
-              </p>
-            </div>
+                <p className="mt-4 font-body-md text-[13px] text-text-muted">
+                  These signals aren&apos;t instrumented yet — only real, persisted
+                  data is shown on this dashboard.
+                </p>
+              </CardContent>
+            </Card>
           </section>
 
-          <section className="glass-card rounded-[20px] overflow-hidden">
-            <div className="p-6 border-b border-border-low-alpha">
-              <h3 className="font-headline-md text-headline-md text-primary">By campaign</h3>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[720px] text-left border-collapse">
-                <thead>
-                  <tr className="bg-bg-cream/50">
-                    <th className="p-4 font-label-md text-label-md text-outline font-medium">Campaign</th>
-                    <th className="p-4 font-label-md text-label-md text-outline font-medium">Status</th>
-                    <th className="p-4 font-label-md text-label-md text-outline font-medium">Sent</th>
-                    <th className="p-4 font-label-md text-label-md text-outline font-medium">Scheduled</th>
-                    <th className="p-4 font-label-md text-label-md text-outline font-medium">Failed</th>
-                    <th className="p-4 font-label-md text-label-md text-outline font-medium">Skipped</th>
-                    <th className="p-4 font-label-md text-label-md text-outline font-medium">Bounced</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {loading ? (
-                    <tr>
-                      <td colSpan={7} className="p-8 text-center text-on-surface-variant">
-                        Loading campaigns...
-                      </td>
-                    </tr>
-                  ) : !overview || overview.byCampaign.length === 0 ? (
-                    <tr>
-                      <td colSpan={7} className="p-8 text-center text-on-surface-variant">
-                        No email campaigns yet.
-                      </td>
-                    </tr>
-                  ) : (
-                    overview.byCampaign.map((row) => (
-                      <tr
-                        key={row.campaignId}
-                        className="border-b border-border-low-alpha hover:bg-surface-container-lowest transition-colors"
-                      >
-                        <td className="p-4 font-body-md text-body-md text-on-surface font-medium">
-                          {row.campaignName}
-                        </td>
-                        <td className="p-4 font-body-md text-body-md text-on-surface-variant capitalize">
-                          {row.status}
-                        </td>
-                        <td className="p-4 font-data-mono text-data-mono text-on-surface">{row.sent}</td>
-                        <td className="p-4 font-data-mono text-data-mono text-on-surface-variant">
-                          {row.scheduled}
-                        </td>
-                        <td className="p-4 font-data-mono text-data-mono text-error">{row.failed}</td>
-                        <td className="p-4 font-data-mono text-data-mono text-on-surface-variant">
-                          {row.skipped}
-                        </td>
-                        <td className="p-4 font-data-mono text-data-mono text-error">{row.bounced}</td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </section>
+          <Card className="border border-border-low-alpha bg-surface-white overflow-hidden">
+            <CardHeader className="border-b border-border-low-alpha">
+              <CardTitle className="font-sans font-semibold text-headline-md text-primary">By campaign</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <DataTable
+                columns={campaignColumns}
+                rows={overview?.byCampaign ?? []}
+                getRowKey={(row) => row.campaignId}
+                emptyState={
+                  <span className="font-body-md text-body-md text-on-surface-variant">
+                    {loading ? "Loading campaigns..." : "No email campaigns yet."}
+                  </span>
+                }
+              />
+            </CardContent>
+          </Card>
 
-          <div className="relative mt-16 rounded-[32px] border border-tertiary-fixed/25 bg-gradient-to-b from-tertiary-fixed/10 via-tertiary-fixed/[0.03] to-transparent p-4 sm:p-6 lg:p-8">
+          <div className="mt-16 rounded-xl border border-border-low-alpha p-4 sm:p-6 lg:p-8">
           <section className="mb-6">
-            <div className="mb-2 flex items-center gap-3">
-              <div className="rounded-xl bg-tertiary-fixed text-on-tertiary-fixed p-2 shadow-sm">
-                <span className="material-symbols-outlined">auto_awesome</span>
-              </div>
-              <h2 className="font-headline-lg text-headline-lg text-primary">
-                Automated Outreach
-              </h2>
-            </div>
-            <p className="font-body-lg text-body-lg text-text-muted">
+            <p className="mb-1 font-label-md text-[12px] font-semibold uppercase tracking-wider text-on-surface-variant">
+              Automated Outreach
+            </p>
+            <p className="font-body-md text-body-md text-text-muted">
               Blueprint-powered discovery + AI-written sends, separate from Bulk Fire.
             </p>
           </section>
@@ -461,75 +516,36 @@ export default function AnalyticsPage() {
             />
           </section>
 
-          <section className="mb-10 glass-card rounded-[20px] p-6">
-            <h3 className="font-headline-md text-headline-md text-primary mb-4">
-              Automated sent per day (last {DAYS} days)
-            </h3>
-            <TrendChart data={overview?.automated.daily ?? []} loading={loading} />
-          </section>
+          <Card className="border border-border-low-alpha bg-surface-white mb-10">
+            <CardHeader>
+              <CardTitle className="font-sans font-semibold text-headline-md text-primary">
+                Automated sent per day (last {DAYS} days)
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <TrendChart data={overview?.automated.daily ?? []} loading={loading} />
+            </CardContent>
+          </Card>
 
-          <section className="glass-card rounded-[20px] overflow-hidden">
-            <div className="p-6 border-b border-border-low-alpha">
-              <h3 className="font-headline-md text-headline-md text-primary">
+          <Card className="border border-border-low-alpha bg-surface-white overflow-hidden">
+            <CardHeader className="border-b border-border-low-alpha">
+              <CardTitle className="font-sans font-semibold text-headline-md text-primary">
                 By automated campaign
-              </h3>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[720px] text-left border-collapse">
-                <thead>
-                  <tr className="bg-bg-cream/50">
-                    <th className="p-4 font-label-md text-label-md text-outline font-medium">Campaign</th>
-                    <th className="p-4 font-label-md text-label-md text-outline font-medium">Status</th>
-                    <th className="p-4 font-label-md text-label-md text-outline font-medium">Sent</th>
-                    <th className="p-4 font-label-md text-label-md text-outline font-medium">Scheduled</th>
-                    <th className="p-4 font-label-md text-label-md text-outline font-medium">Failed</th>
-                    <th className="p-4 font-label-md text-label-md text-outline font-medium">Skipped</th>
-                    <th className="p-4 font-label-md text-label-md text-outline font-medium">No email</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {loading ? (
-                    <tr>
-                      <td colSpan={7} className="p-8 text-center text-on-surface-variant">
-                        Loading campaigns...
-                      </td>
-                    </tr>
-                  ) : !overview || overview.automated.byCampaign.length === 0 ? (
-                    <tr>
-                      <td colSpan={7} className="p-8 text-center text-on-surface-variant">
-                        No automated campaigns yet.
-                      </td>
-                    </tr>
-                  ) : (
-                    overview.automated.byCampaign.map((row) => (
-                      <tr
-                        key={row.campaignId}
-                        className="border-b border-border-low-alpha hover:bg-surface-container-lowest transition-colors"
-                      >
-                        <td className="p-4 font-body-md text-body-md text-on-surface font-medium">
-                          {row.campaignName}
-                        </td>
-                        <td className="p-4 font-body-md text-body-md text-on-surface-variant capitalize">
-                          {row.status}
-                        </td>
-                        <td className="p-4 font-data-mono text-data-mono text-on-surface">{row.sent}</td>
-                        <td className="p-4 font-data-mono text-data-mono text-on-surface-variant">
-                          {row.scheduled}
-                        </td>
-                        <td className="p-4 font-data-mono text-data-mono text-error">{row.failed}</td>
-                        <td className="p-4 font-data-mono text-data-mono text-on-surface-variant">
-                          {row.skipped}
-                        </td>
-                        <td className="p-4 font-data-mono text-data-mono text-on-surface-variant">
-                          {row.noEmail}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </section>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <DataTable
+                columns={automatedCampaignColumns}
+                rows={overview?.automated.byCampaign ?? []}
+                getRowKey={(row) => row.campaignId}
+                emptyState={
+                  <span className="font-body-md text-body-md text-on-surface-variant">
+                    {loading ? "Loading campaigns..." : "No automated campaigns yet."}
+                  </span>
+                }
+              />
+            </CardContent>
+          </Card>
           </div>
         </main>
       </div>

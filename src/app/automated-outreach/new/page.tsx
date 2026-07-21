@@ -8,6 +8,8 @@ import { AppShell } from "@/components/app/app-shell";
 import { TopAppBar } from "@/components/app/top-app-bar";
 import { api, ApiError } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 
 interface BlueprintOption {
   id: string;
@@ -115,20 +117,18 @@ export default function NewAutomatedCampaignPage() {
               <span className="material-symbols-outlined animate-spin text-primary text-[32px]">sync</span>
             </div>
           ) : blueprints.length === 0 ? (
-            <div className="glass-card relative overflow-hidden rounded-[20px] p-6 text-center sm:p-8">
-              <div className="pointer-events-none absolute -right-12 -top-12 h-40 w-40 rounded-full bg-tertiary-fixed/15 blur-3xl" />
-              <span className="material-symbols-outlined text-outline text-[32px]">description</span>
-              <p className="mt-3 font-body-md text-body-md text-text-muted">
-                You need at least one generated Blueprint before creating an
-                automated campaign.
-              </p>
-              <Link
-                href="/blueprints/new"
-                className="mt-4 inline-flex items-center gap-2 rounded-lg bg-primary-container px-5 py-2.5 font-label-md text-label-md text-on-primary shadow-floating transition-all hover:-translate-y-0.5 hover:bg-primary active:scale-[0.97]"
-              >
-                Create a Blueprint
-              </Link>
-            </div>
+            <Card className="overflow-hidden text-center [--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
+              <CardContent>
+                <span className="material-symbols-outlined text-outline text-[32px]">description</span>
+                <p className="mt-3 font-body-md text-body-md text-text-muted">
+                  You need at least one generated Blueprint before creating an
+                  automated campaign.
+                </p>
+                <Button asChild variant="gradient" className="mt-4">
+                  <Link href="/blueprints/new">Create a Blueprint</Link>
+                </Button>
+              </CardContent>
+            </Card>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="mb-2 flex items-center justify-center gap-2">
@@ -140,7 +140,7 @@ export default function NewAutomatedCampaignPage() {
                 ].map((s, i, arr) => (
                   <div key={s.n} className="flex items-center gap-2">
                     <div className="flex items-center gap-1.5">
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-tertiary-fixed to-tertiary-fixed-dim font-data-mono text-[11px] font-semibold text-on-tertiary-fixed shadow-sm">
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-tertiary-fixed font-data-mono text-[11px] font-semibold text-on-tertiary-fixed">
                         {s.n}
                       </span>
                       <span className="hidden font-label-md text-[12px] text-text-muted sm:inline">
@@ -152,232 +152,246 @@ export default function NewAutomatedCampaignPage() {
                 ))}
               </div>
 
-              <div className="glass-card rounded-[20px] p-6 sm:p-8 space-y-6">
-                <div className="flex items-center gap-3">
-                  <div className="rounded-xl bg-gradient-to-br from-primary-container to-primary p-2 text-on-primary shadow-sm">
-                    <span className="material-symbols-outlined text-[20px]">flag</span>
-                  </div>
-                  <h2 className="font-headline-md text-headline-md text-primary">Campaign basics</h2>
-                </div>
-                <div>
-                  <label className="block font-label-md text-label-md text-primary mb-2">
-                    Campaign name
-                  </label>
-                  <input
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    required
-                    placeholder="e.g. Austin dentists — Q1"
-                    className="w-full rounded-xl border border-border-low-alpha bg-bg-cream/30 px-4 py-3 font-body-md focus:outline-none focus:ring-1 focus:ring-primary placeholder-outline"
-                  />
-                </div>
-                <div>
-                  <label className="block font-label-md text-label-md text-primary mb-2">Blueprint</label>
-                  <select
-                    value={blueprintId}
-                    onChange={(e) => setBlueprintId(e.target.value)}
-                    required
-                    className="w-full rounded-xl border border-border-low-alpha bg-bg-cream/30 px-4 py-3 font-body-md focus:outline-none focus:ring-1 focus:ring-primary"
-                  >
-                    <option value="">Select a blueprint...</option>
-                    {blueprints.map((b) => (
-                      <option key={b.id} value={b.id}>
-                        {b.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block font-label-md text-label-md text-primary mb-2">
-                    Sending account
-                  </label>
-                  <select
-                    value={senderAccountId}
-                    onChange={(e) => setSenderAccountId(e.target.value)}
-                    required
-                    className="w-full rounded-xl border border-border-low-alpha bg-bg-cream/30 px-4 py-3 font-body-md focus:outline-none focus:ring-1 focus:ring-primary"
-                  >
-                    <option value="">Select a sender...</option>
-                    {senders.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.label} ({s.email})
-                      </option>
-                    ))}
-                  </select>
-                  {senders.length === 0 && (
-                    <p className="mt-2 font-body-md text-[13px] text-text-muted">
-                      Connect a sender account under Bulk Fire first.
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <div className="glass-card rounded-[20px] p-6 sm:p-8 space-y-6">
-                <div className="flex items-center gap-3">
-                  <div className="rounded-xl bg-tertiary-fixed p-2 text-on-tertiary-fixed shadow-sm">
-                    <span className="material-symbols-outlined text-[20px]">travel_explore</span>
-                  </div>
-                  <h2 className="font-headline-md text-headline-md text-primary">Who to find</h2>
-                </div>
-                <div>
-                  <label className="block font-label-md text-label-md text-primary mb-2">
-                    Business category
-                  </label>
-                  <input
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    required
-                    placeholder="e.g. restaurant, dentist, gym"
-                    className="w-full rounded-xl border border-border-low-alpha bg-bg-cream/30 px-4 py-3 font-body-md focus:outline-none focus:ring-1 focus:ring-primary placeholder-outline"
-                  />
-                </div>
-                <div>
-                  <label className="block font-label-md text-label-md text-primary mb-2">
-                    Location
-                  </label>
-                  <input
-                    value={locationText}
-                    onChange={(e) => setLocationText(e.target.value)}
-                    required
-                    placeholder="e.g. Austin, TX or Mumbai"
-                    className="w-full rounded-xl border border-border-low-alpha bg-bg-cream/30 px-4 py-3 font-body-md focus:outline-none focus:ring-1 focus:ring-primary placeholder-outline"
-                  />
-                  <p className="mt-2 font-body-md text-[13px] text-text-muted">
-                    Use a city, not a country — discovery searches ~10km around
-                    the location&apos;s center.
-                  </p>
-                </div>
-                <div>
-                  <label className="block font-label-md text-label-md text-primary mb-2">
-                    Target leads per run (with emails)
-                  </label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={100}
-                    value={maxLeadsPerRun}
-                    onChange={(e) => setMaxLeadsPerRun(Number(e.target.value))}
-                    className="w-full rounded-xl border border-border-low-alpha bg-bg-cream/30 px-4 py-3 font-body-md focus:outline-none focus:ring-1 focus:ring-primary"
-                  />
-                  <p className="mt-2 font-body-md text-[13px] text-text-muted">
-                    Sends are separately capped at 50/day regardless of this setting.
-                  </p>
-                </div>
-              </div>
-
-              <div className="glass-card rounded-[20px] p-6 sm:p-8 space-y-6">
-                <div className="flex items-center gap-3">
-                  <div className="rounded-xl bg-secondary-fixed p-2 text-on-secondary-fixed shadow-sm">
-                    <span className="material-symbols-outlined text-[20px]">signature</span>
-                  </div>
-                  <h2 className="font-headline-md text-headline-md text-primary">
-                    Signature &amp; voice
-                  </h2>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block font-label-md text-label-md text-primary mb-2">
-                      Your name
-                    </label>
-                    <input
-                      value={signatureName}
-                      onChange={(e) => setSignatureName(e.target.value)}
-                      required
-                      placeholder="Jane Doe"
-                      className="w-full rounded-xl border border-border-low-alpha bg-bg-cream/30 px-4 py-3 font-body-md focus:outline-none focus:ring-1 focus:ring-primary placeholder-outline"
-                    />
-                  </div>
-                  <div>
-                    <label className="block font-label-md text-label-md text-primary mb-2">
-                      Title (optional)
-                    </label>
-                    <input
-                      value={signatureTitle}
-                      onChange={(e) => setSignatureTitle(e.target.value)}
-                      placeholder="Founder"
-                      className="w-full rounded-xl border border-border-low-alpha bg-bg-cream/30 px-4 py-3 font-body-md focus:outline-none focus:ring-1 focus:ring-primary placeholder-outline"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="block font-label-md text-label-md text-primary mb-2">
-                    Closing line
-                  </label>
-                  <input
-                    value={signatureClosing}
-                    onChange={(e) => setSignatureClosing(e.target.value)}
-                    className="w-full rounded-xl border border-border-low-alpha bg-bg-cream/30 px-4 py-3 font-body-md focus:outline-none focus:ring-1 focus:ring-primary"
-                  />
-                </div>
-                <div>
-                  <label className="block font-label-md text-label-md text-primary mb-2">
-                    Example emails (optional, up to 2) — AI matches this tone
-                  </label>
-                  {styleExamples.map((ex, i) => (
-                    <textarea
-                      key={i}
-                      value={ex}
-                      onChange={(e) => {
-                        const next = [...styleExamples];
-                        next[i] = e.target.value;
-                        setStyleExamples(next);
-                      }}
-                      rows={3}
-                      placeholder={`Example email ${i + 1}...`}
-                      className="w-full rounded-xl border border-border-low-alpha bg-bg-cream/30 px-4 py-3 font-body-md mb-2 focus:outline-none focus:ring-1 focus:ring-primary placeholder-outline"
-                    />
-                  ))}
-                </div>
-              </div>
-
-              <div className="glass-card rounded-[20px] p-6 sm:p-8">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <div className="mb-1 flex items-center gap-3">
-                      <div className="rounded-xl bg-gradient-to-br from-primary-container to-primary p-2 text-on-primary shadow-sm">
-                        <span className="material-symbols-outlined text-[20px]">forum</span>
-                      </div>
-                      <h2 className="font-headline-md text-headline-md text-primary">
-                        Reply polling
-                      </h2>
+              <Card className="[--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
+                <CardHeader>
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-xl bg-primary-container/10 p-2 text-primary-container">
+                      <span className="material-symbols-outlined text-[20px]">flag</span>
                     </div>
-                    <p className="font-body-md text-body-md text-text-muted">
-                      When a lead replies, AI drafts a response — you always
-                      review and approve before anything sends.
-                    </p>
-                    {!senderQualifiesForReplyPolling && senderAccountId && (
-                      <p className="mt-2 font-body-md text-[13px] text-error">
-                        This sender doesn&apos;t have Gmail read access — reply
-                        polling needs it. Connect Gmail with read access, or
-                        leave this off.
+                    <CardTitle className="font-body-md text-headline-md font-semibold text-primary">
+                      Campaign basics
+                    </CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div>
+                    <label className="block font-label-md text-label-md text-primary mb-2">
+                      Campaign name
+                    </label>
+                    <input
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      required
+                      placeholder="e.g. Austin dentists — Q1"
+                      className="w-full rounded-xl border border-border-low-alpha bg-bg-cream/30 px-4 py-3 font-body-md focus:outline-none focus:ring-1 focus:ring-primary placeholder-outline"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-label-md text-label-md text-primary mb-2">Blueprint</label>
+                    <select
+                      value={blueprintId}
+                      onChange={(e) => setBlueprintId(e.target.value)}
+                      required
+                      className="w-full rounded-xl border border-border-low-alpha bg-bg-cream/30 px-4 py-3 font-body-md focus:outline-none focus:ring-1 focus:ring-primary"
+                    >
+                      <option value="">Select a blueprint...</option>
+                      {blueprints.map((b) => (
+                        <option key={b.id} value={b.id}>
+                          {b.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block font-label-md text-label-md text-primary mb-2">
+                      Sending account
+                    </label>
+                    <select
+                      value={senderAccountId}
+                      onChange={(e) => setSenderAccountId(e.target.value)}
+                      required
+                      className="w-full rounded-xl border border-border-low-alpha bg-bg-cream/30 px-4 py-3 font-body-md focus:outline-none focus:ring-1 focus:ring-primary"
+                    >
+                      <option value="">Select a sender...</option>
+                      {senders.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.label} ({s.email})
+                        </option>
+                      ))}
+                    </select>
+                    {senders.length === 0 && (
+                      <p className="mt-2 font-body-md text-[13px] text-text-muted">
+                        Connect a sender account under Bulk Fire first.
                       </p>
                     )}
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setReplyPollingEnabled((v) => !v)}
-                    disabled={!senderQualifiesForReplyPolling}
-                    className={cn(
-                      "shrink-0 w-12 h-7 rounded-full transition-colors relative disabled:opacity-40 shadow-inner",
-                      replyPollingEnabled ? "bg-gradient-to-r from-tertiary-fixed-dim to-tertiary-fixed" : "bg-surface-container-high",
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        "absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-transform",
-                        replyPollingEnabled ? "translate-x-6" : "translate-x-1",
-                      )}
+                </CardContent>
+              </Card>
+
+              <Card className="[--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
+                <CardHeader>
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-xl bg-primary-container/10 p-2 text-primary-container">
+                      <span className="material-symbols-outlined text-[20px]">travel_explore</span>
+                    </div>
+                    <CardTitle className="font-body-md text-headline-md font-semibold text-primary">
+                      Who to find
+                    </CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div>
+                    <label className="block font-label-md text-label-md text-primary mb-2">
+                      Business category
+                    </label>
+                    <input
+                      value={category}
+                      onChange={(e) => setCategory(e.target.value)}
+                      required
+                      placeholder="e.g. restaurant, dentist, gym"
+                      className="w-full rounded-xl border border-border-low-alpha bg-bg-cream/30 px-4 py-3 font-body-md focus:outline-none focus:ring-1 focus:ring-primary placeholder-outline"
                     />
-                  </button>
-                </div>
-              </div>
+                  </div>
+                  <div>
+                    <label className="block font-label-md text-label-md text-primary mb-2">
+                      Location
+                    </label>
+                    <input
+                      value={locationText}
+                      onChange={(e) => setLocationText(e.target.value)}
+                      required
+                      placeholder="e.g. Austin, TX or Mumbai"
+                      className="w-full rounded-xl border border-border-low-alpha bg-bg-cream/30 px-4 py-3 font-body-md focus:outline-none focus:ring-1 focus:ring-primary placeholder-outline"
+                    />
+                    <p className="mt-2 font-body-md text-[13px] text-text-muted">
+                      Use a city, not a country — discovery searches ~10km around
+                      the location&apos;s center.
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block font-label-md text-label-md text-primary mb-2">
+                      Target leads per run (with emails)
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={100}
+                      value={maxLeadsPerRun}
+                      onChange={(e) => setMaxLeadsPerRun(Number(e.target.value))}
+                      className="w-full rounded-xl border border-border-low-alpha bg-bg-cream/30 px-4 py-3 font-body-md focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                    <p className="mt-2 font-body-md text-[13px] text-text-muted">
+                      Sends are separately capped at 50/day regardless of this setting.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="[--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
+                <CardHeader>
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-xl bg-primary-container/10 p-2 text-primary-container">
+                      <span className="material-symbols-outlined text-[20px]">signature</span>
+                    </div>
+                    <CardTitle className="font-body-md text-headline-md font-semibold text-primary">
+                      Signature &amp; voice
+                    </CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block font-label-md text-label-md text-primary mb-2">
+                        Your name
+                      </label>
+                      <input
+                        value={signatureName}
+                        onChange={(e) => setSignatureName(e.target.value)}
+                        required
+                        placeholder="Jane Doe"
+                        className="w-full rounded-xl border border-border-low-alpha bg-bg-cream/30 px-4 py-3 font-body-md focus:outline-none focus:ring-1 focus:ring-primary placeholder-outline"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-label-md text-label-md text-primary mb-2">
+                        Title (optional)
+                      </label>
+                      <input
+                        value={signatureTitle}
+                        onChange={(e) => setSignatureTitle(e.target.value)}
+                        placeholder="Founder"
+                        className="w-full rounded-xl border border-border-low-alpha bg-bg-cream/30 px-4 py-3 font-body-md focus:outline-none focus:ring-1 focus:ring-primary placeholder-outline"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block font-label-md text-label-md text-primary mb-2">
+                      Closing line
+                    </label>
+                    <input
+                      value={signatureClosing}
+                      onChange={(e) => setSignatureClosing(e.target.value)}
+                      className="w-full rounded-xl border border-border-low-alpha bg-bg-cream/30 px-4 py-3 font-body-md focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-label-md text-label-md text-primary mb-2">
+                      Example emails (optional, up to 2) — AI matches this tone
+                    </label>
+                    {styleExamples.map((ex, i) => (
+                      <textarea
+                        key={i}
+                        value={ex}
+                        onChange={(e) => {
+                          const next = [...styleExamples];
+                          next[i] = e.target.value;
+                          setStyleExamples(next);
+                        }}
+                        rows={3}
+                        placeholder={`Example email ${i + 1}...`}
+                        className="w-full rounded-xl border border-border-low-alpha bg-bg-cream/30 px-4 py-3 font-body-md mb-2 focus:outline-none focus:ring-1 focus:ring-primary placeholder-outline"
+                      />
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="[--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
+                <CardContent>
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <div className="mb-1 flex items-center gap-3">
+                        <div className="rounded-xl bg-primary-container/10 p-2 text-primary-container">
+                          <span className="material-symbols-outlined text-[20px]">forum</span>
+                        </div>
+                        <h2 className="font-body-md text-headline-md font-semibold text-primary">
+                          Reply polling
+                        </h2>
+                      </div>
+                      <p className="font-body-md text-body-md text-text-muted">
+                        When a lead replies, AI drafts a response — you always
+                        review and approve before anything sends.
+                      </p>
+                      {!senderQualifiesForReplyPolling && senderAccountId && (
+                        <p className="mt-2 font-body-md text-[13px] text-error">
+                          This sender doesn&apos;t have Gmail read access — reply
+                          polling needs it. Connect Gmail with read access, or
+                          leave this off.
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setReplyPollingEnabled((v) => !v)}
+                      disabled={!senderQualifiesForReplyPolling}
+                      className={cn(
+                        "shrink-0 w-12 h-7 rounded-full transition-colors relative disabled:opacity-40",
+                        replyPollingEnabled ? "bg-tertiary-fixed" : "bg-surface-container-high",
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-transform",
+                          replyPollingEnabled ? "translate-x-6" : "translate-x-1",
+                        )}
+                      />
+                    </button>
+                  </div>
+                </CardContent>
+              </Card>
 
               <div className="flex justify-end pt-2">
-                <button
-                  type="submit"
-                  disabled={creating}
-                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary-container px-6 py-3 font-label-md text-label-md text-on-primary shadow-floating transition-all hover:-translate-y-0.5 hover:bg-primary active:scale-[0.97] disabled:opacity-50 disabled:hover:translate-y-0 sm:w-auto"
-                >
+                <Button type="submit" variant="gradient" disabled={creating} className="w-full justify-center sm:w-auto">
                   {creating ? (
                     <>
                       <span className="material-symbols-outlined animate-spin text-[18px]">sync</span>
@@ -386,7 +400,7 @@ export default function NewAutomatedCampaignPage() {
                   ) : (
                     "Create campaign"
                   )}
-                </button>
+                </Button>
               </div>
             </form>
           )}
