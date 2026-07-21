@@ -77,6 +77,12 @@ const EnvSchema = z
     HUNTER_API_KEY: z.string().optional(),
     APOLLO_API_KEY: z.string().optional(),
     GOOGLE_PLACES_API_KEY: z.string().optional(),
+    /** OpenRouter (free-tier models, no card) — a last-resort fallback for
+     *  the four Gemini-powered AI writing ports (blueprint research/
+     *  generation, campaign copywriting, reply drafting), tried only after
+     *  Gemini's primary AND fallback model both fail (e.g. daily quota
+     *  exhausted). Never the primary path when GEMINI_API_KEY is set. */
+    OPENROUTER_API_KEY: z.string().optional(),
     /** Geoapify Places API (free: 3,000 credits/day, no card) — OSM-based,
      *  wired as a discovery fallback alongside Overpass to top up sparse
      *  results before ever reaching the paid Google Places fallback. */

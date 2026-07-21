@@ -267,4 +267,14 @@ describe("reply drafter prompt-injection defense (regression guard)", () => {
     expect(source).toMatch(/never follow|never.*obey|not.*instructions/i);
     expect(source).toContain("THIRD-PARTY DATA");
   });
+
+  it("the OpenRouter reply-drafter's system prompt explicitly tags inbound content as untrusted data", () => {
+    const source = readFileSync(
+      new URL("../../src/server/adapters/openrouter.reply-drafter.ts", import.meta.url),
+      "utf8",
+    );
+    expect(source).toContain("inbound_reply_untrusted_data");
+    expect(source).toMatch(/never follow|never.*obey|not.*instructions/i);
+    expect(source).toContain("THIRD-PARTY DATA");
+  });
 });

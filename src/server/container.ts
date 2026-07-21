@@ -23,6 +23,10 @@ import {
   GeminiBlueprintResearcher,
   GeminiBlueprintGenerator,
 } from "@/server/adapters/gemini.blueprint";
+import {
+  OpenRouterBlueprintResearcher,
+  OpenRouterBlueprintGenerator,
+} from "@/server/adapters/openrouter.blueprint";
 import { MockLeadDiscovery } from "@/server/adapters/mock.lead-discovery";
 import { OverpassLeadDiscovery } from "@/server/adapters/overpass.lead-discovery";
 import { GeoapifyLeadDiscovery } from "@/server/adapters/geoapify.lead-discovery";
@@ -37,8 +41,16 @@ import { ApolloEmailFinder } from "@/server/adapters/apollo.email-finder";
 import { WaterfallEmailFinder } from "@/server/adapters/waterfall.email-finder";
 import { MockOutreachCopywriter } from "@/server/adapters/mock.outreach-copywriter";
 import { GeminiOutreachCopywriter } from "@/server/adapters/gemini.outreach-copywriter";
+import { OpenRouterOutreachCopywriter } from "@/server/adapters/openrouter.outreach-copywriter";
 import { MockReplyDrafter } from "@/server/adapters/mock.reply-drafter";
 import { GeminiReplyDrafter } from "@/server/adapters/gemini.reply-drafter";
+import { OpenRouterReplyDrafter } from "@/server/adapters/openrouter.reply-drafter";
+import {
+  FallbackBlueprintResearcher,
+  FallbackBlueprintGenerator,
+  FallbackOutreachCopywriter,
+  FallbackReplyDrafter,
+} from "@/server/adapters/fallback-ai";
 import { InProcessQueue } from "@/server/adapters/inprocess.queue";
 import { ClaudeExtractor } from "@/server/adapters/claude.extractor";
 import { GeminiExtractor } from "@/server/adapters/gemini.extractor";
@@ -214,12 +226,26 @@ export function getServices(): Services {
     // Blueprint AI runs on Gemini (free tier) when a key is present; without
     // one we fall back to the deterministic mock so the feature still works
     // end-to-end (with generic, editable suggestions) rather than 500-ing.
-    const blueprintResearcher = env.GEMINI_API_KEY
-      ? new GeminiBlueprintResearcher()
-      : new MockBlueprintResearcher();
-    const blueprintGenerator = env.GEMINI_API_KEY
-      ? new GeminiBlueprintGenerator()
-      : new MockBlueprintGenerator();
+    // When OPENROUTER_API_KEY is ALSO set, it's wired in as a last-resort
+    // fallback tier below Gemini (never the primary) — reached only once
+    // Gemini's own primary+fallback model both fail, e.g. its free daily
+    // quota is exhausted. See fallback-ai.ts / openrouter.client.ts.
+    const geminiBlueprintResearcher = env.GEMINI_API_KEY ? new GeminiBlueprintResearcher() : null;
+    const geminiBlueprintGenerator = env.GEMINI_API_KEY ? new GeminiBlueprintGenerator() : null;
+    const openRouterBlueprintResearcher = env.OPENROUTER_API_KEY
+      ? new OpenRouterBlueprintResearcher()
+      : null;
+    const openRouterBlueprintGenerator = env.OPENROUTER_API_KEY
+      ? new OpenRouterBlueprintGenerator()
+      : null;
+    const blueprintResearcher =
+      geminiBlueprintResearcher && openRouterBlueprintResearcher
+        ? new FallbackBlueprintResearcher(geminiBlueprintResearcher, openRouterBlueprintResearcher)
+        : (geminiBlueprintResearcher ?? openRouterBlueprintResearcher ?? new MockBlueprintResearcher());
+    const blueprintGenerator =
+      geminiBlueprintGenerator && openRouterBlueprintGenerator
+        ? new FallbackBlueprintGenerator(geminiBlueprintGenerator, openRouterBlueprintGenerator)
+        : (geminiBlueprintGenerator ?? openRouterBlueprintGenerator ?? new MockBlueprintGenerator());
 
     // Automated outreach: lead discovery is free-by-default (OpenStreetMap,
     // no key). Fallbacks are tried in order, each only topping up a short
@@ -251,12 +277,23 @@ export function getServices(): Services {
       ].filter((f): f is NonNullable<typeof f> => f !== null),
     );
 
-    const outreachCopywriter = env.GEMINI_API_KEY
-      ? new GeminiOutreachCopywriter()
-      : new MockOutreachCopywriter();
-    const replyDrafter = env.GEMINI_API_KEY
-      ? new GeminiReplyDrafter()
-      : new MockReplyDrafter();
+    // Same Gemini-primary / OpenRouter-last-resort-fallback pattern as the
+    // blueprint adapters above.
+    const geminiOutreachCopywriter = env.GEMINI_API_KEY ? new GeminiOutreachCopywriter() : null;
+    const openRouterOutreachCopywriter = env.OPENROUTER_API_KEY
+      ? new OpenRouterOutreachCopywriter()
+      : null;
+    const outreachCopywriter =
+      geminiOutreachCopywriter && openRouterOutreachCopywriter
+        ? new FallbackOutreachCopywriter(geminiOutreachCopywriter, openRouterOutreachCopywriter)
+        : (geminiOutreachCopywriter ?? openRouterOutreachCopywriter ?? new MockOutreachCopywriter());
+
+    const geminiReplyDrafter = env.GEMINI_API_KEY ? new GeminiReplyDrafter() : null;
+    const openRouterReplyDrafter = env.OPENROUTER_API_KEY ? new OpenRouterReplyDrafter() : null;
+    const replyDrafter =
+      geminiReplyDrafter && openRouterReplyDrafter
+        ? new FallbackReplyDrafter(geminiReplyDrafter, openRouterReplyDrafter)
+        : (geminiReplyDrafter ?? openRouterReplyDrafter ?? new MockReplyDrafter());
 
     services = {
       storage: new SupabaseStorage(),

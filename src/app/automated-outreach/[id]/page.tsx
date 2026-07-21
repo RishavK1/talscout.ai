@@ -25,7 +25,7 @@ interface AutomatedLead {
   category: string | null;
   addressText: string | null;
   email: string | null;
-  emailSource: "site_scrape" | "hunter" | "apollo" | "google_places" | "osm" | "none";
+  emailSource: "site_scrape" | "hunter" | "apollo" | "google_places" | "osm" | "firecrawl" | "snov" | "none";
   status: "discovered" | "ready" | "queued" | "sent" | "replied" | "failed" | "skipped";
   discoveredAt: string;
 }
@@ -63,6 +63,8 @@ const SOURCE_META: Record<
   apollo: { label: "Apollo.io", icon: "person_search", badge: "status-pill-active border border-tertiary-fixed/30" },
   google_places: { label: "Google Places", icon: "map", badge: "bg-secondary-fixed/25 text-on-secondary-container border border-secondary-fixed-dim/30" },
   osm: { label: "Map listing", icon: "map", badge: "bg-tertiary-fixed/20 text-tertiary-container border border-tertiary-fixed-dim/30" },
+  firecrawl: { label: "Firecrawl", icon: "travel_explore", badge: "bg-primary text-on-primary border border-primary shadow-sm" },
+  snov: { label: "Snov.io", icon: "alternate_email", badge: "bg-secondary-fixed-dim/20 text-on-secondary-fixed-variant border border-secondary-fixed-dim/40" },
   none: { label: "—", icon: "remove", badge: "bg-surface-container-high text-on-surface-variant border border-border-low-alpha" },
 };
 

@@ -8,11 +8,18 @@ import {
 import { blueprintRepo } from "@/server/repositories/blueprint.repo";
 import { senderAccountRepo } from "@/server/repositories/outreach.repo";
 import { decryptSecret } from "@/server/lib/secret-box";
+import { inlineStepRun, type StepRun } from "@/server/jobs/step-runner";
 import { logger } from "@/server/observability/logger";
 import type { Services, SenderAccountCredentials, BlueprintSections } from "@/server/ports";
-import type { senderAccounts } from "@/server/db/schema";
+import type { senderAccounts, automatedSends, automatedCampaigns } from "@/server/db/schema";
 
 const POLL_WINDOW_DAYS = 30;
+
+/** Gmail read calls (threadHasReply + getThreadReplyContent) plus an AI
+ *  drafting call per replied thread — each batch is its own Inngest step so
+ *  a tenant with many historical sends never turns one tick into one
+ *  un-resumable scan of thousands of sequential Gmail API calls. */
+const POLL_BATCH_SIZE = 15;
 
 /** Independent copy of send-outreach-email.ts's toCredentials — see the same
  *  note in run-automated-campaign.ts. */
@@ -39,6 +46,8 @@ function toCredentials(sender: typeof senderAccounts.$inferSelect): SenderAccoun
 }
 
 type SentWindowRow = Awaited<ReturnType<typeof automatedSendRepo.listSentWithinWindowAdmin>>[number];
+type Campaign = typeof automatedCampaigns.$inferSelect;
+type Send = typeof automatedSends.$inferSelect;
 
 /**
  * Cron-triggered (see the Inngest function registration in
@@ -49,8 +58,15 @@ type SentWindowRow = Awaited<ReturnType<typeof automatedSendRepo.listSentWithinW
  * capability by design (see ports/index.ts's doc comment). One draft per
  * send by design (unique on sendId) — once a draft is reviewed
  * (approved/rejected/sent), that thread is never re-polled.
+ *
+ * `stepRun` is Inngest's real step-checkpointing hook when called from the
+ * cron function, or the inline no-op default for tests/manual runs — see
+ * step-runner.ts.
  */
-export async function pollAutomatedReplies(services: Services): Promise<void> {
+export async function pollAutomatedReplies(
+  services: Services,
+  stepRun: StepRun = inlineStepRun,
+): Promise<void> {
   const rows = await automatedSendRepo.listSentWithinWindowAdmin(POLL_WINDOW_DAYS);
 
   // Group by campaign so the sender/blueprint are fetched once per campaign,
@@ -66,7 +82,13 @@ export async function pollAutomatedReplies(services: Services): Promise<void> {
     const campaign = campaignRows[0].campaign;
     const tenantId = campaign.tenantId;
     try {
-      await pollOneCampaign(campaign.blueprintId, campaign, campaignRows, tenantId, services);
+      await pollOneCampaign(
+        campaign,
+        campaignRows.map((r) => r.send),
+        tenantId,
+        services,
+        stepRun,
+      );
       await automatedCampaignRepo.setLastReplyPollAtAdmin(campaignId, new Date());
     } catch (err) {
       logger.error({ err, campaignId }, "automated_reply_poll_campaign_failed");
@@ -75,26 +97,46 @@ export async function pollAutomatedReplies(services: Services): Promise<void> {
 }
 
 async function pollOneCampaign(
-  blueprintId: string,
-  campaign: SentWindowRow["campaign"],
-  campaignRows: SentWindowRow[],
+  campaign: Campaign,
+  sends: Send[],
   tenantId: string,
   services: Services,
+  stepRun: StepRun,
 ): Promise<void> {
   const [sender, blueprint] = await Promise.all([
     withTenantTx({ tenantId }, (ctx) => senderAccountRepo.getById(ctx, campaign.senderAccountId)),
-    withTenantTx({ tenantId }, (ctx) => blueprintRepo.getById(ctx, blueprintId)),
+    withTenantTx({ tenantId }, (ctx) => blueprintRepo.getById(ctx, campaign.blueprintId)),
   ]);
   if (!sender || sender.deletedAt || sender.type !== "gmail" || !sender.gmailHasReadScope) {
     return; // can't poll this campaign's threads — no read-scope Gmail sender
   }
   if (!blueprint?.sections) return;
 
-  const creds = toCredentials(sender);
   const sections = blueprint.sections as BlueprintSections;
   const styleExamples = (campaign.styleExamples as string[] | null) ?? undefined;
 
-  for (const { send } of campaignRows) {
+  // Each batch of Gmail-heavy per-send checks is its own step — see
+  // POLL_BATCH_SIZE's doc comment above.
+  for (let i = 0; i < sends.length; i += POLL_BATCH_SIZE) {
+    const batch = sends.slice(i, i + POLL_BATCH_SIZE);
+    await stepRun(`poll-${campaign.id}-${i / POLL_BATCH_SIZE}`, () =>
+      pollSendBatch(batch, sender, campaign, sections, styleExamples, tenantId, services),
+    );
+  }
+}
+
+async function pollSendBatch(
+  sends: Send[],
+  sender: typeof senderAccounts.$inferSelect,
+  campaign: Campaign,
+  sections: BlueprintSections,
+  styleExamples: string[] | undefined,
+  tenantId: string,
+  services: Services,
+): Promise<{ processed: number }> {
+  const creds = toCredentials(sender);
+  let processed = 0;
+  for (const send of sends) {
     if (!send.gmailThreadId) continue;
     try {
       const existing = await withTenantTx({ tenantId }, (ctx) =>
@@ -144,10 +186,12 @@ async function pollOneCampaign(
         }),
       );
       await withTenantTx({ tenantId }, (ctx) => automatedLeadRepo.setStatus(ctx, send.leadId, "replied"));
+      processed++;
     } catch (err) {
       logger.warn({ err, sendId: send.id }, "automated_reply_poll_send_failed");
     }
   }
+  return { processed };
 }
 
 export const POLL_AUTOMATED_REPLIES_JOB = "pollAutomatedReplies";

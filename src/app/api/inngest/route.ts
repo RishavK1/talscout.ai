@@ -21,6 +21,7 @@ import {
 import { syncWhatsAppTemplates } from "@/server/jobs/sync-whatsapp-templates";
 import { runAutomatedCampaigns } from "@/server/jobs/run-automated-campaign";
 import { pollAutomatedReplies } from "@/server/jobs/poll-automated-replies";
+import type { StepRun } from "@/server/jobs/step-runner";
 import {
   sendAutomatedEmail,
   type SendAutomatedEmailPayload,
@@ -256,30 +257,60 @@ const syncWhatsAppTemplatesFunction = inngest.createFunction(
  * Cron-triggered automated-outreach pipeline (discover → enrich → generate →
  * send) — same no-event, schedule-only pattern as syncWhatsAppTemplatesFunction
  * above. Fully separate from every Bulk Fire function in this file.
+ *
+ * `concurrency: { limit: 1 }` — a tick that runs long under real load (many
+ * active campaigns, each doing dozens of external lookups/AI calls) must
+ * never overlap with the next scheduled trigger; without this, two
+ * concurrent ticks would process the same campaigns at once and double the
+ * rate-limited free-tier API/AI spend for zero benefit (data itself stays
+ * safe either way via the unique indexes on leads/sends).
+ *
+ * `step` is passed straight into runAutomatedCampaigns as its checkpointing
+ * hook (see step-runner.ts) — each campaign's discover/enrich/generate
+ * phases run in small, independently-retryable batches instead of one
+ * long, un-resumable function body. A crash or platform timeout mid-tick
+ * now resumes from the next unfinished batch on retry instead of redoing
+ * already-completed (and quota-costly) work from scratch.
  */
 const runAutomatedCampaignsFunction = inngest.createFunction(
   {
     id: "run-automated-campaigns",
     name: "Automated Outreach Campaign Run",
     triggers: [{ cron: "0 0,6,12,18 * * *" }],
+    concurrency: { limit: 1 },
   },
-  async () => {
+  async ({ step }: { step: GetStepTools<typeof inngest> }) => {
     const services = getServices();
-    await runAutomatedCampaigns(services);
+    // Inngest's real step.run types its return as Jsonify<Awaited<T>> (it
+    // really does round-trip through JSON for durability) — every payload
+    // this job's steps return is already a plain, JSON-safe shape (numbers/
+    // strings only, no Date/undefined fields), so the cast below is safe.
+    const stepRun: StepRun = <T,>(id: string, fn: () => Promise<T>) =>
+      step.run(id, fn) as unknown as Promise<T>;
+    await runAutomatedCampaigns(services, stepRun);
   }
 );
 
 /** Cron-triggered reply poll for automated-outreach campaigns — drafts
- *  AI replies for human review, never sends anything itself. */
+ *  AI replies for human review, never sends anything itself.
+ *
+ *  Same `concurrency: { limit: 1 }` + step-checkpointing rationale as
+ *  runAutomatedCampaignsFunction above — the 20-minute interval here is
+ *  tight enough that an overlapping run is a real risk once there are many
+ *  tenants with many sent emails in the 30-day poll window. */
 const pollAutomatedRepliesFunction = inngest.createFunction(
   {
     id: "poll-automated-replies",
     name: "Automated Outreach Reply Poll",
     triggers: [{ cron: "*/20 * * * *" }],
+    concurrency: { limit: 1 },
   },
-  async () => {
+  async ({ step }: { step: GetStepTools<typeof inngest> }) => {
     const services = getServices();
-    await pollAutomatedReplies(services);
+    // See the matching comment in runAutomatedCampaignsFunction above.
+    const stepRun: StepRun = <T,>(id: string, fn: () => Promise<T>) =>
+      step.run(id, fn) as unknown as Promise<T>;
+    await pollAutomatedReplies(services, stepRun);
   }
 );
 
