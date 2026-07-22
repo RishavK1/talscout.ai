@@ -1,4 +1,4 @@
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { resetDb } from "../helpers/seed";
 import { makeUser } from "../helpers/auth-fixtures";
 import { adminDb, closePools } from "../../src/server/db/client";
@@ -9,6 +9,7 @@ import {
   outreachLeadRepo,
   outreachSendRepo,
 } from "../../src/server/repositories/outreach.repo";
+import { outreachService } from "../../src/server/services/outreach.service";
 import { pollOutreachReplies } from "../../src/server/jobs/poll-outreach-replies";
 import { getServices } from "../../src/server/container";
 import { encryptSecret } from "../../src/server/lib/secret-box";
@@ -64,6 +65,9 @@ beforeEach(async () => {
   await resetDb();
   mockMailer().threadReplyState = "no_reply";
 });
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 afterAll(async () => {
   await closePools();
 });
@@ -79,6 +83,32 @@ describe("pollOutreachReplies — Bulk Fire's own reply poll", () => {
 
     const lead = await withTenantTx({ tenantId: tenant.id }, (ctx) => outreachLeadRepo.getById(ctx, leadId));
     expect(lead?.status).toBe("replied");
+  });
+
+  it("never throws if the campaign is deleted mid-poll (between fetching the sent window and writing the result)", async () => {
+    const { tenant } = await makeUser("recruiter");
+    const sender = await seedGmailSender(tenant.id);
+    const { campaignId, leadId } = await seedSentThreadedCampaign(tenant.id, sender.id);
+
+    // threadHasReply is the job's one real async/network call per send — the
+    // exact moment a concurrent delete could land between "we read this send
+    // as sent" and "we write replied back to its (now-gone) lead". Deleting
+    // the campaign here cascades away the lead + send via the FK before the
+    // job's own setStatus write runs.
+    const mailer = mockMailer();
+    const original = mailer.threadHasReply.bind(mailer);
+    vi.spyOn(mailer, "threadHasReply").mockImplementation(async (...args) => {
+      await withTenantTx({ tenantId: tenant.id }, (ctx) => outreachService.deleteCampaign(ctx, campaignId));
+      return original(...args);
+    });
+    mailer.threadReplyState = "replied";
+
+    await expect(pollOutreachReplies(getServices())).resolves.not.toThrow();
+
+    // The lead (and its campaign) are genuinely gone — the job's UPDATE
+    // just affected 0 rows instead of throwing.
+    const lead = await withTenantTx({ tenantId: tenant.id }, (ctx) => outreachLeadRepo.getById(ctx, leadId));
+    expect(lead).toBeNull();
   });
 
   it("leaves the lead's status alone when there is no reply", async () => {

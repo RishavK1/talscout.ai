@@ -126,4 +126,19 @@ export const blueprintRepo = {
       .returning();
     return row ?? null;
   },
+
+  /** Transaction-scoped advisory lock keyed on this blueprint's id — held by
+   *  BOTH the delete guard (blueprintService.remove, which counts linked
+   *  campaigns before soft-deleting) and campaign creation
+   *  (assertBlueprintUsable), so the two can never interleave: whichever
+   *  transaction acquires it first fully completes its check-then-write
+   *  before the other proceeds. Without this, a campaign could be created
+   *  against a blueprint in the split second between the delete guard's
+   *  count coming back empty and the soft-delete actually committing.
+   *  Same `pg_advisory_xact_lock` idiom as
+   *  automated-outreach.service.ts's per-tenant daily-cap lock — auto-
+   *  released when ctx.tx commits/rolls back, no manual unlock needed. */
+  async lockForWrite(ctx: TenantContext, id: string) {
+    await ctx.tx.execute(sql`select pg_advisory_xact_lock(hashtext(${id} || ':blueprint-write'))`);
+  },
 };

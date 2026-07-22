@@ -290,3 +290,39 @@ describe("blueprint repo directly (RLS sanity)", () => {
     expect(foreignFound).toBeNull();
   });
 });
+
+describe("blueprintRepo.lockForWrite — closes the delete-vs-create race", () => {
+  it("a second transaction's lock attempt waits for the first to finish, instead of interleaving", async () => {
+    const { tenant } = await makeUser("recruiter");
+    const blueprintId = (
+      await withTenantTx({ tenantId: tenant.id }, (ctx) => blueprintRepo.create(ctx, { name: "Acme Offer" }))
+    ).id;
+
+    let firstTxReleased = false;
+    let secondTxSawFirstAlreadyDone = false;
+
+    // tx1 acquires the lock and holds it for a bit before releasing
+    // (committing) — standing in for blueprintService.remove's real work
+    // (count linked campaigns, then soft-delete) happening between acquire
+    // and release.
+    const tx1 = withTenantTx({ tenantId: tenant.id }, async (ctx) => {
+      await blueprintRepo.lockForWrite(ctx, blueprintId);
+      await new Promise((r) => setTimeout(r, 150));
+      firstTxReleased = true;
+    });
+
+    // Give tx1 a head start so it acquires the lock first.
+    await new Promise((r) => setTimeout(r, 30));
+
+    // tx2 — standing in for a concurrent campaign-creation's
+    // assertBlueprintUsable call — must block on the SAME key until tx1
+    // commits, never observing a state in between.
+    const tx2 = withTenantTx({ tenantId: tenant.id }, async (ctx) => {
+      await blueprintRepo.lockForWrite(ctx, blueprintId);
+      secondTxSawFirstAlreadyDone = firstTxReleased;
+    });
+
+    await Promise.all([tx1, tx2]);
+    expect(secondTxSawFirstAlreadyDone).toBe(true);
+  });
+});

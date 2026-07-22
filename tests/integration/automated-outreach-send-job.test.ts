@@ -148,6 +148,29 @@ describe("sendAutomatedEmail — the delayed, per-send job", () => {
     void leadId;
   });
 
+  it("skips cleanly (never crashes) if the sender was disconnected before the job woke up", async () => {
+    const { tenant, token } = await makeUser("recruiter");
+    const { senderId, sendId } = await seedCampaignWithScheduledSend(token, tenant.id);
+    const sentBefore = mockMailer().sent.length;
+
+    // Same race as the "paused campaign" case above, but for the sender:
+    // disconnecting used to hard-delete the row (see
+    // outreach-sender-soft-delete.test.ts) — it's now soft-delete, and the
+    // send job must treat a disconnected sender exactly like a paused
+    // campaign: skip cleanly, never throw.
+    await adminDb()
+      .update(senderAccounts)
+      .set({ deletedAt: new Date(), isActive: false })
+      .where(eq(senderAccounts.id, senderId));
+
+    await expect(sendAutomatedEmail({ tenantId: tenant.id, sendId }, getServices())).resolves.not.toThrow();
+
+    const send = await withTenantTx({ tenantId: tenant.id }, (ctx) => automatedSendRepo.getById(ctx, sendId));
+    expect(send?.status).toBe("skipped");
+    expect(send?.errorReason).toBe("sender_unavailable");
+    expect(mockMailer().sent.length).toBe(sentBefore); // nothing was sent
+  });
+
   it("is idempotent — re-running a job for an already-sent row is a no-op", async () => {
     const { tenant, token } = await makeUser("recruiter");
     const { sendId } = await seedCampaignWithScheduledSend(token, tenant.id);

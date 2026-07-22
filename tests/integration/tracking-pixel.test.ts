@@ -85,6 +85,23 @@ describe("GET /api/track/open/[kind]/[id]", () => {
     expect(row.openedAt).not.toBeNull();
   });
 
+  it("still returns a valid GIF (never errors) when the send's campaign was deleted after the email went out", async () => {
+    const { tenant } = await makeUser("recruiter");
+    const sendId = await seedBulkFireSend(tenant.id);
+    const [send] = await adminDb().select().from(outreachSends).where(eq(outreachSends.id, sendId));
+
+    // Deleting the campaign cascades away the send row entirely (onDelete:
+    // cascade) — the recipient's mail client can still fetch the pixel for
+    // an email sent weeks ago from a campaign that no longer exists.
+    await withTenantTx({ tenantId: tenant.id }, (ctx) => outreachCampaignRepo.remove(ctx, send.campaignId));
+    const [gone] = await adminDb().select().from(outreachSends).where(eq(outreachSends.id, sendId));
+    expect(gone).toBeUndefined();
+
+    const res = await hit("bf", sendId);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toBe("image/gif");
+  });
+
   it("first open wins — a second fetch never overwrites the original timestamp", async () => {
     const { tenant } = await makeUser("recruiter");
     const sendId = await seedBulkFireSend(tenant.id);
@@ -165,5 +182,35 @@ describe("GET /api/track/open/[kind]/[id]", () => {
     const res = await hit("nope", crypto.randomUUID());
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toBe("image/gif");
+  });
+
+  it("returns a byte-identical response for a real send, an unknown-but-valid UUID, and garbage input — no oracle to distinguish hit from miss", async () => {
+    const { tenant } = await makeUser("recruiter");
+    const realSendId = await seedBulkFireSend(tenant.id);
+
+    const [hitRes, missRes, garbageRes] = await Promise.all([
+      hit("bf", realSendId),
+      hit("bf", crypto.randomUUID()),
+      hit("bf", "not-a-uuid-at-all"),
+    ]);
+
+    const [hitBody, missBody, garbageBody] = await Promise.all([
+      hitRes.arrayBuffer(),
+      missRes.arrayBuffer(),
+      garbageRes.arrayBuffer(),
+    ]);
+
+    for (const res of [hitRes, missRes, garbageRes]) {
+      expect(res.status).toBe(200);
+      expect(res.headers.get("content-type")).toBe("image/gif");
+    }
+    expect(Buffer.from(hitBody).equals(Buffer.from(missBody))).toBe(true);
+    expect(Buffer.from(hitBody).equals(Buffer.from(garbageBody))).toBe(true);
+
+    // The only externally-observable difference is server-side state, never
+    // surfaced back in the response — confirmed separately (real send gets
+    // openedAt set; the other two are silent no-ops).
+    const [row] = await adminDb().select().from(outreachSends).where(eq(outreachSends.id, realSendId));
+    expect(row.openedAt).not.toBeNull();
   });
 });

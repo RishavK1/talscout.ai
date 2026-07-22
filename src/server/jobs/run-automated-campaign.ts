@@ -132,8 +132,17 @@ async function runOneCampaign(
     blueprintRepo.getById(ctx, campaign.blueprintId),
   );
   if (!blueprint?.sections) {
-    logger.warn({ campaignId: campaign.id }, "automated_campaign_blueprint_unusable_skipping_send");
-    return;
+    // Throw (rather than silently return) so runOneCampaignIsolated's
+    // existing catch flips the campaign to "error" with this message — a
+    // campaign whose blueprint became unusable (deleted, archived without
+    // ever generating sections) used to sit "active" forever, doing
+    // nothing, with zero indication to the user of why nothing was
+    // happening. This was reachable even with the blueprint-delete guard
+    // added elsewhere, since that guard only covers the delete path, not
+    // every way a blueprint could end up without sections.
+    throw new Error(
+      "This campaign's blueprint is missing or hasn't been generated yet — reassign a valid blueprint to resume.",
+    );
   }
   const sections = blueprint.sections as BlueprintSections;
   const styleExamples = (campaign.styleExamples as string[] | null) ?? undefined;

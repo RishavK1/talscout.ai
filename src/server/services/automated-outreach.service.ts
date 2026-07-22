@@ -33,6 +33,13 @@ async function lockTenantForAutomatedDailyCap(ctx: TenantContext) {
 }
 
 async function assertBlueprintUsable(ctx: TenantContext, blueprintId: string) {
+  // Same advisory lock blueprintService.remove's delete guard takes before
+  // counting linked campaigns — held for the rest of THIS transaction
+  // (through the campaign insert that follows), so a concurrent blueprint
+  // delete can't interleave between "we confirmed this blueprint is usable"
+  // and "we created a campaign pointing at it". See lockForWrite's doc
+  // comment for the full race this closes.
+  await blueprintRepo.lockForWrite(ctx, blueprintId);
   const blueprint = await blueprintRepo.getById(ctx, blueprintId);
   if (!blueprint) throw new NotFound("Blueprint not found");
   if (blueprint.status !== "active" || !blueprint.sections) {

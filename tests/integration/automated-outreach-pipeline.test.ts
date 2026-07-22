@@ -7,7 +7,7 @@ import { resetDb } from "../helpers/seed";
 import { makeUser } from "../helpers/auth-fixtures";
 import { call } from "../helpers/http";
 import { adminDb, closePools } from "../../src/server/db/client";
-import { blueprints, senderAccounts, automatedLeads, automatedSends } from "../../src/server/db/schema";
+import { blueprints, senderAccounts, automatedLeads, automatedSends, automatedCampaigns } from "../../src/server/db/schema";
 import { encryptSecret } from "../../src/server/lib/secret-box";
 import { withTenantTx } from "../../src/server/db/tx";
 import {
@@ -302,6 +302,82 @@ describe("runAutomatedCampaigns — discover → enrich → generate → schedul
     const readyLeads = leads.filter((l) => l.status === "ready");
     expect(queuedLeads).toHaveLength(2);
     expect(readyLeads).toHaveLength(3); // left for the next tick, not lost
+  });
+});
+
+describe("runAutomatedCampaigns — blueprint becomes unusable mid-flight", () => {
+  it("flips the campaign to a visible 'error' status instead of silently doing nothing forever", async () => {
+    const { tenant, token } = await makeUser("recruiter");
+    const blueprint = await seedActiveBlueprint(tenant.id);
+    const sender = await seedGmailSender(tenant.id);
+    const campaignId = await createActiveCampaign(token, blueprint.id, sender.id, "gym");
+
+    // Simulate the blueprint losing its sections after the campaign was
+    // already active — same effective state a run-time null-check must
+    // survive (archived without ever generating, a bug in some other write
+    // path, etc.), not just the blueprint-delete guard's own path.
+    await adminDb().update(blueprints).set({ sections: null }).where(eq(blueprints.id, blueprint.id));
+
+    await expect(runAutomatedCampaigns(getServices())).resolves.not.toThrow();
+
+    const [campaign] = await adminDb()
+      .select()
+      .from(automatedCampaigns)
+      .where(eq(automatedCampaigns.id, campaignId));
+    expect(campaign.status).toBe("error");
+    expect(campaign.errorReason).toContain("blueprint");
+  });
+});
+
+describe("runAutomatedCampaigns — regenerating a blueprint mid-campaign never mutates already-generated sends", () => {
+  it("already-scheduled Day 0/3/7 copy is frozen at generation time, unaffected by a later blueprint regenerate", async () => {
+    const { tenant, token } = await makeUser("recruiter");
+    const blueprint = await seedActiveBlueprint(tenant.id);
+    const sender = await seedGmailSender(tenant.id);
+    const campaignId = await createActiveCampaign(token, blueprint.id, sender.id, "vet");
+
+    await runAutomatedCampaigns(getServices());
+
+    const sendsBefore = await sendsForCampaign(campaignId);
+    expect(sendsBefore).toHaveLength(15); // 5 leads x 3 steps
+    // The mock copywriter embeds whatWeOffer/differentiator verbatim, so this
+    // confirms the original copy really does reflect the ORIGINAL sections.
+    expect(sendsBefore.every((s) => s.body.includes("A scheduling tool"))).toBe(true);
+
+    // Regenerate the SAME blueprint row with entirely different sections —
+    // exactly what the wizard's "regenerate" flow does mid-campaign.
+    await adminDb()
+      .update(blueprints)
+      .set({
+        sections: {
+          ...MINIMAL_SECTIONS,
+          whatWeOffer: "A brand-new completely different offer",
+          differentiator: "Totally rewritten pitch",
+        },
+      })
+      .where(eq(blueprints.id, blueprint.id));
+
+    // The already-generated rows must be byte-for-byte unchanged — the
+    // pipeline snapshots subject/body into automated_sends at generation
+    // time and never re-reads the blueprint for a row that already has copy.
+    const sendsAfter = await sendsForCampaign(campaignId);
+    expect(sendsAfter).toHaveLength(15);
+    for (const before of sendsBefore) {
+      const after = sendsAfter.find((s) => s.id === before.id);
+      expect(after?.subject).toBe(before.subject);
+      expect(after?.body).toBe(before.body);
+      expect(after?.body.includes("A scheduling tool")).toBe(true);
+      expect(after?.body.includes("A brand-new completely different offer")).toBe(false);
+    }
+
+    // ...but a FRESH lead entering the pipeline after the regenerate really
+    // does get copy from the new sections — proving the "unchanged" check
+    // above isn't a coincidence of the mock always returning identical text.
+    const campaignId2 = await createActiveCampaign(token, blueprint.id, sender.id, "vet clinic");
+    await runAutomatedCampaigns(getServices());
+    const newSends = await sendsForCampaign(campaignId2);
+    expect(newSends.length).toBeGreaterThan(0);
+    expect(newSends.every((s) => s.body.includes("A brand-new completely different offer"))).toBe(true);
   });
 });
 

@@ -65,6 +65,10 @@ export const blueprintService = {
     // campaign referencing this blueprint (any status — a "completed" one
     // still reads it for historical display) would silently start failing
     // to resolve it, since getById filters out soft-deleted rows.
+    //
+    // The lock closes the race between this check and a concurrent campaign
+    // creation against the same blueprint — see lockForWrite's doc comment.
+    await blueprintRepo.lockForWrite(ctx, id);
     const linkedCampaigns = await automatedCampaignRepo.countByBlueprintId(ctx, id);
     if (linkedCampaigns > 0) {
       throw new Conflict(

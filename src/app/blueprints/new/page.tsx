@@ -44,6 +44,10 @@ export default function NewBlueprintPage() {
 
   // Step 3
   const [generating, setGenerating] = useState(false);
+  // Set once the draft row exists — reused on retry so a failed /generate
+  // call never causes a second /api/blueprints POST with the same name
+  // (which would 409 "already exists" and mask the real error).
+  const [draftBlueprintId, setDraftBlueprintId] = useState<string | null>(null);
 
   const toggleOption = (field: SuggestedField, option: string) => {
     setAnswers((prev) => {
@@ -105,11 +109,16 @@ export default function NewBlueprintPage() {
   const handleConfirmAnswers = async () => {
     setGenerating(true);
     try {
-      const created = await api.post<{ id: string }>("/api/blueprints", {
-        name: name.trim(),
-        websiteUrl: websiteUrl.trim(),
-      });
-      await api.post(`/api/blueprints/${created.id}/generate`, {
+      const id =
+        draftBlueprintId ??
+        (
+          await api.post<{ id: string }>("/api/blueprints", {
+            name: name.trim(),
+            websiteUrl: websiteUrl.trim(),
+          })
+        ).id;
+      setDraftBlueprintId(id);
+      await api.post(`/api/blueprints/${id}/generate`, {
         intakeAnswers: {
           businessName: suggestions?.businessName || name.trim(),
           websiteUrl: websiteUrl.trim(),
@@ -120,9 +129,13 @@ export default function NewBlueprintPage() {
       });
       toast.success("Blueprint generated");
       setStep(2);
-      router.push(`/blueprints/${created.id}`);
+      router.push(`/blueprints/${id}`);
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Failed to generate blueprint");
+      toast.error(
+        err instanceof ApiError
+          ? err.message
+          : "Blueprint generation failed — this is usually a brief hiccup with the AI provider. Please try again.",
+      );
     } finally {
       setGenerating(false);
     }
