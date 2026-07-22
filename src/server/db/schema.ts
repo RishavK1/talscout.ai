@@ -115,6 +115,12 @@ export const automatedCampaignStatus = pgEnum("automated_campaign_status", [
 export const automatedLeadStatus = pgEnum("automated_lead_status", [
   "discovered",
   "no_email",
+  /** Has a findable email but fails the blueprint's lead-qualification
+   *  criteria (e.g. campaign targets businesses without a website, but this
+   *  one already has a polished one). Unlike "no_email", kept visible in the
+   *  lead list (with `notes` explaining why) — this is a business decision
+   *  worth auditing, not bookkeeping noise. Never reaches copy generation. */
+  "disqualified",
   "ready",
   "queued",
   "sent",

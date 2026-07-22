@@ -1,0 +1,1 @@
+ALTER TYPE "public"."automated_lead_status" ADD VALUE 'disqualified' BEFORE 'ready';

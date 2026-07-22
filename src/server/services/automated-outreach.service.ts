@@ -12,6 +12,7 @@ import { getServices } from "@/server/container";
 import { toCredentials, generateMessageId } from "@/server/lib/automated-mail-credentials";
 import { NotFound, Conflict, BadRequest } from "@/server/http/errors";
 import { logger } from "@/server/observability/logger";
+import { RUN_AUTOMATED_CAMPAIGN_NOW_JOB } from "@/server/jobs/run-automated-campaign";
 import type {
   CreateAutomatedCampaignBody,
   UpdateAutomatedCampaignBody,
@@ -115,7 +116,23 @@ export const automatedOutreachService = {
     await assertSenderUsable(ctx, existing.senderAccountId, existing.replyPollingEnabled);
     const row = await automatedCampaignRepo.update(ctx, id, { status: "active" });
     if (!row) throw new NotFound("Campaign not found");
-    return row;
+    return {
+      result: row,
+      // Must run AFTER this transaction commits — enqueuing here (still
+      // inside withTenantTx) would let the job's own admin-scoped read see
+      // this row's PRE-update status (still "draft"/"paused"), since that
+      // read is on a separate connection and this write hasn't committed
+      // yet. See HandlerResult.afterCommit's doc comment in with-api.ts. A
+      // queue hiccup here must never fail the activation itself — the row
+      // is already "active" and the next cron sweep picks it up regardless.
+      afterCommit: async () => {
+        try {
+          await getServices().queue.enqueue(RUN_AUTOMATED_CAMPAIGN_NOW_JOB, { campaignId: id });
+        } catch (err) {
+          logger.warn({ err, campaignId: id }, "automated_campaign_run_now_enqueue_failed");
+        }
+      },
+    };
   },
 
   async listLeads(ctx: TenantContext, campaignId: string, query: ListAutomatedLeadsQuery) {

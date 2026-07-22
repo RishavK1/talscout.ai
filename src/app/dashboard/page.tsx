@@ -254,12 +254,12 @@ export default function DashboardPage() {
                 { href: "/automated-outreach/new", icon: "auto_awesome", label: "New campaign" },
               ].map((action) => (
                 <Link key={action.href} href={action.href}>
-                  <Card className="h-full [--card-spacing:--spacing(3.5)] hover:border-primary-container/40 hover:bg-primary-container/[0.04] transition-colors">
-                    <CardContent className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-container/10 text-primary-container">
-                        <span className="material-symbols-outlined text-[20px]">{action.icon}</span>
+                  <Card className="h-full [--card-spacing:--spacing(5)] hover:border-primary-container/40 hover:bg-primary-container/[0.04] transition-colors">
+                    <CardContent className="flex items-center gap-4">
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary-container/10 text-primary-container">
+                        <span className="material-symbols-outlined text-[24px]">{action.icon}</span>
                       </div>
-                      <span className="font-label-md text-label-md text-on-surface font-medium">{action.label}</span>
+                      <span className="font-body-md text-[15px] text-on-surface font-semibold">{action.label}</span>
                     </CardContent>
                   </Card>
                 </Link>

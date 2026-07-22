@@ -42,6 +42,9 @@ import { WaterfallEmailFinder } from "@/server/adapters/waterfall.email-finder";
 import { MockOutreachCopywriter } from "@/server/adapters/mock.outreach-copywriter";
 import { GeminiOutreachCopywriter } from "@/server/adapters/gemini.outreach-copywriter";
 import { OpenRouterOutreachCopywriter } from "@/server/adapters/openrouter.outreach-copywriter";
+import { MockLeadQualifier } from "@/server/adapters/mock.lead-qualifier";
+import { GeminiLeadQualifier } from "@/server/adapters/gemini.lead-qualifier";
+import { OpenRouterLeadQualifier } from "@/server/adapters/openrouter.lead-qualifier";
 import { MockReplyDrafter } from "@/server/adapters/mock.reply-drafter";
 import { GeminiReplyDrafter } from "@/server/adapters/gemini.reply-drafter";
 import { OpenRouterReplyDrafter } from "@/server/adapters/openrouter.reply-drafter";
@@ -49,6 +52,7 @@ import {
   FallbackBlueprintResearcher,
   FallbackBlueprintGenerator,
   FallbackOutreachCopywriter,
+  FallbackLeadQualifier,
   FallbackReplyDrafter,
 } from "@/server/adapters/fallback-ai";
 import { InProcessQueue } from "@/server/adapters/inprocess.queue";
@@ -91,7 +95,9 @@ import {
 } from "@/server/jobs/sync-whatsapp-templates";
 import {
   runAutomatedCampaigns,
+  runAutomatedCampaignNow,
   RUN_AUTOMATED_CAMPAIGN_JOB,
+  RUN_AUTOMATED_CAMPAIGN_NOW_JOB,
 } from "@/server/jobs/run-automated-campaign";
 import {
   pollAutomatedReplies,
@@ -129,6 +135,7 @@ export function getServices(): Services {
       blueprintGenerator: new MockBlueprintGenerator(),
       leadDiscovery: new MockLeadDiscovery(),
       emailFinder: new MockEmailFinder(),
+      leadQualifier: new MockLeadQualifier(),
       outreachCopywriter: new MockOutreachCopywriter(),
       replyDrafter: new MockReplyDrafter(),
     };
@@ -176,6 +183,9 @@ export function getServices(): Services {
     // a manual enqueue (e.g. from a test) still resolves to a handler.
     queue.register(RUN_AUTOMATED_CAMPAIGN_JOB, () =>
       runAutomatedCampaigns(services as Services),
+    );
+    queue.register(RUN_AUTOMATED_CAMPAIGN_NOW_JOB, (payload) =>
+      runAutomatedCampaignNow((payload as { campaignId: string }).campaignId, services as Services),
     );
     queue.register(POLL_AUTOMATED_REPLIES_JOB, () =>
       pollAutomatedReplies(services as Services),
@@ -288,6 +298,16 @@ export function getServices(): Services {
         ? new FallbackOutreachCopywriter(geminiOutreachCopywriter, openRouterOutreachCopywriter)
         : (geminiOutreachCopywriter ?? openRouterOutreachCopywriter ?? new MockOutreachCopywriter());
 
+    // Same Gemini-primary / OpenRouter-last-resort-fallback pattern — only
+    // ever called for the one case run-automated-campaign.ts's own free
+    // rule-based checks can't decide (see qualifyLeadCheaply there).
+    const geminiLeadQualifier = env.GEMINI_API_KEY ? new GeminiLeadQualifier() : null;
+    const openRouterLeadQualifier = env.OPENROUTER_API_KEY ? new OpenRouterLeadQualifier() : null;
+    const leadQualifier =
+      geminiLeadQualifier && openRouterLeadQualifier
+        ? new FallbackLeadQualifier(geminiLeadQualifier, openRouterLeadQualifier)
+        : (geminiLeadQualifier ?? openRouterLeadQualifier ?? new MockLeadQualifier());
+
     const geminiReplyDrafter = env.GEMINI_API_KEY ? new GeminiReplyDrafter() : null;
     const openRouterReplyDrafter = env.OPENROUTER_API_KEY ? new OpenRouterReplyDrafter() : null;
     const replyDrafter =
@@ -311,6 +331,7 @@ export function getServices(): Services {
       blueprintGenerator,
       leadDiscovery,
       emailFinder,
+      leadQualifier,
       outreachCopywriter,
       replyDrafter,
     };
@@ -347,6 +368,9 @@ export function getServices(): Services {
       );
       queue.register(RUN_AUTOMATED_CAMPAIGN_JOB, () =>
         runAutomatedCampaigns(services as Services),
+      );
+      queue.register(RUN_AUTOMATED_CAMPAIGN_NOW_JOB, (payload) =>
+        runAutomatedCampaignNow((payload as { campaignId: string }).campaignId, services as Services),
       );
       queue.register(POLL_AUTOMATED_REPLIES_JOB, () =>
         pollAutomatedReplies(services as Services),

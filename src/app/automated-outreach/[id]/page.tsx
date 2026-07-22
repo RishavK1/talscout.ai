@@ -31,7 +31,8 @@ interface AutomatedLead {
   addressText: string | null;
   email: string | null;
   emailSource: "site_scrape" | "hunter" | "apollo" | "google_places" | "osm" | "firecrawl" | "snov" | "none";
-  status: "discovered" | "ready" | "queued" | "sent" | "replied" | "failed" | "skipped";
+  status: "discovered" | "disqualified" | "ready" | "queued" | "sent" | "replied" | "failed" | "skipped";
+  notes: string | null;
   discoveredAt: string;
 }
 
@@ -53,6 +54,7 @@ const CAMPAIGN_STATUS_LABEL: Record<AutomatedCampaign["status"], string> = {
 
 const LEAD_STATUS_TONE: Record<Exclude<AutomatedLead["status"], "replied">, NonNullable<StatusBadgeProps["tone"]>> = {
   discovered: "neutral",
+  disqualified: "neutral",
   ready: "brass",
   queued: "invited",
   sent: "active",
@@ -62,6 +64,7 @@ const LEAD_STATUS_TONE: Record<Exclude<AutomatedLead["status"], "replied">, NonN
 
 const LEAD_STATUS_LABEL: Record<AutomatedLead["status"], string> = {
   discovered: "Discovered",
+  disqualified: "Disqualified",
   ready: "Ready",
   queued: "Queued",
   sent: "Sent",
@@ -262,7 +265,11 @@ export default function AutomatedCampaignDetailPage({
     {
       key: "status",
       header: "Status",
-      render: (lead) => <LeadStatusPill status={lead.status} />,
+      render: (lead) => (
+        <div title={lead.status === "disqualified" ? (lead.notes ?? undefined) : undefined}>
+          <LeadStatusPill status={lead.status} />
+        </div>
+      ),
     },
   ];
 

@@ -11,6 +11,9 @@ import type {
   ReplyDrafter,
   ReplyDraftRequest,
   ReplyDraftResult,
+  LeadQualifier,
+  LeadQualifierInput,
+  LeadQualifierResult,
 } from "@/server/ports";
 
 /**
@@ -67,6 +70,22 @@ export class FallbackOutreachCopywriter implements OutreachCopywriter {
     } catch (err) {
       logger.warn({ err }, "outreach_copywriter_primary_failed_falling_back_to_openrouter");
       return this.fallback.generateEmail(input);
+    }
+  }
+}
+
+export class FallbackLeadQualifier implements LeadQualifier {
+  constructor(
+    private primary: LeadQualifier,
+    private fallback: LeadQualifier,
+  ) {}
+
+  async qualify(input: LeadQualifierInput): Promise<LeadQualifierResult> {
+    try {
+      return await this.primary.qualify(input);
+    } catch (err) {
+      logger.warn({ err }, "lead_qualifier_primary_failed_falling_back_to_openrouter");
+      return this.fallback.qualify(input);
     }
   }
 }

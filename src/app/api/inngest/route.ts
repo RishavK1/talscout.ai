@@ -19,7 +19,7 @@ import {
   type SendOutreachWhatsAppPayload,
 } from "@/server/jobs/send-outreach-whatsapp";
 import { syncWhatsAppTemplates } from "@/server/jobs/sync-whatsapp-templates";
-import { runAutomatedCampaigns } from "@/server/jobs/run-automated-campaign";
+import { runAutomatedCampaigns, runAutomatedCampaignNow } from "@/server/jobs/run-automated-campaign";
 import { pollAutomatedReplies } from "@/server/jobs/poll-automated-replies";
 import type { StepRun } from "@/server/jobs/step-runner";
 import {
@@ -291,6 +291,39 @@ const runAutomatedCampaignsFunction = inngest.createFunction(
   }
 );
 
+/**
+ * Event-triggered (NOT cron) — enqueued once, right when a campaign is
+ * activated (see automated-outreach.service.ts's activateCampaign), so the
+ * first discovery run happens within seconds instead of waiting for the
+ * next fixed cron slot (up to 6 hours away). Runs the exact same
+ * discover→enrich→qualify→generate→send pipeline, scoped to just this one
+ * campaign, with the same step-checkpointing and error isolation as the
+ * cron sweep. `concurrency` is keyed per-campaign (not global limit:1 like
+ * the sweep) so activating several campaigns at once doesn't queue behind
+ * each other, but the SAME campaign can't have two overlapping runs (this
+ * event racing a cron tick that happens to land at the same moment).
+ */
+const runAutomatedCampaignNowFunction = inngest.createFunction(
+  {
+    id: "run-automated-campaign-now",
+    name: "Automated Outreach Campaign — Run Now (on activation)",
+    triggers: [{ event: "job/run-automated-campaign-now" }],
+    concurrency: { limit: 1, key: "event.data.campaignId" },
+  },
+  async ({
+    event,
+    step,
+  }: {
+    event: { data: { campaignId: string } };
+    step: GetStepTools<typeof inngest>;
+  }) => {
+    const services = getServices();
+    const stepRun: StepRun = <T,>(id: string, fn: () => Promise<T>) =>
+      step.run(id, fn) as unknown as Promise<T>;
+    await runAutomatedCampaignNow(event.data.campaignId, services, stepRun);
+  }
+);
+
 /** Cron-triggered reply poll for automated-outreach campaigns — drafts
  *  AI replies for human review, never sends anything itself.
  *
@@ -324,6 +357,7 @@ export const { GET, POST, PUT } = serve({
     sendOutreachWhatsappFunction,
     syncWhatsAppTemplatesFunction,
     runAutomatedCampaignsFunction,
+    runAutomatedCampaignNowFunction,
     pollAutomatedRepliesFunction,
     sendAutomatedEmailFunction,
   ],

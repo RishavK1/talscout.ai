@@ -100,7 +100,7 @@ export default function AutomatedOutreachPage() {
                 </p>
               </div>
             </div>
-            <Button asChild variant="gradient" className="w-full justify-center sm:w-auto">
+            <Button asChild variant="gradient" size="lg" className="w-full justify-center sm:w-auto">
               <Link href="/automated-outreach/new">
                 <span className="material-symbols-outlined text-[20px] transition-transform group-hover/button:rotate-90">add_circle</span>
                 New campaign

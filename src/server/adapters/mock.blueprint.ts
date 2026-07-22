@@ -4,6 +4,7 @@ import type {
   BlueprintSuggestions,
   BlueprintIntakeAnswers,
   BlueprintSections,
+  BlueprintLeadQualification,
 } from "@/server/ports";
 
 /**
@@ -25,6 +26,7 @@ const FIELD_QUESTIONS: { field: string; question: string; multi: boolean }[] = [
   { field: "proof", question: "What proof points back that up?", multi: true },
   { field: "voice", question: "What tone should outreach use?", multi: false },
   { field: "objections", question: "What objections do prospects raise?", multi: true },
+  { field: "websiteRequirement", question: "Does a good lead already have a website, or not?", multi: false },
 ];
 
 export class MockBlueprintResearcher implements BlueprintResearcher {
@@ -82,9 +84,21 @@ function optionsFor(field: string, name: string): string[] {
         "Already using a competitor",
         "No time to switch",
       ];
+    case "websiteRequirement":
+      return [
+        "No preference",
+        "Target businesses WITHOUT a good website",
+        "Target businesses that already HAVE a website",
+      ];
     default:
       return ["Option A", "Option B", "Option C"];
   }
+}
+
+function mapWebsiteRequirement(answer: string): BlueprintLeadQualification["websiteRequirement"] {
+  if (answer.includes("WITHOUT")) return "no_or_weak_site";
+  if (answer.includes("already HAVE")) return "has_site";
+  return "any";
 }
 
 export class MockBlueprintGenerator implements BlueprintGenerator {
@@ -121,6 +135,10 @@ export class MockBlueprintGenerator implements BlueprintGenerator {
         "Never invent facts not grounded in this blueprint.",
         "Keep emails short, specific, and personalized.",
       ],
+      leadQualification: {
+        websiteRequirement: mapWebsiteRequirement(one("websiteRequirement", "No preference")),
+        criteria: [],
+      },
     };
   }
 }

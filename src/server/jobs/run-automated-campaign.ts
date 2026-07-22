@@ -13,7 +13,8 @@ import {
 import { SEND_AUTOMATED_EMAIL_JOB } from "@/server/jobs/send-automated-email";
 import { inlineStepRun, type StepRun } from "@/server/jobs/step-runner";
 import { logger } from "@/server/observability/logger";
-import type { Services, BlueprintSections } from "@/server/ports";
+import { normalizeLeadQualification } from "@/server/lib/lead-qualification";
+import type { Services, BlueprintSections, BlueprintLeadQualification } from "@/server/ports";
 import type { automatedCampaigns, automatedLeads } from "@/server/db/schema";
 
 /** Minutes per pacing block — mirrors Bulk Fire's default `blockMinutes`
@@ -67,15 +68,45 @@ export async function runAutomatedCampaigns(
 ): Promise<void> {
   const campaigns = await automatedCampaignRepo.listActiveAdmin();
   for (const campaign of campaigns) {
-    try {
-      await runOneCampaign(campaign, services, stepRun);
-    } catch (err) {
-      logger.error({ err, campaignId: campaign.id }, "automated_campaign_run_failed");
-      await automatedCampaignRepo.setErrorAdmin(
-        campaign.id,
-        err instanceof Error ? err.message : "automated_campaign_run_failed",
-      );
-    }
+    await runOneCampaignIsolated(campaign, services, stepRun);
+  }
+}
+
+/** Runs a single campaign immediately, outside the 6-hour cron cadence —
+ *  triggered right when a campaign is activated (see
+ *  automated-outreach.service.ts's activateCampaign) so "click Activate"
+ *  discovers its first leads in seconds, not up to 6 hours later. Reuses
+ *  the exact same discover/enrich/qualify/generate/send pipeline and error
+ *  isolation as the cron sweep — a failure here marks only this campaign
+ *  "error", same as a failure mid-sweep would. */
+export async function runAutomatedCampaignNow(
+  campaignId: string,
+  services: Services,
+  stepRun: StepRun = inlineStepRun,
+): Promise<void> {
+  const campaign = await automatedCampaignRepo.getByIdAdmin(campaignId);
+  if (!campaign || campaign.status !== "active") {
+    // Defensive no-op: the campaign could have been paused/deleted in the
+    // gap between the activation request enqueueing this job and it running.
+    logger.warn({ campaignId }, "automated_campaign_run_now_skipped_not_active");
+    return;
+  }
+  await runOneCampaignIsolated(campaign, services, stepRun);
+}
+
+async function runOneCampaignIsolated(
+  campaign: Campaign,
+  services: Services,
+  stepRun: StepRun,
+): Promise<void> {
+  try {
+    await runOneCampaign(campaign, services, stepRun);
+  } catch (err) {
+    logger.error({ err, campaignId: campaign.id }, "automated_campaign_run_failed");
+    await automatedCampaignRepo.setErrorAdmin(
+      campaign.id,
+      err instanceof Error ? err.message : "automated_campaign_run_failed",
+    );
   }
 }
 
@@ -87,6 +118,20 @@ async function runOneCampaign(
   const tenantId = campaign.tenantId;
   const cid = campaign.id;
 
+  // Fetched up front (not just before copy generation, as before) — lead
+  // qualification during discovery/enrichment below needs the blueprint's
+  // `leadQualification` criteria just as much as copy generation needs its
+  // other sections.
+  const blueprint = await withTenantTx({ tenantId }, (ctx) =>
+    blueprintRepo.getById(ctx, campaign.blueprintId),
+  );
+  if (!blueprint?.sections) {
+    logger.warn({ campaignId: campaign.id }, "automated_campaign_blueprint_unusable_skipping_send");
+    return;
+  }
+  const sections = blueprint.sections as BlueprintSections;
+  const styleExamples = (campaign.styleExamples as string[] | null) ?? undefined;
+
   // ---- Phase 1: discover (one step) ----
   // `maxLeadsPerRun` is a target of USABLE (email-bearing) leads, not raw
   // discoveries — most raw candidates have no findable email, so stopping at
@@ -96,7 +141,7 @@ async function runOneCampaign(
   // pool up front and let enrichment below chew through it until the target
   // is met or the pool runs out.
   const { readyFound: readyFromDiscovery } = await stepRun(`discover-${cid}`, () =>
-    discoverPhase(campaign, services, tenantId),
+    discoverPhase(campaign, services, tenantId, sections),
   );
 
   // ---- Phase 2: enrich (email-finder waterfall) until the target is met ----
@@ -113,7 +158,7 @@ async function runOneCampaign(
   while (readyFound < campaign.maxLeadsPerRun && enrichedThisTick < ENRICH_BUDGET_PER_TICK) {
     const batchLimit = Math.min(ENRICH_BATCH_SIZE, ENRICH_BUDGET_PER_TICK - enrichedThisTick);
     const batchResult = await stepRun(`enrich-${cid}-${enrichBatchIndex}`, () =>
-      enrichBatch(campaign, services, tenantId, batchLimit),
+      enrichBatch(campaign, services, tenantId, batchLimit, sections),
     );
     enrichBatchIndex++;
     if (batchResult.processed === 0) break; // pool exhausted
@@ -122,15 +167,6 @@ async function runOneCampaign(
   }
 
   // ---- Phase 3: generate copy, gated by the 50/day cap ----
-  const blueprint = await withTenantTx({ tenantId }, (ctx) =>
-    blueprintRepo.getById(ctx, campaign.blueprintId),
-  );
-  if (!blueprint?.sections) {
-    logger.warn({ campaignId: campaign.id }, "automated_campaign_blueprint_unusable_skipping_send");
-    return;
-  }
-  const sections = blueprint.sections as BlueprintSections;
-  const styleExamples = (campaign.styleExamples as string[] | null) ?? undefined;
 
   // Budget is an ESTIMATE used to bound how many (potentially slow) AI calls
   // we attempt — the AUTHORITATIVE cap check happens later, in a short
@@ -171,25 +207,96 @@ async function runOneCampaign(
   await stepRun(`schedule-and-enqueue-${cid}`, () => scheduleAndEnqueue(campaign, generated, tenantId, services));
 }
 
+/** The free, no-AI-call path — resolves everything except the one genuinely
+ *  ambiguous case (campaign wants businesses WITHOUT a good website, and
+ *  this lead has a website URL, so whether this specific site counts as
+ *  "good" needs real judgment). Returns null when that judgment call is the
+ *  only thing left to decide. */
+function qualifyLeadCheaply(
+  q: BlueprintLeadQualification,
+  lead: { website?: string | null },
+): { qualified: boolean; reason: string } | null {
+  const hasWebsite = !!lead.website;
+  if (q.websiteRequirement === "any") {
+    return { qualified: true, reason: "No targeting restriction" };
+  }
+  if (q.websiteRequirement === "no_or_weak_site") {
+    return hasWebsite
+      ? null
+      : { qualified: true, reason: "No website found — matches target profile" };
+  }
+  // "has_site"
+  return hasWebsite
+    ? { qualified: true, reason: "Has an existing website" }
+    : { qualified: false, reason: "No website found — campaign targets businesses with an existing site" };
+}
+
+async function qualifyLead(
+  services: Services,
+  sections: BlueprintSections,
+  lead: { businessName: string; category?: string | null; website?: string | null },
+): Promise<{ qualified: boolean; reason: string }> {
+  const q = normalizeLeadQualification(sections.leadQualification);
+  const cheap = qualifyLeadCheaply(q, lead);
+  if (cheap) return cheap;
+  try {
+    return await services.leadQualifier.qualify({
+      blueprint: sections,
+      lead: {
+        businessName: lead.businessName,
+        category: lead.category ?? undefined,
+        website: lead.website ?? undefined,
+      },
+    });
+  } catch (err) {
+    logger.warn({ err }, "automated_lead_qualification_failed_defaulting_to_qualified");
+    return { qualified: true, reason: "Qualification check failed — defaulting to include" };
+  }
+}
+
 async function discoverPhase(
   campaign: Campaign,
   services: Services,
   tenantId: string,
+  sections: BlueprintSections,
 ): Promise<{ readyFound: number }> {
   const discoveryQuery = campaign.discoveryQuery as {
     category: string;
     location: { lat: number; lon: number; radiusMeters: number } | { text: string };
   };
-  const discovered = await services.leadDiscovery.discover({
-    category: discoveryQuery.category,
-    location: discoveryQuery.location,
-    limit: Math.min(campaign.maxLeadsPerRun * DISCOVERY_POOL_MULTIPLIER, DISCOVERY_POOL_CAP),
-  });
+  let discovered;
+  try {
+    discovered = await services.leadDiscovery.discover({
+      category: discoveryQuery.category,
+      location: discoveryQuery.location,
+      limit: Math.min(campaign.maxLeadsPerRun * DISCOVERY_POOL_MULTIPLIER, DISCOVERY_POOL_CAP),
+    });
+  } catch (err) {
+    // A transient discovery-provider outage must never permanently halt the
+    // campaign (runAutomatedCampaigns' outer catch would mark it "error" and
+    // it's excluded from every future cron tick — unrecoverable without a
+    // human noticing days later). Skip this tick; the next one retries
+    // discovery fresh, same as enrichBatch already does for email-finder.
+    logger.warn({ err, campaignId: campaign.id }, "automated_campaign_discovery_failed_skipping_tick");
+    return { readyFound: 0 };
+  }
   const inserted = await withTenantTx({ tenantId }, (ctx) =>
     automatedLeadRepo.upsertDiscovered(ctx, campaign.id, discovered),
   );
   await automatedCampaignRepo.setLastDiscoveryRunAtAdmin(campaign.id, new Date());
-  return { readyFound: inserted.filter((l) => l.status === "ready").length };
+
+  // Leads that arrived already "ready" via an OSM email tag bypass
+  // enrichBatch entirely — qualify them here instead, before they're counted.
+  let readyFound = 0;
+  for (const lead of inserted.filter((l) => l.status === "ready")) {
+    const { qualified, reason } = await qualifyLead(services, sections, lead);
+    if (qualified) {
+      readyFound++;
+    } else {
+      await withTenantTx({ tenantId }, (ctx) => automatedLeadRepo.setDisqualified(ctx, lead.id, reason));
+    }
+  }
+  return { readyFound };
 }
 
 async function enrichBatch(
@@ -197,6 +304,7 @@ async function enrichBatch(
   services: Services,
   tenantId: string,
   limit: number,
+  sections: BlueprintSections,
 ): Promise<{ processed: number; readyDelta: number }> {
   const pending = await withTenantTx({ tenantId }, (ctx) =>
     automatedLeadRepo.listPendingEnrichment(ctx, campaign.id, limit),
@@ -213,15 +321,22 @@ async function enrichBatch(
       logger.warn({ err, leadId: lead.id }, "automated_lead_enrich_failed");
       result = null;
     }
-    if (result) readyDelta++;
+    if (!result) {
+      await withTenantTx({ tenantId }, (ctx) =>
+        automatedLeadRepo.markNoEmail(ctx, lead.id, "no email found via any configured source"),
+      );
+      continue;
+    }
+    const { qualified, reason } = await qualifyLead(services, sections, lead);
+    if (qualified) readyDelta++;
     await withTenantTx({ tenantId }, (ctx) =>
-      result
-        ? automatedLeadRepo.markEnriched(ctx, lead.id, {
-            email: result.email,
-            emailSource: result.source,
-            emailConfidence: result.confidence,
-          })
-        : automatedLeadRepo.markNoEmail(ctx, lead.id, "no email found via any configured source"),
+      automatedLeadRepo.markEnriched(ctx, lead.id, {
+        email: result.email,
+        emailSource: result.source,
+        emailConfidence: result.confidence,
+        status: qualified ? "ready" : "disqualified",
+        notes: reason,
+      }),
     );
   }
   return { processed: pending.length, readyDelta };
@@ -337,3 +452,7 @@ async function scheduleAndEnqueue(
 }
 
 export const RUN_AUTOMATED_CAMPAIGN_JOB = "runAutomatedCampaign";
+/** Enqueued once, right when a campaign is activated — see
+ *  automated-outreach.service.ts's activateCampaign and
+ *  runAutomatedCampaignNow above. */
+export const RUN_AUTOMATED_CAMPAIGN_NOW_JOB = "runAutomatedCampaignNow";

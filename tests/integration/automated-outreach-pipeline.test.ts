@@ -41,6 +41,23 @@ async function seedActiveBlueprint(tenantId: string, name = "Acme Offer") {
   return row;
 }
 
+async function seedQualifyingBlueprint(
+  tenantId: string,
+  websiteRequirement: "no_or_weak_site" | "has_site",
+  name: string,
+) {
+  const [row] = await adminDb()
+    .insert(blueprints)
+    .values({
+      tenantId,
+      name,
+      status: "active",
+      sections: { ...MINIMAL_SECTIONS, leadQualification: { websiteRequirement, criteria: [] } },
+    })
+    .returning();
+  return row;
+}
+
 async function seedGmailSender(tenantId: string, email = "a@test.local") {
   const [row] = await adminDb()
     .insert(senderAccounts)
@@ -203,10 +220,12 @@ describe("runAutomatedCampaigns — discover → enrich → generate → schedul
     const { tenant, token } = await makeUser("recruiter");
     const blueprint = await seedActiveBlueprint(tenant.id);
     const sender = await seedGmailSender(tenant.id);
-    const campaignId = await createActiveCampaign(token, blueprint.id, sender.id, "gym");
 
-    // Pad today's automated-send count to 48 via a filler campaign, so only
-    // 2 slots remain under the 50/day cap.
+    // Pad today's automated-send count to 48 via a filler campaign BEFORE
+    // activating the real campaign below — activation now triggers an
+    // immediate run (resumeCampaign's afterCommit), so the cap must already
+    // be in place for THAT run to be the one that gets truncated to the 2
+    // slots left, rather than the explicit sweep at the end of this test.
     const fillerBlueprint = await seedActiveBlueprint(tenant.id, "Filler Offer");
     const fillerCampaign = await call(createCampaignPOST, {
       token,
@@ -243,6 +262,10 @@ describe("runAutomatedCampaigns — discover → enrich → generate → schedul
       );
     });
 
+    const campaignId = await createActiveCampaign(token, blueprint.id, sender.id, "gym");
+
+    // A subsequent sweep must not double-process what activation's
+    // immediate run already handled.
     await runAutomatedCampaigns(getServices());
 
     const sends = await sendsForCampaign(campaignId);
@@ -253,5 +276,81 @@ describe("runAutomatedCampaigns — discover → enrich → generate → schedul
     const readyLeads = leads.filter((l) => l.status === "ready");
     expect(queuedLeads).toHaveLength(2);
     expect(readyLeads).toHaveLength(3); // left for the next tick, not lost
+  });
+});
+
+describe("runAutomatedCampaigns — lead qualification gate", () => {
+  it("regression: a blueprint with no leadQualification (or websiteRequirement 'any') behaves exactly as before — every enriched lead reaches ready", async () => {
+    const { tenant, token } = await makeUser("recruiter");
+    const blueprint = await seedActiveBlueprint(tenant.id); // MINIMAL_SECTIONS has no leadQualification
+    const sender = await seedGmailSender(tenant.id);
+    const campaignId = await createActiveCampaign(token, blueprint.id, sender.id, "florist");
+
+    await runAutomatedCampaigns(getServices());
+
+    const leads = await leadsForCampaign(campaignId);
+    expect(leads).toHaveLength(5);
+    expect(leads.every((l) => l.status === "queued")).toBe(true);
+  });
+
+  it("'no_or_weak_site' + no website found → auto-qualifies without a qualifier call", async () => {
+    const { tenant, token } = await makeUser("recruiter");
+    const blueprint = await seedQualifyingBlueprint(tenant.id, "no_or_weak_site", "Website Builder Offer");
+    const sender = await seedGmailSender(tenant.id);
+    const campaignId = await createActiveCampaign(token, blueprint.id, sender.id, "plumber %%NOWEBSITE%%");
+
+    await runAutomatedCampaigns(getServices());
+
+    const leads = await leadsForCampaign(campaignId);
+    expect(leads).toHaveLength(5);
+    expect(leads.every((l) => l.status === "queued")).toBe(true);
+    expect(leads.every((l) => !l.website)).toBe(true);
+  });
+
+  it("'has_site' + no website found → auto-disqualified, never reaches copy/send", async () => {
+    const { tenant, token } = await makeUser("recruiter");
+    const blueprint = await seedQualifyingBlueprint(tenant.id, "has_site", "SEO Audit Offer");
+    const sender = await seedGmailSender(tenant.id);
+    const campaignId = await createActiveCampaign(token, blueprint.id, sender.id, "salon %%NOWEBSITE%%");
+
+    await runAutomatedCampaigns(getServices());
+
+    const leads = await leadsForCampaign(campaignId);
+    expect(leads).toHaveLength(5);
+    expect(leads.every((l) => l.status === "disqualified")).toBe(true);
+    expect(leads.every((l) => l.notes?.includes("targets businesses with an existing site"))).toBe(true);
+
+    const sends = await sendsForCampaign(campaignId);
+    expect(sends).toHaveLength(0);
+
+    // Disqualified leads stay visible (unlike no_email) — the founder wants
+    // to see *why* a business was skipped, not have it silently vanish.
+    const apiLeads = await call(listLeadsGET, { token, routeCtx: params(campaignId) });
+    expect(apiLeads.json.data.leads).toHaveLength(5);
+  });
+
+  it("'no_or_weak_site' + website present → routes through the lead qualifier, both outcomes land the right status + reason", async () => {
+    const { tenant, token } = await makeUser("recruiter");
+    const blueprint = await seedQualifyingBlueprint(tenant.id, "no_or_weak_site", "Web Design Offer");
+    const sender = await seedGmailSender(tenant.id);
+    // MockLeadDiscovery embeds a %%POLISHED%% marker in every generated
+    // website when the category sentinel is present — MockLeadQualifier
+    // reads that as "already has a great site" (disqualified).
+    const campaignId = await createActiveCampaign(token, blueprint.id, sender.id, "dentist %%POLISHED%%");
+
+    await runAutomatedCampaigns(getServices());
+
+    const leads = await leadsForCampaign(campaignId);
+    expect(leads).toHaveLength(5);
+    expect(leads.every((l) => l.website)).toBe(true);
+    expect(leads.every((l) => l.status === "disqualified")).toBe(true);
+    expect(leads.every((l) => l.notes?.includes("polished"))).toBe(true);
+
+    // Same setup WITHOUT the polish marker — the qualifier should let it through.
+    const campaignId2 = await createActiveCampaign(token, blueprint.id, sender.id, "dentist");
+    await runAutomatedCampaigns(getServices());
+    const leads2 = await leadsForCampaign(campaignId2);
+    expect(leads2).toHaveLength(5);
+    expect(leads2.every((l) => l.status === "queued")).toBe(true);
   });
 });

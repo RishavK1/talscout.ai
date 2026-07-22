@@ -358,6 +358,24 @@ export interface BlueprintPersona {
   description?: string;
 }
 
+/** Machine-checkable lead-fit criteria — generated alongside the other
+ *  sections, used to gate the discover→enrich→copy pipeline so a campaign
+ *  only pitches businesses that actually need what's being sold (e.g. a
+ *  web-design campaign shouldn't email a business that already has a great
+ *  site). Optional so existing blueprints (generated before this field
+ *  existed) read as "any" — no restriction, no behavior change. */
+export interface BlueprintLeadQualification {
+  websiteRequirement: "any" | "no_or_weak_site" | "has_site";
+  /** Free-text extra fit/disqualifying signals beyond website presence,
+   *  reasoned over by the lead qualifier AI — e.g. "must be an independent
+   *  local business, not part of a franchise chain". */
+  criteria: string[];
+}
+export const DEFAULT_LEAD_QUALIFICATION: BlueprintLeadQualification = {
+  websiteRequirement: "any",
+  criteria: [],
+};
+
 /** The generated business-context artifact. Stored as jsonb on `blueprints`
  *  and (next phase) read by the email writer to produce per-lead copy. */
 export interface BlueprintSections {
@@ -372,6 +390,7 @@ export interface BlueprintSections {
   voice: string;
   objections: string[];
   rules: string[];
+  leadQualification?: BlueprintLeadQualification;
 }
 
 export interface BlueprintGenerator {
@@ -436,6 +455,26 @@ export interface EmailFinderResult {
  *  lead with no findable email must never enter the send pipeline. */
 export interface EmailFinder {
   find(args: { website?: string; businessName: string }): Promise<EmailFinderResult | null>;
+}
+
+export interface LeadQualifierInput {
+  blueprint: BlueprintSections;
+  lead: { businessName: string; category?: string; website?: string };
+}
+export interface LeadQualifierResult {
+  qualified: boolean;
+  reason: string;
+}
+
+/** Judges a single lead against the blueprint's `leadQualification` criteria
+ *  — only ever called when the free rule-based checks in
+ *  run-automated-campaign.ts can't decide on their own (i.e. the lead has a
+ *  website and the campaign targets businesses WITHOUT a good one, so
+ *  whether this specific site counts as "good" needs real judgment). MUST
+ *  default to qualified:true when genuinely unsure — a wasted email is
+ *  cheaper than silently dropping a good lead. */
+export interface LeadQualifier {
+  qualify(input: LeadQualifierInput): Promise<LeadQualifierResult>;
 }
 
 export interface OutreachCopyRequest {
@@ -512,6 +551,7 @@ export interface Services {
   blueprintGenerator: BlueprintGenerator;
   leadDiscovery: LeadDiscovery;
   emailFinder: EmailFinder;
+  leadQualifier: LeadQualifier;
   outreachCopywriter: OutreachCopywriter;
   replyDrafter: ReplyDrafter;
 }

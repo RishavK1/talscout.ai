@@ -16,6 +16,19 @@ interface BlueprintOption {
   name: string;
   status: "draft" | "active" | "archived";
 }
+interface BlueprintLeadQualification {
+  websiteRequirement: "any" | "no_or_weak_site" | "has_site";
+  criteria: string[];
+}
+interface BlueprintDetail {
+  id: string;
+  sections: { whoItsFor: string; leadQualification?: BlueprintLeadQualification } | null;
+}
+const WEBSITE_REQUIREMENT_LABEL: Record<BlueprintLeadQualification["websiteRequirement"], string> = {
+  any: "No restriction — any business matching category/location qualifies.",
+  no_or_weak_site: "Only businesses WITHOUT a good website qualify — others are skipped automatically.",
+  has_site: "Only businesses that already HAVE a website qualify — others are skipped automatically.",
+};
 interface SenderOption {
   id: string;
   type: "gmail" | "smtp" | "whatsapp";
@@ -30,6 +43,7 @@ export default function NewAutomatedCampaignPage() {
   const [blueprints, setBlueprints] = useState<BlueprintOption[]>([]);
   const [senders, setSenders] = useState<SenderOption[]>([]);
   const [loadingOptions, setLoadingOptions] = useState(true);
+  const [selectedBlueprint, setSelectedBlueprint] = useState<BlueprintDetail | null>(null);
 
   const [name, setName] = useState("");
   const [blueprintId, setBlueprintId] = useState("");
@@ -60,6 +74,25 @@ export default function NewAutomatedCampaignPage() {
       }
     })();
   }, []);
+
+  useEffect(() => {
+    if (!blueprintId) {
+      setSelectedBlueprint(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await api.get<BlueprintDetail>(`/api/blueprints/${blueprintId}`);
+        if (!cancelled) setSelectedBlueprint(res);
+      } catch {
+        if (!cancelled) setSelectedBlueprint(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [blueprintId]);
 
   const selectedSender = senders.find((s) => s.id === senderAccountId);
   const senderQualifiesForReplyPolling =
@@ -124,7 +157,7 @@ export default function NewAutomatedCampaignPage() {
                   You need at least one generated Blueprint before creating an
                   automated campaign.
                 </p>
-                <Button asChild variant="gradient" className="mt-4">
+                <Button asChild variant="gradient" size="lg" className="mt-4">
                   <Link href="/blueprints/new">Create a Blueprint</Link>
                 </Button>
               </CardContent>
@@ -258,6 +291,24 @@ export default function NewAutomatedCampaignPage() {
                       the location&apos;s center.
                     </p>
                   </div>
+                  {selectedBlueprint?.sections && (
+                    <div className="rounded-xl border border-border-low-alpha bg-bg-cream/30 p-4">
+                      <p className="flex items-center gap-1.5 font-label-md text-label-md text-primary mb-1.5">
+                        <span className="material-symbols-outlined text-[16px]">fact_check</span>
+                        This campaign will target
+                      </p>
+                      <p className="font-body-md text-[13px] text-on-surface">
+                        {
+                          WEBSITE_REQUIREMENT_LABEL[
+                            selectedBlueprint.sections.leadQualification?.websiteRequirement ?? "any"
+                          ]
+                        }
+                      </p>
+                      <p className="mt-1 font-body-md text-[13px] text-text-muted">
+                        {selectedBlueprint.sections.whoItsFor}
+                      </p>
+                    </div>
+                  )}
                   <div>
                     <label className="block font-label-md text-label-md text-primary mb-2">
                       Target leads per run (with emails)

@@ -17,20 +17,68 @@ import { logger } from "@/server/observability/logger";
  */
 
 const OPENROUTER_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions";
+const OPENROUTER_MODELS_ENDPOINT = "https://openrouter.ai/api/v1/models";
 
-/** Long-standing free-tier model families on OpenRouter, tried in this
- *  order. Free-model availability shifts over time — a model that's been
- *  retired or renamed simply fails fast (404/400) and the loop moves on, so
- *  this list doesn't need to be perfectly current to be useful. */
-export const OPENROUTER_FREE_MODELS = [
-  "meta-llama/llama-3.3-70b-instruct:free",
-  "deepseek/deepseek-chat:free",
-  "qwen/qwen-2.5-72b-instruct:free",
-  "google/gemma-2-9b-it:free",
-  "mistralai/mistral-7b-instruct:free",
-  "nousresearch/hermes-3-llama-3.1-405b:free",
-  "microsoft/phi-3-mini-128k-instruct:free",
+/** OpenRouter's free-model catalog turns over completely every few months
+ *  (the previous hardcoded list — llama-3.3, deepseek-chat, qwen-2.5,
+ *  gemma-2-9b, mistral-7b, hermes-3, phi-3-mini — went 100% HTTP 404 without
+ *  any signal, silently taking down every AI feature the moment Gemini's
+ *  free daily quota ran out). Rather than re-hardcode a list that will just
+ *  go stale the same way, the free-model list is fetched live from
+ *  OpenRouter on each cold start and cached for a few hours — this list is
+ *  ONLY the last-resort safety net for when that live fetch itself fails
+ *  (network error, OpenRouter outage), verified working as of this
+ *  writing. */
+const STATIC_FALLBACK_FREE_MODELS = [
+  "openai/gpt-oss-20b:free",
+  "nvidia/nemotron-3-nano-30b-a3b:free",
+  "google/gemma-4-31b-it:free",
+  "google/gemma-4-26b-a4b-it:free",
+  "nvidia/nemotron-3-super-120b-a12b:free",
+  "nvidia/nemotron-nano-9b-v2:free",
+  "nvidia/nemotron-3-ultra-550b-a55b:free",
 ];
+
+/** Model ids that ARE genuinely `:free` on OpenRouter but aren't
+ *  general-purpose chat models — a moderation-only classifier would fail
+ *  every real call, so it's excluded from the live-fetched list up front
+ *  rather than burning a fallback slot discovering that at runtime. */
+const EXCLUDED_FREE_MODEL_SUBSTRINGS = ["content-safety"];
+
+let cachedFreeModels: { models: string[]; fetchedAt: number } | null = null;
+const MODEL_LIST_CACHE_MS = 6 * 60 * 60 * 1000; // 6 hours
+
+/** Live free-model list, cached in-process. Falls back to the static list
+ *  above only if the live fetch itself fails — so a stale/retired model in
+ *  OpenRouter's catalog is caught automatically instead of requiring a code
+ *  change every time their free tier lineup changes. */
+async function getFreeModels(apiKey: string): Promise<string[]> {
+  if (cachedFreeModels && Date.now() - cachedFreeModels.fetchedAt < MODEL_LIST_CACHE_MS) {
+    return cachedFreeModels.models;
+  }
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 10_000);
+    const res = await fetch(OPENROUTER_MODELS_ENDPOINT, {
+      signal: controller.signal,
+      headers: { authorization: `Bearer ${apiKey}` },
+    });
+    clearTimeout(timer);
+    if (!res.ok) throw new Error(`OpenRouter models list returned HTTP ${res.status}`);
+    const data = (await res.json()) as { data?: { id: string }[] };
+    const live = (data.data ?? [])
+      .map((m) => m.id)
+      .filter(
+        (id) => id.endsWith(":free") && !EXCLUDED_FREE_MODEL_SUBSTRINGS.some((s) => id.includes(s)),
+      );
+    if (live.length === 0) throw new Error("OpenRouter live catalog has no usable free models");
+    cachedFreeModels = { models: live, fetchedAt: Date.now() };
+    return live;
+  } catch (err) {
+    logger.warn({ err }, "openrouter_live_model_list_failed_using_static_fallback");
+    return STATIC_FALLBACK_FREE_MODELS;
+  }
+}
 
 export interface OpenRouterCallArgs<T> {
   systemPrompt: string;
@@ -44,14 +92,16 @@ export interface OpenRouterCallArgs<T> {
 }
 
 /** Calls OpenRouter's OpenAI-compatible chat-completions endpoint, walking
- *  OPENROUTER_FREE_MODELS in order until one produces a response that
- *  passes `parse`. Throws only once every model in the list has failed. */
+ *  the live (or static-fallback) free-model list in order until one
+ *  produces a response that passes `parse`. Throws only once every model in
+ *  the list has failed. */
 export async function callOpenRouterWithFallback<T>(args: OpenRouterCallArgs<T>): Promise<T> {
   const apiKey = getEnv().OPENROUTER_API_KEY;
   if (!apiKey) throw new Error("OPENROUTER_API_KEY is required for OpenRouter adapters");
 
+  const models = await getFreeModels(apiKey);
   let lastErr: unknown;
-  for (const model of OPENROUTER_FREE_MODELS) {
+  for (const model of models) {
     try {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 30_000);

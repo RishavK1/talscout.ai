@@ -21,6 +21,10 @@ interface BlueprintPersona {
   name: string;
   description?: string;
 }
+interface BlueprintLeadQualification {
+  websiteRequirement: "any" | "no_or_weak_site" | "has_site";
+  criteria: string[];
+}
 interface BlueprintSections {
   whoWeAre: string;
   whatWeOffer: string;
@@ -33,7 +37,14 @@ interface BlueprintSections {
   voice: string;
   objections: string[];
   rules: string[];
+  leadQualification?: BlueprintLeadQualification;
 }
+
+const WEBSITE_REQUIREMENT_LABEL: Record<BlueprintLeadQualification["websiteRequirement"], string> = {
+  any: "No restriction — any business matching category/location qualifies",
+  no_or_weak_site: "Only businesses WITHOUT a good website qualify",
+  has_site: "Only businesses that already HAVE a website qualify",
+};
 
 interface Blueprint {
   id: string;
@@ -329,6 +340,24 @@ export default function BlueprintDetailPage({
                     </li>
                   ))}
                 </ul>
+              </Section>
+              <Section title="Lead qualification" icon="fact_check">
+                <p className="font-body-md text-body-md text-on-surface">
+                  {WEBSITE_REQUIREMENT_LABEL[s.leadQualification?.websiteRequirement ?? "any"]}
+                </p>
+                {!!s.leadQualification?.criteria.length && (
+                  <ul className="mt-2 list-disc list-inside space-y-1">
+                    {s.leadQualification.criteria.map((c, i) => (
+                      <li key={i} className="font-body-md text-body-md text-on-surface">
+                        {c}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <p className="mt-3 font-label-md text-label-md text-on-surface-variant">
+                  Campaigns using this blueprint skip leads that don&apos;t match this profile — see a
+                  disqualified lead&apos;s reason on its campaign&apos;s lead list.
+                </p>
               </Section>
             </div>
           )}

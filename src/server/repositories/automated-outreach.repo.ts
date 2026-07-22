@@ -21,6 +21,7 @@ export type AutomatedCampaignStatus = "draft" | "active" | "paused" | "completed
 export type AutomatedLeadStatus =
   | "discovered"
   | "no_email"
+  | "disqualified"
   | "ready"
   | "queued"
   | "sent"
@@ -141,6 +142,14 @@ export const automatedCampaignRepo = {
       .where(eq(automatedCampaigns.status, "active"));
   },
 
+  /** Admin-scoped single fetch — used by the "run this one campaign right
+   *  now" job triggered on activation (see runAutomatedCampaignNow), which
+   *  like the cron sweep runs outside any specific tenant's HTTP request. */
+  async getByIdAdmin(id: string) {
+    const [row] = await adminDb().select().from(automatedCampaigns).where(eq(automatedCampaigns.id, id)).limit(1);
+    return row ?? null;
+  },
+
   async setLastDiscoveryRunAtAdmin(id: string, at: Date) {
     await adminDb()
       .update(automatedCampaigns)
@@ -228,10 +237,21 @@ export const automatedLeadRepo = {
       .limit(limit);
   },
 
+  /** `status` is decided by the caller BEFORE this write (see
+   *  qualifyLeadCheaply/services.leadQualifier in run-automated-campaign.ts)
+   *  so a disqualified lead lands directly as "disqualified" in one write,
+   *  never passing through "ready". `notes` carries the qualification
+   *  reason either way — useful audit trail even for leads that passed. */
   async markEnriched(
     ctx: TenantContext,
     id: string,
-    input: { email: string; emailSource: EmailSourceType; emailConfidence?: number },
+    input: {
+      email: string;
+      emailSource: EmailSourceType;
+      emailConfidence?: number;
+      status: "ready" | "disqualified";
+      notes?: string;
+    },
   ) {
     await ctx.tx
       .update(automatedLeads)
@@ -239,9 +259,20 @@ export const automatedLeadRepo = {
         email: input.email,
         emailSource: input.emailSource,
         emailConfidence: input.emailConfidence ?? null,
-        status: "ready",
+        status: input.status,
+        notes: input.notes ?? null,
         enrichedAt: new Date(),
       })
+      .where(and(eq(automatedLeads.id, id), eq(automatedLeads.tenantId, ctx.tenantId)));
+  },
+
+  /** Used for leads that arrive already "ready" at discovery time (an OSM
+   *  listing publishing its own email) but fail qualification once checked —
+   *  a follow-up write since upsertDiscovered is a single bulk insert. */
+  async setDisqualified(ctx: TenantContext, id: string, reason: string) {
+    await ctx.tx
+      .update(automatedLeads)
+      .set({ status: "disqualified", notes: reason, enrichedAt: new Date() })
       .where(and(eq(automatedLeads.id, id), eq(automatedLeads.tenantId, ctx.tenantId)));
   },
 

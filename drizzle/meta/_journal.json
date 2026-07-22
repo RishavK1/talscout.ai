@@ -85,6 +85,13 @@
       "when": 1784613549843,
       "tag": "0011_dear_starhawk",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1784652441152,
+      "tag": "0012_fast_giant_girl",
+      "breakpoints": true
     }
   ]
 }

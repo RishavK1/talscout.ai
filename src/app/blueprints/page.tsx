@@ -73,7 +73,7 @@ export default function BlueprintsPage() {
                   </p>
                 </div>
               </div>
-              <Button asChild variant="gradient" className="w-full justify-center sm:w-auto">
+              <Button asChild variant="gradient" size="lg" className="w-full justify-center sm:w-auto">
                 <Link href="/blueprints/new">
                   <span className="material-symbols-outlined text-[20px]">add_circle</span>
                   New blueprint
