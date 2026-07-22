@@ -40,6 +40,7 @@ export default function NewBlueprintPage() {
   const [suggestions, setSuggestions] = useState<Suggestions | null>(null);
   const [answers, setAnswers] = useState<Answers>({});
   const [customInputs, setCustomInputs] = useState<Record<string, string>>({});
+  const [additionalContext, setAdditionalContext] = useState("");
 
   // Step 3
   const [generating, setGenerating] = useState(false);
@@ -112,7 +113,9 @@ export default function NewBlueprintPage() {
         intakeAnswers: {
           businessName: suggestions?.businessName || name.trim(),
           websiteUrl: websiteUrl.trim(),
-          answers,
+          answers: additionalContext.trim()
+            ? { ...answers, additionalContext: additionalContext.trim() }
+            : answers,
         },
       });
       toast.success("Blueprint generated");
@@ -137,7 +140,7 @@ export default function NewBlueprintPage() {
             </div>
           }
         />
-        <main className="flex-1 p-4 sm:p-6 lg:p-12 max-w-[900px] mx-auto w-full">
+        <main className="flex-1 p-4 sm:p-6 lg:p-12 max-w-[1100px] mx-auto w-full">
           <Stepper steps={STEPS} currentStep={step} />
 
           {step === 0 && (
@@ -185,6 +188,7 @@ export default function NewBlueprintPage() {
                     <Button
                       type="submit"
                       variant="gradient"
+                      size="lg"
                       disabled={researching || !name.trim() || !websiteUrl.trim()}
                       className="w-full justify-center sm:w-auto"
                     >
@@ -216,6 +220,43 @@ export default function NewBlueprintPage() {
                       {suggestions.businessName || name}
                     </span>
                     . Pick the options that fit best, or add your own.
+                  </p>
+                </CardContent>
+              </Card>
+
+              {/* Freeform context — the single highest-leverage input in this
+                  wizard: fed to the AI ahead of the multiple-choice answers
+                  (see gemini.blueprint.ts's GENERATE_SYSTEM_PROMPT), so it
+                  drives the blueprint's proof/objections/positioning AND,
+                  critically, leadQualification.criteria — the gate that
+                  decides which discovered businesses are worth emailing. */}
+              <Card className="border-2 border-primary-container/30 bg-primary-container/[0.03] [--card-spacing:--spacing(6)]">
+                <CardContent>
+                  <div className="mb-3 flex items-center gap-2.5">
+                    <div className="rounded-lg bg-primary-container/10 p-1.5 text-primary-container">
+                      <span className="material-symbols-outlined text-[18px]">auto_awesome</span>
+                    </div>
+                    <h3 className="font-sans font-semibold text-[16px] text-on-surface">
+                      Tell us everything about your business
+                    </h3>
+                  </div>
+                  <p className="mb-3 font-body-md text-[13px] text-text-muted">
+                    This is what your AI actually learns from — the more specific, the
+                    better it gets at finding the right leads and writing emails that
+                    sound like you. Mention exact industries/regions to target or avoid,
+                    deal-breakers, pricing, real results, phrases you&apos;d never use —
+                    anything a new salesperson would need to know on day one.
+                  </p>
+                  <textarea
+                    value={additionalContext}
+                    onChange={(e) => setAdditionalContext(e.target.value.slice(0, 2000))}
+                    rows={6}
+                    maxLength={2000}
+                    placeholder="e.g. We only want independent local dentists, not chains or DSOs. Our best customers are 2-8 person practices that just moved offices. Never call us a 'marketing agency' — we're a 'growth partner'. We don't work with anyone under a 12-month commitment..."
+                    className="w-full rounded-xl border border-border-low-alpha bg-white px-4 py-3 font-body-md text-body-md focus:outline-none focus:ring-1 focus:ring-primary placeholder-outline resize-y"
+                  />
+                  <p className="mt-1.5 text-right font-label-md text-[11px] text-text-muted">
+                    {additionalContext.length}/2000
                   </p>
                 </CardContent>
               </Card>
@@ -302,6 +343,7 @@ export default function NewBlueprintPage() {
                 <Button
                   type="button"
                   variant="outline"
+                  size="lg"
                   onClick={() => setStep(0)}
                   className="text-primary"
                 >
@@ -310,9 +352,10 @@ export default function NewBlueprintPage() {
                 <Button
                   type="button"
                   variant="gradient"
+                  size="lg"
                   onClick={handleConfirmAnswers}
                   disabled={generating}
-                  className="justify-center"
+                  className="w-full justify-center sm:w-auto"
                 >
                   {generating ? (
                     <>

@@ -128,6 +128,14 @@ const GENERATE_SYSTEM_PROMPT =
   "`leadQualification` must faithfully map the confirmed websiteRequirement " +
   "answer to its enum value — do not default to \"any\" unless the user " +
   "actually picked \"No preference\". " +
+  "If a <business_owner_notes> block is present, treat it as the HIGHEST-" +
+  "PRIORITY source — free text from the business owner routinely contains " +
+  "specifics (exact target industries/regions, deal-breakers, must-have " +
+  "phrasing, real proof points) the multiple-choice answers can't capture. " +
+  "Weave concrete details from it into whoWeAre/whatWeOffer/painWeSolve/ " +
+  "proof/objections wherever relevant, and ESPECIALLY into " +
+  "`leadQualification.criteria` — notes about who to target or avoid are the " +
+  "clearest signal for what makes a lead worth pursuing. " +
   "Return a JSON object with exactly these keys: whoWeAre (string), " +
   "whatWeOffer (string), whoItsFor (string), statusQuo (string, optional), " +
   "differentiator (string), painWeSolve (string), proof (array of " +
@@ -139,10 +147,17 @@ const GENERATE_SYSTEM_PROMPT =
 
 export class OpenRouterBlueprintGenerator implements BlueprintGenerator {
   async generate(input: BlueprintIntakeAnswers): Promise<BlueprintSections> {
+    // additionalContext is free text from the wizard's "tell us everything"
+    // box — pulled out of the generic answers map and given its own tagged
+    // block, same treatment as gemini.blueprint.ts's generator.
+    const { additionalContext, ...structuredAnswers } = input.answers;
     const userContent =
       `<business_name>${input.businessName ?? ""}</business_name>\n` +
       `<website_url>${input.websiteUrl ?? ""}</website_url>\n` +
-      `<confirmed_answers>\n${JSON.stringify(input.answers, null, 2)}\n</confirmed_answers>`;
+      `<confirmed_answers>\n${JSON.stringify(structuredAnswers, null, 2)}\n</confirmed_answers>` +
+      (additionalContext
+        ? `\n<business_owner_notes>\n${additionalContext}\n</business_owner_notes>`
+        : "");
 
     return callOpenRouterWithFallback<BlueprintSections>({
       systemPrompt: GENERATE_SYSTEM_PROMPT,

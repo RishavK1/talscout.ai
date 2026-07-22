@@ -21,7 +21,14 @@ export function TopAppBar({ leftContent, rightContent }: TopAppBarProps) {
           {leftContent}
         </div>
         {rightContent ? (
-          <div className="flex shrink-0 items-center gap-3 lg:gap-4">
+          // min-w-0 (not shrink-0): a fixed-width search box/button here used
+          // to refuse to shrink no matter how little room the breadcrumb left
+          // it — on a viewport narrower than sidebar + max-w-[1440px]'s
+          // combined width, that pushed the header wider than the page, past
+          // body's overflow-x:hidden, with no way to scroll to it. Letting
+          // this side shrink too (its own children can still cap their own
+          // width, e.g. `sm:w-64`) means the header always fits.
+          <div className="flex min-w-0 shrink items-center gap-3 lg:gap-4">
             {rightContent}
           </div>
         ) : null}

@@ -7,12 +7,16 @@ import {
 } from "../../src/app/api/blueprints/[id]/route";
 import { POST as suggestBlueprintPOST } from "../../src/app/api/blueprints/suggest/route";
 import { POST as generateBlueprintPOST } from "../../src/app/api/blueprints/[id]/generate/route";
+import { POST as createCampaignPOST } from "../../src/app/api/automated-campaigns/route";
+import { DELETE as deleteCampaignDELETE } from "../../src/app/api/automated-campaigns/[id]/route";
 import { resetDb } from "../helpers/seed";
 import { makeUser } from "../helpers/auth-fixtures";
 import { call } from "../helpers/http";
-import { closePools } from "../../src/server/db/client";
+import { adminDb, closePools } from "../../src/server/db/client";
 import { withTenantTx } from "../../src/server/db/tx";
 import { blueprintRepo } from "../../src/server/repositories/blueprint.repo";
+import { senderAccounts } from "../../src/server/db/schema";
+import { encryptSecret } from "../../src/server/lib/secret-box";
 
 const params = (id: string) => ({ params: Promise.resolve({ id }) });
 
@@ -101,6 +105,64 @@ describe("blueprint CRUD", () => {
     expect(listed.json.data.blueprints).toHaveLength(0);
   });
 
+  it("refuses to delete a blueprint that an automated campaign still uses", async () => {
+    const { tenant, token } = await makeUser("admin");
+    const created = await call(createBlueprintPOST, { token, body: { name: "Acme Offer" } });
+    const id = created.json.data.id;
+    // A campaign can only be created against a generated (active) blueprint.
+    await call(generateBlueprintPOST, {
+      token,
+      body: {
+        intakeAnswers: {
+          businessName: "Acme Offer",
+          answers: { whatWeSell: "A scheduling tool", icp: "Small agencies" },
+        },
+      },
+      routeCtx: params(id),
+    });
+
+    const [sender] = await adminDb()
+      .insert(senderAccounts)
+      .values({
+        tenantId: tenant.id,
+        type: "gmail",
+        label: "a@test.local",
+        email: "a@test.local",
+        gmailRefreshTokenEnc: encryptSecret("fake-refresh-token"),
+        isActive: true,
+      })
+      .returning();
+    const campaign = await call(createCampaignPOST, {
+      token,
+      body: {
+        name: "Dentists",
+        blueprintId: id,
+        senderAccountId: sender.id,
+        discoveryQuery: { category: "dentist", location: { text: "Austin, TX" } },
+        signatureName: "Jane Doe",
+        replyPollingEnabled: false,
+      },
+    });
+    expect(campaign.status).toBe(201);
+
+    const blocked = await call(deleteBlueprintDELETE, { token, method: "DELETE", routeCtx: params(id) });
+    expect(blocked.status).toBe(409);
+    expect(blocked.json.error.message).toContain("1 automated campaign");
+
+    // Still fully visible/usable after the blocked attempt.
+    const stillThere = await call(getBlueprintGET, { token, routeCtx: params(id) });
+    expect(stillThere.status).toBe(200);
+
+    // Delete the campaign, then the blueprint delete succeeds.
+    await call(deleteCampaignDELETE, {
+      token,
+      method: "DELETE",
+      routeCtx: params(campaign.json.data.id),
+    });
+    const nowAllowed = await call(deleteBlueprintDELETE, { token, method: "DELETE", routeCtx: params(id) });
+    expect(nowAllowed.status).toBe(200);
+  });
+
   it("viewer can read but not create", async () => {
     const { token } = await makeUser("viewer");
     const created = await call(createBlueprintPOST, { token, body: { name: "Acme Offer" } });
@@ -167,6 +229,36 @@ describe("blueprint wizard: suggest + generate (mock adapter)", () => {
 
     const got = await call(getBlueprintGET, { token, routeCtx: params(id) });
     expect(got.json.data.sections).not.toBeNull();
+  });
+
+  it("threads the wizard's freeform additionalContext into leadQualification.criteria", async () => {
+    const { token } = await makeUser("recruiter");
+    const created = await call(createBlueprintPOST, { token, body: { name: "Acme Offer" } });
+    const id = created.json.data.id;
+
+    const generated = await call(generateBlueprintPOST, {
+      token,
+      body: {
+        intakeAnswers: {
+          businessName: "Acme Offer",
+          websiteUrl: "https://acme.example",
+          answers: {
+            whatWeSell: "A scheduling tool",
+            icp: "Small agencies",
+            additionalContext: "Only target agencies with 2-8 people, never chains.",
+          },
+        },
+      },
+      routeCtx: params(id),
+    });
+
+    expect(generated.status).toBe(200);
+    expect(generated.json.data.sections.leadQualification.criteria).toContain(
+      "Only target agencies with 2-8 people, never chains.",
+    );
+    expect(generated.json.data.sections.painWeSolve).toContain(
+      "Only target agencies with 2-8 people, never chains.",
+    );
   });
 
   it("refuses to generate without any intake answers", async () => {

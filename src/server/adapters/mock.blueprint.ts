@@ -118,13 +118,20 @@ export class MockBlueprintGenerator implements BlueprintGenerator {
       return v ? [v as string] : [];
     };
     const name = input.businessName?.trim() || "Your Business";
+    // additionalContext is the wizard's free-text "tell us everything" box —
+    // echoed into painWeSolve and leadQualification.criteria (its most
+    // consequential downstream use) so mock mode and tests exercise the same
+    // wiring the real Gemini/OpenRouter adapters give it priority treatment for.
+    const notes = (a.additionalContext as string | undefined)?.trim();
     return {
       whoWeAre: `${name} — ${one("whatWeSell", "a product company")}.`,
       whatWeOffer: one("whatWeSell", "Our core offering."),
       whoItsFor: one("icp", "Our ideal customers."),
       statusQuo: "Most teams solve this manually today.",
       differentiator: one("differentiator", "What sets us apart."),
-      painWeSolve: `We help ${one("icp", "customers")} avoid the cost of the status quo.`,
+      painWeSolve: notes
+        ? `We help ${one("icp", "customers")} avoid the cost of the status quo. ${notes}`
+        : `We help ${one("icp", "customers")} avoid the cost of the status quo.`,
       proof: (many("proof").length ? many("proof") : ["Proven results"]).map((label) => ({
         label,
       })),
@@ -137,7 +144,7 @@ export class MockBlueprintGenerator implements BlueprintGenerator {
       ],
       leadQualification: {
         websiteRequirement: mapWebsiteRequirement(one("websiteRequirement", "No preference")),
-        criteria: [],
+        criteria: notes ? [notes] : [],
       },
     };
   }

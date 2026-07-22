@@ -214,10 +214,10 @@ export default function AuditLogPage() {
             </div>
           }
           rightContent={
-            <div className="relative group">
+            <div className="relative group w-full sm:w-64">
               <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline group-focus-within:text-primary transition-colors">search</span>
               <input
-                className="bg-surface-container-low border-none rounded-full pl-10 pr-4 py-2 text-label-md w-64 focus:ring-2 focus:ring-primary/20 transition-all"
+                className="bg-surface-container-low border-none rounded-full pl-10 pr-4 py-2 text-label-md w-full focus:ring-2 focus:ring-primary/20 transition-all"
                 placeholder="Search logs..."
                 type="text"
                 value={query}
@@ -226,26 +226,19 @@ export default function AuditLogPage() {
             </div>
           }
         />
-        {/* Page Content */}
-        <main className="flex-1 flex flex-col lg:flex-row p-4 sm:p-6 lg:p-8 gap-8 max-w-[1440px] mx-auto w-full">
-          {/* Sub-navigation Sidebar */}
-          <nav className="w-full lg:w-64 flex-shrink-0 space-y-1">
-            <h3 className="px-4 text-[12px] font-bold text-text-muted uppercase tracking-wider mb-4">Account Settings</h3>
-            <Link className="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-primary transition-colors rounded-lg font-label-md" href="/settings">General</Link>
-            <Link className="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-primary transition-colors rounded-lg font-label-md" href="/team">Members</Link>
-            <Link className="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-primary transition-colors rounded-lg font-label-md" href="/billing">Billing</Link>
-            <Link className="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-primary transition-colors rounded-lg font-label-md" href="/security">Security</Link>
-            <Link className="flex items-center gap-3 px-4 py-3 bg-primary-container/10 text-primary font-semibold rounded-lg font-label-md" href="/audit">Audit log</Link>
-          </nav>
-          {/* Main Dashboard Area */}
-          <div className="min-w-0 flex-1 space-y-8">
+        {/* Page Content — no page-local sub-nav: General/Members/Billing/
+            Security/Audit log all already live in the main app sidebar, so a
+            second copy here was pure redundant width (256px + gap) that
+            pushed the whole page wider than it needed to be. */}
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-[1440px] mx-auto w-full">
+          <div className="space-y-8">
             {/* Header */}
             <section className="flex items-center gap-4">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary-container/10 text-primary-container">
                 <span className="material-symbols-outlined text-[24px]">history_edu</span>
               </div>
               <div>
-                <h2 className="font-headline-lg text-primary mb-1">Audit log</h2>
+                <h1 className="font-headline-lg text-headline-lg text-primary mb-1">Audit log</h1>
                 <p className="font-body-md text-text-muted">Every sensitive action, recorded and secured for compliance and oversight.</p>
               </div>
             </section>

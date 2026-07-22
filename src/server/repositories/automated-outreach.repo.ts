@@ -181,6 +181,20 @@ export const automatedCampaignRepo = {
       .returning();
     return row ?? null;
   },
+
+  /** How many campaigns (any status — a "completed" one still needs its
+   *  blueprint for historical display, not just "active") still point at
+   *  this blueprint. Used to block blueprint deletion instead of letting the
+   *  campaign silently lose its grounding context (blueprintId has no
+   *  onDelete, but that only protects a real DB delete — blueprints are
+   *  soft-deleted, which bypasses the FK entirely). */
+  async countByBlueprintId(ctx: TenantContext, blueprintId: string): Promise<number> {
+    const [row] = await ctx.tx
+      .select({ count: sql<number>`count(*)::int` })
+      .from(automatedCampaigns)
+      .where(and(eq(automatedCampaigns.tenantId, ctx.tenantId), eq(automatedCampaigns.blueprintId, blueprintId)));
+    return row?.count ?? 0;
+  },
 };
 
 export const automatedLeadRepo = {
