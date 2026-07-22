@@ -137,12 +137,27 @@ export const automatedOutreachService = {
 
   async listLeads(ctx: TenantContext, campaignId: string, query: ListAutomatedLeadsQuery) {
     await automatedOutreachService.getCampaign(ctx, campaignId); // 404 + tenant scoping
-    return await automatedLeadRepo.list(ctx, campaignId, {
-      status: query.status,
-      source: query.source,
-      limit: query.limit && query.limit > 0 && query.limit <= 200 ? query.limit : 50,
-      offset: query.offset && query.offset >= 0 ? query.offset : 0,
-    });
+    const filter = { status: query.status, source: query.source };
+    const [leads, total] = await Promise.all([
+      automatedLeadRepo.list(ctx, campaignId, {
+        ...filter,
+        limit: query.limit && query.limit > 0 && query.limit <= 200 ? query.limit : 50,
+        offset: query.offset && query.offset >= 0 ? query.offset : 0,
+      }),
+      automatedLeadRepo.count(ctx, campaignId, filter),
+    ]);
+    return { leads, total };
+  },
+
+  /** The Day 0/3/7 rows for one lead — backs the "View emails" modal. Each
+   *  row's content is already fully AI-generated and committed at
+   *  generation time (unlike Bulk Fire's template-based equivalent), so
+   *  this reads real send rows, not resolved templates. */
+  async listLeadSends(ctx: TenantContext, campaignId: string, leadId: string) {
+    await automatedOutreachService.getCampaign(ctx, campaignId); // 404 + tenant scoping
+    const lead = await automatedLeadRepo.getById(ctx, leadId);
+    if (!lead || lead.campaignId !== campaignId) throw new NotFound("Lead not found");
+    return await automatedSendRepo.listByLead(ctx, campaignId, leadId);
   },
 
   async listPendingReplyDrafts(ctx: TenantContext, params: { limit?: number; offset?: number }) {

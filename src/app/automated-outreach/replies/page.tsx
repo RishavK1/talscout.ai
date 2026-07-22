@@ -8,6 +8,7 @@ import { api, ApiError } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { TableRowSkeleton } from "@/components/ui/skeletons";
 
 interface ReplyDraft {
   id: string;
@@ -147,9 +148,10 @@ export default function AutomatedRepliesPage() {
             </CardHeader>
             <CardContent className="flex-1 p-0 lg:min-h-0 lg:overflow-y-auto">
               {loading ? (
-                <div className="flex items-center justify-center gap-2 p-8 font-body-md text-text-muted">
-                  <span className="material-symbols-outlined animate-spin text-primary">progress_activity</span>
-                  Loading...
+                <div className="divide-y divide-border-low-alpha">
+                  {Array.from({ length: 5 }, (_, i) => (
+                    <TableRowSkeleton key={i} columns={0} />
+                  ))}
                 </div>
               ) : drafts.length === 0 ? (
                 <div className="flex flex-col items-center gap-3 p-10 text-center">
@@ -243,51 +245,56 @@ export default function AutomatedRepliesPage() {
                   </CardContent>
                 </Card>
 
-                <div className="overflow-hidden rounded-xl bg-primary p-6">
-                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex items-center gap-2.5">
-                      <div className="rounded-lg bg-white/10 p-1.5 text-tertiary-fixed">
-                        <span className="material-symbols-outlined text-[18px]">auto_awesome</span>
+                <Card className="border border-primary-container/25 bg-primary-container/[0.03] [--card-spacing:--spacing(6)]">
+                  <CardHeader>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2.5">
+                        <div className="rounded-lg bg-primary-container/10 p-1.5 text-primary-container">
+                          <span className="material-symbols-outlined text-[18px]">auto_awesome</span>
+                        </div>
+                        <CardTitle className="font-body-md text-[16px] font-semibold text-primary">
+                          AI-drafted reply
+                        </CardTitle>
                       </div>
-                      <h3 className="font-body-md text-[16px] font-semibold text-white">AI-drafted reply</h3>
+                      {confidence != null && (
+                        <span
+                          className={cn(
+                            "inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-label-md text-[11px] font-semibold",
+                            confidence >= 0.7
+                              ? "bg-tertiary-fixed/20 text-tertiary-container"
+                              : "bg-surface-container-high text-on-surface-variant",
+                          )}
+                        >
+                          <span className="material-symbols-outlined text-[14px]">insights</span>
+                          {Math.round(confidence * 100)}% confidence
+                        </span>
+                      )}
                     </div>
-                    {confidence != null && (
-                      <span
-                        className={cn(
-                          "inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-label-md text-[11px] font-semibold",
-                          confidence >= 0.7
-                            ? "bg-tertiary-fixed text-on-tertiary-fixed"
-                            : "bg-white/10 text-white/80",
-                        )}
-                      >
-                        <span className="material-symbols-outlined text-[14px]">insights</span>
-                        {Math.round(confidence * 100)}% confidence
-                      </span>
+                  </CardHeader>
+                  <CardContent>
+                    <textarea
+                      value={editBody}
+                      onChange={(e) => setEditBody(e.target.value)}
+                      rows={8}
+                      className="w-full rounded-xl border border-border-low-alpha bg-white px-4 py-3 font-body-md text-on-surface placeholder-outline-variant focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                    {selected.reasoning && (
+                      <p className="mt-3 rounded-xl border border-border-low-alpha bg-surface-container-low p-3 font-body-md text-[13px] text-on-surface-variant">
+                        <span className="font-medium text-on-surface">AI reasoning:</span> {selected.reasoning}
+                      </p>
                     )}
-                  </div>
-                  <textarea
-                    value={editBody}
-                    onChange={(e) => setEditBody(e.target.value)}
-                    rows={8}
-                    className="w-full rounded-xl border border-white/10 bg-white/[0.06] px-4 py-3 font-body-md text-white placeholder-white/40 focus:outline-none focus:ring-1 focus:ring-tertiary-fixed"
-                  />
-                  {selected.reasoning && (
-                    <p className="mt-3 rounded-xl border border-white/10 bg-white/[0.04] p-3 font-body-md text-[13px] text-white/70">
-                      <span className="font-medium text-white/90">AI reasoning:</span>{" "}
-                      {selected.reasoning}
-                    </p>
-                  )}
-                </div>
+                  </CardContent>
+                </Card>
 
                 {selected.status === "pending" && (
                   <div className="flex flex-col-reverse gap-3 sm:flex-row sm:flex-wrap sm:justify-end">
-                    <Button type="button" variant="destructive" onClick={reject} disabled={busy}>
+                    <Button type="button" variant="destructive" size="lg" onClick={reject} disabled={busy}>
                       Reject
                     </Button>
-                    <Button type="button" variant="outline" onClick={regenerate} disabled={busy}>
+                    <Button type="button" variant="outline" size="lg" onClick={regenerate} disabled={busy}>
                       Regenerate
                     </Button>
-                    <Button type="button" variant="gradient" onClick={approve} disabled={busy}>
+                    <Button type="button" variant="gradient" size="lg" onClick={approve} disabled={busy}>
                       <span className={cn("material-symbols-outlined text-[18px]", busy && "animate-spin")}>
                         {busy ? "sync" : "send"}
                       </span>

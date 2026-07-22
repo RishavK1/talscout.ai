@@ -56,6 +56,9 @@ export const outreachLeadStatus = pgEnum("outreach_lead_status", [
   "bounced",
   "failed",
   "skipped",
+  /** Set by poll-outreach-replies.ts when a Gmail thread shows a reply from
+   *  the lead — mirrors automated_lead_status's "replied" value. */
+  "replied",
 ]);
 export const outreachSendStatus = pgEnum("outreach_send_status", [
   "scheduled",
@@ -535,6 +538,11 @@ export const outreachSends = pgTable(
      *  Subject matches the original (modulo "Re:") — Day 3/Day 7 reuse this
      *  as `Re: <sentSubject>` instead of their own step's subject template. */
     sentSubject: text("sent_subject"),
+    /** First time the tracking pixel embedded in this send's HTML body was
+     *  fetched — set once (first open wins) by the public
+     *  /api/track/open route, never touched again. Null for WhatsApp sends
+     *  (no HTML body) and for emails not yet opened. */
+    openedAt: timestamp("opened_at", { withTimezone: true }),
     /** WhatsApp-only delivery-status layer, updated asynchronously by the
      *  webhook — kept separate from `status` above so the webhook never
      *  touches the scheduling-lifecycle field the email path depends on. */
@@ -715,9 +723,10 @@ export const automatedLeads = pgTable(
 );
 
 /**
- * One row per lead — single-touch, no multi-step sequence (a deliberate
- * scope cut vs. bulk-fire's Day 0/3/7 sequencing). Sends go through the same
- * OutreachMailer port bulk-fire uses, same threading discipline.
+ * Up to 3 rows per lead — Day 0/3/7 sequencing, same shape as bulk-fire's
+ * outreachSends (stepIndex 0/1/2). Sends go through the same OutreachMailer
+ * port bulk-fire uses, same threading discipline (sentSubject is what lets
+ * Day 3/7 thread as "Re: <Day 0 subject>" in the same Gmail thread).
  */
 export const automatedSends = pgTable(
   "automated_sends",
@@ -735,6 +744,10 @@ export const automatedSends = pgTable(
     senderAccountId: uuid("sender_account_id")
       .notNull()
       .references(() => senderAccounts.id),
+    /** 0 = Day 0 (initial pitch), 1 = Day 3 follow-up, 2 = Day 7 follow-up.
+     *  Existing pre-migration rows default to 0 — accurate, since they were
+     *  written back when this table was single-touch-only. */
+    stepIndex: integer("step_index").notNull().default(0),
     subject: text("subject").notNull(),
     /** Final text actually sent, signature already appended. */
     body: text("body").notNull(),
@@ -743,15 +756,22 @@ export const automatedSends = pgTable(
     sentAt: timestamp("sent_at", { withTimezone: true }),
     rfc822MessageId: text("rfc822_message_id"),
     gmailThreadId: text("gmail_thread_id"),
+    /** Subject actually sent — only stepIndex 0 needs this read back later
+     *  (Day 3/7 thread off it as "Re: {sentSubject}"), but every row gets
+     *  one written at send time for consistency. */
+    sentSubject: text("sent_subject"),
     errorReason: text("error_reason"),
+    /** Mirrors outreachSends.openedAt — first tracking-pixel fetch, set once
+     *  by the shared /api/track/open route. */
+    openedAt: timestamp("opened_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     index("automated_sends_tenant_idx").on(t.tenantId),
     index("automated_sends_campaign_idx").on(t.campaignId),
-    /** One email per business per campaign — enforced at the DB level so
-     *  even a concurrent/retried job step can't double-email. */
-    uniqueIndex("automated_sends_campaign_lead_uq").on(t.campaignId, t.leadId),
+    /** One email per (business, step) per campaign — enforced at the DB
+     *  level so even a concurrent/retried job step can't double-email. */
+    uniqueIndex("automated_sends_campaign_lead_step_uq").on(t.campaignId, t.leadId, t.stepIndex),
     index("automated_sends_gmail_thread_idx").on(t.gmailThreadId),
     /** Mirrors outreachSends' cap-count query shape exactly (see
      *  countSentTodayForTenant) for the independent 50/day automated cap. */

@@ -11,6 +11,7 @@ import { useAuth } from "@/components/app/auth-provider";
 import { TopAppBar } from "@/components/app/top-app-bar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
 
@@ -276,9 +277,13 @@ function SearchPageContent() {
             {/* Results Section */}
             <div className="mb-8 flex justify-between items-end">
               <div>
-                <h2 className="font-body-md font-semibold text-headline-md text-on-surface">
-                  {loading ? "Searching..." : `${results.length} Results Found`}
-                </h2>
+                {loading ? (
+                  <Skeleton className="h-6 w-40" />
+                ) : (
+                  <h2 className="font-body-md font-semibold text-headline-md text-on-surface">
+                    {`${results.length} Results Found`}
+                  </h2>
+                )}
                 <p className="font-body-md text-body-md text-on-surface-variant mt-1">Sorted by AI Match Score</p>
               </div>
               <div className="flex gap-1 p-1 bg-surface-container-low rounded-lg border border-border-low-alpha">
@@ -313,12 +318,23 @@ function SearchPageContent() {
 
             {/* Loading Indicator */}
             {loading ? (
-              <Card className="flex flex-col items-center justify-center text-center [--card-spacing:--spacing(12)]">
-                <CardContent>
-                  <span className="material-symbols-outlined text-[48px] text-primary mb-3 animate-spin">sync</span>
-                  <p className="font-body-md text-body-md text-on-surface-variant">Finding candidates that match your criteria...</p>
-                </CardContent>
-              </Card>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {Array.from({ length: 4 }, (_, i) => (
+                  <Card key={i} className="[--card-spacing:--spacing(6)]">
+                    <CardContent className="flex items-start gap-4">
+                      <Skeleton className="h-12 w-12 shrink-0 rounded-full" />
+                      <div className="min-w-0 flex-1 space-y-2">
+                        <Skeleton className="h-4 w-40" />
+                        <Skeleton className="h-3 w-28" />
+                        <div className="flex gap-2 pt-1">
+                          <Skeleton className="h-5 w-16 rounded-full" />
+                          <Skeleton className="h-5 w-16 rounded-full" />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
             ) : results.length === 0 ? (
               <Card className="flex flex-col items-center justify-center text-center [--card-spacing:--spacing(12)]">
                 <CardContent>

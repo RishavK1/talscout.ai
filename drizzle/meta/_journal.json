@@ -92,6 +92,20 @@
       "when": 1784652441152,
       "tag": "0012_fast_giant_girl",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1784701871242,
+      "tag": "0013_superb_firestar",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1784707781048,
+      "tag": "0014_narrow_aqueduct",
+      "breakpoints": true
     }
   ]
 }

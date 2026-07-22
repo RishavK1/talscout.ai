@@ -1,4 +1,4 @@
-import { and, eq, sql, gte, inArray } from "drizzle-orm";
+import { and, eq, or, sql, gte, inArray, isNotNull } from "drizzle-orm";
 import {
   outreachCampaigns,
   outreachLeads,
@@ -76,6 +76,38 @@ export const analyticsRepo = {
         and(
           eq(outreachLeads.tenantId, ctx.tenantId),
           eq(outreachLeads.status, "bounced"),
+        ),
+      );
+    return row?.count ?? 0;
+  },
+
+  /** Tenant-wide count of leads whose Gmail thread showed a reply —
+   *  poll-outreach-replies.ts sets this status once a reply is detected. */
+  async repliedLeadCount(ctx: TenantContext): Promise<number> {
+    const [row] = await ctx.tx
+      .select({ count: sql<number>`count(*)::int` })
+      .from(outreachLeads)
+      .where(
+        and(
+          eq(outreachLeads.tenantId, ctx.tenantId),
+          eq(outreachLeads.status, "replied"),
+        ),
+      );
+    return row?.count ?? 0;
+  },
+
+  /** Tenant-wide count of "opened" sends across both real signals we have:
+   *  the tracking-pixel fetch (email) and the WhatsApp webhook's "read"
+   *  delivery status — one number, since the frontend shows a single
+   *  channel-agnostic "Opened" stat. */
+  async openedSendCount(ctx: TenantContext): Promise<number> {
+    const [row] = await ctx.tx
+      .select({ count: sql<number>`count(*)::int` })
+      .from(outreachSends)
+      .where(
+        and(
+          eq(outreachSends.tenantId, ctx.tenantId),
+          or(isNotNull(outreachSends.openedAt), eq(outreachSends.deliveryStatus, "read")),
         ),
       );
     return row?.count ?? 0;

@@ -5,9 +5,12 @@ import { toast } from "sonner";
 import { AppShell } from "@/components/app/app-shell";
 import { TopAppBar } from "@/components/app/top-app-bar";
 import { api } from "@/lib/api";
-import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ChartSkeleton, TableSkeleton } from "@/components/ui/skeletons";
 
 interface DailyPoint {
   day: string;
@@ -31,7 +34,7 @@ interface AutomatedCampaignBreakdownRow {
   sent: number;
   failed: number;
   skipped: number;
-  noEmail: number;
+  replied: number;
 }
 interface AnalyticsOverview {
   totals: {
@@ -41,6 +44,8 @@ interface AnalyticsOverview {
     skipped: number;
     total: number;
     bounced: number;
+    opened: number;
+    replied: number;
   };
   byCampaign: CampaignBreakdownRow[];
   daily: DailyPoint[];
@@ -61,7 +66,8 @@ interface AnalyticsOverview {
       failed: number;
       skipped: number;
       total: number;
-      noEmail: number;
+      replied: number;
+      opened: number;
     };
     byCampaign: AutomatedCampaignBreakdownRow[];
     daily: DailyPoint[];
@@ -69,7 +75,7 @@ interface AnalyticsOverview {
 }
 
 const POLL_MS = 20_000;
-const DAYS = 14;
+const DAY_OPTIONS = [7, 14, 30] as const;
 
 type StatTone = "default" | "positive" | "negative" | "neutral";
 
@@ -100,15 +106,27 @@ function StatCard({
   return (
     <Card className="h-full border border-border-low-alpha bg-surface-white">
       <CardContent className="flex h-full flex-col justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-2">
-          <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md ${STAT_TONES[tone]}`}>
-            <span className="material-symbols-outlined text-[16px]">{icon}</span>
-          </span>
-          <p className="font-label-md text-label-md text-on-surface-variant truncate">{label}</p>
-        </div>
-        <p className="font-data-mono text-display-lg text-primary tracking-tight">
-          {loading ? "…" : value.toLocaleString()}
-        </p>
+        {loading ? (
+          <>
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-6 w-6 shrink-0 rounded-md" />
+              <Skeleton className="h-3 w-16" />
+            </div>
+            <Skeleton className="h-7 w-14" />
+          </>
+        ) : (
+          <>
+            <div className="flex min-w-0 items-center gap-2">
+              <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md ${STAT_TONES[tone]}`}>
+                <span className="material-symbols-outlined text-[16px]">{icon}</span>
+              </span>
+              <p className="font-label-md text-label-md text-on-surface-variant truncate">{label}</p>
+            </div>
+            <p className="font-data-mono text-display-lg text-primary tracking-tight">
+              {value.toLocaleString()}
+            </p>
+          </>
+        )}
       </CardContent>
     </Card>
   );
@@ -155,12 +173,16 @@ function TrendChart({ data, loading }: { data: DailyPoint[]; loading: boolean })
     iso
       ? new Date(iso + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })
       : "";
+  const hasData = data.some((d) => d.sent > 0);
 
   return (
     <div className="relative">
       {loading ? (
-        <div className="h-[220px] flex items-center justify-center text-text-muted font-body-md">
-          Loading trend...
+        <ChartSkeleton height={220} />
+      ) : !hasData ? (
+        <div className="flex h-[220px] flex-col items-center justify-center gap-2 text-center">
+          <span className="material-symbols-outlined text-[28px] text-on-surface-variant/40">show_chart</span>
+          <p className="font-body-md text-body-md text-on-surface-variant">No sends in this window yet.</p>
         </div>
       ) : (
         <svg
@@ -258,14 +280,220 @@ function TrendChart({ data, loading }: { data: DailyPoint[]; loading: boolean })
   );
 }
 
+interface DonutSegment {
+  label: string;
+  value: number;
+  color: string;
+  opacity?: number;
+}
+
+/** Ring chart built from stacked `<circle>` strokes (stroke-dasharray trick)
+ *  — no charting library, matches TrendChart's hand-rolled SVG approach and
+ *  the app's exact design tokens. Every segment here is a real, already-
+ *  fetched aggregate count (send-status totals); nothing is estimated. */
+function DonutChart({
+  segments,
+  loading,
+  centerLabel,
+}: {
+  segments: DonutSegment[];
+  loading: boolean;
+  centerLabel: string;
+}) {
+  if (loading) {
+    return (
+      <div className="flex h-[220px] flex-col items-center justify-center gap-6">
+        <Skeleton className="h-[148px] w-[148px] shrink-0 rounded-full" />
+        <div className="w-full space-y-2">
+          {Array.from({ length: 3 }, (_, i) => (
+            <Skeleton key={i} className="h-3 w-full" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  const total = segments.reduce((sum, s) => sum + s.value, 0);
+  const size = 148;
+  const stroke = 18;
+  const r = (size - stroke) / 2;
+  const circumference = 2 * Math.PI * r;
+
+  if (total === 0) {
+    return (
+      <div className="flex h-[220px] flex-col items-center justify-center gap-2 text-center">
+        <span className="material-symbols-outlined text-[28px] text-on-surface-variant/40">donut_large</span>
+        <p className="font-body-md text-body-md text-on-surface-variant">No sends in this window yet.</p>
+      </div>
+    );
+  }
+
+  // Pre-compute each arc's dash length + cumulative offset with a pure
+  // reduce (no mutation during render) instead of a running counter in .map().
+  const arcs = segments
+    .filter((s) => s.value > 0)
+    .reduce<{ seg: DonutSegment; dash: number; offset: number }[]>((out, seg) => {
+      const dash = (seg.value / total) * circumference;
+      const prevEnd = out.length > 0 ? out[out.length - 1].offset + out[out.length - 1].dash : 0;
+      out.push({ seg, dash, offset: prevEnd });
+      return out;
+    }, []);
+
+  return (
+    // Ring stacked above the legend (never side-by-side) — a fixed-width
+    // circle sharing a row with a text legend was overflowing narrower
+    // grid columns and getting clipped by the card's rounded-corner mask.
+    <div className="flex flex-col items-center gap-6">
+      <div className="relative shrink-0" style={{ width: size, height: size }}>
+        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90">
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={r}
+            fill="none"
+            stroke="var(--color-outline-variant)"
+            strokeWidth={stroke}
+            opacity={0.3}
+          />
+          {arcs.map(({ seg, dash, offset }) => (
+            <circle
+              key={seg.label}
+              cx={size / 2}
+              cy={size / 2}
+              r={r}
+              fill="none"
+              stroke={seg.color}
+              strokeOpacity={seg.opacity ?? 1}
+              strokeWidth={stroke}
+              strokeDasharray={`${dash} ${circumference - dash}`}
+              strokeDashoffset={-offset}
+            />
+          ))}
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <span className="font-data-mono text-headline-md text-primary">{total.toLocaleString()}</span>
+          <span className="font-label-md text-[11px] text-on-surface-variant text-center px-2">
+            {centerLabel}
+          </span>
+        </div>
+      </div>
+      <ul className="flex w-full min-w-0 flex-col gap-2">
+        {segments.map((seg) => (
+          <li key={seg.label} className="flex min-w-0 items-center justify-between gap-3 font-body-md text-[13px]">
+            <span className="flex min-w-0 items-center gap-2 text-on-surface-variant">
+              <span
+                className="h-2.5 w-2.5 shrink-0 rounded-full"
+                style={{ backgroundColor: seg.color, opacity: seg.opacity ?? 1 }}
+              />
+              <span className="truncate">{seg.label}</span>
+            </span>
+            <span className="shrink-0 font-data-mono text-on-surface">
+              {seg.value.toLocaleString()}
+              <span className="ml-1 text-on-surface-variant">
+                ({Math.round((seg.value / total) * 100)}%)
+              </span>
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/** Ranked horizontal bar list — top campaigns by a single real metric
+ *  (sent volume), derived from the already-fetched per-campaign breakdown. */
+function BarList({
+  rows,
+  loading,
+  emptyLabel,
+}: {
+  rows: { label: string; value: number }[];
+  loading: boolean;
+  emptyLabel: string;
+}) {
+  if (loading) {
+    return (
+      <div className="flex flex-col gap-3.5">
+        {Array.from({ length: 5 }, (_, i) => (
+          <div key={i} className="flex items-center gap-3">
+            <Skeleton className="h-3.5 w-24 shrink-0 sm:w-32" />
+            <Skeleton className="h-2 min-w-0 flex-1 rounded-full" />
+            <Skeleton className="h-3.5 w-10 shrink-0" />
+          </div>
+        ))}
+      </div>
+    );
+  }
+  const max = Math.max(0, ...rows.map((r) => r.value));
+  if (rows.length === 0 || max === 0) {
+    return (
+      <div className="flex h-[120px] items-center justify-center text-center font-body-md text-body-md text-on-surface-variant">
+        {rows.length === 0 ? emptyLabel : "No sends yet — nothing to rank."}
+      </div>
+    );
+  }
+  const top = rows.slice(0, 6);
+  return (
+    <ul className="flex flex-col gap-3.5">
+      {top.map((row) => (
+        <li key={row.label} className="flex items-center gap-3">
+          <span
+            className="w-24 shrink-0 truncate font-body-md text-[13px] text-on-surface-variant sm:w-32"
+            title={row.label}
+          >
+            {row.label}
+          </span>
+          <div className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-surface-container-high">
+            <div
+              className="h-full rounded-full bg-primary-container"
+              style={{ width: `${(row.value / max) * 100}%` }}
+            />
+          </div>
+          <span className="w-10 shrink-0 text-right font-data-mono text-[12px] text-on-surface">
+            {row.value.toLocaleString()}
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Eyebrow-label + description header, shared by both channel sections so
+ *  Bulk Fire and Automated Outreach read as two symmetric, clearly divided
+ *  zones instead of one ad hoc box. */
+function ChannelSectionHeader({
+  icon,
+  label,
+  description,
+}: {
+  icon: string;
+  label: string;
+  description: string;
+}) {
+  return (
+    <div className="mb-6 flex items-start gap-3">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-container/10 text-primary-container">
+        <span className="material-symbols-outlined text-[18px]">{icon}</span>
+      </div>
+      <div className="min-w-0">
+        <p className="font-label-md text-[12px] font-semibold uppercase tracking-wider text-on-surface-variant">
+          {label}
+        </p>
+        <p className="font-body-md text-body-md text-text-muted">{description}</p>
+      </div>
+    </div>
+  );
+}
+
 export default function AnalyticsPage() {
   const [overview, setOverview] = useState<AnalyticsOverview | null>(null);
   const [loading, setLoading] = useState(true);
+  const [days, setDays] = useState<(typeof DAY_OPTIONS)[number]>(14);
 
   const load = async (silent = false) => {
     try {
       if (!silent) setLoading(true);
-      const res = await api.get<AnalyticsOverview>(`/api/analytics/overview?days=${DAYS}`);
+      const res = await api.get<AnalyticsOverview>(`/api/analytics/overview?days=${days}`);
       setOverview(res);
     } catch (err: any) {
       if (!silent) toast.error(err.message || "Failed to load analytics");
@@ -278,9 +506,19 @@ export default function AnalyticsPage() {
     load();
     const interval = setInterval(() => load(true), POLL_MS);
     return () => clearInterval(interval);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [days]);
 
   const totals = overview?.totals;
+  const auto = overview?.automated;
+  const replyRate =
+    auto && auto.totals.sent > 0 ? Math.round((auto.totals.replied / auto.totals.sent) * 100) : 0;
+  const bulkOpenRate =
+    totals && totals.sent > 0 ? Math.round((totals.opened / totals.sent) * 100) : 0;
+  const bulkReplyRate =
+    totals && totals.sent > 0 ? Math.round((totals.replied / totals.sent) * 100) : 0;
+  const autoOpenRate =
+    auto && auto.totals.sent > 0 ? Math.round((auto.totals.opened / auto.totals.sent) * 100) : 0;
 
   const campaignColumns: DataTableColumn<CampaignBreakdownRow>[] = [
     {
@@ -368,10 +606,10 @@ export default function AnalyticsPage() {
       ),
     },
     {
-      key: "noEmail",
-      header: "No email",
+      key: "replied",
+      header: "Replied",
       render: (row) => (
-        <span className="font-data-mono text-data-mono text-on-surface-variant">{row.noEmail}</span>
+        <span className="font-data-mono text-data-mono text-tertiary-container">{row.replied}</span>
       ),
     },
   ];
@@ -387,165 +625,343 @@ export default function AnalyticsPage() {
           }
         />
         <main className="flex-1 p-4 sm:p-6 lg:p-12 max-w-[1440px] mx-auto w-full">
-          <Card className="mb-10 border border-border-low-alpha bg-surface-white [--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
-            <CardContent>
-              <div className="mb-2 flex flex-wrap items-center gap-3">
-                <h1 className="font-headline-lg text-headline-lg text-primary">
-                  Outreach Analytics
-                </h1>
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-primary-container/10 px-3 py-1 font-label-md text-[12px] text-primary-container">
-                  <span className="relative flex h-2 w-2">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary-container opacity-50" />
-                    <span className="relative inline-flex h-2 w-2 rounded-full bg-primary-container" />
+          <Card className="mb-8 border border-border-low-alpha bg-surface-white [--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
+            <CardContent className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <div className="mb-2 flex flex-wrap items-center gap-3">
+                  <h1 className="font-headline-lg text-headline-lg text-primary">
+                    Outreach Analytics
+                  </h1>
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-primary-container/10 px-3 py-1 font-label-md text-[12px] text-primary-container">
+                    <span className="relative flex h-2 w-2">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary-container opacity-50" />
+                      <span className="relative inline-flex h-2 w-2 rounded-full bg-primary-container" />
+                    </span>
+                    Live · every {POLL_MS / 1000}s
                   </span>
-                  Live · every {POLL_MS / 1000}s
-                </span>
-              </div>
-              <p className="font-body-lg text-body-lg text-text-muted">
-                Real-time send performance across your email campaigns.
-              </p>
-            </CardContent>
-          </Card>
-
-          <section className="grid grid-cols-2 lg:grid-cols-5 gap-4 sm:gap-6 mb-10">
-            <StatCard icon="mark_email_read" label="Sent" value={totals?.sent ?? 0} loading={loading} tone="positive" />
-            <StatCard icon="schedule_send" label="Scheduled" value={totals?.scheduled ?? 0} loading={loading} />
-            <StatCard icon="error" label="Failed" value={totals?.failed ?? 0} loading={loading} tone="negative" />
-            <StatCard icon="block" label="Skipped" value={totals?.skipped ?? 0} loading={loading} tone="neutral" />
-            <StatCard icon="report" label="Bounced" value={totals?.bounced ?? 0} loading={loading} tone="negative" />
-          </section>
-
-          <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
-            <Card className="border border-border-low-alpha bg-surface-white lg:col-span-2">
-              <CardHeader>
-                <CardTitle className="font-sans font-semibold text-headline-md text-primary">
-                  Sent per day (last {DAYS} days)
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <TrendChart data={overview?.daily ?? []} loading={loading} />
-              </CardContent>
-            </Card>
-            <Card className="border border-border-low-alpha bg-surface-white">
-              <CardHeader>
-                <CardTitle className="font-sans font-semibold text-headline-md text-primary">
-                  Reply &amp; open tracking
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="font-body-md text-body-md text-on-surface-variant">Opened</span>
-                    <Badge variant="secondary">Coming soon</Badge>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="font-body-md text-body-md text-on-surface-variant">Replied</span>
-                    <Badge variant="secondary">Coming soon</Badge>
-                  </div>
                 </div>
-                <p className="mt-4 font-body-md text-[13px] text-text-muted">
-                  These signals aren&apos;t instrumented yet — only real, persisted
-                  data is shown on this dashboard.
+                <p className="font-body-lg text-body-lg text-text-muted">
+                  Real-time send performance across Bulk Fire and Automated Outreach.
                 </p>
+              </div>
+              <div className="flex shrink-0 items-center gap-1 self-start rounded-lg border border-border-low-alpha bg-bg-secondary p-1 lg:self-auto">
+                {DAY_OPTIONS.map((d) => (
+                  <Button
+                    key={d}
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setDays(d)}
+                    className={cn(
+                      "px-3",
+                      days === d
+                        ? "bg-surface-white text-primary shadow-sm font-semibold hover:bg-surface-white"
+                        : "text-text-muted hover:bg-transparent hover:text-on-surface",
+                    )}
+                  >
+                    {d}d
+                  </Button>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* ---- Bulk Fire ---- */}
+          <div className="mb-10 rounded-xl border border-border-low-alpha p-4 sm:p-6 lg:p-8">
+            <ChannelSectionHeader
+              icon="send"
+              label="Bulk Fire"
+              description="Manually scheduled spintax campaigns sent from your connected inboxes."
+            />
+
+            <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-6 mb-8">
+              <StatCard icon="mark_email_read" label="Sent" value={totals?.sent ?? 0} loading={loading} tone="positive" />
+              <StatCard icon="schedule_send" label="Scheduled" value={totals?.scheduled ?? 0} loading={loading} />
+              <StatCard icon="error" label="Failed" value={totals?.failed ?? 0} loading={loading} tone="negative" />
+              <StatCard icon="block" label="Skipped" value={totals?.skipped ?? 0} loading={loading} tone="neutral" />
+              <StatCard icon="report" label="Bounced" value={totals?.bounced ?? 0} loading={loading} tone="negative" />
+            </section>
+
+            <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+              <Card className="border border-border-low-alpha bg-surface-white lg:col-span-2">
+                <CardHeader>
+                  <CardTitle className="font-sans font-semibold text-headline-md text-primary">
+                    Sent per day (last {days} days)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <TrendChart data={overview?.daily ?? []} loading={loading} />
+                </CardContent>
+              </Card>
+              <Card className="border border-border-low-alpha bg-surface-white">
+                <CardHeader>
+                  <CardTitle className="font-sans font-semibold text-headline-md text-primary">
+                    Send status breakdown
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <DonutChart
+                    loading={loading}
+                    centerLabel="total sends"
+                    segments={[
+                      { label: "Sent", value: totals?.sent ?? 0, color: "var(--color-primary-container)" },
+                      { label: "Scheduled", value: totals?.scheduled ?? 0, color: "var(--color-secondary-container)" },
+                      { label: "Failed", value: totals?.failed ?? 0, color: "var(--color-error)" },
+                      { label: "Skipped", value: totals?.skipped ?? 0, color: "var(--color-outline-variant)" },
+                      { label: "Bounced", value: totals?.bounced ?? 0, color: "var(--color-error)", opacity: 0.5 },
+                    ]}
+                  />
+                </CardContent>
+              </Card>
+            </section>
+
+            <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+              <Card className="border border-border-low-alpha bg-surface-white lg:col-span-2">
+                <CardHeader>
+                  <CardTitle className="font-sans font-semibold text-headline-md text-primary">
+                    Top campaigns by volume
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <BarList
+                    loading={loading}
+                    emptyLabel="No email campaigns yet."
+                    rows={(overview?.byCampaign ?? [])
+                      .map((c) => ({ label: c.campaignName, value: c.sent }))
+                      .sort((a, b) => b.value - a.value)}
+                  />
+                </CardContent>
+              </Card>
+              <Card className="border border-border-low-alpha bg-surface-white">
+                <CardHeader>
+                  <CardTitle className="font-sans font-semibold text-headline-md text-primary">
+                    Reply &amp; open tracking
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {loading ? (
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <Skeleton className="h-3.5 w-14" />
+                        <Skeleton className="h-4 w-16" />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <Skeleton className="h-3.5 w-14" />
+                        <Skeleton className="h-4 w-16" />
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <span className="font-body-md text-body-md text-on-surface-variant">Opened</span>
+                          <span className="font-data-mono text-body-md text-on-surface">
+                            {(totals?.opened ?? 0).toLocaleString()}
+                            <span className="ml-1 text-[12px] text-on-surface-variant">({bulkOpenRate}%)</span>
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="font-body-md text-body-md text-on-surface-variant">Replied</span>
+                          <span className="font-data-mono text-body-md text-tertiary-container">
+                            {(totals?.replied ?? 0).toLocaleString()}
+                            <span className="ml-1 text-[12px] text-on-surface-variant">({bulkReplyRate}%)</span>
+                          </span>
+                        </div>
+                      </div>
+                      <p className="mt-4 font-body-md text-[13px] text-text-muted">
+                        Opened: tracking-pixel fetch on the sent email. Replied: a
+                        Gmail thread check for senders with read access — both
+                        percentages are of emails sent, not scheduled.
+                      </p>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            </section>
+
+            <Card className="border border-border-low-alpha bg-surface-white overflow-hidden">
+              <CardHeader className="border-b border-border-low-alpha">
+                <CardTitle className="font-sans font-semibold text-headline-md text-primary">By campaign</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                {loading ? (
+                  <TableSkeleton rows={4} columns={4} withAvatar={false} />
+                ) : (
+                  <DataTable
+                    columns={campaignColumns}
+                    rows={overview?.byCampaign ?? []}
+                    getRowKey={(row) => row.campaignId}
+                    emptyState={
+                      <span className="font-body-md text-body-md text-on-surface-variant">
+                        No email campaigns yet.
+                      </span>
+                    }
+                  />
+                )}
               </CardContent>
             </Card>
-          </section>
+          </div>
 
-          <Card className="border border-border-low-alpha bg-surface-white overflow-hidden">
-            <CardHeader className="border-b border-border-low-alpha">
-              <CardTitle className="font-sans font-semibold text-headline-md text-primary">By campaign</CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <DataTable
-                columns={campaignColumns}
-                rows={overview?.byCampaign ?? []}
-                getRowKey={(row) => row.campaignId}
-                emptyState={
-                  <span className="font-body-md text-body-md text-on-surface-variant">
-                    {loading ? "Loading campaigns..." : "No email campaigns yet."}
-                  </span>
-                }
+          {/* ---- Automated Outreach ---- */}
+          <div className="rounded-xl border border-border-low-alpha p-4 sm:p-6 lg:p-8">
+            <ChannelSectionHeader
+              icon="auto_awesome"
+              label="Automated Outreach"
+              description="Blueprint-powered discovery + AI-written sends, separate from Bulk Fire."
+            />
+
+            <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-6 mb-8">
+              <StatCard
+                icon="mark_email_read"
+                label="Sent"
+                value={auto?.totals.sent ?? 0}
+                loading={loading}
+                tone="positive"
               />
-            </CardContent>
-          </Card>
-
-          <div className="mt-16 rounded-xl border border-border-low-alpha p-4 sm:p-6 lg:p-8">
-          <section className="mb-6">
-            <p className="mb-1 font-label-md text-[12px] font-semibold uppercase tracking-wider text-on-surface-variant">
-              Automated Outreach
-            </p>
-            <p className="font-body-md text-body-md text-text-muted">
-              Blueprint-powered discovery + AI-written sends, separate from Bulk Fire.
-            </p>
-          </section>
-
-          <section className="grid grid-cols-2 lg:grid-cols-5 gap-4 sm:gap-6 mb-10">
-            <StatCard
-              icon="mark_email_read"
-              label="Sent"
-              value={overview?.automated.totals.sent ?? 0}
-              loading={loading}
-              tone="positive"
-            />
-            <StatCard
-              icon="schedule_send"
-              label="Scheduled"
-              value={overview?.automated.totals.scheduled ?? 0}
-              loading={loading}
-            />
-            <StatCard
-              icon="error"
-              label="Failed"
-              value={overview?.automated.totals.failed ?? 0}
-              loading={loading}
-              tone="negative"
-            />
-            <StatCard
-              icon="block"
-              label="Skipped"
-              value={overview?.automated.totals.skipped ?? 0}
-              loading={loading}
-              tone="neutral"
-            />
-            <StatCard
-              icon="mail_lock"
-              label="No email found"
-              value={overview?.automated.totals.noEmail ?? 0}
-              loading={loading}
-              tone="neutral"
-            />
-          </section>
-
-          <Card className="border border-border-low-alpha bg-surface-white mb-10">
-            <CardHeader>
-              <CardTitle className="font-sans font-semibold text-headline-md text-primary">
-                Automated sent per day (last {DAYS} days)
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <TrendChart data={overview?.automated.daily ?? []} loading={loading} />
-            </CardContent>
-          </Card>
-
-          <Card className="border border-border-low-alpha bg-surface-white overflow-hidden">
-            <CardHeader className="border-b border-border-low-alpha">
-              <CardTitle className="font-sans font-semibold text-headline-md text-primary">
-                By automated campaign
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <DataTable
-                columns={automatedCampaignColumns}
-                rows={overview?.automated.byCampaign ?? []}
-                getRowKey={(row) => row.campaignId}
-                emptyState={
-                  <span className="font-body-md text-body-md text-on-surface-variant">
-                    {loading ? "Loading campaigns..." : "No automated campaigns yet."}
-                  </span>
-                }
+              <StatCard
+                icon="schedule_send"
+                label="Scheduled"
+                value={auto?.totals.scheduled ?? 0}
+                loading={loading}
               />
-            </CardContent>
-          </Card>
+              <StatCard
+                icon="error"
+                label="Failed"
+                value={auto?.totals.failed ?? 0}
+                loading={loading}
+                tone="negative"
+              />
+              <StatCard
+                icon="block"
+                label="Skipped"
+                value={auto?.totals.skipped ?? 0}
+                loading={loading}
+                tone="neutral"
+              />
+              <StatCard
+                icon="mark_email_unread"
+                label="Replied"
+                value={auto?.totals.replied ?? 0}
+                loading={loading}
+                tone="positive"
+              />
+            </section>
+
+            <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+              <Card className="border border-border-low-alpha bg-surface-white lg:col-span-2">
+                <CardHeader>
+                  <CardTitle className="font-sans font-semibold text-headline-md text-primary">
+                    Automated sent per day (last {days} days)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <TrendChart data={auto?.daily ?? []} loading={loading} />
+                </CardContent>
+              </Card>
+              <Card className="border border-border-low-alpha bg-surface-white">
+                <CardHeader>
+                  <CardTitle className="font-sans font-semibold text-headline-md text-primary">
+                    Send status breakdown
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <DonutChart
+                    loading={loading}
+                    centerLabel="total sends"
+                    segments={[
+                      { label: "Sent", value: auto?.totals.sent ?? 0, color: "var(--color-primary-container)" },
+                      { label: "Scheduled", value: auto?.totals.scheduled ?? 0, color: "var(--color-secondary-container)" },
+                      { label: "Failed", value: auto?.totals.failed ?? 0, color: "var(--color-error)" },
+                      { label: "Skipped", value: auto?.totals.skipped ?? 0, color: "var(--color-outline-variant)" },
+                      { label: "Replied", value: auto?.totals.replied ?? 0, color: "var(--color-tertiary-container)" },
+                    ]}
+                  />
+                </CardContent>
+              </Card>
+            </section>
+
+            <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+              <Card className="border border-border-low-alpha bg-surface-white lg:col-span-2">
+                <CardHeader>
+                  <CardTitle className="font-sans font-semibold text-headline-md text-primary">
+                    Top campaigns by volume
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <BarList
+                    loading={loading}
+                    emptyLabel="No automated campaigns yet."
+                    rows={(auto?.byCampaign ?? [])
+                      .map((c) => ({ label: c.campaignName, value: c.sent }))
+                      .sort((a, b) => b.value - a.value)}
+                  />
+                </CardContent>
+              </Card>
+              <Card className="border border-border-low-alpha bg-surface-white">
+                <CardHeader>
+                  <CardTitle className="font-sans font-semibold text-headline-md text-primary">
+                    Reply rate
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {loading ? (
+                    <>
+                      <Skeleton className="h-9 w-20" />
+                      <Skeleton className="mt-2 h-3.5 w-40" />
+                      <div className="mt-4 flex items-center justify-between border-t border-border-low-alpha pt-3">
+                        <Skeleton className="h-3.5 w-14" />
+                        <Skeleton className="h-4 w-16" />
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex items-baseline gap-2">
+                        <span className="font-data-mono text-display-lg text-primary tracking-tight">
+                          {replyRate}%
+                        </span>
+                        <span className="font-body-md text-[13px] text-on-surface-variant">
+                          of sent emails
+                        </span>
+                      </div>
+                      <p className="mt-2 font-body-md text-[13px] text-text-muted">
+                        {`${(auto?.totals.replied ?? 0).toLocaleString()} replies out of ${(auto?.totals.sent ?? 0).toLocaleString()} sent.`}
+                      </p>
+                      <div className="mt-4 flex items-center justify-between border-t border-border-low-alpha pt-3">
+                        <span className="font-body-md text-body-md text-on-surface-variant">Opened</span>
+                        <span className="font-data-mono text-body-md text-on-surface">
+                          {(auto?.totals.opened ?? 0).toLocaleString()}
+                          <span className="ml-1 text-[12px] text-on-surface-variant">({autoOpenRate}%)</span>
+                        </span>
+                      </div>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            </section>
+
+            <Card className="border border-border-low-alpha bg-surface-white overflow-hidden">
+              <CardHeader className="border-b border-border-low-alpha">
+                <CardTitle className="font-sans font-semibold text-headline-md text-primary">
+                  By automated campaign
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                {loading ? (
+                  <TableSkeleton rows={4} columns={5} withAvatar={false} />
+                ) : (
+                  <DataTable
+                    columns={automatedCampaignColumns}
+                    rows={auto?.byCampaign ?? []}
+                    getRowKey={(row) => row.campaignId}
+                    emptyState={
+                      <span className="font-body-md text-body-md text-on-surface-variant">
+                        No automated campaigns yet.
+                      </span>
+                    }
+                  />
+                )}
+              </CardContent>
+            </Card>
           </div>
         </main>
       </div>

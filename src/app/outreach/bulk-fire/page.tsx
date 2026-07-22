@@ -13,6 +13,7 @@ import { stagger, item as itemVariants } from "@/lib/motion";
 import { useAuth } from "@/components/app/auth-provider";
 import { outreachLimits } from "@/lib/plans";
 import { PageSpinner } from "@/components/ui/page-spinner";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface Campaign {
   id: string;
@@ -344,7 +345,7 @@ export default function BulkFirePage() {
           )
         }
       />
-      <main className="mx-auto max-w-[1160px] p-4 sm:p-6 lg:p-12 min-h-screen">
+      <main className="mx-auto max-w-[1440px] w-full p-4 sm:p-6 lg:p-12 min-h-screen">
         <section className="mb-10">
           <h1 className="font-headline-lg text-headline-lg text-primary mb-2">
             Bulk Fire
@@ -450,11 +451,19 @@ export default function BulkFirePage() {
           </div>
 
           {loading ? (
-            <div className="flex items-center justify-center rounded-[20px] border border-border-low-alpha bg-white py-12 font-body-md text-on-surface-variant">
-              <span className="material-symbols-outlined mr-2 animate-spin">
-                sync
-              </span>{" "}
-              Loading senders…
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {Array.from({ length: 3 }, (_, i) => (
+                <div key={i} className="flex flex-col gap-3 rounded-[20px] border border-border-low-alpha bg-white p-5">
+                  <div className="flex items-center gap-2">
+                    <Skeleton className="h-5 w-5 rounded" />
+                    <div className="space-y-1.5">
+                      <Skeleton className="h-3.5 w-24" />
+                      <Skeleton className="h-3 w-32" />
+                    </div>
+                  </div>
+                  <Skeleton className="h-3 w-28" />
+                </div>
+              ))}
             </div>
           ) : senders.length === 0 ? (
             <div className="rounded-[20px] border-2 border-dashed border-border-low-alpha p-8 text-center font-body-md text-on-surface-variant">
@@ -544,11 +553,14 @@ export default function BulkFirePage() {
             Campaigns
           </h2>
           {loading ? (
-            <div className="flex items-center justify-center rounded-[20px] border border-border-low-alpha bg-white py-12 font-body-md text-on-surface-variant">
-              <span className="material-symbols-outlined mr-2 animate-spin">
-                sync
-              </span>{" "}
-              Loading campaigns…
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {Array.from({ length: 3 }, (_, i) => (
+                <div key={i} className="flex flex-col gap-3 rounded-[20px] border border-border-low-alpha bg-white p-5">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-3 w-24" />
+                  <Skeleton className="h-2 w-full rounded-full" />
+                </div>
+              ))}
             </div>
           ) : (
             <motion.div
@@ -736,7 +748,7 @@ export default function BulkFirePage() {
         maxWidth="max-w-xl"
       >
         <form onSubmit={handleAddSmtp} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block font-label-md text-primary mb-2">
                 Label
@@ -774,8 +786,8 @@ export default function BulkFirePage() {
               className="w-full rounded-xl border border-border-low-alpha bg-bg-cream/30 px-4 py-2.5 font-body-md"
             />
           </div>
-          <div className="grid grid-cols-3 gap-4">
-            <div className="col-span-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="sm:col-span-2">
               <label className="block font-label-md text-primary mb-2">
                 SMTP host
               </label>
@@ -800,7 +812,7 @@ export default function BulkFirePage() {
               />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block font-label-md text-primary mb-2">
                 Username
@@ -868,7 +880,7 @@ export default function BulkFirePage() {
         maxWidth="max-w-xl"
       >
         <form onSubmit={handleAddWhatsapp} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block font-label-md text-primary mb-2">
                 Label
@@ -914,7 +926,7 @@ export default function BulkFirePage() {
               className="w-full rounded-xl border border-border-low-alpha bg-bg-cream/30 px-4 py-2.5 font-body-md"
             />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block font-label-md text-primary mb-2">
                 Phone number ID

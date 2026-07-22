@@ -146,8 +146,16 @@
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
   --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
+  /* --color-secondary/-foreground intentionally NOT redeclared here — the
+     original Stitch @theme block above already sets --color-secondary to
+     the brand gold (#755b00), and ~48 call sites across the app
+     (text-secondary, hover:text-secondary, border-secondary) depend on
+     that. A `--color-secondary: var(--secondary)` override used to live
+     here, silently shadowing the gold with a near-white shadcn slot value —
+     every one of those 48 usages rendered nearly invisible against the
+     cream background as a result. Button/Badge's "secondary" variant now
+     reference --muted-action(-foreground) directly instead (see below),
+     so nothing needs this alias any more. */
   --color-primary-foreground: var(--primary-foreground);
   --color-primary: var(--primary);
   --color-popover-foreground: var(--popover-foreground);
@@ -183,11 +191,16 @@
   --popover-foreground: var(--color-on-surface);
   --primary: var(--color-primary-container);
   --primary-foreground: var(--color-on-primary);
-  /* shadcn's "secondary" is a muted-button role, not the brand gold — the
-     gold palette is exposed separately via StatusBadge's "brass" tone
-     instead, so a plain shadcn secondary Button doesn't turn gold by accident. */
-  --secondary: var(--color-surface-container-low);
-  --secondary-foreground: var(--color-on-surface);
+  /* shadcn's "secondary" role is a muted-button background, not the brand
+     gold — the gold palette is exposed separately via StatusBadge's "brass"
+     tone instead. Named --muted-action(-foreground) rather than
+     --secondary(-foreground) specifically so it can never collide with (and
+     silently shadow) the Tailwind-generated `secondary` color utilities,
+     which ~48 call sites use expecting the actual brand gold. Consumed via
+     arbitrary-value syntax (`bg-[var(--muted-action)]`) in Button/Badge's
+     "secondary" variant instead of the `bg-secondary` utility class. */
+  --muted-action: var(--color-surface-container-low);
+  --muted-action-foreground: var(--color-on-surface);
   --muted: var(--color-surface-container-low);
   --muted-foreground: var(--color-on-surface-variant);
   --accent: var(--color-tertiary-fixed);
@@ -526,13 +539,27 @@ body {
   font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
 }
 
+/* Firefox: a visible-by-default thin scrollbar instead of relying on the
+   OS's own auto-hide preference (macOS hides scrollbars until actively
+   scrolling, which reads as "not scrollable" on wide tables). */
+.scroll-slim {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-outline-variant) transparent;
+}
 .scroll-slim::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
-.scroll-slim::-webkit-scrollbar-thumb {
-  background: var(--color-border-low-alpha);
+.scroll-slim::-webkit-scrollbar-track {
+  background: var(--color-surface-container-low);
   border-radius: 999px;
+}
+.scroll-slim::-webkit-scrollbar-thumb {
+  background: var(--color-outline-variant);
+  border-radius: 999px;
+}
+.scroll-slim::-webkit-scrollbar-thumb:hover {
+  background: var(--color-outline);
 }
 
 @media (prefers-reduced-motion: reduce) {

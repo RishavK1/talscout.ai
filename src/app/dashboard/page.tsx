@@ -12,6 +12,24 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardAction, CardContent } from "@/components/ui/card";
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { TableSkeleton } from "@/components/ui/skeletons";
+
+/** Icon-left / label+value-right stat tile skeleton — matches this page's
+ *  specific tile shape (different from analytics' icon-top StatCard).
+ *  The WHOLE tile (icon chip, label, value) renders as skeleton blocks
+ *  while loading, not just the numeric value inside an otherwise-live card. */
+function DashStatTileSkeleton() {
+  return (
+    <div className="flex items-center gap-3">
+      <Skeleton className="h-9 w-9 shrink-0 rounded-lg" />
+      <div className="space-y-1.5">
+        <Skeleton className="h-3 w-24" />
+        <Skeleton className="h-6 w-14" />
+      </div>
+    </div>
+  );
+}
 
 
 interface SimpleCandidate {
@@ -274,56 +292,80 @@ export default function DashboardPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {/* Total Candidates */}
               <Card className="h-full [--card-spacing:--spacing(4)]">
-                <CardContent className="flex items-center gap-3">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-container/10 text-primary-container">
-                    <span className="material-symbols-outlined text-[20px]">folder_shared</span>
-                  </div>
-                  <div>
-                    <p className="font-label-md text-label-md text-on-surface-variant">Total Candidates</p>
-                    <p className="font-data-mono text-headline-lg text-primary tracking-tight">
-                      {loading ? "..." : totalCandidates.toLocaleString()}
-                    </p>
-                  </div>
+                <CardContent>
+                  {loading ? (
+                    <DashStatTileSkeleton />
+                  ) : (
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-container/10 text-primary-container">
+                        <span className="material-symbols-outlined text-[20px]">folder_shared</span>
+                      </div>
+                      <div>
+                        <p className="font-label-md text-label-md text-on-surface-variant">Total Candidates</p>
+                        <p className="font-data-mono text-headline-lg text-primary tracking-tight">
+                          {totalCandidates.toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
               {/* Processed Resumes */}
               <Card className="h-full [--card-spacing:--spacing(4)]">
-                <CardContent className="flex items-center gap-3">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-container/10 text-primary-container">
-                    <span className="material-symbols-outlined text-[20px]">document_scanner</span>
-                  </div>
-                  <div>
-                    <p className="font-label-md text-label-md text-on-surface-variant">Parsed / Ready</p>
-                    <p className="font-data-mono text-headline-lg text-primary tracking-tight">
-                      {loading ? "..." : processedCandidates.toLocaleString()}
-                    </p>
-                  </div>
+                <CardContent>
+                  {loading ? (
+                    <DashStatTileSkeleton />
+                  ) : (
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-container/10 text-primary-container">
+                        <span className="material-symbols-outlined text-[20px]">document_scanner</span>
+                      </div>
+                      <div>
+                        <p className="font-label-md text-label-md text-on-surface-variant">Parsed / Ready</p>
+                        <p className="font-data-mono text-headline-lg text-primary tracking-tight">
+                          {processedCandidates.toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
               {/* In Processing */}
               <Card className="h-full [--card-spacing:--spacing(4)]">
-                <CardContent className="flex items-center gap-3">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-container/10 text-primary-container">
-                    <span className="material-symbols-outlined text-[20px]">hourglass_top</span>
-                  </div>
-                  <div>
-                    <p className="font-label-md text-label-md text-on-surface-variant">Processing</p>
-                    <p className="font-data-mono text-headline-lg text-primary tracking-tight">
-                      {loading ? "..." : processingCandidates.toLocaleString()}
-                    </p>
-                  </div>
+                <CardContent>
+                  {loading ? (
+                    <DashStatTileSkeleton />
+                  ) : (
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-container/10 text-primary-container">
+                        <span className="material-symbols-outlined text-[20px]">hourglass_top</span>
+                      </div>
+                      <div>
+                        <p className="font-label-md text-label-md text-on-surface-variant">Processing</p>
+                        <p className="font-data-mono text-headline-lg text-primary tracking-tight">
+                          {processingCandidates.toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
               {/* Shortlisted */}
               <Card className="h-full [--card-spacing:--spacing(4)]">
-                <CardContent className="flex items-center gap-3">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-container/10 text-primary-container">
-                    <span className="material-symbols-outlined text-[20px]" data-weight="fill">star</span>
-                  </div>
-                  <div>
-                    <p className="font-label-md text-label-md text-on-surface-variant">Shortlisted</p>
-                    <p className="font-data-mono text-headline-lg text-primary tracking-tight">{loading ? "..." : shortlistedCount.toLocaleString()}</p>
-                  </div>
+                <CardContent>
+                  {loading ? (
+                    <DashStatTileSkeleton />
+                  ) : (
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-container/10 text-primary-container">
+                        <span className="material-symbols-outlined text-[20px]" data-weight="fill">star</span>
+                      </div>
+                      <div>
+                        <p className="font-label-md text-label-md text-on-surface-variant">Shortlisted</p>
+                        <p className="font-data-mono text-headline-lg text-primary tracking-tight">{shortlistedCount.toLocaleString()}</p>
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>
@@ -336,31 +378,43 @@ export default function DashboardPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Link href="/automated-outreach">
                 <Card className="h-full [--card-spacing:--spacing(4)] hover:border-primary-container/40 transition-colors">
-                  <CardContent className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-container/10 text-primary-container">
-                      <span className="material-symbols-outlined text-[20px]">auto_awesome</span>
-                    </div>
-                    <div>
-                      <p className="font-label-md text-label-md text-on-surface-variant">Active Campaigns</p>
-                      <p className="font-data-mono text-headline-lg text-primary tracking-tight">
-                        {loading ? "..." : activeCampaignsCount.toLocaleString()}
-                      </p>
-                    </div>
+                  <CardContent>
+                    {loading ? (
+                      <DashStatTileSkeleton />
+                    ) : (
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-container/10 text-primary-container">
+                          <span className="material-symbols-outlined text-[20px]">auto_awesome</span>
+                        </div>
+                        <div>
+                          <p className="font-label-md text-label-md text-on-surface-variant">Active Campaigns</p>
+                          <p className="font-data-mono text-headline-lg text-primary tracking-tight">
+                            {activeCampaignsCount.toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </Link>
               <Link href="/blueprints">
                 <Card className="h-full [--card-spacing:--spacing(4)] hover:border-primary-container/40 transition-colors">
-                  <CardContent className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-container/10 text-primary-container">
-                      <span className="material-symbols-outlined text-[20px]">description</span>
-                    </div>
-                    <div>
-                      <p className="font-label-md text-label-md text-on-surface-variant">Blueprints</p>
-                      <p className="font-data-mono text-headline-lg text-primary tracking-tight">
-                        {loading ? "..." : blueprintsCount.toLocaleString()}
-                      </p>
-                    </div>
+                  <CardContent>
+                    {loading ? (
+                      <DashStatTileSkeleton />
+                    ) : (
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-container/10 text-primary-container">
+                          <span className="material-symbols-outlined text-[20px]">description</span>
+                        </div>
+                        <div>
+                          <p className="font-label-md text-label-md text-on-surface-variant">Blueprints</p>
+                          <p className="font-data-mono text-headline-lg text-primary tracking-tight">
+                            {blueprintsCount.toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </Link>
@@ -377,17 +431,21 @@ export default function DashboardPage() {
                 </CardAction>
               </CardHeader>
               <CardContent className="p-0">
-                <DataTable
-                  columns={uploadColumns}
-                  rows={recentCandidates}
-                  getRowKey={(c) => c.id}
-                  onRowClick={(c) => router.push(`/candidates/${c.id}`)}
-                  emptyState={
-                    <span className="font-body-md text-body-md text-on-surface-variant">
-                      {loading ? "Loading candidates..." : "No candidates found. Upload some résumés to get started!"}
-                    </span>
-                  }
-                />
+                {loading ? (
+                  <TableSkeleton rows={4} columns={2} withAvatar={false} />
+                ) : (
+                  <DataTable
+                    columns={uploadColumns}
+                    rows={recentCandidates}
+                    getRowKey={(c) => c.id}
+                    onRowClick={(c) => router.push(`/candidates/${c.id}`)}
+                    emptyState={
+                      <span className="font-body-md text-body-md text-on-surface-variant">
+                        No candidates found. Upload some résumés to get started!
+                      </span>
+                    }
+                  />
+                )}
               </CardContent>
             </Card>
             {/* Recent Searches (Takes 1 column) */}

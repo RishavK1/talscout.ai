@@ -23,7 +23,7 @@ import {
  */
 
 export interface AnalyticsOverview {
-  totals: StatusTotals & { total: number; bounced: number };
+  totals: StatusTotals & { total: number; bounced: number; opened: number; replied: number };
   byCampaign: CampaignBreakdownRow[];
   daily: DailyPoint[];
   days: number;
@@ -34,14 +34,15 @@ export interface AnalyticsOverview {
     skipped: boolean;
     scheduled: boolean;
     bounced: boolean;
-    /** Email open/reply tracking is not instrumented yet. */
+    /** True since poll-outreach-replies.ts (Gmail thread check) and the
+     *  tracking-pixel route both write real, persisted signals now. */
     opened: boolean;
     replied: boolean;
   };
   /** Automated-outreach campaign stats — read from separate tables, shown
    *  as its own section alongside the Bulk Fire numbers above. */
   automated: {
-    totals: AutomatedStatusTotals & { total: number; noEmail: number };
+    totals: AutomatedStatusTotals & { total: number; replied: number; opened: number };
     byCampaign: AutomatedCampaignBreakdownRow[];
     daily: AutomatedDailyPoint[];
   };
@@ -78,19 +79,25 @@ export const analyticsService = {
     const [
       totals,
       bounced,
+      opened,
+      replied,
       byCampaign,
       dailyRaw,
       automatedTotals,
-      automatedNoEmail,
+      automatedOpened,
+      automatedReplied,
       automatedByCampaign,
       automatedDailyRaw,
     ] = await Promise.all([
       analyticsRepo.statusTotals(ctx),
       analyticsRepo.bouncedLeadCount(ctx),
+      analyticsRepo.openedSendCount(ctx),
+      analyticsRepo.repliedLeadCount(ctx),
       analyticsRepo.breakdownByCampaign(ctx),
       analyticsRepo.dailySentSeries(ctx, days),
       automatedAnalyticsRepo.statusTotals(ctx),
-      automatedAnalyticsRepo.noEmailLeadCount(ctx),
+      automatedAnalyticsRepo.openedSendCount(ctx),
+      automatedAnalyticsRepo.repliedLeadCount(ctx),
       automatedAnalyticsRepo.breakdownByCampaign(ctx),
       automatedAnalyticsRepo.dailySentSeries(ctx, days),
     ]);
@@ -101,7 +108,7 @@ export const analyticsService = {
       automatedTotals.scheduled + automatedTotals.sent + automatedTotals.failed + automatedTotals.skipped;
 
     return {
-      totals: { ...totals, total, bounced },
+      totals: { ...totals, total, bounced, opened, replied },
       byCampaign,
       daily: fillDailyGaps(dailyRaw, days),
       days,
@@ -111,11 +118,11 @@ export const analyticsService = {
         skipped: true,
         scheduled: true,
         bounced: true,
-        opened: false,
-        replied: false,
+        opened: true,
+        replied: true,
       },
       automated: {
-        totals: { ...automatedTotals, total: automatedTotal, noEmail: automatedNoEmail },
+        totals: { ...automatedTotals, total: automatedTotal, replied: automatedReplied, opened: automatedOpened },
         byCampaign: automatedByCampaign,
         daily: fillDailyGaps(automatedDailyRaw, days),
       },

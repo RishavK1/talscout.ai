@@ -1,4 +1,4 @@
-import { and, eq, sql, gte, inArray } from "drizzle-orm";
+import { and, eq, sql, gte, inArray, isNotNull } from "drizzle-orm";
 import { automatedCampaigns, automatedLeads, automatedSends } from "@/server/db/schema";
 import type { TenantContext } from "@/server/db/tx";
 
@@ -23,7 +23,7 @@ export interface AutomatedCampaignBreakdownRow extends AutomatedStatusTotals {
   campaignId: string;
   campaignName: string;
   status: string;
-  noEmail: number;
+  replied: number;
 }
 
 export interface AutomatedDailyPoint {
@@ -51,13 +51,25 @@ export const automatedAnalyticsRepo = {
     return totals;
   },
 
-  /** Leads discovered but never sent to because no email was findable — the
-   *  analogue of "bounced" for this feature (a real, persisted signal). */
-  async noEmailLeadCount(ctx: TenantContext): Promise<number> {
+  /** Leads that replied to an automated send — the headline outcome metric
+   *  for this feature (replaces a previous "no email found" tile, which was
+   *  internal pipeline bookkeeping, not something worth surfacing). */
+  async repliedLeadCount(ctx: TenantContext): Promise<number> {
     const [row] = await ctx.tx
       .select({ count: sql<number>`count(*)::int` })
       .from(automatedLeads)
-      .where(and(eq(automatedLeads.tenantId, ctx.tenantId), eq(automatedLeads.status, "no_email")));
+      .where(and(eq(automatedLeads.tenantId, ctx.tenantId), eq(automatedLeads.status, "replied")));
+    return row?.count ?? 0;
+  },
+
+  /** Sends whose tracking pixel was fetched — automated outreach is
+   *  email-only (no WhatsApp channel), so unlike analytics.repo.ts's
+   *  openedSendCount there's no delivery-status signal to fold in. */
+  async openedSendCount(ctx: TenantContext): Promise<number> {
+    const [row] = await ctx.tx
+      .select({ count: sql<number>`count(*)::int` })
+      .from(automatedSends)
+      .where(and(eq(automatedSends.tenantId, ctx.tenantId), isNotNull(automatedSends.openedAt)));
     return row?.count ?? 0;
   },
 
@@ -87,14 +99,14 @@ export const automatedAnalyticsRepo = {
       )
       .groupBy(automatedSends.campaignId, automatedSends.status);
 
-    const noEmailRows = await ctx.tx
+    const repliedRows = await ctx.tx
       .select({ campaignId: automatedLeads.campaignId, count: sql<number>`count(*)::int` })
       .from(automatedLeads)
       .where(
         and(
           eq(automatedLeads.tenantId, ctx.tenantId),
           inArray(automatedLeads.campaignId, campaignIds),
-          eq(automatedLeads.status, "no_email"),
+          eq(automatedLeads.status, "replied"),
         ),
       )
       .groupBy(automatedLeads.campaignId);
@@ -105,7 +117,7 @@ export const automatedAnalyticsRepo = {
       t[row.status as AutomatedSendStatus] = row.count;
       totalsByCampaign.set(row.campaignId, t);
     }
-    const noEmailByCampaign = new Map(noEmailRows.map((r) => [r.campaignId, r.count]));
+    const repliedByCampaign = new Map(repliedRows.map((r) => [r.campaignId, r.count]));
 
     return campaigns
       .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
@@ -114,7 +126,7 @@ export const automatedAnalyticsRepo = {
         campaignName: c.name,
         status: c.status,
         ...(totalsByCampaign.get(c.id) ?? EMPTY_TOTALS()),
-        noEmail: noEmailByCampaign.get(c.id) ?? 0,
+        replied: repliedByCampaign.get(c.id) ?? 0,
       }));
   },
 

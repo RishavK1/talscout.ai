@@ -211,6 +211,12 @@ export interface OutreachSendArgs {
    *  thread id, passed as requestBody.threadId — Gmail's authoritative
    *  same-thread mechanism. Ignored by SMTP. */
   gmailThreadId?: string;
+  /** When set, the adapter sends a multipart/alternative message (the
+   *  unmodified `text` body plus an auto-generated HTML version carrying
+   *  this URL as an invisible tracking pixel) instead of plain-text-only.
+   *  Omitted entirely means plain text, unchanged from before this field
+   *  existed. */
+  trackingPixelUrl?: string;
 }
 
 /** What a completed send hands back so follow-ups can thread onto it.
@@ -483,6 +489,10 @@ export interface OutreachCopyRequest {
   /** Up to 2 example emails the user provided — few-shot style guidance,
    *  not content to copy. */
   styleExamples?: string[];
+  /** Present for Day 3/Day 7 follow-ups (stepIndex 1/2) — absent means Day 0,
+   *  the initial pitch. When set, the writer produces a short nudge
+   *  referencing the earlier email instead of repeating the full pitch. */
+  followUp?: { stepIndex: 1 | 2; previousSubject: string };
 }
 
 export interface OutreachCopyResult {

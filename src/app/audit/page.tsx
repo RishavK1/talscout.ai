@@ -8,6 +8,9 @@ import { toast } from "sonner";
 import { TopAppBar } from "@/components/app/top-app-bar";
 import { Card, CardContent } from "@/components/ui/card";
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
+import { StatusBadge, type StatusBadgeProps } from "@/components/ui/status-badge";
+import { Button } from "@/components/ui/button";
+import { TableSkeleton } from "@/components/ui/skeletons";
 
 const FETCH_BATCH = 100;
 
@@ -62,15 +65,15 @@ export default function AuditLogPage() {
     return `${formattedDate} · ${formattedTime}`;
   };
 
-  const formatPill = (action: string) => {
+  const actionTone = (action: string): NonNullable<StatusBadgeProps["tone"]> => {
     const act = action.toLowerCase();
     if (act.includes("delete") || act.includes("remove") || act.includes("cancel")) {
-      return "bg-error-container/40 text-on-error-container";
+      return "error";
     }
     if (act.includes("create") || act.includes("invite") || act.includes("add") || act.includes("upload")) {
-      return "bg-tertiary-fixed text-on-tertiary-fixed";
+      return "active";
     }
-    return "brass-badge";
+    return "brass";
   };
 
   const getInitials = (email: string | null) => {
@@ -176,9 +179,9 @@ export default function AuditLogPage() {
       header: "Action",
       headerClassName: "uppercase tracking-widest text-[11px] text-text-muted",
       render: (entry) => (
-        <span className={`px-2.5 py-0.5 ${formatPill(entry.action)} font-label-md rounded-full text-[12px]`}>
+        <StatusBadge tone={actionTone(entry.action)} dot={false}>
           {entry.action}
-        </span>
+        </StatusBadge>
       ),
     },
     {
@@ -284,10 +287,7 @@ export default function AuditLogPage() {
             <Card className="overflow-hidden">
               <CardContent className="p-0">
                 {loading ? (
-                  <div className="py-16 text-center flex flex-col items-center gap-3 text-text-muted">
-                    <span className="material-symbols-outlined animate-spin text-primary">sync</span>
-                    <p className="font-label-md">Loading audit entries...</p>
-                  </div>
+                  <TableSkeleton rows={6} columns={3} withAvatar />
                 ) : (
                   <DataTable
                     columns={logColumns}
@@ -313,54 +313,47 @@ export default function AuditLogPage() {
                     {filtered.length !== logs.length ? ` (filtered from ${logs.length})` : ""}
                   </span>
                   <div className="flex items-center gap-2">
-                    <button
+                    <Button
                       type="button"
+                      variant="outline"
+                      size="icon-sm"
                       onClick={() => setPage((p) => Math.max(1, p - 1))}
                       disabled={currentPage <= 1}
                       aria-label="Previous page"
-                      className="w-8 h-8 rounded border border-border-low-alpha flex items-center justify-center text-on-surface-variant hover:bg-bg-cream disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <span className="material-symbols-outlined text-[18px]">chevron_left</span>
-                    </button>
+                    </Button>
                     {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-                      <button
+                      <Button
                         key={p}
                         type="button"
+                        variant={p === currentPage ? "gradient" : "outline"}
+                        size="icon-sm"
                         onClick={() => setPage(p)}
                         aria-current={p === currentPage ? "page" : undefined}
-                        className={
-                          "w-8 h-8 rounded font-label-md text-[13px] flex items-center justify-center transition-colors " +
-                          (p === currentPage
-                            ? "bg-primary text-on-primary"
-                            : "border border-border-low-alpha text-on-surface-variant hover:bg-bg-cream")
-                        }
                       >
                         {p}
-                      </button>
+                      </Button>
                     ))}
-                    <button
+                    <Button
                       type="button"
+                      variant="outline"
+                      size="icon-sm"
                       onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                       disabled={currentPage >= totalPages}
                       aria-label="Next page"
-                      className="w-8 h-8 rounded border border-border-low-alpha flex items-center justify-center text-on-surface-variant hover:bg-bg-cream disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <span className="material-symbols-outlined text-[18px]">chevron_right</span>
-                    </button>
+                    </Button>
                   </div>
                 </div>
               )}
               {!loading && logs.length < totalCount && currentPage >= totalPages && (
                 <div className="px-6 py-4 border-t border-border-low-alpha bg-surface-white flex justify-center">
-                  <button
-                    type="button"
-                    onClick={loadMore}
-                    disabled={loadingMore}
-                    className="px-4 py-2 rounded-lg border border-border-low-alpha font-label-md text-[13px] text-on-surface-variant hover:bg-bg-cream transition-colors disabled:opacity-50 flex items-center gap-2"
-                  >
+                  <Button type="button" variant="outline" onClick={loadMore} disabled={loadingMore}>
                     {loadingMore && <span className="material-symbols-outlined text-[16px] animate-spin">sync</span>}
                     {loadingMore ? "Loading…" : `Load more (${totalCount - logs.length} remaining)`}
-                  </button>
+                  </Button>
                 </div>
               )}
             </Card>

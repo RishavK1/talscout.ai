@@ -13,6 +13,7 @@ import { SpotlightCard } from "@/components/marketing/spotlight-card";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface Shortlist {
   id: string;
@@ -151,9 +152,21 @@ export default function ShortlistsPage() {
 
             {/* Dynamic Shortlist Cards */}
             {loading ? (
-              <div className="flex items-center justify-center col-span-1 md:col-span-2 lg:col-span-3 min-h-[200px] text-text-muted font-body-md">
-                Loading shortlists...
-              </div>
+              Array.from({ length: 3 }, (_, i) => (
+                <Card key={i} className="h-full min-h-[280px] [--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
+                  <CardContent className="flex h-full flex-col justify-between">
+                    <div>
+                      <div className="flex justify-between items-start mb-6">
+                        <Skeleton className="h-5 w-32" />
+                      </div>
+                      <Skeleton className="h-5 w-40" />
+                    </div>
+                    <div className="pt-4 border-t border-border-low-alpha">
+                      <Skeleton className="h-3 w-28" />
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
             ) : filtered.map(s => (
               <SpotlightCard key={s.id} className="group">
                 <Link href={`/shortlists/${s.id}`} className="block h-full">

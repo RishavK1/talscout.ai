@@ -44,11 +44,12 @@ export const updateAutomatedCampaignSchema = z
 export type UpdateAutomatedCampaignBody = z.infer<typeof updateAutomatedCampaignSchema>;
 
 export const listAutomatedLeadsQuerySchema = z.object({
-  // "no_email" is intentionally excluded — a business with no findable
-  // email is never a selectable/visible lead (see automatedLeadRepo.list's
-  // doc comment, which also hard-excludes it regardless of this filter).
+  // "discovered", "no_email", and "disqualified" are intentionally excluded
+  // — none of them are ever a selectable/visible lead (see
+  // automatedLeadRepo.LISTABLE_STATUSES, which also hard-excludes them
+  // regardless of this filter).
   status: z
-    .enum(["discovered", "ready", "queued", "sent", "replied", "failed", "skipped"])
+    .enum(["ready", "queued", "sent", "replied", "failed", "skipped"])
     .optional()
     .catch(undefined),
   source: z

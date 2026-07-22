@@ -87,6 +87,7 @@ async function seedCampaignWithScheduledSend(token: string, tenantId: string) {
         campaignId,
         leadId: lead.id,
         senderAccountId: sender.id,
+        stepIndex: 0,
         subject: "Quick question",
         body: "Hi there,\n\nBest regards,\nJane Doe",
         scheduledAt: new Date(),
@@ -95,7 +96,7 @@ async function seedCampaignWithScheduledSend(token: string, tenantId: string) {
     return { leadId: lead.id, sendId: send.id };
   });
 
-  return { campaignId, leadId, sendId };
+  return { campaignId, leadId, sendId, senderId: sender.id };
 }
 
 function mockMailer(): MockOutreachMailer {
@@ -168,5 +169,112 @@ describe("sendAutomatedEmail — the delayed, per-send job", () => {
     const send = await withTenantTx({ tenantId: tenant.id }, (ctx) => automatedSendRepo.getById(ctx, sendId));
     expect(send?.status).toBe("skipped");
     expect(send?.errorReason).toBe("lead_missing_email");
+  });
+
+  describe("Day 3/7 follow-up threading", () => {
+    it("skips a follow-up whose Day 0 hasn't sent yet — 'same thread or nothing'", async () => {
+      const { tenant, token } = await makeUser("recruiter");
+      const { campaignId, leadId, senderId } = await seedCampaignWithScheduledSend(token, tenant.id);
+      // Day 0 (sendId from the fixture) is still "scheduled", never sent.
+      const followUpId = await withTenantTx({ tenantId: tenant.id }, async (ctx) => {
+        const [row] = await automatedSendRepo.bulkInsert(ctx, [
+          {
+            campaignId,
+            leadId,
+            senderAccountId: senderId,
+            stepIndex: 1,
+            subject: "Re: Quick question",
+            body: "Following up.",
+            scheduledAt: new Date(),
+          },
+        ]);
+        return row.id;
+      });
+
+      await sendAutomatedEmail({ tenantId: tenant.id, sendId: followUpId }, getServices());
+
+      const followUp = await withTenantTx({ tenantId: tenant.id }, (ctx) =>
+        automatedSendRepo.getById(ctx, followUpId),
+      );
+      expect(followUp?.status).toBe("skipped");
+      expect(followUp?.errorReason).toBe("day0_not_sent");
+    });
+
+    it("threads a follow-up into the Day 0 conversation once Day 0 has sent", async () => {
+      const { tenant, token } = await makeUser("recruiter");
+      const { campaignId, sendId: day0Id, leadId, senderId } = await seedCampaignWithScheduledSend(
+        token,
+        tenant.id,
+      );
+      await sendAutomatedEmail({ tenantId: tenant.id, sendId: day0Id }, getServices());
+      const day0 = await withTenantTx({ tenantId: tenant.id }, (ctx) => automatedSendRepo.getById(ctx, day0Id));
+
+      const followUpId = await withTenantTx({ tenantId: tenant.id }, async (ctx) => {
+        const [row] = await automatedSendRepo.bulkInsert(ctx, [
+          {
+            campaignId,
+            leadId,
+            senderAccountId: senderId,
+            stepIndex: 1,
+            subject: "Checking in — different wording than Day 0",
+            body: "Following up on my earlier note.",
+            scheduledAt: new Date(),
+          },
+        ]);
+        return row.id;
+      });
+
+      await sendAutomatedEmail({ tenantId: tenant.id, sendId: followUpId }, getServices());
+
+      const followUp = await withTenantTx({ tenantId: tenant.id }, (ctx) =>
+        automatedSendRepo.getById(ctx, followUpId),
+      );
+      expect(followUp?.status).toBe("sent");
+      // Threads into Day 0's Gmail thread, not a fresh one.
+      expect(followUp?.gmailThreadId).toBe(day0?.gmailThreadId);
+      // Subject is forced to "Re: {Day 0's actual sent subject}" regardless
+      // of what the AI drafted for this step — Gmail requires the match.
+      expect(followUp?.sentSubject).toBe(`Re: ${day0?.sentSubject}`);
+
+      const sentMessages = mockMailer().sent;
+      const followUpMessage = sentMessages[sentMessages.length - 1].message;
+      expect(followUpMessage.inReplyTo).toBe(day0?.rfc822MessageId);
+      expect(followUpMessage.gmailThreadId).toBe(day0?.gmailThreadId);
+    });
+
+    it("skips a follow-up when the lead already replied in the Day 0 thread", async () => {
+      const { tenant, token } = await makeUser("recruiter");
+      const { campaignId, sendId: day0Id, leadId, senderId } = await seedCampaignWithScheduledSend(
+        token,
+        tenant.id,
+      );
+      await sendAutomatedEmail({ tenantId: tenant.id, sendId: day0Id }, getServices());
+
+      const followUpId = await withTenantTx({ tenantId: tenant.id }, async (ctx) => {
+        const [row] = await automatedSendRepo.bulkInsert(ctx, [
+          {
+            campaignId,
+            leadId,
+            senderAccountId: senderId,
+            stepIndex: 1,
+            subject: "Checking in",
+            body: "Following up.",
+            scheduledAt: new Date(),
+          },
+        ]);
+        return row.id;
+      });
+
+      mockMailer().threadReplyState = "replied";
+      const sentBefore = mockMailer().sent.length;
+      await sendAutomatedEmail({ tenantId: tenant.id, sendId: followUpId }, getServices());
+
+      const followUp = await withTenantTx({ tenantId: tenant.id }, (ctx) =>
+        automatedSendRepo.getById(ctx, followUpId),
+      );
+      expect(followUp?.status).toBe("skipped");
+      expect(followUp?.errorReason).toBe("lead_replied");
+      expect(mockMailer().sent.length).toBe(sentBefore); // never actually sent
+    });
   });
 });

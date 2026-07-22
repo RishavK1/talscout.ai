@@ -118,7 +118,8 @@ export default function SetUpWorkspacePage() {
                 type="submit"
                 disabled={loading}
                 variant="gradient"
-                className="w-full justify-center py-3 px-6 h-auto"
+                size="lg"
+                className="w-full justify-center"
               >
                 <span>{loading ? "Creating..." : "Continue"}</span>
                 <span className="material-symbols-outlined" style={{ fontSize: "18px" }}>arrow_forward</span>

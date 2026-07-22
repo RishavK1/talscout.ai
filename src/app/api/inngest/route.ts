@@ -21,6 +21,7 @@ import {
 import { syncWhatsAppTemplates } from "@/server/jobs/sync-whatsapp-templates";
 import { runAutomatedCampaigns, runAutomatedCampaignNow } from "@/server/jobs/run-automated-campaign";
 import { pollAutomatedReplies } from "@/server/jobs/poll-automated-replies";
+import { pollOutreachReplies } from "@/server/jobs/poll-outreach-replies";
 import type { StepRun } from "@/server/jobs/step-runner";
 import {
   sendAutomatedEmail,
@@ -347,6 +348,24 @@ const pollAutomatedRepliesFunction = inngest.createFunction(
   }
 );
 
+/** Cron-triggered reply poll for Bulk Fire's own campaigns — same shape and
+ *  interval as pollAutomatedRepliesFunction above, just without the AI-draft
+ *  step (see poll-outreach-replies.ts's doc comment). */
+const pollOutreachRepliesFunction = inngest.createFunction(
+  {
+    id: "poll-outreach-replies",
+    name: "Bulk Fire Reply Poll",
+    triggers: [{ cron: "*/20 * * * *" }],
+    concurrency: { limit: 1 },
+  },
+  async ({ step }: { step: GetStepTools<typeof inngest> }) => {
+    const services = getServices();
+    const stepRun: StepRun = <T,>(id: string, fn: () => Promise<T>) =>
+      step.run(id, fn) as unknown as Promise<T>;
+    await pollOutreachReplies(services, stepRun);
+  }
+);
+
 export const { GET, POST, PUT } = serve({
   client: inngest,
   functions: [
@@ -360,5 +379,6 @@ export const { GET, POST, PUT } = serve({
     runAutomatedCampaignNowFunction,
     pollAutomatedRepliesFunction,
     sendAutomatedEmailFunction,
+    pollOutreachRepliesFunction,
   ],
 });

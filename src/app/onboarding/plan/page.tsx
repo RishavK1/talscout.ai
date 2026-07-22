@@ -144,31 +144,33 @@ export default function ChoosePlanPage() {
         {/* Billing Toggle */}
         <div className="flex justify-center mb-12">
           <div className="inline-flex p-1 bg-bg-secondary rounded-lg border border-border-low-alpha">
-            <button
+            <Button
               type="button"
+              variant="ghost"
               onClick={() => setBillingCycle("monthly")}
-              className={`px-6 py-2 rounded-md font-label-md text-label-md transition-all ${
-                billingCycle === "monthly" 
-                  ? "bg-surface-white text-primary shadow-sm font-semibold" 
-                  : "text-text-muted hover:text-on-surface"
-              }`}
+              className={
+                billingCycle === "monthly"
+                  ? "bg-surface-white text-primary shadow-sm font-semibold hover:bg-surface-white"
+                  : "text-text-muted hover:text-on-surface hover:bg-transparent"
+              }
             >
               Monthly
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="ghost"
               onClick={() => setBillingCycle("annual")}
-              className={`px-6 py-2 rounded-md font-label-md text-label-md transition-all ${
-                billingCycle === "annual" 
-                  ? "bg-surface-white text-primary shadow-sm font-semibold" 
-                  : "text-text-muted hover:text-on-surface"
-              }`}
+              className={
+                billingCycle === "annual"
+                  ? "bg-surface-white text-primary shadow-sm font-semibold hover:bg-surface-white"
+                  : "text-text-muted hover:text-on-surface hover:bg-transparent"
+              }
             >
               Annual{" "}
               <span className="ml-1 text-secondary text-[11px] font-bold uppercase tracking-wider">
                 (Save 20%)
               </span>
-            </button>
+            </Button>
           </div>
         </div>
         {/* Plan Cards Grid */}
@@ -264,26 +266,28 @@ export default function ChoosePlanPage() {
             <p className="font-body-md text-sm text-text-muted">Scale your team as you grow. Min seats for upgrade: {minSeats}.</p>
           </div>
           <div className="flex items-center space-x-4">
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="icon-lg"
               onClick={() => setSeats((s) => Math.max(minSeats, s - 1))}
               disabled={seats <= minSeats}
               aria-label="Decrease seats"
-              className="w-10 h-10 rounded-lg border border-border-low-alpha flex items-center justify-center hover:bg-bg-secondary transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <span className="material-symbols-outlined text-on-surface" data-icon="remove">remove</span>
-            </button>
+            </Button>
             <div className="w-16 text-center">
               <span className="font-headline-md text-headline-md text-primary">{seats}</span>
             </div>
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="icon-lg"
               onClick={() => setSeats((s) => s + 1)}
               aria-label="Increase seats"
-              className="w-10 h-10 rounded-lg border border-border-low-alpha flex items-center justify-center hover:bg-bg-secondary transition-colors"
             >
               <span className="material-symbols-outlined text-on-surface" data-icon="add">add</span>
-            </button>
+            </Button>
           </div>
         </div>
         
@@ -313,7 +317,8 @@ export default function ChoosePlanPage() {
             disabled={loading || !isUpgrade()}
             onClick={handlePayment}
             variant="gradient"
-            className="w-full md:w-auto px-10 py-4 h-auto text-center"
+            size="lg"
+            className="w-full justify-center md:w-auto"
           >
             {loading ? "Preparing payment..." : "Continue to payment"}
           </Button>

@@ -521,8 +521,8 @@ export default function UploadPage() {
         {/* ATS Import Modal */}
         {canAtsExport && showAtsModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 transition-opacity duration-300">
-            <Card className="relative w-full max-w-lg [--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
-              <CardContent>
+            <Card className="relative flex max-h-[90vh] w-full max-w-lg flex-col [--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
+              <CardContent className="min-h-0 overflow-y-auto">
               <Button
                 type="button"
                 variant="ghost"
@@ -558,7 +558,7 @@ export default function UploadPage() {
                   {/* Select ATS Provider */}
                   <div>
                     <label className="block font-label-md text-primary mb-3">Select your ATS Provider</label>
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       {(["greenhouse", "bullhorn", "lever"] as const).map((ats) => {
                         const selected = selectedAts === ats;
                         return (
@@ -619,8 +619,9 @@ export default function UploadPage() {
                       <Button
                         type="button"
                         variant="gradient"
+                        size="lg"
                         onClick={handleConnectAndSync}
-                        className="mt-6 h-auto w-full justify-center rounded-xl py-3"
+                        className="mt-6 w-full justify-center"
                       >
                         Connect &amp; Sync Candidates
                       </Button>

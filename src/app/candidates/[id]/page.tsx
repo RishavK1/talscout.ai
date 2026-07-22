@@ -6,12 +6,14 @@ import { useRouter, useParams } from "next/navigation";
 import { AppShell } from "@/components/app/app-shell";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
-import { Modal } from "@/components/ui/modal";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { TopAppBar } from "@/components/app/top-app-bar";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { CardBodySkeleton } from "@/components/ui/skeletons";
 
 import { AddToShortlistButton } from "@/components/candidate/add-to-shortlist-button";
 import { MessageCandidate } from "@/components/candidate/message-candidate";
@@ -81,7 +83,6 @@ export default function CandidateProfilePage() {
   const [candidate, setCandidate] = useState<CandidateDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -120,15 +121,12 @@ export default function CandidateProfilePage() {
   }, [id, candidate?.status]);
 
   const handleDelete = async () => {
-    setDeleting(true);
     try {
       await api.delete(`/api/candidates/${id}`);
       toast.success("Candidate deleted successfully");
       router.push("/candidates");
     } catch (err: any) {
       toast.error(err.message || "Failed to delete candidate");
-    } finally {
-      setDeleting(false);
       setDeleteModalOpen(false);
     }
   };
@@ -136,10 +134,54 @@ export default function CandidateProfilePage() {
   if (loading) {
     return (
       <AppShell>
-        <div className="min-h-screen flex items-center justify-center bg-bg-cream">
-          <div className="flex flex-col items-center gap-3">
-            <span className="material-symbols-outlined animate-spin text-primary text-3xl">sync</span>
-            <p className="font-body-md text-on-surface-variant">Loading profile details...</p>
+        <div className="bg-bg-cream flex flex-1 flex-col min-h-screen">
+          <TopAppBar
+            leftContent={
+              <div className="flex items-center text-on-surface-variant w-full">
+                <Link className="p-2 rounded-full text-on-surface-variant flex items-center justify-center" href="/candidates">
+                  <span className="material-symbols-outlined" data-icon="arrow_back">arrow_back</span>
+                </Link>
+              </div>
+            }
+          />
+          <div className="relative flex-1 p-4 sm:p-6 lg:p-12 max-w-[1440px] mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            <div className="lg:col-span-8 space-y-6">
+              <Card className="[--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
+                <CardContent className="flex flex-col md:flex-row gap-8 items-start">
+                  <Skeleton className="h-32 w-32 shrink-0 rounded-full" />
+                  <div className="flex-1 space-y-3">
+                    <Skeleton className="h-6 w-48" />
+                    <Skeleton className="h-4 w-36" />
+                    <div className="flex gap-4">
+                      <Skeleton className="h-3.5 w-24" />
+                      <Skeleton className="h-3.5 w-24" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="[--card-spacing:--spacing(6)]">
+                <CardContent>
+                  <CardBodySkeleton lines={4} />
+                </CardContent>
+              </Card>
+              <Card className="[--card-spacing:--spacing(6)]">
+                <CardContent>
+                  <CardBodySkeleton lines={3} />
+                </CardContent>
+              </Card>
+            </div>
+            <div className="lg:col-span-4 space-y-6">
+              <Card className="[--card-spacing:--spacing(6)]">
+                <CardContent>
+                  <CardBodySkeleton lines={3} />
+                </CardContent>
+              </Card>
+              <Card className="[--card-spacing:--spacing(6)]">
+                <CardContent>
+                  <CardBodySkeleton lines={2} />
+                </CardContent>
+              </Card>
+            </div>
           </div>
         </div>
       </AppShell>
@@ -495,32 +537,15 @@ export default function CandidateProfilePage() {
           </div>
         </div>
 
-        {/* Delete Confirmation Modal */}
-        <Modal
+        <ConfirmDialog
           open={deleteModalOpen}
           onClose={() => setDeleteModalOpen(false)}
-          title="Delete Candidate"
-          subtitle={`Are you sure you want to delete ${name}? This action cannot be undone.`}
-        >
-          <div className="flex justify-end gap-3 pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setDeleteModalOpen(false)}
-              disabled={deleting}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              onClick={handleDelete}
-              disabled={deleting}
-            >
-              {deleting ? "Deleting..." : "Delete Permanently"}
-            </Button>
-          </div>
-        </Modal>
+          onConfirm={handleDelete}
+          title="Delete candidate"
+          description={`Are you sure you want to delete ${name}? This action cannot be undone.`}
+          confirmLabel="Delete permanently"
+          destructive
+        />
       </main>
     </AppShell>
   );

@@ -1,6 +1,7 @@
 import nodemailer from "nodemailer";
 import { google, type gmail_v1 } from "googleapis";
 import { getEnv } from "@/server/config/env";
+import { buildTrackedHtmlBody } from "@/server/lib/tracking-pixel";
 import type {
   OutreachMailer,
   OutreachSendArgs,
@@ -13,9 +14,12 @@ import type {
  * Gmail accounts go through the Gmail API using an access token refreshed
  * from the stored refresh token — server-side OAuth with offline access, so
  * sending works with no browser tab open (unlike the original CRM's
- * browser-implicit-token flow). Plain-text only, no tracking pixel or
- * List-Unsubscribe header — deliverability here comes from spintax variation
- * and paced scheduling (server/lib/spintax.ts), not from headers.
+ * browser-implicit-token flow). Plain text by default; when the caller sets
+ * `trackingPixelUrl`, an HTML alternative part carrying the pixel is added
+ * alongside it (never replacing the plain-text part) — deliverability still
+ * leans on spintax variation and paced scheduling (server/lib/spintax.ts),
+ * not on headers, so the HTML part stays as close to the plain text as
+ * possible (no styling, no tracked links, one invisible 1x1 image).
  *
  * Threading: every send stamps the caller-generated `Message-ID`, and
  * follow-up sends carry `In-Reply-To`/`References` (all clients) plus
@@ -156,6 +160,12 @@ async function sendSmtp(
     to: message.to,
     subject: message.subject,
     text: message.text,
+    // nodemailer builds a proper multipart/alternative message once both
+    // `text` and `html` are set; omitting `html` (the common case) sends
+    // plain-text-only exactly as before this field existed.
+    ...(message.trackingPixelUrl
+      ? { html: buildTrackedHtmlBody(message.text, message.trackingPixelUrl) }
+      : {}),
     replyTo: message.replyTo,
     messageId: message.messageId,
     inReplyTo: message.inReplyTo,
@@ -195,10 +205,17 @@ async function sendGmail(
   return { gmailThreadId: data.threadId ?? undefined };
 }
 
-/** RFC 2822 message, base64url-encoded, as the Gmail API's `raw` field wants. */
-function buildRawMessage(message: OutreachSendArgs): string {
+/** RFC 2822 message, base64url-encoded, as the Gmail API's `raw` field wants.
+ *  Plain text only unless `trackingPixelUrl` is set, in which case this
+ *  builds a real multipart/alternative body (text/plain + text/html) instead
+ *  — Gmail (and every other client) then picks whichever part it renders,
+ *  same message either way. */
+/** Exported for direct unit testing of the MIME construction (base64url
+ *  decode + assert headers/boundary/parts) — the real send path never needs
+ *  this exported, only tests do. */
+export function buildRawMessage(message: OutreachSendArgs): string {
   const from = message.fromName ? `"${message.fromName}" <${message.from}>` : message.from;
-  const headers = [
+  const sharedHeaders = [
     `From: ${from}`,
     `To: ${message.to}`,
     `Subject: ${encodeSubject(message.subject)}`,
@@ -207,10 +224,35 @@ function buildRawMessage(message: OutreachSendArgs): string {
     message.inReplyTo ? `References: ${message.inReplyTo}` : null,
     message.replyTo ? `Reply-To: ${message.replyTo}` : null,
     "MIME-Version: 1.0",
+  ].filter((h): h is string => h !== null);
+
+  if (!message.trackingPixelUrl) {
+    const headers = [
+      ...sharedHeaders,
+      'Content-Type: text/plain; charset="UTF-8"',
+      "Content-Transfer-Encoding: 7bit",
+    ];
+    const raw = `${headers.join("\r\n")}\r\n\r\n${message.text}`;
+    return Buffer.from(raw).toString("base64url");
+  }
+
+  const boundary = `----=_Part_${message.messageId.replace(/[<>]/g, "").replace(/[^a-zA-Z0-9]/g, "")}`;
+  const html = buildTrackedHtmlBody(message.text, message.trackingPixelUrl);
+  const headers = [...sharedHeaders, `Content-Type: multipart/alternative; boundary="${boundary}"`];
+  const body = [
+    `--${boundary}`,
     'Content-Type: text/plain; charset="UTF-8"',
     "Content-Transfer-Encoding: 7bit",
-  ].filter((h): h is string => h !== null);
-  const raw = `${headers.join("\r\n")}\r\n\r\n${message.text}`;
+    "",
+    message.text,
+    `--${boundary}`,
+    'Content-Type: text/html; charset="UTF-8"',
+    "Content-Transfer-Encoding: 7bit",
+    "",
+    html,
+    `--${boundary}--`,
+  ].join("\r\n");
+  const raw = `${headers.join("\r\n")}\r\n\r\n${body}`;
   return Buffer.from(raw).toString("base64url");
 }
 

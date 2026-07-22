@@ -12,6 +12,8 @@ import { TopAppBar } from "@/components/app/top-app-bar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { CardBodySkeleton } from "@/components/ui/skeletons";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 const TABS = ["General", "Security", "Data & privacy", "Developer"] as const;
@@ -115,7 +117,7 @@ function WorkspaceCard({ workspaceName, tenantId }: { workspaceName: string; ten
           </div>
         </div>
         <div className="mt-10 flex justify-end">
-          <Button type="button" variant="gradient" onClick={handleSave}>
+          <Button type="button" variant="gradient" size="lg" onClick={handleSave}>
             Save changes
           </Button>
         </div>
@@ -649,10 +651,24 @@ export default function SettingsPage() {
   if (authLoading) {
     return (
       <AppShell>
-        <main className="min-h-screen flex items-center justify-center">
-          <div className="flex flex-col items-center gap-4">
-            <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
-            <p className="font-label-md text-text-muted">Loading settings...</p>
+        <main className="min-h-screen">
+          <div className="flex-1 p-4 sm:p-6 lg:p-12 max-w-6xl mx-auto w-full">
+            <div className="flex items-center gap-4 mb-8 lg:mb-12">
+              <Skeleton className="h-12 w-12 shrink-0 rounded-xl" />
+              <Skeleton className="h-8 w-40" />
+            </div>
+            <div className="flex flex-col lg:flex-row gap-8 lg:gap-12 items-start">
+              <div className="w-full lg:w-56 lg:shrink-0 space-y-1">
+                {Array.from({ length: 4 }, (_, i) => (
+                  <Skeleton key={i} className="h-10 w-full rounded-lg" />
+                ))}
+              </div>
+              <Card className="flex-1 min-w-0 w-full [--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
+                <CardContent>
+                  <CardBodySkeleton lines={5} />
+                </CardContent>
+              </Card>
+            </div>
           </div>
         </main>
       </AppShell>

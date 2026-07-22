@@ -1,4 +1,4 @@
-import { and, eq, inArray, ne, sql, gte } from "drizzle-orm";
+import { and, eq, inArray, sql, gte, isNull } from "drizzle-orm";
 import {
   automatedCampaigns,
   automatedLeads,
@@ -328,13 +328,15 @@ export const automatedLeadRepo = {
   },
 
   /** Backs the leads-table endpoint's filtering (by status/source).
-   *  Unconditionally excludes `no_email` leads — a business we never found
-   *  a real email for is not a "lead" in product terms and must never
-   *  surface here, regardless of what status filter the caller passes. The
-   *  row still exists internally (see markNoEmail's doc comment) purely so
-   *  a future discovery tick doesn't re-fetch and re-enrich the same
-   *  always-failing business forever — it's dedup bookkeeping, not data the
-   *  product ever shows. */
+   *  Inclusion list, not an exclusion list: only leads that have complete,
+   *  qualified data (a findable email that passed the blueprint's
+   *  qualification check) are ever shown here — `discovered` (still being
+   *  enriched), `no_email` (never found one), and `disqualified` (found one
+   *  but failed the fit check) are all internal pipeline bookkeeping, not
+   *  something the product surfaces as a "lead." A future new status
+   *  defaults to hidden rather than silently leaking in. */
+  LISTABLE_STATUSES: ["ready", "queued", "sent", "replied", "failed", "skipped"] as const,
+
   async list(
     ctx: TenantContext,
     campaignId: string,
@@ -343,7 +345,7 @@ export const automatedLeadRepo = {
     const conds = [
       eq(automatedLeads.tenantId, ctx.tenantId),
       eq(automatedLeads.campaignId, campaignId),
-      ne(automatedLeads.status, "no_email"),
+      inArray(automatedLeads.status, automatedLeadRepo.LISTABLE_STATUSES),
     ];
     if (params.status) conds.push(eq(automatedLeads.status, params.status));
     if (params.source) conds.push(eq(automatedLeads.emailSource, params.source));
@@ -354,6 +356,27 @@ export const automatedLeadRepo = {
       .orderBy(sql`${automatedLeads.discoveredAt} DESC`)
       .limit(params.limit)
       .offset(params.offset);
+  },
+
+  /** Sibling of `list()` — same conditions, no limit/offset — backs the
+   *  leads-table pagination footer ("Showing X–Y of Z"). */
+  async count(
+    ctx: TenantContext,
+    campaignId: string,
+    params: { status?: AutomatedLeadStatus; source?: EmailSourceType },
+  ) {
+    const conds = [
+      eq(automatedLeads.tenantId, ctx.tenantId),
+      eq(automatedLeads.campaignId, campaignId),
+      inArray(automatedLeads.status, automatedLeadRepo.LISTABLE_STATUSES),
+    ];
+    if (params.status) conds.push(eq(automatedLeads.status, params.status));
+    if (params.source) conds.push(eq(automatedLeads.emailSource, params.source));
+    const [row] = await ctx.tx
+      .select({ count: sql<number>`count(*)::int` })
+      .from(automatedLeads)
+      .where(and(...conds));
+    return row?.count ?? 0;
   },
 };
 
@@ -367,6 +390,7 @@ export const automatedSendRepo = {
       campaignId: string;
       leadId: string;
       senderAccountId: string;
+      stepIndex: 0 | 1 | 2;
       subject: string;
       body: string;
       scheduledAt: Date;
@@ -381,6 +405,7 @@ export const automatedSendRepo = {
           campaignId: s.campaignId,
           leadId: s.leadId,
           senderAccountId: s.senderAccountId,
+          stepIndex: s.stepIndex,
           subject: s.subject,
           body: s.body,
           scheduledAt: s.scheduledAt,
@@ -388,7 +413,7 @@ export const automatedSendRepo = {
         })),
       )
       .onConflictDoNothing({
-        target: [automatedSends.campaignId, automatedSends.leadId],
+        target: [automatedSends.campaignId, automatedSends.leadId, automatedSends.stepIndex],
       })
       .returning();
   },
@@ -414,7 +439,7 @@ export const automatedSendRepo = {
   async markSent(
     ctx: TenantContext,
     id: string,
-    input: { sentAt: Date; rfc822MessageId?: string; gmailThreadId?: string },
+    input: { sentAt: Date; rfc822MessageId?: string; gmailThreadId?: string; sentSubject?: string },
   ) {
     await ctx.tx
       .update(automatedSends)
@@ -423,6 +448,7 @@ export const automatedSendRepo = {
         sentAt: input.sentAt,
         rfc822MessageId: input.rfc822MessageId ?? null,
         gmailThreadId: input.gmailThreadId ?? null,
+        sentSubject: input.sentSubject ?? null,
       })
       .where(and(eq(automatedSends.id, id), eq(automatedSends.tenantId, ctx.tenantId)));
   },
@@ -459,6 +485,39 @@ export const automatedSendRepo = {
     return row ?? null;
   },
 
+  /** Used by the send job to find a follow-up's (stepIndex > 0) Day 0
+   *  threading anchor — same idiom as outreachSendRepo.getByLeadAndStep. */
+  async getByLeadAndStep(ctx: TenantContext, campaignId: string, leadId: string, stepIndex: number) {
+    const [row] = await ctx.tx
+      .select()
+      .from(automatedSends)
+      .where(
+        and(
+          eq(automatedSends.tenantId, ctx.tenantId),
+          eq(automatedSends.campaignId, campaignId),
+          eq(automatedSends.leadId, leadId),
+          eq(automatedSends.stepIndex, stepIndex),
+        ),
+      )
+      .limit(1);
+    return row ?? null;
+  },
+
+  /** All steps for one lead, ordered — backs the "View emails" modal. */
+  async listByLead(ctx: TenantContext, campaignId: string, leadId: string) {
+    return await ctx.tx
+      .select()
+      .from(automatedSends)
+      .where(
+        and(
+          eq(automatedSends.tenantId, ctx.tenantId),
+          eq(automatedSends.campaignId, campaignId),
+          eq(automatedSends.leadId, leadId),
+        ),
+      )
+      .orderBy(automatedSends.stepIndex);
+  },
+
   /** Admin-scoped: the reply-poll cron walks sent threads across every
    *  tenant in one pass, joined to campaigns with replyPollingEnabled. Bound
    *  to a rolling window (default 30 days) so year-old threads aren't
@@ -478,6 +537,15 @@ export const automatedSendRepo = {
           gte(automatedSends.sentAt, sql`now() - make_interval(days => ${days})`),
         ),
       );
+  },
+
+  /** Admin-scoped: the tracking-pixel route has no tenant context — same
+   *  reasoning as outreach.repo.ts's markOpenedAdmin. First open wins. */
+  async markOpenedAdmin(id: string) {
+    await adminDb()
+      .update(automatedSends)
+      .set({ openedAt: new Date() })
+      .where(and(eq(automatedSends.id, id), isNull(automatedSends.openedAt)));
   },
 };
 

@@ -13,6 +13,7 @@ import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { TableSkeleton } from "@/components/ui/skeletons";
 
 
 interface ApiCandidate {
@@ -287,7 +288,7 @@ export default function CandidatesPage() {
       />
 
       {/* Main Content Canvas */}
-      <main className="p-4 sm:p-6 lg:p-12 max-w-[1160px] mx-auto min-h-screen">
+      <main className="p-4 sm:p-6 lg:p-12 max-w-[1440px] mx-auto w-full min-h-screen">
         <Card className="mb-8 [--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
           <CardContent>
             <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
@@ -396,9 +397,7 @@ export default function CandidatesPage() {
 
           <CardContent className="overflow-x-auto p-0">
             {loading ? (
-              <div className="flex items-center justify-center py-24 text-on-surface-variant font-body-md">
-                <span className="material-symbols-outlined animate-spin mr-2">sync</span> Loading candidate database...
-              </div>
+              <TableSkeleton rows={6} columns={4} />
             ) : view === "list" ? (
               <DataTable
                 columns={columns}
@@ -464,12 +463,12 @@ export default function CandidatesPage() {
 
             {/* Server-side pagination — each page button fetches that page from the API */}
             {!loading && paged.length > 0 && (
-              <div className="px-6 py-4 border-t border-border-low-alpha bg-surface-white flex items-center justify-between">
+              <div className="px-6 py-4 border-t border-border-low-alpha bg-surface-white flex flex-wrap items-center justify-between gap-3">
                 <span className="font-body-md text-[13px] text-on-surface-variant">
                   Showing {(currentPage - 1) * PAGE_SIZE + 1}–
                   {Math.min(currentPage * PAGE_SIZE, totalCount)} of {totalCount}
                 </span>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <button
                     type="button"
                     onClick={() => setPage((p) => Math.max(1, p - 1))}

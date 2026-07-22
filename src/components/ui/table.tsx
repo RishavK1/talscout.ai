@@ -8,11 +8,23 @@ function Table({ className, ...props }: React.ComponentProps<"table">) {
   return (
     <div
       data-slot="table-container"
-      className="relative w-full overflow-x-auto"
+      // scroll-slim: a persistent, visibly-styled scrollbar — without it
+      // this depends entirely on the OS's own scrollbar preference (macOS
+      // hides scrollbars until actively scrolling by default), so a table
+      // that genuinely needs horizontal scroll gave zero visual indication
+      // it was scrollable at all, reading as "cut off" instead of "scroll →".
+      className="relative w-full overflow-x-auto scroll-slim"
     >
+      {/* min-w-full (not w-full): a table pinned to exactly 100% of this
+          scroll container can never exceed it, so with whitespace-nowrap
+          cells the browser has nowhere to put overflow except squeezing/
+          clipping column content — the scrollbar never appears because
+          nothing is ever wider than the container by definition. min-w-full
+          still fills narrow tables edge-to-edge but lets wide ones grow
+          past 100% and hand off to the overflow-x-auto wrapper above. */}
       <table
         data-slot="table"
-        className={cn("w-full caption-bottom text-sm", className)}
+        className={cn("min-w-full caption-bottom text-sm", className)}
         {...props}
       />
     </div>

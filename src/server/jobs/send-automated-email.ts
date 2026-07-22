@@ -6,6 +6,7 @@ import {
 } from "@/server/repositories/automated-outreach.repo";
 import { senderAccountRepo } from "@/server/repositories/outreach.repo";
 import { toCredentials, generateMessageId } from "@/server/lib/automated-mail-credentials";
+import { buildOpenTrackingUrl } from "@/server/lib/tracking-pixel";
 import { logger } from "@/server/observability/logger";
 import type {
   Services,
@@ -117,20 +118,68 @@ export async function sendAutomatedEmail(
     return;
   }
 
+  // Follow-up steps (Day 3/Day 7) reply INTO the Day 0 thread — never a
+  // fresh mail. Requires the Day 0 send to (a) exist, (b) have gone out
+  // successfully, and (c) carry its threading anchors — same "same thread
+  // or nothing" rule Bulk Fire's send job uses (send-outreach-email.ts).
+  let anchor: { rfc822MessageId: string; gmailThreadId: string | null; sentSubject: string | null } | null =
+    null;
+  if (send.stepIndex > 0) {
+    const day0 = await withTenantTx({ tenantId }, (ctx) =>
+      automatedSendRepo.getByLeadAndStep(ctx, send.campaignId, lead.id, 0),
+    );
+    if (!day0 || day0.status !== "sent" || !day0.rfc822MessageId) {
+      await withTenantTx({ tenantId }, (ctx) => automatedSendRepo.markSkipped(ctx, sendId, "day0_not_sent"));
+      return;
+    }
+    anchor = {
+      rfc822MessageId: day0.rfc822MessageId,
+      gmailThreadId: day0.gmailThreadId,
+      sentSubject: day0.sentSubject,
+    };
+  }
+
   let errorReason: string | null = null;
   let sendResult: OutreachSendResult | null = null;
   let messageId: string | null = null;
+  let sentSubject: string | null = null;
   try {
     const creds = toCredentials(sender);
+
+    // Reply-stop: if the lead already replied in the Day 0 thread, a
+    // scheduled follow-up would read as tone-deaf spam — skip it. Only a
+    // definite "replied" stops the send; "unknown" (SMTP, send-only Gmail
+    // token, transient API error) fails open and sends anyway.
+    if (anchor?.gmailThreadId) {
+      const replyState = await services.outreachMailer.threadHasReply(creds, {
+        gmailThreadId: anchor.gmailThreadId,
+        senderEmail: sender.email,
+      });
+      if (replyState === "replied") {
+        await withTenantTx({ tenantId }, (ctx) => automatedSendRepo.markSkipped(ctx, sendId, "lead_replied"));
+        return;
+      }
+    }
+
+    // Follow-ups reuse the subject that actually went out on Day 0 (as
+    // "Re: …") — Gmail requires the subject to match the thread's, and the
+    // AI-drafted subject for this step may differ slightly.
+    const subject = anchor
+      ? `Re: ${(anchor.sentSubject ?? send.subject).replace(/^(Re:\s*)+/i, "")}`
+      : send.subject;
     messageId = generateMessageId(sender.email);
+    sentSubject = subject;
     sendResult = await sendWithRetry(services.outreachMailer, creds, {
       from: sender.email,
       fromName: sender.fromName ?? undefined,
       to: lead.email,
-      subject: send.subject,
+      subject,
       text: send.body,
       replyTo: sender.email,
       messageId,
+      inReplyTo: anchor?.rfc822MessageId ?? undefined,
+      gmailThreadId: anchor?.gmailThreadId ?? undefined,
+      trackingPixelUrl: buildOpenTrackingUrl("ao", sendId),
     });
   } catch (e) {
     errorReason = e instanceof Error ? e.message : "send_failed";
@@ -144,7 +193,11 @@ export async function sendAutomatedEmail(
       await automatedSendRepo.markSent(ctx, sendId, {
         sentAt: new Date(),
         rfc822MessageId: messageId as string,
-        gmailThreadId: sendResult?.gmailThreadId,
+        // A follow-up stays in the Day 0 thread; a Day 0 send records the
+        // thread Gmail just created (SMTP sends have none — header-only
+        // threading applies there).
+        gmailThreadId: anchor?.gmailThreadId ?? sendResult?.gmailThreadId ?? undefined,
+        sentSubject: sentSubject as string,
       });
       await automatedLeadRepo.setStatus(ctx, lead.id, "sent");
     }

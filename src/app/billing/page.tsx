@@ -8,13 +8,14 @@ import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { Modal } from "@/components/ui/modal";
 import { TopAppBar } from "@/components/app/top-app-bar";
-import { PageSpinner } from "@/components/ui/page-spinner";
 import { AdminGate } from "@/components/app/admin-gate";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { PageHeaderSkeleton, CardBodySkeleton, DataTableCardSkeleton } from "@/components/ui/skeletons";
 
 
 interface BillingInfo {
@@ -127,7 +128,25 @@ export default function BillingPage() {
   if (authLoading || (loading && profile?.role === "admin")) {
     return (
       <AppShell>
-        <PageSpinner label="Loading billing settings..." />
+        <main className="pt-8 sm:pt-12 lg:pt-24 px-4 sm:px-6 lg:px-12 pb-12 sm:pb-16 lg:pb-24 max-w-[1440px] mx-auto w-full">
+          <PageHeaderSkeleton />
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <Card className="lg:col-span-8 h-full border-2 border-border-low-alpha [--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
+              <CardContent>
+                <CardBodySkeleton lines={3} />
+                <Skeleton className="mt-6 h-11 w-40 rounded-lg" />
+              </CardContent>
+            </Card>
+            <Card className="lg:col-span-4 h-full [--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
+              <CardContent>
+                <CardBodySkeleton lines={2} />
+              </CardContent>
+            </Card>
+            <div className="lg:col-span-12 mt-4">
+              <DataTableCardSkeleton rows={3} columns={2} withAvatar={false} />
+            </div>
+          </div>
+        </main>
       </AppShell>
     );
   }
@@ -205,7 +224,7 @@ export default function BillingPage() {
       />
 
       {/* Main Content Area */}
-      <main className="pt-8 sm:pt-12 lg:pt-24 px-4 sm:px-6 lg:px-12 pb-12 sm:pb-16 lg:pb-24 max-w-[1440px] mx-auto">
+      <main className="pt-8 sm:pt-12 lg:pt-24 px-4 sm:px-6 lg:px-12 pb-12 sm:pb-16 lg:pb-24 max-w-[1440px] mx-auto w-full">
         {/* Header */}
         <header className="mb-10 flex items-center gap-4">
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary-container/10 text-primary-container">
@@ -256,7 +275,7 @@ export default function BillingPage() {
                     </div>
                   )}
                   <div className="flex gap-4">
-                    <Button type="button" variant="gradient" onClick={() => setShowModal(true)}>
+                    <Button type="button" variant="gradient" size="lg" onClick={() => setShowModal(true)}>
                       Manage plan &amp; seats
                     </Button>
                   </div>
@@ -309,6 +328,36 @@ export default function BillingPage() {
             </section>
           </div>
         )}
+
+        {/* Additional Help/Links — same footer pattern as Team & seats, so
+            this page reads as a full destination rather than a sparse
+            2-card row sitting alone in a wide canvas. */}
+        <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="rounded-xl border border-border-low-alpha bg-surface-white p-6">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-container/10 text-primary-container mb-4">
+              <span className="material-symbols-outlined text-[20px]">groups</span>
+            </div>
+            <h4 className="text-[18px] font-semibold text-primary mb-2">Team &amp; Seats</h4>
+            <p className="font-body-md text-on-surface-variant text-[14px]">Invite recruiters and manage who&apos;s using a seat on your current plan.</p>
+            <Link className="mt-4 inline-block font-label-md text-label-md text-secondary font-semibold hover:underline" href="/team">Manage team →</Link>
+          </div>
+          <div className="rounded-xl border border-border-low-alpha bg-surface-white p-6">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-container/10 text-primary-container mb-4">
+              <span className="material-symbols-outlined text-[20px]">history_edu</span>
+            </div>
+            <h4 className="text-[18px] font-semibold text-primary mb-2">Billing Activity</h4>
+            <p className="font-body-md text-on-surface-variant text-[14px]">Every plan change and checkout is recorded in your workspace&apos;s audit log.</p>
+            <Link className="mt-4 inline-block font-label-md text-label-md text-secondary font-semibold hover:underline" href="/audit">View audit log →</Link>
+          </div>
+          <div className="rounded-xl border border-border-low-alpha bg-surface-white p-6">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-container/10 text-primary-container mb-4">
+              <span className="material-symbols-outlined text-[20px]">support_agent</span>
+            </div>
+            <h4 className="text-[18px] font-semibold text-primary mb-2">Questions about your plan?</h4>
+            <p className="font-body-md text-on-surface-variant text-[14px]">Reach out and we&apos;ll help you find the right plan or seat count.</p>
+            <a className="mt-4 inline-block font-label-md text-label-md text-secondary font-semibold hover:underline" href="mailto:support@talscout.ai">Contact support →</a>
+          </div>
+        </div>
       </main>
 
       {/* Manage Seats / Plan Dialog */}

@@ -40,11 +40,17 @@ const ENRICH_BATCH_SIZE = 15;
  *  real (slower, costlier) AI generation, not a fast lookup. */
 const GENERATE_BATCH_SIZE = 10;
 
+/** Day 3/Day 7 follow-ups, days after Day 0's own (already-jittered)
+ *  scheduledAt — same offsets and same-sender-for-thread-continuity as
+ *  Bulk Fire's cascadeFollowups (outreach.service.ts's fireCampaign). */
+const FOLLOW_UP_DAY_OFFSETS: Record<1 | 2, number> = { 1: 3, 2: 7 };
+
 type Campaign = typeof automatedCampaigns.$inferSelect;
 type Lead = typeof automatedLeads.$inferSelect;
 interface GeneratedCopy {
   leadId: string;
   email: string;
+  stepIndex: 0 | 1 | 2;
   subject: string;
   body: string;
 }
@@ -342,6 +348,18 @@ async function enrichBatch(
   return { processed: pending.length, readyDelta };
 }
 
+function signEmail(campaign: Campaign, body: string): string {
+  return (
+    `${body}\n\n${campaign.signatureClosing}\n${campaign.signatureName}` +
+    (campaign.signatureTitle ? `\n${campaign.signatureTitle}` : "")
+  );
+}
+
+/** Generates the full Day 0/3/7 sequence per lead — up to 3 GeneratedCopy
+ *  entries sharing one leadId. Day 0 must succeed for a lead to get ANY
+ *  entries (no lead starts a sequence mid-step); a Day 3 or Day 7 failure
+ *  only drops that one follow-up, not the whole lead's sequence, since a
+ *  partial 2-of-3 sequence still gets a real cold email out. */
 async function generateCopyBatch(
   leads: Lead[],
   sections: BlueprintSections,
@@ -352,25 +370,46 @@ async function generateCopyBatch(
   const out: GeneratedCopy[] = [];
   for (const lead of leads) {
     if (!lead.email) continue; // defensive — only "ready" leads (email required) reach here
-    let copy;
+    const leadArg = {
+      businessName: lead.businessName,
+      category: lead.category ?? undefined,
+      location: lead.addressText ?? undefined,
+    };
+
+    let day0;
     try {
-      copy = await services.outreachCopywriter.generateEmail({
-        blueprint: sections,
-        lead: {
-          businessName: lead.businessName,
-          category: lead.category ?? undefined,
-          location: lead.addressText ?? undefined,
-        },
-        styleExamples,
-      });
+      day0 = await services.outreachCopywriter.generateEmail({ blueprint: sections, lead: leadArg, styleExamples });
     } catch (err) {
       logger.warn({ err, leadId: lead.id }, "automated_lead_copy_generation_failed");
       continue;
     }
-    const signedBody =
-      `${copy.body}\n\n${campaign.signatureClosing}\n${campaign.signatureName}` +
-      (campaign.signatureTitle ? `\n${campaign.signatureTitle}` : "");
-    out.push({ leadId: lead.id, email: lead.email, subject: copy.subject, body: signedBody });
+    out.push({
+      leadId: lead.id,
+      email: lead.email,
+      stepIndex: 0,
+      subject: day0.subject,
+      body: signEmail(campaign, day0.body),
+    });
+
+    for (const stepIndex of [1, 2] as const) {
+      try {
+        const followUp = await services.outreachCopywriter.generateEmail({
+          blueprint: sections,
+          lead: leadArg,
+          styleExamples,
+          followUp: { stepIndex, previousSubject: day0.subject },
+        });
+        out.push({
+          leadId: lead.id,
+          email: lead.email,
+          stepIndex,
+          subject: followUp.subject,
+          body: signEmail(campaign, followUp.body),
+        });
+      } catch (err) {
+        logger.warn({ err, leadId: lead.id, stepIndex }, "automated_lead_followup_generation_failed");
+      }
+    }
   }
   return out;
 }
@@ -382,38 +421,53 @@ async function scheduleAndEnqueue(
   services: Services,
 ): Promise<void> {
   // Authoritative, lock-protected cap re-check + insert — fast, DB-only.
-  // `onConflictDoNothing` on (campaignId, leadId) is the idempotency
-  // backstop; the slice to `remainingNow` is the actual cap enforcement.
-  // Each row gets a STAGGERED scheduledAt via the same block+jitter
+  // `onConflictDoNothing` on (campaignId, leadId, stepIndex) is the
+  // idempotency backstop; the cap applies to LEADS starting a NEW sequence
+  // today (counted by their Day 0 row), not to raw row count — a lead that
+  // makes it in gets all 3 of its steps inserted together, exactly mirroring
+  // Bulk Fire's cascadeFollowups (which also doesn't re-check the cap for
+  // the Day 3/7 rows it cascades off an already-capped Day 0 batch). Each
+  // Day 0 row gets a STAGGERED scheduledAt via the same block+jitter
   // algorithm Bulk Fire uses (scheduleSends) — this is what stops a whole
-  // batch firing in the same minute and reading as a spam blast.
+  // batch firing in the same minute and reading as a spam blast; Day 3/7
+  // inherit that same jittered time plus their day offset, same sender, so
+  // all 3 steps land in one Gmail thread.
   const scheduledRows = await withTenantTx({ tenantId }, async (ctx) => {
     await lockTenantForAutomatedDailyCap(ctx);
     const sentNow = await automatedSendRepo.countScheduledOrSentTodayForTenant(ctx);
     const remainingNow = Math.max(AUTOMATED_DAILY_SEND_CAP - sentNow, 0);
-    const toSchedule = generated.slice(0, remainingNow);
+    const day0Entries = generated.filter((g) => g.stepIndex === 0);
+    const leadIdsToSchedule = new Set(day0Entries.slice(0, remainingNow).map((g) => g.leadId));
+    const toSchedule = generated.filter((g) => leadIdsToSchedule.has(g.leadId));
     if (toSchedule.length === 0) return [];
 
     const timing = scheduleSends({
-      leadIds: toSchedule.map((g) => g.leadId),
+      leadIds: [...leadIdsToSchedule],
       senderAccountIds: [campaign.senderAccountId],
       blockMinutes: AUTOMATED_SEND_BLOCK_MINUTES,
       now: new Date(),
     });
-    const scheduledAtByLeadId = new Map(timing.map((t) => [t.leadId, t.scheduledAt]));
+    const day0AtByLeadId = new Map(timing.map((t) => [t.leadId, t.scheduledAt]));
+    const dayMs = 24 * 60 * 60 * 1000;
 
-    const toInsert = toSchedule.map((g) => ({
-      campaignId: campaign.id,
-      leadId: g.leadId,
-      senderAccountId: campaign.senderAccountId,
-      subject: g.subject,
-      body: g.body,
-      scheduledAt: scheduledAtByLeadId.get(g.leadId) ?? new Date(),
-    }));
+    const toInsert = toSchedule.map((g) => {
+      const day0At = day0AtByLeadId.get(g.leadId) ?? new Date();
+      const scheduledAt =
+        g.stepIndex === 0 ? day0At : new Date(day0At.getTime() + FOLLOW_UP_DAY_OFFSETS[g.stepIndex] * dayMs);
+      return {
+        campaignId: campaign.id,
+        leadId: g.leadId,
+        senderAccountId: campaign.senderAccountId,
+        stepIndex: g.stepIndex,
+        subject: g.subject,
+        body: g.body,
+        scheduledAt,
+      };
+    });
     const inserted = await automatedSendRepo.bulkInsert(ctx, toInsert);
     await automatedLeadRepo.setStatusMany(
       ctx,
-      inserted.map((s) => s.leadId),
+      inserted.filter((s) => s.stepIndex === 0).map((s) => s.leadId),
       "queued",
     );
     return inserted;

@@ -6,12 +6,14 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { AppShell } from "@/components/app/app-shell";
 import { TopAppBar } from "@/components/app/top-app-bar";
-import { SpotlightCard } from "@/components/marketing/spotlight-card";
 import { api, ApiError } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { StatusBadge, type StatusBadgeProps } from "@/components/ui/status-badge";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Skeleton } from "@/components/ui/skeleton";
+import { CardBodySkeleton } from "@/components/ui/skeletons";
 
 interface BlueprintProofPoint {
   label: string;
@@ -62,7 +64,10 @@ const STATUS_TONE: Record<Blueprint["status"], NonNullable<StatusBadgeProps["ton
   archived: "error",
 };
 
-function Section({
+/** One card per topic (not one per field) — replaces the earlier 12-card
+ *  layout where most cards held a single sentence. `Field` rows inside are
+ *  dense: a small uppercase label, thin divider, next field. */
+function SectionCard({
   title,
   icon,
   children,
@@ -72,19 +77,28 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <SpotlightCard>
-      <Card className="border border-border-low-alpha bg-surface-white [--card-spacing:--spacing(6)]">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2.5 font-sans font-semibold text-[16px] text-primary">
-            <span className="flex items-center justify-center rounded-lg bg-primary-container/10 p-1.5 text-primary-container">
-              <span className="material-symbols-outlined text-[18px]">{icon}</span>
-            </span>
-            {title}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>{children}</CardContent>
-      </Card>
-    </SpotlightCard>
+    <Card className="border border-border-low-alpha bg-surface-white [--card-spacing:--spacing(6)]">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2.5 font-sans font-semibold text-[16px] text-primary">
+          <span className="flex items-center justify-center rounded-lg bg-primary-container/10 p-1.5 text-primary-container">
+            <span className="material-symbols-outlined text-[18px]">{icon}</span>
+          </span>
+          {title}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>{children}</CardContent>
+    </Card>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="border-b border-border-low-alpha py-3 first:pt-0 last:border-0 last:pb-0">
+      <p className="mb-1 font-label-md text-[11px] uppercase tracking-wide text-on-surface-variant">
+        {label}
+      </p>
+      <div className="font-body-md text-body-md text-on-surface">{children}</div>
+    </div>
   );
 }
 
@@ -99,6 +113,7 @@ export default function BlueprintDetailPage({
   const [loading, setLoading] = useState(true);
   const [regenerating, setRegenerating] = useState(false);
   const [archiving, setArchiving] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const load = async () => {
     try {
@@ -146,7 +161,6 @@ export default function BlueprintDetailPage({
   };
 
   const handleDelete = async () => {
-    if (!confirm("Delete this blueprint? This can't be undone.")) return;
     try {
       await api.delete(`/api/blueprints/${id}`);
       toast.success("Blueprint deleted");
@@ -159,8 +173,46 @@ export default function BlueprintDetailPage({
   if (loading) {
     return (
       <AppShell>
-        <div className="min-h-screen flex items-center justify-center">
-          <span className="material-symbols-outlined animate-spin text-primary text-[32px]">sync</span>
+        <div className="min-h-screen flex flex-col">
+          <TopAppBar
+            leftContent={
+              <div className="flex items-center gap-2 text-text-muted font-label-md">
+                <Link href="/blueprints" className="hover:text-primary transition-colors">
+                  Blueprints
+                </Link>
+              </div>
+            }
+          />
+          <main className="flex-1 p-4 sm:p-6 lg:p-12 max-w-[1000px] mx-auto w-full">
+            <Card className="mb-8 border border-border-low-alpha bg-surface-white [--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
+              <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="space-y-2">
+                  <Skeleton className="h-7 w-56" />
+                  <Skeleton className="h-4 w-40" />
+                </div>
+                <div className="flex gap-2">
+                  <Skeleton className="h-11 w-28 rounded-lg" />
+                  <Skeleton className="h-11 w-24 rounded-lg" />
+                  <Skeleton className="h-11 w-20 rounded-lg" />
+                </div>
+              </CardContent>
+            </Card>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {Array.from({ length: 4 }, (_, i) => (
+                <Card key={i} className="border border-border-low-alpha bg-surface-white [--card-spacing:--spacing(6)]">
+                  <CardHeader>
+                    <div className="flex items-center gap-2.5">
+                      <Skeleton className="h-8 w-8 rounded-lg" />
+                      <Skeleton className="h-5 w-32" />
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <CardBodySkeleton lines={4} />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </main>
         </div>
       </AppShell>
     );
@@ -222,6 +274,7 @@ export default function BlueprintDetailPage({
                 <Button
                   type="button"
                   variant="outline"
+                  size="lg"
                   onClick={handleRegenerate}
                   disabled={regenerating}
                   className="text-primary"
@@ -239,6 +292,7 @@ export default function BlueprintDetailPage({
                 <Button
                   type="button"
                   variant="outline"
+                  size="lg"
                   onClick={handleToggleArchive}
                   disabled={archiving}
                 >
@@ -247,7 +301,8 @@ export default function BlueprintDetailPage({
                 <Button
                   type="button"
                   variant="destructive"
-                  onClick={handleDelete}
+                  size="lg"
+                  onClick={() => setConfirmDelete(true)}
                 >
                   Delete
                 </Button>
@@ -274,83 +329,70 @@ export default function BlueprintDetailPage({
               </CardContent>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Section title="Who we are" icon="badge">
-                <p className="font-body-md text-body-md text-on-surface">{s.whoWeAre}</p>
-              </Section>
-              <Section title="What we offer" icon="sell">
-                <p className="font-body-md text-body-md text-on-surface">{s.whatWeOffer}</p>
-              </Section>
-              <Section title="Who it's for" icon="group">
-                <p className="font-body-md text-body-md text-on-surface">{s.whoItsFor}</p>
-              </Section>
-              <Section title="Differentiator" icon="star">
-                <p className="font-body-md text-body-md text-on-surface">{s.differentiator}</p>
-              </Section>
-              {s.statusQuo && (
-                <Section title="Status quo" icon="history">
-                  <p className="font-body-md text-body-md text-on-surface">{s.statusQuo}</p>
-                </Section>
-              )}
-              <Section title="Pain we solve" icon="healing">
-                <p className="font-body-md text-body-md text-on-surface">{s.painWeSolve}</p>
-              </Section>
-              <Section title="Voice" icon="record_voice_over">
-                <p className="font-body-md text-body-md text-on-surface">{s.voice}</p>
-              </Section>
-              <Section title="Proof points" icon="verified">
-                <ul className="space-y-1">
-                  {s.proof.map((p, i) => (
-                    <li key={i} className="font-body-md text-body-md text-on-surface flex gap-2">
-                      <span className="material-symbols-outlined text-tertiary-container text-[16px] mt-0.5">
-                        check_circle
-                      </span>
-                      <span>
-                        {p.label}
-                        {p.detail && <span className="text-text-muted"> — {p.detail}</span>}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </Section>
-              <Section title="Personas" icon="person_search">
-                <ul className="space-y-1">
-                  {s.personas.map((p, i) => (
-                    <li key={i} className="font-body-md text-body-md text-on-surface">
-                      <span className="font-semibold">{p.name}</span>
-                      {p.description && <span className="text-text-muted"> — {p.description}</span>}
-                    </li>
-                  ))}
-                </ul>
-              </Section>
-              <Section title="Objections to preempt" icon="quiz">
-                <ul className="list-disc list-inside space-y-1">
-                  {s.objections.map((o, i) => (
-                    <li key={i} className="font-body-md text-body-md text-on-surface">
-                      {o}
-                    </li>
-                  ))}
-                </ul>
-              </Section>
-              <Section title="Rules for outreach copy" icon="gavel">
-                <ul className="list-disc list-inside space-y-1">
-                  {s.rules.map((r, i) => (
-                    <li key={i} className="font-body-md text-body-md text-on-surface">
-                      {r}
-                    </li>
-                  ))}
-                </ul>
-              </Section>
-              <Section title="Lead qualification" icon="fact_check">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <SectionCard title="Positioning" icon="badge">
+                <Field label="Who we are">{s.whoWeAre}</Field>
+                <Field label="What we offer">{s.whatWeOffer}</Field>
+                <Field label="Who it's for">{s.whoItsFor}</Field>
+                <Field label="Differentiator">{s.differentiator}</Field>
+                {s.statusQuo && <Field label="Status quo">{s.statusQuo}</Field>}
+                <Field label="Pain we solve">{s.painWeSolve}</Field>
+              </SectionCard>
+
+              <SectionCard title="Voice & proof" icon="record_voice_over">
+                <Field label="Voice">{s.voice}</Field>
+                <Field label="Proof points">
+                  <ul className="space-y-1">
+                    {s.proof.map((p, i) => (
+                      <li key={i} className="flex gap-2">
+                        <span className="material-symbols-outlined text-tertiary-container text-[16px] mt-0.5">
+                          check_circle
+                        </span>
+                        <span>
+                          {p.label}
+                          {p.detail && <span className="text-text-muted"> — {p.detail}</span>}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </Field>
+                <Field label="Personas">
+                  <ul className="space-y-1">
+                    {s.personas.map((p, i) => (
+                      <li key={i}>
+                        <span className="font-semibold">{p.name}</span>
+                        {p.description && <span className="text-text-muted"> — {p.description}</span>}
+                      </li>
+                    ))}
+                  </ul>
+                </Field>
+              </SectionCard>
+
+              <SectionCard title="Objections & rules" icon="gavel">
+                <Field label="Objections to preempt">
+                  <ul className="list-disc list-inside space-y-1">
+                    {s.objections.map((o, i) => (
+                      <li key={i}>{o}</li>
+                    ))}
+                  </ul>
+                </Field>
+                <Field label="Rules for outreach copy">
+                  <ul className="list-disc list-inside space-y-1">
+                    {s.rules.map((r, i) => (
+                      <li key={i}>{r}</li>
+                    ))}
+                  </ul>
+                </Field>
+              </SectionCard>
+
+              <SectionCard title="Lead qualification" icon="fact_check">
                 <p className="font-body-md text-body-md text-on-surface">
                   {WEBSITE_REQUIREMENT_LABEL[s.leadQualification?.websiteRequirement ?? "any"]}
                 </p>
                 {!!s.leadQualification?.criteria.length && (
-                  <ul className="mt-2 list-disc list-inside space-y-1">
+                  <ul className="mt-2 list-disc list-inside space-y-1 font-body-md text-body-md text-on-surface">
                     {s.leadQualification.criteria.map((c, i) => (
-                      <li key={i} className="font-body-md text-body-md text-on-surface">
-                        {c}
-                      </li>
+                      <li key={i}>{c}</li>
                     ))}
                   </ul>
                 )}
@@ -358,11 +400,20 @@ export default function BlueprintDetailPage({
                   Campaigns using this blueprint skip leads that don&apos;t match this profile — see a
                   disqualified lead&apos;s reason on its campaign&apos;s lead list.
                 </p>
-              </Section>
+              </SectionCard>
             </div>
           )}
         </main>
       </div>
+      <ConfirmDialog
+        open={confirmDelete}
+        onClose={() => setConfirmDelete(false)}
+        onConfirm={handleDelete}
+        title="Delete blueprint"
+        description="Delete this blueprint? This can't be undone."
+        confirmLabel="Delete"
+        destructive
+      />
     </AppShell>
   );
 }

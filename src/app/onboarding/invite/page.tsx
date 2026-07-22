@@ -174,7 +174,7 @@ export default function InviteTeamOnboardingPage() {
               onClick={handleSubmit}
               disabled={loading}
               variant="gradient"
-              className="px-8 py-3 h-auto"
+              size="lg"
             >
               {loading ? "Sending..." : "Send invites & finish"}
             </Button>

@@ -9,13 +9,14 @@ import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { TopAppBar } from "@/components/app/top-app-bar";
 import { AdminGate } from "@/components/app/admin-gate";
-import { PageSpinner } from "@/components/ui/page-spinner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Progress } from "@/components/ui/progress";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Skeleton } from "@/components/ui/skeleton";
+import { PageHeaderSkeleton, DataTableCardSkeleton } from "@/components/ui/skeletons";
 
 
 type Member = {
@@ -99,7 +100,21 @@ export default function TeamSeatsPage() {
   if (authLoading || (loading && profile?.role === "admin")) {
     return (
       <AppShell>
-        <PageSpinner label="Loading team settings..." />
+        <main className="min-h-screen">
+          <section className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-12 py-12">
+            <PageHeaderSkeleton />
+            <Card className="flex flex-col md:flex-row items-center justify-between mb-8">
+              <CardContent className="flex w-full flex-col md:flex-row items-center justify-between">
+                <div className="w-full md:w-2/3 space-y-3">
+                  <Skeleton className="h-5 w-56" />
+                  <Skeleton className="h-2 w-full rounded-full" />
+                </div>
+                <Skeleton className="mt-6 md:mt-0 h-11 w-40 rounded-lg" />
+              </CardContent>
+            </Card>
+            <DataTableCardSkeleton rows={4} columns={2} />
+          </section>
+        </main>
       </AppShell>
     );
   }
@@ -143,9 +158,9 @@ export default function TeamSeatsPage() {
       key: "role",
       header: "Role",
       render: (m) => (
-        <span className="brass-badge inline-flex items-center px-3 py-1 rounded-full text-[12px] font-semibold uppercase tracking-tight">
-          {m.role.charAt(0).toUpperCase() + m.role.slice(1)}
-        </span>
+        <StatusBadge tone="brass" dot={false} className="uppercase tracking-tight">
+          {m.role}
+        </StatusBadge>
       ),
     },
     {
@@ -164,14 +179,16 @@ export default function TeamSeatsPage() {
       cellClassName: "text-right",
       render: (m) =>
         profile?.userId !== m.id ? (
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="icon"
             onClick={() => setRemoveTarget(m)}
-            className="text-on-surface-variant hover:text-error transition-all p-1.5 rounded-lg hover:bg-error/5 active:scale-95 duration-100"
+            className="text-on-surface-variant hover:text-error hover:bg-error/5"
             title="Remove member"
           >
             <span className="material-symbols-outlined text-[20px]">delete</span>
-          </button>
+          </Button>
         ) : null,
     },
   ];
@@ -197,16 +214,19 @@ export default function TeamSeatsPage() {
 
         {/* Main Content */}
         <section className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-12 py-12">
-          {/* Page Heading */}
-          <div className="mb-10 flex items-center gap-4">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary-container/10 text-primary-container">
-              <span className="material-symbols-outlined text-[24px]">groups</span>
-            </div>
-            <div>
-              <h2 className="font-headline-lg text-headline-lg text-primary mb-1">Team &amp; seats</h2>
-              <p className="text-on-surface-variant max-w-2xl">Manage your organizational structure, invite recruitment partners, and control access levels across the TalScout platform.</p>
-            </div>
-          </div>
+          {/* Page Heading — same Card-wrapped header pattern as Blueprints/
+              Candidates/Billing, instead of a bare unwrapped div. */}
+          <Card className="mb-8 border border-border-low-alpha bg-surface-white [--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
+            <CardContent className="flex items-center gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary-container/10 text-primary-container">
+                <span className="material-symbols-outlined text-[24px]">groups</span>
+              </div>
+              <div>
+                <h1 className="font-headline-lg text-headline-lg text-primary mb-1">Team &amp; seats</h1>
+                <p className="font-body-lg text-body-lg text-text-muted max-w-2xl">Manage your organizational structure, invite recruitment partners, and control access levels across the TalScout platform.</p>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Seats Usage Card */}
           <Card className="flex flex-col md:flex-row items-center justify-between mb-8">

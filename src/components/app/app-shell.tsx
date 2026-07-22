@@ -3,10 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import { Modal } from "@/components/ui/modal";
 import {
   Sidebar,
   SidebarContent,
@@ -23,8 +20,6 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { useAuth } from "@/components/app/auth-provider";
-import { api } from "@/lib/api";
-import { InviteMemberForm } from "@/components/team/invite-member-form";
 
 /** Persisted independently of shadcn's own cookie-based default (see
  *  SidebarProvider's `open`/`onOpenChange` below) — keeps the exact
@@ -43,11 +38,11 @@ const mainNav: Item[] = [
   { href: "/candidates", icon: "group", label: "Candidates" },
   { href: "/upload", icon: "upload_file", label: "Upload" },
   { href: "/shortlists", icon: "star", label: "Shortlists" },
+  { href: "/analytics", icon: "insights", label: "Analytics" },
   { href: "/outreach/bulk-fire", icon: "send", label: "Bulk Fire" },
   { href: "/blueprints", icon: "description", label: "Blueprints" },
   { href: "/automated-outreach", icon: "auto_awesome", label: "Automated Outreach" },
   { href: "/automated-outreach/replies", icon: "forum", label: "Reply Review" },
-  { href: "/analytics", icon: "insights", label: "Analytics" },
 ];
 
 const footerNav: Item[] = [
@@ -165,7 +160,7 @@ function MobileTopBar() {
   );
 }
 
-function AppSidebar({ onInvite }: { onInvite: () => void }) {
+function AppSidebar() {
   const { workspaceName, profile, can, loading: authLoading } = useAuth();
   const pathname = usePathname();
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
@@ -173,7 +168,7 @@ function AppSidebar({ onInvite }: { onInvite: () => void }) {
 
   return (
     <Sidebar collapsible="icon" className="border-r border-border-low-alpha bg-surface-white">
-      <SidebarHeader className="p-4">
+      <SidebarHeader className="p-4 group-data-[collapsible=icon]:p-2">
         <Link
           href="/dashboard"
           title={workspaceName || "Workspace"}
@@ -184,10 +179,10 @@ function AppSidebar({ onInvite }: { onInvite: () => void }) {
             <img
               src={logoUrl}
               alt="Logo"
-              className="h-10 w-10 shrink-0 rounded object-cover border border-border-low-alpha"
+              className="h-10 w-10 shrink-0 rounded object-cover border border-border-low-alpha group-data-[collapsible=icon]:size-8"
             />
           ) : (
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-container text-on-primary">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-container text-on-primary group-data-[collapsible=icon]:size-8">
               <span className="material-symbols-outlined">work</span>
             </div>
           )}
@@ -213,19 +208,7 @@ function AppSidebar({ onInvite }: { onInvite: () => void }) {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-border-low-alpha px-2 pt-3">
-        {profile?.role === "admin" && (
-          <Button
-            type="button"
-            variant="gradient"
-            onClick={onInvite}
-            title="Invite Team"
-            className="mb-2 w-full justify-center group-data-[collapsible=icon]:px-0"
-          >
-            <span className="material-symbols-outlined text-[18px]">person_add</span>
-            <span className="group-data-[collapsible=icon]:hidden">Invite Team</span>
-          </Button>
-        )}
+      <SidebarFooter className="border-t border-border-low-alpha px-2 py-3">
         <SidebarGroup className="p-0">
           <SidebarGroupLabel className="uppercase tracking-wider">Workspace</SidebarGroupLabel>
           <SidebarMenu className="gap-1">
@@ -248,40 +231,15 @@ function AppSidebar({ onInvite }: { onInvite: () => void }) {
 }
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const { workspaceName } = useAuth();
   const [collapsed, setCollapsed] = useState(() => {
     if (typeof window === "undefined") return false;
     return window.localStorage.getItem(SIDEBAR_COLLAPSE_KEY) === "true";
   });
-  const [invite, setInvite] = useState(false);
-  const [seatInfo, setSeatInfo] = useState<{ remainingSeats: number; plan: string } | null>(null);
-  const [loadingSeats, setLoadingSeats] = useState(false);
 
   const handleOpenChange = (open: boolean) => {
     const nextCollapsed = !open;
     setCollapsed(nextCollapsed);
     window.localStorage.setItem(SIDEBAR_COLLAPSE_KEY, String(nextCollapsed));
-  };
-
-  // Seat/plan data is only needed for the rarely-opened invite modal, so it's
-  // fetched on demand (not on every AppShell mount, which wraps every page).
-  const openInvite = async () => {
-    setInvite(true);
-    setLoadingSeats(true);
-    try {
-      const res = await api.get<{ plan: string; seats: number; seatsUsed: number }>(
-        "/api/billing",
-      );
-      setSeatInfo({
-        remainingSeats: Math.max(0, res.seats - res.seatsUsed),
-        plan: res.plan,
-      });
-    } catch {
-      toast.error("Failed to load seat information");
-      setInvite(false);
-    } finally {
-      setLoadingSeats(false);
-    }
   };
 
   return (
@@ -291,32 +249,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       className="bg-bg-cream"
       style={{ "--sidebar-width": SIDEBAR_WIDTH, "--sidebar-width-icon": SIDEBAR_WIDTH_ICON } as React.CSSProperties}
     >
-      <AppSidebar onInvite={openInvite} />
+      <AppSidebar />
       <SidebarInset className="bg-transparent">
         <MobileTopBar />
         {children}
       </SidebarInset>
-
-      {/* Invite team modal */}
-      <Modal
-        open={invite}
-        onClose={() => setInvite(false)}
-        title="Invite your team"
-        subtitle={`Add recruiters to your ${workspaceName || "Workspace"} workspace.`}
-      >
-        {loadingSeats || !seatInfo ? (
-          <div className="py-8 text-center flex flex-col items-center gap-2">
-            <span className="material-symbols-outlined animate-spin text-primary">sync</span>
-            <p className="font-body-md text-[14px] text-on-surface-variant">Loading seat information...</p>
-          </div>
-        ) : (
-          <InviteMemberForm
-            remainingSeats={seatInfo.remainingSeats}
-            plan={seatInfo.plan}
-            onDone={() => setInvite(false)}
-          />
-        )}
-      </Modal>
     </SidebarProvider>
   );
 }

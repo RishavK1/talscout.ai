@@ -12,6 +12,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Skeleton } from "@/components/ui/skeleton";
+import { TableSkeleton } from "@/components/ui/skeletons";
 
 interface ApiCandidate {
   id: string;
@@ -73,6 +76,7 @@ export default function ShortlistDetailPage({ params }: { params: Promise<{ id: 
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const [pendingRemove, setPendingRemove] = useState<{ id: string; name: string } | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -126,6 +130,12 @@ export default function ShortlistDetailPage({ params }: { params: Promise<{ id: 
     } finally {
       setRemovingId(null);
     }
+  };
+
+  const confirmRemove = async () => {
+    if (!pendingRemove) return;
+    await handleRemove(pendingRemove.id, pendingRemove.name);
+    setPendingRemove(null);
   };
 
   if (notFound) {
@@ -199,7 +209,7 @@ export default function ShortlistDetailPage({ params }: { params: Promise<{ id: 
           <button
             type="button"
             disabled={removingId === c.id}
-            onClick={() => handleRemove(c.id, c.name)}
+            onClick={() => setPendingRemove({ id: c.id, name: c.name })}
             className="rounded-lg p-2 text-on-surface-variant transition-colors hover:bg-error/10 hover:text-error disabled:opacity-50"
             aria-label={`Remove ${c.name} from shortlist`}
             title="Remove from shortlist"
@@ -229,7 +239,7 @@ export default function ShortlistDetailPage({ params }: { params: Promise<{ id: 
           </Button>
         }
       />
-      <main className="mx-auto max-w-[1160px] p-4 sm:p-6 lg:p-12 min-h-screen">
+      <main className="mx-auto max-w-[1440px] w-full p-4 sm:p-6 lg:p-12 min-h-screen">
         <Card className="mb-8 [--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
           <CardContent>
             <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
@@ -239,9 +249,13 @@ export default function ShortlistDetailPage({ params }: { params: Promise<{ id: 
                 </div>
                 <div>
                   <h1 className="font-headline-lg text-headline-lg text-primary mb-1">{shortlistName || "Shortlist"}</h1>
-                  <p className="font-body-md text-body-md text-on-surface-variant">
-                    {loading ? "Loading..." : `${candidates.length} candidate${candidates.length === 1 ? "" : "s"} in this shortlist.`}
-                  </p>
+                  {loading ? (
+                    <Skeleton className="h-4 w-40" />
+                  ) : (
+                    <p className="font-body-md text-body-md text-on-surface-variant">
+                      {`${candidates.length} candidate${candidates.length === 1 ? "" : "s"} in this shortlist.`}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -251,9 +265,7 @@ export default function ShortlistDetailPage({ params }: { params: Promise<{ id: 
         <Card className="overflow-hidden">
           <CardContent className="overflow-x-auto p-0">
             {loading ? (
-              <div className="flex items-center justify-center py-24 font-body-md text-on-surface-variant">
-                <span className="material-symbols-outlined mr-2 animate-spin">sync</span> Loading shortlist...
-              </div>
+              <TableSkeleton rows={5} columns={4} />
             ) : candidates.length === 0 ? (
               <div className="flex flex-col items-center justify-center gap-3 py-24 text-center">
                 <span className="material-symbols-outlined text-[40px] text-on-surface-variant">group_off</span>
@@ -273,6 +285,19 @@ export default function ShortlistDetailPage({ params }: { params: Promise<{ id: 
           </CardContent>
         </Card>
       </main>
+      <ConfirmDialog
+        open={!!pendingRemove}
+        onClose={() => setPendingRemove(null)}
+        onConfirm={confirmRemove}
+        title="Remove candidate"
+        description={
+          pendingRemove
+            ? `Remove ${pendingRemove.name} from this shortlist? This can't be undone.`
+            : undefined
+        }
+        confirmLabel="Remove"
+        destructive
+      />
     </AppShell>
   );
 }

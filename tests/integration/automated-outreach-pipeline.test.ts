@@ -126,17 +126,38 @@ describe("runAutomatedCampaigns — discover → enrich → generate → schedul
     expect(leads.every((l) => l.status === "queued")).toBe(true);
     expect(leads.every((l) => l.email)).toBe(true);
 
+    // Day 0/3/7 sequencing — 3 sends per lead (5 leads × 3 steps).
     const sends = await sendsForCampaign(campaignId);
-    expect(sends).toHaveLength(5);
+    expect(sends).toHaveLength(15);
     expect(sends.every((s) => s.status === "scheduled")).toBe(true);
     expect(sends.every((s) => s.body.includes("Jane Doe"))).toBe(true); // signature appended
+    expect(sends.filter((s) => s.stepIndex === 0)).toHaveLength(5);
+    expect(sends.filter((s) => s.stepIndex === 1)).toHaveLength(5);
+    expect(sends.filter((s) => s.stepIndex === 2)).toHaveLength(5);
 
-    // The whole point of this change: sends must NOT all land in the same
-    // minute (the exact bug that got 12 emails fired back-to-back and put
-    // the sending mailbox at spam risk). Block+jitter scheduling (the same
-    // algorithm Bulk Fire uses) spreads 5 sends across ~4 pacing blocks.
-    const scheduledTimes = sends.map((s) => s.scheduledAt.getTime()).sort((a, b) => a - b);
-    const spanMs = scheduledTimes[scheduledTimes.length - 1] - scheduledTimes[0];
+    // Day 3/7 land ~3/~7 days after their own lead's Day 0 — same sender,
+    // for Gmail thread continuity.
+    for (const day0 of sends.filter((s) => s.stepIndex === 0)) {
+      const day3 = sends.find((s) => s.leadId === day0.leadId && s.stepIndex === 1);
+      const day7 = sends.find((s) => s.leadId === day0.leadId && s.stepIndex === 2);
+      expect(day3!.senderAccountId).toBe(day0.senderAccountId);
+      expect(day7!.senderAccountId).toBe(day0.senderAccountId);
+      const day3OffsetMs = day3!.scheduledAt.getTime() - day0.scheduledAt.getTime();
+      const day7OffsetMs = day7!.scheduledAt.getTime() - day0.scheduledAt.getTime();
+      expect(day3OffsetMs).toBe(3 * 24 * 60 * 60 * 1000);
+      expect(day7OffsetMs).toBe(7 * 24 * 60 * 60 * 1000);
+    }
+
+    // The whole point of this change: Day 0 sends must NOT all land in the
+    // same minute (the exact bug that got 12 emails fired back-to-back and
+    // put the sending mailbox at spam risk). Block+jitter scheduling (the
+    // same algorithm Bulk Fire uses) spreads 5 Day-0 sends across ~4 pacing
+    // blocks.
+    const day0Times = sends
+      .filter((s) => s.stepIndex === 0)
+      .map((s) => s.scheduledAt.getTime())
+      .sort((a, b) => a - b);
+    const spanMs = day0Times[day0Times.length - 1] - day0Times[0];
     expect(spanMs).toBeGreaterThan(3 * 60_000); // well over "all in one minute"
   });
 
@@ -213,7 +234,7 @@ describe("runAutomatedCampaigns — discover → enrich → generate → schedul
     expect(leads).toHaveLength(5); // not 10
 
     const sends = await sendsForCampaign(campaignId);
-    expect(sends).toHaveLength(5); // not 10
+    expect(sends).toHaveLength(15); // 5 leads × 3 steps, not 30
   });
 
   it("enforces an independent 50/day cap — truncates the batch and leaves the rest for tomorrow", async () => {
@@ -255,6 +276,7 @@ describe("runAutomatedCampaigns — discover → enrich → generate → schedul
           campaignId: fillerCampaignId,
           leadId: l.id,
           senderAccountId: sender.id,
+          stepIndex: 0 as const,
           subject: "x",
           body: "x",
           scheduledAt: new Date(),
@@ -268,8 +290,12 @@ describe("runAutomatedCampaigns — discover → enrich → generate → schedul
     // immediate run already handled.
     await runAutomatedCampaigns(getServices());
 
+    // The cap gates how many LEADS start a new sequence today (2 of the
+    // remaining 50/day slots), not raw row count — each surviving lead still
+    // gets its full Day 0/3/7 sequence, mirroring Bulk Fire's own
+    // cascadeFollowups precedent (see scheduleAndEnqueue's doc comment).
     const sends = await sendsForCampaign(campaignId);
-    expect(sends).toHaveLength(2); // only what's left of the 50/day cap
+    expect(sends).toHaveLength(6); // 2 leads × 3 steps
 
     const leads = await leadsForCampaign(campaignId);
     const queuedLeads = leads.filter((l) => l.status === "queued");
@@ -323,10 +349,12 @@ describe("runAutomatedCampaigns — lead qualification gate", () => {
     const sends = await sendsForCampaign(campaignId);
     expect(sends).toHaveLength(0);
 
-    // Disqualified leads stay visible (unlike no_email) — the founder wants
-    // to see *why* a business was skipped, not have it silently vanish.
+    // Disqualified leads never surface via the leads-table API — same as
+    // "no_email"/"discovered", they're internal pipeline bookkeeping, not a
+    // "lead" the product shows (LISTABLE_STATUSES is an inclusion list).
     const apiLeads = await call(listLeadsGET, { token, routeCtx: params(campaignId) });
-    expect(apiLeads.json.data.leads).toHaveLength(5);
+    expect(apiLeads.json.data.leads).toHaveLength(0);
+    expect(apiLeads.json.data.total).toBe(0);
   });
 
   it("'no_or_weak_site' + website present → routes through the lead qualifier, both outcomes land the right status + reason", async () => {

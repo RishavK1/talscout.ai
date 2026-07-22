@@ -1,10 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 import { use, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/app/app-shell";
 import { TopAppBar } from "@/components/app/top-app-bar";
+import { useAuth } from "@/components/app/auth-provider";
 import { api, ApiError } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -12,6 +15,11 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardAction, CardContent } from "@/components/ui/card";
 import { StatusBadge, type StatusBadgeProps } from "@/components/ui/status-badge";
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Skeleton } from "@/components/ui/skeleton";
+import { TableSkeleton } from "@/components/ui/skeletons";
+
+const LeadEmailsModal = dynamic(() => import("./lead-emails-modal"), { ssr: false });
 
 interface AutomatedCampaign {
   id: string;
@@ -22,6 +30,32 @@ interface AutomatedCampaign {
   lastDiscoveryRunAt: string | null;
   lastReplyPollAt: string | null;
   errorReason: string | null;
+}
+
+const LEADS_PAGE_SIZE = 10;
+
+/** Compact page-number list with ellipses, e.g. [1, "…", 4, 5, 6, "…", 20] —
+ *  ported from Bulk Fire's leads table (src/app/outreach/bulk-fire/[id]/page.tsx)
+ *  so both tables share the same pagination affordance. */
+function paginationRange(current: number, total: number): (number | "…")[] {
+  const delta = 1;
+  const pages: number[] = [];
+  for (let i = 1; i <= total; i++) {
+    if (i === 1 || i === total || (i >= current - delta && i <= current + delta)) {
+      pages.push(i);
+    }
+  }
+  const withDots: (number | "…")[] = [];
+  let last: number | undefined;
+  for (const p of pages) {
+    if (last !== undefined) {
+      if (p - last === 2) withDots.push(last + 1);
+      else if (p - last !== 1) withDots.push("…");
+    }
+    withDots.push(p);
+    last = p;
+  }
+  return withDots;
 }
 
 interface AutomatedLead {
@@ -137,23 +171,34 @@ export default function AutomatedCampaignDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
+  const router = useRouter();
+  const { profile } = useAuth();
   const [campaign, setCampaign] = useState<AutomatedCampaign | null>(null);
   const [leads, setLeads] = useState<AutomatedLead[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [emailsLead, setEmailsLead] = useState<AutomatedLead | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const load = async () => {
     try {
       setLoading(true);
-      const qs = statusFilter ? `?status=${statusFilter}` : "";
+      const offset = (page - 1) * LEADS_PAGE_SIZE;
+      const qs = new URLSearchParams({ limit: String(LEADS_PAGE_SIZE), offset: String(offset) });
+      if (statusFilter) qs.set("status", statusFilter);
       const [c, l] = await Promise.all([
         api.get<AutomatedCampaign>(`/api/automated-campaigns/${id}`),
-        api.get<{ leads: AutomatedLead[] }>(`/api/automated-campaigns/${id}/leads${qs}`),
+        api.get<{ leads: AutomatedLead[]; total: number }>(
+          `/api/automated-campaigns/${id}/leads?${qs.toString()}`,
+        ),
       ]);
       setCampaign(c);
       setLeads(l.leads);
+      setTotal(l.total);
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : "Failed to load campaign");
     } finally {
@@ -164,7 +209,15 @@ export default function AutomatedCampaignDetailPage({
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, statusFilter]);
+  }, [id, statusFilter, page]);
+
+  // Changing the filter mid-page (e.g. viewing page 3, then filtering to
+  // "Sent") must reset to page 1 in the SAME update as the filter change —
+  // the old offset would likely be past the end of the new, smaller result
+  // set. Done in the select's onChange (below), not a second effect, so
+  // there's only ever one fetch per filter change instead of two.
+  const totalPages = Math.max(1, Math.ceil(total / LEADS_PAGE_SIZE));
+  const goToPage = (p: number) => setPage(Math.min(Math.max(1, p), totalPages));
 
   const toggleCampaign = async () => {
     if (!campaign) return;
@@ -181,6 +234,16 @@ export default function AutomatedCampaignDetailPage({
     }
   };
 
+  const handleDeleteCampaign = async () => {
+    try {
+      await api.delete(`/api/automated-campaigns/${id}`);
+      toast.success("Campaign deleted");
+      router.push("/automated-outreach");
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Failed to delete campaign");
+    }
+  };
+
   const toggleSelect = (leadId: string) => {
     setSelected((prev) => {
       const next = new Set(prev);
@@ -193,8 +256,39 @@ export default function AutomatedCampaignDetailPage({
   if (loading && !campaign) {
     return (
       <AppShell>
-        <div className="min-h-screen flex items-center justify-center">
-          <span className="material-symbols-outlined animate-spin text-primary text-[32px]">sync</span>
+        <div className="min-h-screen flex flex-col">
+          <TopAppBar
+            leftContent={
+              <div className="flex items-center gap-2 text-text-muted font-label-md">
+                <Link href="/automated-outreach" className="hover:text-primary transition-colors">
+                  Automated Outreach
+                </Link>
+              </div>
+            }
+          />
+          <main className="flex-1 p-4 sm:p-6 lg:p-12 max-w-[1200px] mx-auto w-full">
+            <section className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0 space-y-3">
+                <Skeleton className="h-7 w-52" />
+                <div className="flex gap-2">
+                  <Skeleton className="h-6 w-24 rounded-full" />
+                  <Skeleton className="h-6 w-32 rounded-full" />
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Skeleton className="h-11 w-40 rounded-lg" />
+                <Skeleton className="h-11 w-20 rounded-lg" />
+              </div>
+            </section>
+            <Card className="overflow-hidden">
+              <CardHeader className="border-b border-border-low-alpha">
+                <Skeleton className="h-5 w-28" />
+              </CardHeader>
+              <CardContent className="p-0">
+                <TableSkeleton rows={6} columns={3} />
+              </CardContent>
+            </Card>
+          </main>
         </div>
       </AppShell>
     );
@@ -218,6 +312,9 @@ export default function AutomatedCampaignDetailPage({
       ? campaign.discoveryQuery.location.text
       : `${campaign.discoveryQuery.location.lat}, ${campaign.discoveryQuery.location.lon}`;
 
+  const headCls = "px-4 py-3 text-[11px] uppercase tracking-wide";
+  const cellCls = "px-4 py-3";
+
   const leadColumns: DataTableColumn<AutomatedLead>[] = [
     {
       key: "select",
@@ -230,8 +327,8 @@ export default function AutomatedCampaignDetailPage({
           }
         />
       ),
-      headerClassName: "w-10",
-      cellClassName: "w-10",
+      headerClassName: cn(headCls, "w-10"),
+      cellClassName: cn(cellCls, "w-10"),
       render: (lead) => (
         <input type="checkbox" checked={selected.has(lead.id)} onChange={() => toggleSelect(lead.id)} />
       ),
@@ -239,36 +336,67 @@ export default function AutomatedCampaignDetailPage({
     {
       key: "business",
       header: "Business",
+      headerClassName: headCls,
+      cellClassName: cellCls,
       render: (lead) => (
-        <span className="font-body-md text-body-md font-medium text-on-surface">{lead.businessName}</span>
+        <span className="font-body-md text-[13px] font-medium text-on-surface">{lead.businessName}</span>
       ),
     },
     {
       key: "contact",
       header: "Contact",
+      headerClassName: headCls,
+      cellClassName: cellCls,
       render: (lead) => (
-        <span className="font-data-mono text-[13px] text-on-surface-variant">{lead.email ?? "—"}</span>
+        <span className="font-data-mono text-[12px] text-on-surface-variant">{lead.email ?? "—"}</span>
       ),
     },
     {
       key: "source",
       header: "Source",
+      headerClassName: headCls,
+      cellClassName: cellCls,
       render: (lead) => <SourceBadge source={lead.emailSource} />,
     },
     {
       key: "location",
       header: "Location",
+      headerClassName: headCls,
+      cellClassName: cellCls,
       render: (lead) => (
-        <span className="block max-w-[220px] truncate text-on-surface-variant">{lead.addressText ?? "—"}</span>
+        <span className="block max-w-[220px] truncate text-[13px] text-on-surface-variant">
+          {lead.addressText ?? "—"}
+        </span>
       ),
     },
     {
       key: "status",
       header: "Status",
+      headerClassName: headCls,
+      cellClassName: cellCls,
       render: (lead) => (
         <div title={lead.status === "disqualified" ? (lead.notes ?? undefined) : undefined}>
           <LeadStatusPill status={lead.status} />
         </div>
+      ),
+    },
+    {
+      key: "emails",
+      header: "Emails",
+      headerClassName: headCls,
+      cellClassName: cellCls,
+      render: (lead) => (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setEmailsLead(lead);
+          }}
+          className="flex items-center gap-1.5 font-label-md text-[12px] text-primary hover:underline"
+        >
+          <span className="material-symbols-outlined text-[16px]">mail</span>
+          View emails
+        </button>
       ),
     },
   ];
@@ -318,63 +446,144 @@ export default function AutomatedCampaignDetailPage({
                 <p className="mt-3 font-body-md text-[13px] text-error">{campaign.errorReason}</p>
               )}
             </div>
-            {(campaign.status === "active" || campaign.status === "paused" || campaign.status === "draft") && (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={toggleCampaign}
-                disabled={busy}
-                className="w-full shrink-0 sm:w-auto"
-              >
-                <span className="material-symbols-outlined text-[18px]">
-                  {busy ? "sync" : campaign.status === "active" ? "pause" : "play_arrow"}
-                </span>
-                {campaign.status === "active" ? "Pause campaign" : "Activate campaign"}
-              </Button>
-            )}
+            <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
+              {(campaign.status === "active" || campaign.status === "paused" || campaign.status === "draft") && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="lg"
+                  onClick={toggleCampaign}
+                  disabled={busy}
+                  className="w-full sm:w-auto"
+                >
+                  <span className="material-symbols-outlined text-[18px]">
+                    {busy ? "sync" : campaign.status === "active" ? "pause" : "play_arrow"}
+                  </span>
+                  {campaign.status === "active" ? "Pause campaign" : "Activate campaign"}
+                </Button>
+              )}
+              {profile?.role === "admin" && (
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="lg"
+                  onClick={() => setConfirmDelete(true)}
+                  className="w-full sm:w-auto"
+                >
+                  Delete
+                </Button>
+              )}
+            </div>
           </section>
 
           <Card className="overflow-hidden">
             <CardHeader className="border-b border-border-low-alpha">
               <CardTitle className="font-body-md text-headline-md font-semibold text-primary">
                 Leads
-                {!loading && leads.length > 0 && (
+                {!loading && total > 0 && (
                   <span className="ml-2 font-label-md text-[13px] font-normal text-text-muted">
-                    {leads.length}
+                    {total}
                   </span>
                 )}
               </CardTitle>
               <CardAction>
                 <select
                   value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
+                  onChange={(e) => {
+                    setStatusFilter(e.target.value);
+                    setPage(1);
+                  }}
                   className="rounded-lg border border-border-low-alpha bg-bg-cream/30 px-3 py-2 font-label-md text-label-md focus:outline-none focus:ring-1 focus:ring-primary"
                 >
                   <option value="">All statuses</option>
-                  <option value="discovered">Discovered</option>
                   <option value="ready">Ready</option>
                   <option value="queued">Queued</option>
                   <option value="sent">Sent</option>
                   <option value="replied">Replied</option>
                   <option value="failed">Failed</option>
+                  <option value="skipped">Skipped</option>
                 </select>
               </CardAction>
             </CardHeader>
             <CardContent className="p-0">
-              <DataTable
-                columns={leadColumns}
-                rows={leads}
-                getRowKey={(lead) => lead.id}
-                emptyState={
-                  <span className="font-body-md text-body-md text-on-surface-variant">
-                    {loading ? "Loading leads..." : "No leads yet — the next scheduled run will discover some."}
-                  </span>
-                }
-              />
+              {loading ? (
+                <TableSkeleton rows={5} columns={3} />
+              ) : (
+                <DataTable
+                  columns={leadColumns}
+                  rows={leads}
+                  getRowKey={(lead) => lead.id}
+                  emptyState={
+                    <span className="font-body-md text-body-md text-on-surface-variant">
+                      No leads yet — the next scheduled run will discover some.
+                    </span>
+                  }
+                />
+              )}
             </CardContent>
+            {!loading && total > 0 && (
+              <div className="flex flex-col items-center justify-between gap-3 border-t border-border-low-alpha px-4 py-3 sm:flex-row">
+                <span className="font-body-md text-[12px] text-on-surface-variant">
+                  Showing {(page - 1) * LEADS_PAGE_SIZE + 1}–{Math.min(page * LEADS_PAGE_SIZE, total)} of{" "}
+                  {total}
+                </span>
+                <div className="flex flex-wrap items-center justify-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => goToPage(page - 1)}
+                    disabled={page <= 1}
+                    aria-label="Previous page"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-border-low-alpha text-on-surface-variant transition-colors hover:bg-surface-container-low disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">chevron_left</span>
+                  </button>
+                  {paginationRange(page, totalPages).map((p, i) =>
+                    p === "…" ? (
+                      <span key={`ellipsis-${i}`} className="px-1 font-label-md text-[12px] text-on-surface-variant">
+                        …
+                      </span>
+                    ) : (
+                      <button
+                        key={p}
+                        type="button"
+                        onClick={() => goToPage(p)}
+                        aria-current={p === page ? "page" : undefined}
+                        className={cn(
+                          "flex h-8 w-8 items-center justify-center rounded-lg font-label-md text-[12px] transition-colors",
+                          p === page
+                            ? "bg-primary text-on-primary"
+                            : "border border-border-low-alpha text-on-surface-variant hover:bg-surface-container-low",
+                        )}
+                      >
+                        {p}
+                      </button>
+                    ),
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => goToPage(page + 1)}
+                    disabled={page >= totalPages}
+                    aria-label="Next page"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-border-low-alpha text-on-surface-variant transition-colors hover:bg-surface-container-low disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">chevron_right</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </Card>
         </main>
       </div>
+      <LeadEmailsModal campaignId={id} lead={emailsLead} onClose={() => setEmailsLead(null)} />
+      <ConfirmDialog
+        open={confirmDelete}
+        onClose={() => setConfirmDelete(false)}
+        onConfirm={handleDeleteCampaign}
+        title="Delete campaign"
+        description="This permanently deletes the campaign and all its leads, sends, and reply drafts. This can't be undone."
+        confirmLabel="Delete"
+        destructive
+      />
     </AppShell>
   );
 }

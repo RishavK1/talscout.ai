@@ -115,10 +115,24 @@ async function pollOneCampaign(
   const sections = blueprint.sections as BlueprintSections;
   const styleExamples = (campaign.styleExamples as string[] | null) ?? undefined;
 
+  // Day 0/3/7 all thread into the same Gmail conversation — checking every
+  // sent step independently would draft up to 3 near-duplicate replies for
+  // one actual reply. Dedupe to one representative row per lead: the most
+  // recently sent step, since that's the email the lead is actually
+  // replying to.
+  const latestByLead = new Map<string, Send>();
+  for (const send of sends) {
+    const current = latestByLead.get(send.leadId);
+    if (!current || (send.sentAt && (!current.sentAt || send.sentAt > current.sentAt))) {
+      latestByLead.set(send.leadId, send);
+    }
+  }
+  const representativeSends = [...latestByLead.values()];
+
   // Each batch of Gmail-heavy per-send checks is its own step — see
   // POLL_BATCH_SIZE's doc comment above.
-  for (let i = 0; i < sends.length; i += POLL_BATCH_SIZE) {
-    const batch = sends.slice(i, i + POLL_BATCH_SIZE);
+  for (let i = 0; i < representativeSends.length; i += POLL_BATCH_SIZE) {
+    const batch = representativeSends.slice(i, i + POLL_BATCH_SIZE);
     await stepRun(`poll-${campaign.id}-${i / POLL_BATCH_SIZE}`, () =>
       pollSendBatch(batch, sender, campaign, sections, styleExamples, tenantId, services),
     );

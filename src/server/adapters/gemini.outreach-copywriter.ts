@@ -34,7 +34,12 @@ const SYSTEM_PROMPT =
   "the blueprint's `voice`. If style example emails are provided, match their " +
   "tone/structure/length — do NOT copy their specific content. Do NOT include " +
   "a signature or sign-off line (e.g. 'Best regards, ...') — that is appended " +
-  "separately by the caller. Keep the body under ~120 words.";
+  "separately by the caller. Keep the body under ~120 words. If <follow_up> is " +
+  "present, this is a Day 3 or Day 7 follow-up to your OWN earlier email that " +
+  "got no reply — do NOT repeat the full pitch. Briefly reference that you " +
+  "reached out before (never claim they read it), stay under ~50 words, and " +
+  "make the Day 7 (final) follow-up noticeably shorter/lower-pressure than " +
+  "Day 3's. Subject should read as a reply, e.g. prefixed 'Re: ...'.";
 
 export class GeminiOutreachCopywriter implements OutreachCopywriter {
   private client: GoogleGenAI;
@@ -54,6 +59,9 @@ export class GeminiOutreachCopywriter implements OutreachCopywriter {
         ? `<style_examples>\n${input.styleExamples
             .map((e, i) => `Example ${i + 1}:\n${e}`)
             .join("\n\n")}\n</style_examples>\n`
+        : "") +
+      (input.followUp
+        ? `<follow_up>\nstep: Day ${input.followUp.stepIndex === 1 ? 3 : 7}\nprevious_subject: ${input.followUp.previousSubject}\n</follow_up>\n`
         : "");
 
     const run = async (model: string): Promise<OutreachCopyResult> => {

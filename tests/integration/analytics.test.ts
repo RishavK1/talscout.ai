@@ -107,8 +107,8 @@ describe("GET /api/analytics/overview", () => {
       skipped: 1,
       total: 6,
     });
-    expect(res.json.data.tracked.opened).toBe(false);
-    expect(res.json.data.tracked.replied).toBe(false);
+    expect(res.json.data.tracked.opened).toBe(true);
+    expect(res.json.data.tracked.replied).toBe(true);
     expect(res.json.data.tracked.sent).toBe(true);
   });
 
@@ -146,6 +146,62 @@ describe("GET /api/analytics/overview", () => {
 
     const res = await call(analyticsOverviewGET, { token });
     expect(res.json.data.totals.bounced).toBe(1);
+  });
+
+  it("counts leads whose thread showed a reply", async () => {
+    const { tenant, token } = await makeUser("recruiter");
+    const sender = await seedSender(tenant.id);
+    const { leadIds } = await seedCampaignWithSends(tenant.id, "Campaign A", sender.id, [
+      "sent",
+      "sent",
+    ]);
+    await adminDb()
+      .update(outreachLeads)
+      .set({ status: "replied" })
+      .where(eq(outreachLeads.id, leadIds[0]));
+
+    const res = await call(analyticsOverviewGET, { token });
+    expect(res.json.data.totals.replied).toBe(1);
+  });
+
+  it("counts sends whose tracking pixel was fetched", async () => {
+    const { tenant, token } = await makeUser("recruiter");
+    const sender = await seedSender(tenant.id);
+    const { campaignId } = await seedCampaignWithSends(tenant.id, "Campaign A", sender.id, [
+      "sent",
+      "sent",
+    ]);
+    const [firstSend] = await adminDb()
+      .select()
+      .from(outreachSends)
+      .where(eq(outreachSends.campaignId, campaignId));
+    await adminDb()
+      .update(outreachSends)
+      .set({ openedAt: new Date() })
+      .where(eq(outreachSends.id, firstSend.id));
+
+    const res = await call(analyticsOverviewGET, { token });
+    expect(res.json.data.totals.opened).toBe(1);
+  });
+
+  it("folds a WhatsApp 'read' delivery status into the same Opened total as the email pixel", async () => {
+    const { tenant, token } = await makeUser("recruiter");
+    const sender = await seedSender(tenant.id);
+    const { campaignId } = await seedCampaignWithSends(tenant.id, "Campaign A", sender.id, [
+      "sent",
+      "sent",
+    ]);
+    const [firstSend] = await adminDb()
+      .select()
+      .from(outreachSends)
+      .where(eq(outreachSends.campaignId, campaignId));
+    await adminDb()
+      .update(outreachSends)
+      .set({ deliveryStatus: "read" })
+      .where(eq(outreachSends.id, firstSend.id));
+
+    const res = await call(analyticsOverviewGET, { token });
+    expect(res.json.data.totals.opened).toBe(1);
   });
 
   it("is tenant-isolated: another tenant's sends never appear in totals", async () => {
