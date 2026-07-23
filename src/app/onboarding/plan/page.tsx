@@ -5,6 +5,9 @@ import { useState, useEffect } from "react";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { PLANS as PLAN_CATALOG, PLAN_ORDER, type PlanId } from "@/lib/plans";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { StatusBadge } from "@/components/ui/status-badge";
 
 // Derived from the shared catalog so onboarding, pricing and backend agree.
 const PLANS: {
@@ -108,7 +111,7 @@ export default function ChoosePlanPage() {
 
   if (checking) {
     return (
-      <main className="w-full max-w-[1000px] mx-auto min-h-screen flex flex-col items-center justify-center py-20 px-4">
+      <main className="bg-bg-cream w-full max-w-[1000px] mx-auto min-h-screen flex flex-col items-center justify-center py-20 px-4">
         <span className="material-symbols-outlined animate-spin text-primary text-3xl">sync</span>
         <p className="mt-4 font-label-md text-text-muted">Checking current subscription plan...</p>
       </main>
@@ -116,7 +119,7 @@ export default function ChoosePlanPage() {
   }
 
   return (
-    <main className="w-full max-w-[1000px] mx-auto min-h-screen flex flex-col items-center justify-center py-12 sm:py-16 lg:py-20 px-4 sm:px-6">
+    <main className="bg-bg-cream w-full max-w-[1000px] mx-auto min-h-screen flex flex-col items-center justify-center py-12 sm:py-16 lg:py-20 px-4 sm:px-6">
       {/* Logo/Header */}
       <div className="flex justify-center mb-12">
         <Link href="/" className="font-headline-lg text-headline-lg text-primary tracking-tight">
@@ -125,12 +128,13 @@ export default function ChoosePlanPage() {
       </div>
       {/* Onboarding Step Indicator */}
       <div className="flex items-center justify-center space-x-3 mb-10">
-        <div className="h-1.5 w-16 rounded-full bg-primary/20"></div>
-        <div className="h-1.5 w-16 rounded-full bg-primary shadow-sm"></div>
+        <div className="h-1.5 w-16 rounded-full bg-primary-container"></div>
+        <div className="h-1.5 w-16 rounded-full bg-primary-container"></div>
         <div className="h-1.5 w-16 rounded-full bg-border-low-alpha"></div>
       </div>
       {/* Main Card Content */}
-      <section className="w-full bg-surface-white rounded-xl p-6 sm:p-8 lg:p-12 shadow-soft border border-border-low-alpha">
+      <Card className="w-full [--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
+        <CardContent>
         <div className="text-center mb-10">
           <h2 className="font-headline-lg text-headline-lg text-on-surface mb-3">Choose your plan</h2>
           <p className="font-body-md text-body-md text-text-muted max-w-lg mx-auto">
@@ -140,31 +144,33 @@ export default function ChoosePlanPage() {
         {/* Billing Toggle */}
         <div className="flex justify-center mb-12">
           <div className="inline-flex p-1 bg-bg-secondary rounded-lg border border-border-low-alpha">
-            <button
+            <Button
               type="button"
+              variant="ghost"
               onClick={() => setBillingCycle("monthly")}
-              className={`px-6 py-2 rounded-md font-label-md text-label-md transition-all ${
-                billingCycle === "monthly" 
-                  ? "bg-surface-white text-primary shadow-sm font-semibold" 
-                  : "text-text-muted hover:text-on-surface"
-              }`}
+              className={
+                billingCycle === "monthly"
+                  ? "bg-surface-white text-primary shadow-sm font-semibold hover:bg-surface-white"
+                  : "text-text-muted hover:text-on-surface hover:bg-transparent"
+              }
             >
               Monthly
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="ghost"
               onClick={() => setBillingCycle("annual")}
-              className={`px-6 py-2 rounded-md font-label-md text-label-md transition-all ${
-                billingCycle === "annual" 
-                  ? "bg-surface-white text-primary shadow-sm font-semibold" 
-                  : "text-text-muted hover:text-on-surface"
-              }`}
+              className={
+                billingCycle === "annual"
+                  ? "bg-surface-white text-primary shadow-sm font-semibold hover:bg-surface-white"
+                  : "text-text-muted hover:text-on-surface hover:bg-transparent"
+              }
             >
               Annual{" "}
               <span className="ml-1 text-secondary text-[11px] font-bold uppercase tracking-wider">
                 (Save 20%)
               </span>
-            </button>
+            </Button>
           </div>
         </div>
         {/* Plan Cards Grid */}
@@ -193,14 +199,18 @@ export default function ChoosePlanPage() {
                   isDowngrade
                     ? "opacity-40 cursor-not-allowed border border-border-low-alpha bg-surface-container-high rounded-xl p-6 flex flex-col pointer-events-none"
                     : isSelected
-                    ? "plan-card-selected relative rounded-xl p-6 flex flex-col cursor-pointer transition-all shadow-md"
-                    : "plan-card-unselected relative rounded-xl p-6 flex flex-col cursor-pointer hover:border-outline-variant transition-colors group"
+                    ? `plan-card-selected relative rounded-xl p-6 flex flex-col cursor-pointer transition-all${plan.popular ? " ring-2 ring-tertiary-fixed" : ""}`
+                    : `plan-card-unselected relative rounded-xl p-6 flex flex-col cursor-pointer hover:border-outline-variant transition-colors group${plan.popular ? " ring-2 ring-tertiary-fixed" : ""}`
                 }
               >
                 {plan.popular && !isDowngrade && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 brass-pill rounded-full text-[10px] font-bold tracking-widest uppercase">
+                  <StatusBadge
+                    tone="brass"
+                    dot={false}
+                    className="absolute -top-3 left-1/2 -translate-x-1/2 text-[10px] font-bold tracking-widest uppercase shadow-sm"
+                  >
                     Most Popular
-                  </div>
+                  </StatusBadge>
                 )}
                 {isDowngrade ? (
                   <div className="absolute top-4 right-4 text-error font-label-md text-[10px] uppercase font-bold tracking-wider">
@@ -256,26 +266,28 @@ export default function ChoosePlanPage() {
             <p className="font-body-md text-sm text-text-muted">Scale your team as you grow. Min seats for upgrade: {minSeats}.</p>
           </div>
           <div className="flex items-center space-x-4">
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="icon-lg"
               onClick={() => setSeats((s) => Math.max(minSeats, s - 1))}
               disabled={seats <= minSeats}
               aria-label="Decrease seats"
-              className="w-10 h-10 rounded-lg border border-border-low-alpha flex items-center justify-center hover:bg-bg-secondary transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <span className="material-symbols-outlined text-on-surface" data-icon="remove">remove</span>
-            </button>
+            </Button>
             <div className="w-16 text-center">
               <span className="font-headline-md text-headline-md text-primary">{seats}</span>
             </div>
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="icon-lg"
               onClick={() => setSeats((s) => s + 1)}
               aria-label="Increase seats"
-              className="w-10 h-10 rounded-lg border border-border-low-alpha flex items-center justify-center hover:bg-bg-secondary transition-colors"
             >
               <span className="material-symbols-outlined text-on-surface" data-icon="add">add</span>
-            </button>
+            </Button>
           </div>
         </div>
         
@@ -294,23 +306,25 @@ export default function ChoosePlanPage() {
         </div>
         {/* Actions */}
         <div className="flex flex-col md:flex-row items-center justify-between mt-12 pt-8 border-t border-border-low-alpha gap-4">
-          <Link
-            href="/onboarding/workspace"
-            className="px-8 py-3 rounded-lg font-label-md text-label-md text-on-surface-variant hover:text-primary transition-all flex items-center space-x-2"
-          >
-            <span className="material-symbols-outlined text-sm" data-icon="arrow_back">arrow_back</span>
-            <span>Back</span>
-          </Link>
-          <button
+          <Button asChild variant="ghost">
+            <Link href="/onboarding/workspace">
+              <span className="material-symbols-outlined text-sm" data-icon="arrow_back">arrow_back</span>
+              <span>Back</span>
+            </Link>
+          </Button>
+          <Button
             type="button"
             disabled={loading || !isUpgrade()}
             onClick={handlePayment}
-            className="w-full md:w-auto px-10 py-4 bg-primary text-on-primary rounded-xl font-label-md text-label-md font-semibold hover:opacity-90 active:scale-[0.98] transition-all shadow-md text-center disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
+            variant="gradient"
+            size="lg"
+            className="w-full justify-center md:w-auto"
           >
             {loading ? "Preparing payment..." : "Continue to payment"}
-          </button>
+          </Button>
         </div>
-      </section>
+        </CardContent>
+      </Card>
       {/* Trust Indicator */}
       <div className="mt-8 flex items-center justify-center gap-2 text-center opacity-60">
         <span className="material-symbols-outlined text-[16px] text-text-muted">lock</span>

@@ -15,6 +15,46 @@ import { MockWhatsAppSender } from "@/server/adapters/mock.whatsapp-sender";
 import { WhatsAppSenderAdapter } from "@/server/adapters/whatsapp.sender";
 import { MockWhatsAppTemplateManager } from "@/server/adapters/mock.whatsapp-template-manager";
 import { WhatsAppTemplateManagerAdapter } from "@/server/adapters/whatsapp.template-manager";
+import {
+  MockBlueprintResearcher,
+  MockBlueprintGenerator,
+} from "@/server/adapters/mock.blueprint";
+import {
+  GeminiBlueprintResearcher,
+  GeminiBlueprintGenerator,
+} from "@/server/adapters/gemini.blueprint";
+import {
+  OpenRouterBlueprintResearcher,
+  OpenRouterBlueprintGenerator,
+} from "@/server/adapters/openrouter.blueprint";
+import { MockLeadDiscovery } from "@/server/adapters/mock.lead-discovery";
+import { OverpassLeadDiscovery } from "@/server/adapters/overpass.lead-discovery";
+import { GeoapifyLeadDiscovery } from "@/server/adapters/geoapify.lead-discovery";
+import { GooglePlacesLeadDiscovery } from "@/server/adapters/google-places.lead-discovery";
+import { FallbackLeadDiscovery } from "@/server/adapters/fallback.lead-discovery";
+import { MockEmailFinder } from "@/server/adapters/mock.email-finder";
+import { SiteScrapeEmailFinder } from "@/server/adapters/site-scrape.email-finder";
+import { FirecrawlEmailFinder } from "@/server/adapters/firecrawl.email-finder";
+import { HunterEmailFinder } from "@/server/adapters/hunter.email-finder";
+import { SnovEmailFinder } from "@/server/adapters/snov.email-finder";
+import { ApolloEmailFinder } from "@/server/adapters/apollo.email-finder";
+import { WaterfallEmailFinder } from "@/server/adapters/waterfall.email-finder";
+import { MockOutreachCopywriter } from "@/server/adapters/mock.outreach-copywriter";
+import { GeminiOutreachCopywriter } from "@/server/adapters/gemini.outreach-copywriter";
+import { OpenRouterOutreachCopywriter } from "@/server/adapters/openrouter.outreach-copywriter";
+import { MockLeadQualifier } from "@/server/adapters/mock.lead-qualifier";
+import { GeminiLeadQualifier } from "@/server/adapters/gemini.lead-qualifier";
+import { OpenRouterLeadQualifier } from "@/server/adapters/openrouter.lead-qualifier";
+import { MockReplyDrafter } from "@/server/adapters/mock.reply-drafter";
+import { GeminiReplyDrafter } from "@/server/adapters/gemini.reply-drafter";
+import { OpenRouterReplyDrafter } from "@/server/adapters/openrouter.reply-drafter";
+import {
+  FallbackBlueprintResearcher,
+  FallbackBlueprintGenerator,
+  FallbackOutreachCopywriter,
+  FallbackLeadQualifier,
+  FallbackReplyDrafter,
+} from "@/server/adapters/fallback-ai";
 import { InProcessQueue } from "@/server/adapters/inprocess.queue";
 import { ClaudeExtractor } from "@/server/adapters/claude.extractor";
 import { GeminiExtractor } from "@/server/adapters/gemini.extractor";
@@ -53,6 +93,21 @@ import {
   syncWhatsAppTemplates,
   SYNC_WHATSAPP_TEMPLATES_JOB,
 } from "@/server/jobs/sync-whatsapp-templates";
+import {
+  runAutomatedCampaigns,
+  runAutomatedCampaignNow,
+  RUN_AUTOMATED_CAMPAIGN_JOB,
+  RUN_AUTOMATED_CAMPAIGN_NOW_JOB,
+} from "@/server/jobs/run-automated-campaign";
+import {
+  pollAutomatedReplies,
+  POLL_AUTOMATED_REPLIES_JOB,
+} from "@/server/jobs/poll-automated-replies";
+import {
+  sendAutomatedEmail,
+  SEND_AUTOMATED_EMAIL_JOB,
+  type SendAutomatedEmailPayload,
+} from "@/server/jobs/send-automated-email";
 
 let services: Services | null = null;
 
@@ -76,6 +131,13 @@ export function getServices(): Services {
       outreachMailer: new MockOutreachMailer(),
       whatsappSender: new MockWhatsAppSender(),
       whatsappTemplateManager: new MockWhatsAppTemplateManager(),
+      blueprintResearcher: new MockBlueprintResearcher(),
+      blueprintGenerator: new MockBlueprintGenerator(),
+      leadDiscovery: new MockLeadDiscovery(),
+      emailFinder: new MockEmailFinder(),
+      leadQualifier: new MockLeadQualifier(),
+      outreachCopywriter: new MockOutreachCopywriter(),
+      replyDrafter: new MockReplyDrafter(),
     };
     queue.register(PARSE_RESUME_JOB, (payload) =>
       parseResume(payload as ParseResumePayload, services as Services),
@@ -117,6 +179,25 @@ export function getServices(): Services {
     queue.register(SYNC_WHATSAPP_TEMPLATES_JOB, () =>
       syncWhatsAppTemplates(services as Services),
     );
+    // Same "no real cron under InProcessQueue" note as above — registered so
+    // a manual enqueue (e.g. from a test) still resolves to a handler.
+    queue.register(RUN_AUTOMATED_CAMPAIGN_JOB, () =>
+      runAutomatedCampaigns(services as Services),
+    );
+    queue.register(RUN_AUTOMATED_CAMPAIGN_NOW_JOB, (payload) =>
+      runAutomatedCampaignNow((payload as { campaignId: string }).campaignId, services as Services),
+    );
+    queue.register(POLL_AUTOMATED_REPLIES_JOB, () =>
+      pollAutomatedReplies(services as Services),
+    );
+    // Same inline-vs-deferred caveat as SEND_OUTREACH_EMAIL_JOB above.
+    queue.register(SEND_AUTOMATED_EMAIL_JOB, (payload) => {
+      const data = payload as SendAutomatedEmailPayload & { targetSendAt: string };
+      return sendAutomatedEmail(
+        { tenantId: data.tenantId, sendId: data.sendId },
+        services as Services,
+      );
+    });
   } else {
     // APP_MODE=live — real services.
     // In serverless production, use InngestQueue to prevent background job freezing.
@@ -152,6 +233,88 @@ export function getServices(): Services {
     // otherwise we degrade gracefully to pure vector order (identity rerank).
     const reranker = env.GEMINI_API_KEY ? new GeminiReranker() : new MockReranker();
 
+    // Blueprint AI runs on Gemini (free tier) when a key is present; without
+    // one we fall back to the deterministic mock so the feature still works
+    // end-to-end (with generic, editable suggestions) rather than 500-ing.
+    // When OPENROUTER_API_KEY is ALSO set, it's wired in as a last-resort
+    // fallback tier below Gemini (never the primary) — reached only once
+    // Gemini's own primary+fallback model both fail, e.g. its free daily
+    // quota is exhausted. See fallback-ai.ts / openrouter.client.ts.
+    const geminiBlueprintResearcher = env.GEMINI_API_KEY ? new GeminiBlueprintResearcher() : null;
+    const geminiBlueprintGenerator = env.GEMINI_API_KEY ? new GeminiBlueprintGenerator() : null;
+    const openRouterBlueprintResearcher = env.OPENROUTER_API_KEY
+      ? new OpenRouterBlueprintResearcher()
+      : null;
+    const openRouterBlueprintGenerator = env.OPENROUTER_API_KEY
+      ? new OpenRouterBlueprintGenerator()
+      : null;
+    const blueprintResearcher =
+      geminiBlueprintResearcher && openRouterBlueprintResearcher
+        ? new FallbackBlueprintResearcher(geminiBlueprintResearcher, openRouterBlueprintResearcher)
+        : (geminiBlueprintResearcher ?? openRouterBlueprintResearcher ?? new MockBlueprintResearcher());
+    const blueprintGenerator =
+      geminiBlueprintGenerator && openRouterBlueprintGenerator
+        ? new FallbackBlueprintGenerator(geminiBlueprintGenerator, openRouterBlueprintGenerator)
+        : (geminiBlueprintGenerator ?? openRouterBlueprintGenerator ?? new MockBlueprintGenerator());
+
+    // Automated outreach: lead discovery is free-by-default (OpenStreetMap,
+    // no key). Fallbacks are tried in order, each only topping up a short
+    // result: Geoapify (free, 3,000 credits/day) first if configured, then
+    // Google Places — the one OPTIONAL, NOT-free source in the chain,
+    // constructed and referenced ONLY when GOOGLE_PLACES_API_KEY is set, so
+    // there is no code path that ever touches it without that key present.
+    const overpassDiscovery = new OverpassLeadDiscovery();
+    const discoveryFallbacks = [
+      env.GEOAPIFY_API_KEY ? new GeoapifyLeadDiscovery() : null,
+      env.GOOGLE_PLACES_API_KEY ? new GooglePlacesLeadDiscovery() : null,
+    ].filter((f): f is NonNullable<typeof f> => f !== null);
+    const leadDiscovery = discoveryFallbacks.length
+      ? new FallbackLeadDiscovery(overpassDiscovery, discoveryFallbacks)
+      : overpassDiscovery;
+
+    // Email finding: free website-scrape first (plus Firecrawl's JS-rendering
+    // scrape as a same-tier fallback for client-rendered sites), then
+    // Hunter/Snov/Apollo free tiers only if their keys are configured. Each
+    // stays free-forever; the waterfall degrades gracefully with fewer
+    // sources if keys are absent.
+    const emailFinder = new WaterfallEmailFinder(
+      [
+        new SiteScrapeEmailFinder(),
+        env.FIRECRAWL_API_KEY ? new FirecrawlEmailFinder() : null,
+        env.HUNTER_API_KEY ? new HunterEmailFinder() : null,
+        env.SNOV_CLIENT_ID && env.SNOV_CLIENT_SECRET ? new SnovEmailFinder() : null,
+        env.APOLLO_API_KEY ? new ApolloEmailFinder() : null,
+      ].filter((f): f is NonNullable<typeof f> => f !== null),
+    );
+
+    // Same Gemini-primary / OpenRouter-last-resort-fallback pattern as the
+    // blueprint adapters above.
+    const geminiOutreachCopywriter = env.GEMINI_API_KEY ? new GeminiOutreachCopywriter() : null;
+    const openRouterOutreachCopywriter = env.OPENROUTER_API_KEY
+      ? new OpenRouterOutreachCopywriter()
+      : null;
+    const outreachCopywriter =
+      geminiOutreachCopywriter && openRouterOutreachCopywriter
+        ? new FallbackOutreachCopywriter(geminiOutreachCopywriter, openRouterOutreachCopywriter)
+        : (geminiOutreachCopywriter ?? openRouterOutreachCopywriter ?? new MockOutreachCopywriter());
+
+    // Same Gemini-primary / OpenRouter-last-resort-fallback pattern — only
+    // ever called for the one case run-automated-campaign.ts's own free
+    // rule-based checks can't decide (see qualifyLeadCheaply there).
+    const geminiLeadQualifier = env.GEMINI_API_KEY ? new GeminiLeadQualifier() : null;
+    const openRouterLeadQualifier = env.OPENROUTER_API_KEY ? new OpenRouterLeadQualifier() : null;
+    const leadQualifier =
+      geminiLeadQualifier && openRouterLeadQualifier
+        ? new FallbackLeadQualifier(geminiLeadQualifier, openRouterLeadQualifier)
+        : (geminiLeadQualifier ?? openRouterLeadQualifier ?? new MockLeadQualifier());
+
+    const geminiReplyDrafter = env.GEMINI_API_KEY ? new GeminiReplyDrafter() : null;
+    const openRouterReplyDrafter = env.OPENROUTER_API_KEY ? new OpenRouterReplyDrafter() : null;
+    const replyDrafter =
+      geminiReplyDrafter && openRouterReplyDrafter
+        ? new FallbackReplyDrafter(geminiReplyDrafter, openRouterReplyDrafter)
+        : (geminiReplyDrafter ?? openRouterReplyDrafter ?? new MockReplyDrafter());
+
     services = {
       storage: new SupabaseStorage(),
       extractor,
@@ -164,6 +327,13 @@ export function getServices(): Services {
       outreachMailer: new OutreachMailerAdapter(),
       whatsappSender: new WhatsAppSenderAdapter(),
       whatsappTemplateManager: new WhatsAppTemplateManagerAdapter(),
+      blueprintResearcher,
+      blueprintGenerator,
+      leadDiscovery,
+      emailFinder,
+      leadQualifier,
+      outreachCopywriter,
+      replyDrafter,
     };
 
     if (queue instanceof InProcessQueue) {
@@ -196,6 +366,22 @@ export function getServices(): Services {
       queue.register(SYNC_WHATSAPP_TEMPLATES_JOB, () =>
         syncWhatsAppTemplates(services as Services),
       );
+      queue.register(RUN_AUTOMATED_CAMPAIGN_JOB, () =>
+        runAutomatedCampaigns(services as Services),
+      );
+      queue.register(RUN_AUTOMATED_CAMPAIGN_NOW_JOB, (payload) =>
+        runAutomatedCampaignNow((payload as { campaignId: string }).campaignId, services as Services),
+      );
+      queue.register(POLL_AUTOMATED_REPLIES_JOB, () =>
+        pollAutomatedReplies(services as Services),
+      );
+      queue.register(SEND_AUTOMATED_EMAIL_JOB, (payload) => {
+        const data = payload as SendAutomatedEmailPayload & { targetSendAt: string };
+        return sendAutomatedEmail(
+          { tenantId: data.tenantId, sendId: data.sendId },
+          services as Services,
+        );
+      });
     }
   }
 

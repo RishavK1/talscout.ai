@@ -1,4 +1,7 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@custom-variant dark (&:where(.dark, .dark *));
 
 /* ============================================================
    TalScout — design tokens ported 1:1 from the Stitch project
@@ -6,16 +9,16 @@
    ============================================================ */
 @theme {
   /* ---- Stitch color system (exact names + hex) ---- */
-  --color-primary: #004145;
-  --color-primary-container: #005a5f;
-  --color-primary-fixed: #a9eef4;
-  --color-primary-fixed-dim: #8dd2d7;
+  --color-primary: #0f766e;
+  --color-primary-container: #0f766e;
+  --color-primary-fixed: #ccfbf1;
+  --color-primary-fixed-dim: #99f6e4;
   --color-on-primary: #ffffff;
-  --color-on-primary-container: #8acfd4;
-  --color-on-primary-fixed: #002022;
-  --color-on-primary-fixed-variant: #004f54;
-  --color-inverse-primary: #8dd2d7;
-  --color-surface-tint: #1c686d;
+  --color-on-primary-container: #ffffff;
+  --color-on-primary-fixed: #134e4a;
+  --color-on-primary-fixed-variant: #115e59;
+  --color-inverse-primary: #5eead4;
+  --color-surface-tint: #0f766e;
 
   --color-secondary: #755b00;
   --color-secondary-container: #fed255;
@@ -26,45 +29,45 @@
   --color-on-secondary-fixed: #241a00;
   --color-on-secondary-fixed-variant: #584400;
 
-  --color-tertiary: #274100;
-  --color-tertiary-container: #385a00;
-  --color-tertiary-fixed: #a9f931;
-  --color-tertiary-fixed-dim: #8fdb00;
+  --color-tertiary: #0f766e;
+  --color-tertiary-container: #0f766e;
+  --color-tertiary-fixed: #ccfbf1;
+  --color-tertiary-fixed-dim: #99f6e4;
   --color-on-tertiary: #ffffff;
-  --color-on-tertiary-container: #8dd800;
-  --color-on-tertiary-fixed: #112000;
-  --color-on-tertiary-fixed-variant: #314f00;
+  --color-on-tertiary-container: #ffffff;
+  --color-on-tertiary-fixed: #134e4a;
+  --color-on-tertiary-fixed-variant: #115e59;
 
   --color-error: #ba1a1a;
   --color-error-container: #ffdad6;
   --color-on-error: #ffffff;
   --color-on-error-container: #93000a;
 
-  --color-bg-cream: #faf7f3;
-  --color-bg-secondary: #f7f4f0;
-  --color-background: #fff8f7;
-  --color-on-background: #221a19;
+  --color-bg-cream: #f6f8fb;
+  --color-bg-secondary: #f1f5f9;
+  --color-background: #f6f8fb;
+  --color-on-background: #0f172a;
 
-  --color-surface: #fff8f7;
+  --color-surface: #ffffff;
   --color-surface-white: #ffffff;
-  --color-surface-bright: #fff8f7;
-  --color-surface-dim: #e7d6d4;
+  --color-surface-bright: #ffffff;
+  --color-surface-dim: #e2e8f0;
   --color-surface-container-lowest: #ffffff;
-  --color-surface-container-low: #fff0ef;
-  --color-surface-container: #fbeae8;
-  --color-surface-container-high: #f5e4e2;
-  --color-surface-container-highest: #efdfdd;
-  --color-surface-variant: #efdfdd;
+  --color-surface-container-low: #f8fafc;
+  --color-surface-container: #f1f5f9;
+  --color-surface-container-high: #e9eef5;
+  --color-surface-container-highest: #e2e8f0;
+  --color-surface-variant: #e2e8f0;
 
-  --color-on-surface: #221a19;
-  --color-on-surface-variant: #3f4849;
-  --color-inverse-surface: #382e2d;
-  --color-inverse-on-surface: #feedeb;
-  --color-text-muted: #78706c;
+  --color-on-surface: #0f172a;
+  --color-on-surface-variant: #475569;
+  --color-inverse-surface: #f8fafc;
+  --color-inverse-on-surface: #0f172a;
+  --color-text-muted: #64748b;
 
-  --color-outline: #6f797a;
-  --color-outline-variant: #bec8c9;
-  --color-border-low-alpha: rgba(44, 35, 34, 0.09);
+  --color-outline: #64748b;
+  --color-outline-variant: #cbd5e1;
+  --color-border-low-alpha: rgba(15, 23, 42, 0.09);
 
   /* ---- radius (Stitch) ---- */
   --radius-lg: 0.5rem;
@@ -73,8 +76,8 @@
   --radius-3xl: 1.25rem;
 
   /* ---- shadows (Stitch) ---- */
-  --shadow-ambient: 0 4px 24px -4px rgba(44, 35, 34, 0.05);
-  --shadow-floating: 0 12px 32px -8px rgba(44, 35, 34, 0.08);
+  --shadow-ambient: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px rgba(15, 23, 42, 0.04);
+  --shadow-floating: 0 18px 45px -18px rgba(15, 23, 42, 0.22);
 
   /* ---- Stitch type scale (size + line-height + weight + tracking) ---- */
   --text-display-lg: 48px;
@@ -115,13 +118,59 @@
   --font-serif: var(--font-source-serif);
   --font-mono: var(--font-geist-mono);
 
-  --font-display-lg: var(--font-source-serif), Georgia, serif;
-  --font-headline-lg: var(--font-source-serif), Georgia, serif;
-  --font-headline-md: var(--font-source-serif), Georgia, serif;
+  --font-display-lg: var(--font-be-vietnam), system-ui, sans-serif;
+  --font-headline-lg: var(--font-be-vietnam), system-ui, sans-serif;
+  --font-headline-md: var(--font-be-vietnam), system-ui, sans-serif;
   --font-body-md: var(--font-be-vietnam), system-ui, sans-serif;
   --font-body-lg: var(--font-be-vietnam), system-ui, sans-serif;
   --font-label-md: var(--font-be-vietnam), system-ui, sans-serif;
   --font-data-mono: var(--font-geist-mono), monospace;
+  --font-heading: var(--font-sans);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  /* --color-secondary/-foreground intentionally NOT redeclared here — the
+     original Stitch @theme block above already sets --color-secondary to
+     the brand gold (#755b00), and ~48 call sites across the app
+     (text-secondary, hover:text-secondary, border-secondary) depend on
+     that. A `--color-secondary: var(--secondary)` override used to live
+     here, silently shadowing the gold with a near-white shadcn slot value —
+     every one of those 48 usages rendered nearly invisible against the
+     cream background as a result. Button/Badge's "secondary" variant now
+     reference --muted-action(-foreground) directly instead (see below),
+     so nothing needs this alias any more. */
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  /* --radius-lg/xl/2xl/3xl are intentionally NOT redeclared here — the
+     original Stitch @theme block above already sets them (0.5/0.75/1/1.25rem)
+     and must stay authoritative. shadcn components use `rounded-*` utility
+     classes, which resolve against those; --radius-sm/md fall through to
+     Tailwind's own built-in defaults, which is fine since Stitch never
+     defined those two sizes either. */
 }
 
 /* Custom easing curves (Emil's craft rules) */
@@ -129,6 +178,117 @@
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+
+  /* ---- shadcn/ui semantic slots, mapped onto the Stitch tokens above ----
+     shadcn's primitives (Card/Button/Sidebar/etc.) read these slot names;
+     aliasing them to the EXISTING brand colors (rather than shadcn's default
+     neutral palette) is what keeps every new component on-brand without a
+     second color system. No .dark overrides — this app has no dark mode. */
+  --background: var(--color-bg-cream);
+  --foreground: var(--color-on-surface);
+  --card: var(--color-surface-white);
+  --card-foreground: var(--color-on-surface);
+  --popover: var(--color-surface-white);
+  --popover-foreground: var(--color-on-surface);
+  --primary: var(--color-primary-container);
+  --primary-foreground: var(--color-on-primary);
+  /* shadcn's "secondary" role is a muted-button background, not the brand
+     gold — the gold palette is exposed separately via StatusBadge's "brass"
+     tone instead. Named --muted-action(-foreground) rather than
+     --secondary(-foreground) specifically so it can never collide with (and
+     silently shadow) the Tailwind-generated `secondary` color utilities,
+     which ~48 call sites use expecting the actual brand gold. Consumed via
+     arbitrary-value syntax (`bg-[var(--muted-action)]`) in Button/Badge's
+     "secondary" variant instead of the `bg-secondary` utility class. */
+  --muted-action: var(--color-surface-container-low);
+  --muted-action-foreground: var(--color-on-surface);
+  --muted: var(--color-surface-container-low);
+  --muted-foreground: var(--color-on-surface-variant);
+  --accent: var(--color-tertiary-fixed);
+  --accent-foreground: var(--color-on-tertiary-fixed);
+  --destructive: var(--color-error);
+  --destructive-foreground: var(--color-on-error);
+  --border: var(--color-border-low-alpha);
+  --input: var(--color-border-low-alpha);
+  --ring: var(--color-primary-container);
+  --radius: 0.75rem; /* == --radius-xl above; see the @theme inline note */
+  /* Chart palette (unused today, kept so --color-chart-* utilities aren't dangling). */
+  --chart-1: var(--color-primary-container);
+  --chart-2: var(--color-tertiary-fixed);
+  --chart-3: var(--color-secondary-fixed-dim);
+  --chart-4: var(--color-primary-fixed-dim);
+  --chart-5: var(--color-outline);
+  --sidebar: var(--color-surface-white);
+  --sidebar-foreground: var(--color-on-surface-variant);
+  --sidebar-primary: var(--color-primary-container);
+  --sidebar-primary-foreground: var(--color-on-primary);
+  /* Selected/hovered nav rows use the same solid teal as the primary CTA
+     (Invite Team button) — was the landing page's bright lime accent, which
+     read as jarring/off-brand for a persistent selected state. */
+  --sidebar-accent: var(--color-primary-container);
+  --sidebar-accent-foreground: var(--color-on-primary);
+  --sidebar-border: var(--color-border-low-alpha);
+  --sidebar-ring: var(--color-primary-container);
+}
+
+.dark {
+  --color-primary: #78a99f;
+  --color-primary-container: #2f6b63;
+  --color-primary-fixed: #183b36;
+  --color-primary-fixed-dim: #6f9f96;
+  --color-on-primary: #0b1714;
+  --color-on-primary-container: #f2faf7;
+  --color-on-primary-fixed: #d8eae5;
+  --color-on-primary-fixed-variant: #a8c9c1;
+  --color-inverse-primary: #78a99f;
+  --color-surface-tint: #6d9d93;
+
+  --color-tertiary: #78a99f;
+  --color-tertiary-container: #2f6b63;
+  --color-tertiary-fixed: #183b36;
+  --color-tertiary-fixed-dim: #6f9f96;
+  --color-on-tertiary: #0b1714;
+  --color-on-tertiary-container: #f2faf7;
+  --color-on-tertiary-fixed: #d8eae5;
+  --color-on-tertiary-fixed-variant: #a8c9c1;
+
+  --color-bg-cream: #0d0f12;
+  --color-bg-secondary: #111418;
+  --color-background: #0d0f12;
+  --color-on-background: #f2f0eb;
+  --color-surface: #111418;
+  --color-surface-white: #14181c;
+  --color-surface-bright: #1a1f24;
+  --color-surface-dim: #090b0d;
+  --color-surface-container-lowest: #101316;
+  --color-surface-container-low: #171b20;
+  --color-surface-container: #1c2227;
+  --color-surface-container-high: #232a31;
+  --color-surface-container-highest: #2a323a;
+  --color-surface-variant: #232a31;
+
+  --color-on-surface: #f2f0eb;
+  --color-on-surface-variant: #b7b9b6;
+  --color-inverse-surface: #ecefeb;
+  --color-inverse-on-surface: #151918;
+  --color-text-muted: #929792;
+  --color-outline: #777e7d;
+  --color-outline-variant: #30373b;
+  --color-border-low-alpha: rgba(236, 240, 237, 0.1);
+  --color-error-container: #451a1a;
+  --color-on-error-container: #fecaca;
+  --muted-action: #1c2227;
+  --muted-action-foreground: #f2f0eb;
+  --sidebar: #14181c;
+  --sidebar-foreground: #b7b9b6;
+  --sidebar-primary: #2f6b63;
+  --sidebar-primary-foreground: #f2faf7;
+  --sidebar-accent: #213b37;
+  --sidebar-accent-foreground: #e1e8e5;
+  --sidebar-border: rgba(236, 240, 237, 0.1);
+  --sidebar-ring: #78a99f;
+  --shadow-ambient: 0 1px 2px rgba(0, 0, 0, 0.3), 0 18px 42px rgba(0, 0, 0, 0.2);
+  --shadow-floating: 0 26px 70px -28px rgba(0, 0, 0, 0.8);
 }
 
 html {
@@ -141,6 +301,7 @@ body {
   font-family: var(--font-be-vietnam), system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  transition: background-color 180ms ease, color 180ms ease;
   overflow-x: hidden; /* mobile safety: clip stray horizontal overflow */
 }
 
@@ -159,6 +320,15 @@ body {
   button:not(:disabled),
   [role="button"]:not(:disabled) {
     cursor: pointer;
+  }
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
   }
 }
 
@@ -197,11 +367,11 @@ body {
 }
 .glass-header,
 .glass-blur {
-  backdrop-filter: blur(8px);
-  background: rgba(255, 248, 247, 0.8);
+  backdrop-filter: blur(16px);
+  background: color-mix(in srgb, var(--color-bg-cream) 88%, transparent);
 }
 .glass-card {
-  background: rgba(255, 255, 255, 0.95);
+  background: color-mix(in srgb, var(--color-surface-white) 95%, transparent);
   backdrop-filter: blur(10px);
   border: 1px solid var(--color-border-low-alpha);
   box-shadow: 0 4px 24px -4px rgba(44, 35, 34, 0.05);
@@ -232,20 +402,20 @@ body {
   border-bottom: 2px solid #ecc246;
 }
 .status-pill-active {
-  background-color: #e7efe9;
-  color: #1b4332;
+  background-color: color-mix(in srgb, var(--color-primary-fixed) 74%, var(--color-surface-white));
+  color: var(--color-on-primary-fixed);
 }
 .status-pill-invited {
-  background-color: #fff9e6;
-  color: #755b00;
+  background-color: color-mix(in srgb, var(--color-secondary-fixed) 35%, var(--color-surface-white));
+  color: var(--color-secondary);
 }
 .plan-card-selected {
-  border: 2px solid #004145;
-  background-color: #ffffff;
+  border: 2px solid var(--color-primary);
+  background-color: var(--color-surface-white);
 }
 .plan-card-unselected {
-  border: 1px solid rgba(44, 35, 34, 0.1);
-  background-color: #ffffff;
+  border: 1px solid var(--color-border-low-alpha);
+  background-color: var(--color-surface-white);
 }
 .pricing-card {
   transition: transform 0.3s ease, box-shadow 0.3s ease;
@@ -255,8 +425,20 @@ body {
   box-shadow: 0 12px 32px rgba(44, 35, 34, 0.08);
 }
 .drop-zone-active {
-  border-color: #004145;
-  background-color: rgba(0, 65, 69, 0.02);
+  border-color: var(--color-primary);
+  background-color: color-mix(in srgb, var(--color-primary) 4%, transparent);
+}
+
+/* A small number of legacy authenticated screens still use Tailwind's
+   literal `bg-white` utility. Keep those surfaces theme-aware while they are
+   migrated to the semantic surface token. Marketing pages are intentionally
+   excluded so their dark hero compositions remain untouched. */
+.dark .app-shell .bg-white {
+  background-color: var(--color-surface-white);
+}
+
+.dark .app-shell .bg-white\/50 {
+  background-color: color-mix(in srgb, var(--color-surface-white) 50%, transparent);
 }
 .timeline-line::before {
   content: "";
@@ -431,13 +613,27 @@ body {
   font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
 }
 
+/* Firefox: a visible-by-default thin scrollbar instead of relying on the
+   OS's own auto-hide preference (macOS hides scrollbars until actively
+   scrolling, which reads as "not scrollable" on wide tables). */
+.scroll-slim {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-outline-variant) transparent;
+}
 .scroll-slim::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
-.scroll-slim::-webkit-scrollbar-thumb {
-  background: var(--color-border-low-alpha);
+.scroll-slim::-webkit-scrollbar-track {
+  background: var(--color-surface-container-low);
   border-radius: 999px;
+}
+.scroll-slim::-webkit-scrollbar-thumb {
+  background: var(--color-outline-variant);
+  border-radius: 999px;
+}
+.scroll-slim::-webkit-scrollbar-thumb:hover {
+  background: var(--color-outline);
 }
 
 @media (prefers-reduced-motion: reduce) {

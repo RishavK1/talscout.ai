@@ -8,7 +8,14 @@ import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { Modal } from "@/components/ui/modal";
 import { TopAppBar } from "@/components/app/top-app-bar";
-import { PageSpinner } from "@/components/ui/page-spinner";
+import { AdminGate } from "@/components/app/admin-gate";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { PageHeaderSkeleton, CardBodySkeleton, DataTableCardSkeleton } from "@/components/ui/skeletons";
 
 
 interface BillingInfo {
@@ -19,6 +26,15 @@ interface BillingInfo {
   seatsUsed: number;
   renewsAt: string | null;
   invoices?: { id: string; date: string; amount: string; status: string; plan?: string; seats?: number }[];
+}
+
+interface Invoice {
+  id: string;
+  date: string;
+  amount: string;
+  status: string;
+  plan?: string;
+  seats?: number;
 }
 
 export default function BillingPage() {
@@ -112,33 +128,32 @@ export default function BillingPage() {
   if (authLoading || (loading && profile?.role === "admin")) {
     return (
       <AppShell>
-        <PageSpinner label="Loading billing settings..." />
+        <main className="pt-8 sm:pt-12 lg:pt-24 px-4 sm:px-6 lg:px-12 pb-12 sm:pb-16 lg:pb-24 max-w-[1440px] mx-auto w-full">
+          <PageHeaderSkeleton />
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <Card className="lg:col-span-8 h-full border-2 border-border-low-alpha [--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
+              <CardContent>
+                <CardBodySkeleton lines={3} />
+                <Skeleton className="mt-6 h-11 w-40 rounded-lg" />
+              </CardContent>
+            </Card>
+            <Card className="lg:col-span-4 h-full [--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
+              <CardContent>
+                <CardBodySkeleton lines={2} />
+              </CardContent>
+            </Card>
+            <div className="lg:col-span-12 mt-4">
+              <DataTableCardSkeleton rows={3} columns={2} withAvatar={false} />
+            </div>
+          </div>
+        </main>
       </AppShell>
     );
   }
 
   if (profile && profile.role !== "admin") {
     return (
-      <AppShell>
-        <main className="min-h-screen flex flex-col items-center justify-center p-6 bg-bg-cream/30">
-          <div className="max-w-md w-full text-center bg-white p-8 rounded-2xl premium-shadow border border-border-low-alpha">
-            <div className="w-16 h-16 bg-error/10 text-error rounded-full flex items-center justify-center mx-auto mb-6">
-              <span className="material-symbols-outlined text-[36px]">shield_person</span>
-            </div>
-            <h2 className="font-headline-md text-[24px] text-primary serif-text mb-3">Admin Access Required</h2>
-            <p className="font-body-md text-on-surface-variant mb-6 text-[14px]">
-              Only workspace administrators can view billing information and manage subscription plans.
-            </p>
-            <Link
-              href="/dashboard"
-              className="inline-flex items-center gap-2 bg-primary text-white px-6 py-2.5 rounded-lg font-label-md hover:shadow-lg transition-all active:scale-[0.98]"
-            >
-              <span className="material-symbols-outlined text-[18px]">dashboard</span>
-              Back to Dashboard
-            </Link>
-          </div>
-        </main>
-      </AppShell>
+      <AdminGate description="Only workspace administrators can view billing information and manage subscription plans." />
     );
   }
 
@@ -156,7 +171,41 @@ export default function BillingPage() {
     return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
   };
 
-
+  const invoiceColumns: DataTableColumn<Invoice>[] = [
+    {
+      key: "date",
+      header: "Date",
+      render: (inv) => (
+        <span className="font-data-mono text-data-mono text-on-surface">{inv.date}</span>
+      ),
+    },
+    {
+      key: "id",
+      header: "Invoice ID",
+      render: (inv) => (
+        <div className="flex items-center flex-wrap gap-2">
+          <span className="font-label-md text-label-md text-on-surface-variant">{inv.id}</span>
+          {inv.plan && (
+            <Badge variant="outline" className="rounded-md font-data-mono text-[10px] uppercase bg-surface-container-low text-on-surface-variant border-border-low-alpha">
+              {inv.plan} • {inv.seats} {inv.seats === 1 ? "seat" : "seats"}
+            </Badge>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: "amount",
+      header: "Amount",
+      render: (inv) => (
+        <span className="font-data-mono text-data-mono text-on-surface">{inv.amount}</span>
+      ),
+    },
+    {
+      key: "status",
+      header: "Status",
+      render: (inv) => <StatusBadge tone="active">{inv.status}</StatusBadge>,
+    },
+  ];
 
   return (
     <AppShell>
@@ -168,132 +217,147 @@ export default function BillingPage() {
           </div>
         }
         rightContent={
-          <Link href="/upload" className="bg-primary text-white px-5 py-2.5 rounded-xl font-label-md text-label-md hover:shadow-lg transition-all active:scale-[0.98] whitespace-nowrap">
-            + Upload résumés
-          </Link>
+          <Button asChild variant="gradient" className="whitespace-nowrap">
+            <Link href="/upload">+ Upload résumés</Link>
+          </Button>
         }
       />
 
       {/* Main Content Area */}
-      <main className="pt-8 sm:pt-12 lg:pt-24 px-4 sm:px-6 lg:px-12 pb-12 sm:pb-16 lg:pb-24 max-w-[1440px] mx-auto">
+      <main className="pt-8 sm:pt-12 lg:pt-24 px-4 sm:px-6 lg:px-12 pb-12 sm:pb-16 lg:pb-24 max-w-[1440px] mx-auto w-full">
         {/* Header */}
-        <header className="mb-10">
-          <h1 className="font-headline-lg text-headline-lg text-on-surface mb-2">Billing</h1>
-          <p className="font-body-md text-body-md text-text-muted">Manage your workspace subscription, payment methods, and billing history.</p>
+        <header className="mb-10 flex items-center gap-4">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary-container/10 text-primary-container">
+            <span className="material-symbols-outlined text-[24px]">credit_card</span>
+          </div>
+          <div>
+            <h1 className="font-headline-lg text-headline-lg text-primary mb-1">Billing</h1>
+            <p className="font-body-md text-body-md text-text-muted">Manage your workspace subscription, payment methods, and billing history.</p>
+          </div>
         </header>
 
         {billingInfo && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             {/* Section 1: Current Plan */}
-            <section className="lg:col-span-8">
-              <div className="bg-white rounded-[12px] p-8 card-shadow hairline-border">
-                <div className="flex justify-between items-start mb-6">
-                  <div>
-                    <h2 className="font-label-md text-label-md uppercase tracking-wider text-text-muted mb-4">Current Plan</h2>
-                    <p className="font-headline-md text-headline-md text-primary mb-1">
-                      {planDisplayName} — ${billingInfo.pricePerSeat}/seat/mo
-                    </p>
-                    <p className="font-body-md text-body-md text-on-surface-variant">
-                      {billingInfo.seats} {billingInfo.seats === 1 ? "seat" : "seats"} · ${totalMonthlyPrice.toLocaleString()}/mo
-                    </p>
-                    <p className="font-body-sm text-[12px] text-outline mt-1">
-                      {billingInfo.seatsUsed} {billingInfo.seatsUsed === 1 ? "seat" : "seats"} currently active.
-                    </p>
+            <section className="lg:col-span-8 relative">
+              <span className="absolute -top-3 left-8 z-10 inline-flex items-center gap-1.5 rounded-full bg-tertiary-fixed px-3 py-1 font-data-mono text-[11px] font-semibold text-on-tertiary-fixed shadow-sm">
+                <span className="material-symbols-outlined text-[14px]">verified</span>
+                Current plan
+              </span>
+              <Card className="h-full border-2 border-primary-container [--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
+                <CardContent>
+                  <div className="flex justify-between items-start mb-6">
+                    <div>
+                      <h2 className="font-label-md text-label-md uppercase tracking-wider text-text-muted mb-4">Current Plan</h2>
+                      <p className="font-headline-md text-headline-md text-primary mb-1">
+                        {planDisplayName} — ${billingInfo.pricePerSeat}/seat/mo
+                      </p>
+                      <p className="font-body-md text-body-md text-on-surface-variant">
+                        {billingInfo.seats} {billingInfo.seats === 1 ? "seat" : "seats"} · ${totalMonthlyPrice.toLocaleString()}/mo
+                      </p>
+                      <p className="font-body-sm text-[12px] text-outline mt-1">
+                        {billingInfo.seatsUsed} {billingInfo.seatsUsed === 1 ? "seat" : "seats"} currently active.
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <span className="brass-badge font-label-md text-label-md px-3 py-1 rounded-full uppercase tracking-wider text-[11px] font-semibold">
+                        {billingInfo.status}
+                      </span>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <span className="font-label-md text-label-md bg-tertiary-fixed-dim/20 text-tertiary px-3 py-1 rounded-full uppercase tracking-wider text-[11px] font-semibold">
-                      {billingInfo.status}
-                    </span>
+                  {billingInfo.renewsAt && (
+                    <div className="flex items-center gap-2 mb-8 text-on-surface-variant">
+                      <span className="material-symbols-outlined text-[20px]">calendar_today</span>
+                      <span className="font-body-md text-body-md">Next renewal date:</span>
+                      <span className="font-data-mono text-data-mono font-medium">
+                        {formatRenewalDate(billingInfo.renewsAt)}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex gap-4">
+                    <Button type="button" variant="gradient" size="lg" onClick={() => setShowModal(true)}>
+                      Manage plan &amp; seats
+                    </Button>
                   </div>
-                </div>
-                {billingInfo.renewsAt && (
-                  <div className="flex items-center gap-2 mb-8 text-on-surface-variant">
-                    <span className="material-symbols-outlined text-[20px]">calendar_today</span>
-                    <span className="font-body-md text-body-md">Next renewal date:</span>
-                    <span className="font-data-mono text-data-mono font-medium">
-                      {formatRenewalDate(billingInfo.renewsAt)}
-                    </span>
-                  </div>
-                )}
-                <div className="flex gap-4">
-                  <button
-                    type="button"
-                    onClick={() => setShowModal(true)}
-                    className="px-6 py-2.5 rounded-lg font-label-md text-label-md bg-primary text-white hover:bg-primary-container transition-colors active:scale-95 duration-100"
-                  >
-                    Manage plan &amp; seats
-                  </button>
-                </div>
-              </div>
+                </CardContent>
+              </Card>
             </section>
 
             {/* Section 2: Payment Method */}
             <section className="lg:col-span-4">
-              <div className="bg-white rounded-[12px] p-8 card-shadow hairline-border h-full flex flex-col">
-                <h2 className="font-label-md text-label-md uppercase tracking-wider text-text-muted mb-6">Payment Method</h2>
-                <div className="flex items-center gap-4 mb-auto">
-                  <div className="w-14 h-10 bg-bg-secondary rounded border border-border-low-alpha flex items-center justify-center p-2">
-                    <span className="font-label-md text-[12px] font-semibold text-primary tracking-wide">CARD</span>
+              <Card className="h-full flex flex-col [--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
+                <CardContent className="flex-1 flex flex-col">
+                  <h2 className="font-label-md text-label-md uppercase tracking-wider text-text-muted mb-6">Payment Method</h2>
+                  <div className="flex items-center gap-4 mb-auto">
+                    <div className="w-14 h-10 bg-secondary-fixed rounded border border-border-low-alpha flex items-center justify-center p-2">
+                      <span className="font-label-md text-[12px] font-semibold text-on-secondary-fixed tracking-wide">CARD</span>
+                    </div>
+                    <div>
+                      <p className="font-label-md text-label-md text-on-surface">Stripe Billing Enabled</p>
+                      <p className="font-data-mono text-[12px] text-text-muted">Automatic renewal</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-label-md text-label-md text-on-surface">Stripe Billing Enabled</p>
-                    <p className="font-data-mono text-[12px] text-text-muted">Automatic renewal</p>
-                  </div>
-                </div>
-              </div>
+                </CardContent>
+              </Card>
             </section>
 
             {/* Section 3: Invoices */}
             <section className="lg:col-span-12 mt-4">
-              <div className="bg-white rounded-[12px] overflow-hidden card-shadow hairline-border">
-                <div className="p-8 border-b border-border-low-alpha flex justify-between items-center">
-                  <h2 className="font-headline-md text-headline-md text-on-surface">Invoice History</h2>
+              <Card className="overflow-hidden">
+                <div className="px-6 py-6 border-b border-border-low-alpha flex justify-between items-center gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-container/10 text-primary-container">
+                      <span className="material-symbols-outlined text-[18px]">receipt_long</span>
+                    </div>
+                    <h2 className="font-headline-md text-headline-md text-on-surface">Invoice History</h2>
+                  </div>
                 </div>
-                <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-                  <table className="w-full min-w-[640px] text-left">
-                    <thead>
-                      <tr className="bg-bg-secondary/50 border-b border-border-low-alpha">
-                        <th className="px-8 py-4 font-label-md text-label-md text-text-muted">Date</th>
-                        <th className="px-8 py-4 font-label-md text-label-md text-text-muted">Invoice ID</th>
-                        <th className="px-8 py-4 font-label-md text-label-md text-text-muted">Amount</th>
-                        <th className="px-8 py-4 font-label-md text-label-md text-text-muted">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border-low-alpha">
-                      {invoices.length === 0 ? (
-                        <tr>
-                          <td colSpan={4} className="px-8 py-12 text-center text-text-muted font-body-md">
-                            No invoices found. Billed history is generated after checkout.
-                          </td>
-                        </tr>
-                      ) : (
-                        invoices.map((inv) => (
-                          <tr key={inv.id} className="hover:bg-bg-secondary/30 transition-colors group">
-                            <td className="px-8 py-5 font-data-mono text-data-mono text-on-surface">{inv.date}</td>
-                            <td className="px-8 py-5 font-label-md text-label-md text-on-surface-variant flex items-center flex-wrap gap-2">
-                              <span>{inv.id}</span>
-                              {inv.plan && (
-                                <span className="text-[10px] uppercase font-bold text-text-muted bg-bg-cream border border-border-low-alpha/50 px-2 py-0.5 rounded">
-                                  {inv.plan} • {inv.seats} {inv.seats === 1 ? "seat" : "seats"}
-                                </span>
-                              )}
-                            </td>
-                            <td className="px-8 py-5 font-data-mono text-data-mono text-on-surface">{inv.amount}</td>
-                            <td className="px-8 py-5">
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-tertiary-fixed-dim/20 text-tertiary font-label-md text-[12px]">
-                                <span className="w-1.5 h-1.5 rounded-full bg-tertiary"></span> {inv.status}
-                              </span>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+                <CardContent className="p-0">
+                  <DataTable
+                    columns={invoiceColumns}
+                    rows={invoices}
+                    getRowKey={(inv) => inv.id}
+                    emptyState={
+                      <span className="font-body-md text-body-md text-text-muted">
+                        No invoices found. Billed history is generated after checkout.
+                      </span>
+                    }
+                  />
+                </CardContent>
+              </Card>
             </section>
           </div>
         )}
+
+        {/* Additional Help/Links — same footer pattern as Team & seats, so
+            this page reads as a full destination rather than a sparse
+            2-card row sitting alone in a wide canvas. */}
+        <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="rounded-xl border border-border-low-alpha bg-surface-white p-6">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-container/10 text-primary-container mb-4">
+              <span className="material-symbols-outlined text-[20px]">groups</span>
+            </div>
+            <h4 className="text-[18px] font-semibold text-primary mb-2">Team &amp; Seats</h4>
+            <p className="font-body-md text-on-surface-variant text-[14px]">Invite recruiters and manage who&apos;s using a seat on your current plan.</p>
+            <Link className="mt-4 inline-block font-label-md text-label-md text-secondary font-semibold hover:underline" href="/team">Manage team →</Link>
+          </div>
+          <div className="rounded-xl border border-border-low-alpha bg-surface-white p-6">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-container/10 text-primary-container mb-4">
+              <span className="material-symbols-outlined text-[20px]">history_edu</span>
+            </div>
+            <h4 className="text-[18px] font-semibold text-primary mb-2">Billing Activity</h4>
+            <p className="font-body-md text-on-surface-variant text-[14px]">Every plan change and checkout is recorded in your workspace&apos;s audit log.</p>
+            <Link className="mt-4 inline-block font-label-md text-label-md text-secondary font-semibold hover:underline" href="/audit">View audit log →</Link>
+          </div>
+          <div className="rounded-xl border border-border-low-alpha bg-surface-white p-6">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-container/10 text-primary-container mb-4">
+              <span className="material-symbols-outlined text-[20px]">support_agent</span>
+            </div>
+            <h4 className="text-[18px] font-semibold text-primary mb-2">Questions about your plan?</h4>
+            <p className="font-body-md text-on-surface-variant text-[14px]">Reach out and we&apos;ll help you find the right plan or seat count.</p>
+            <a className="mt-4 inline-block font-label-md text-label-md text-secondary font-semibold hover:underline" href="mailto:support@talscout.ai">Contact support →</a>
+          </div>
+        </div>
       </main>
 
       {/* Manage Seats / Plan Dialog */}
@@ -336,7 +400,7 @@ export default function BillingPage() {
               Must be at least {billingInfo?.seatsUsed || 1} seats (currently active). Current plan has {billingInfo?.seats || 1} seats.
             </p>
           </div>
-          
+
           {!isUpgrade() && (
             <div className="p-3 bg-error/10 text-error rounded-lg font-label-md text-[13px] border border-error/20">
               Selected plan/seat count must be an upgrade from your current {billingInfo?.plan.toUpperCase()} plan ({billingInfo?.seats} seats).
@@ -344,25 +408,15 @@ export default function BillingPage() {
           )}
 
           <div className="flex justify-end gap-3 pt-2">
-            <button
-              type="button"
-              onClick={() => setShowModal(false)}
-              disabled={updating}
-              className="rounded-lg border border-outline px-5 py-2.5 font-label-md text-primary transition-colors hover:bg-surface-container-low"
-            >
+            <Button type="button" variant="outline" onClick={() => setShowModal(false)} disabled={updating}>
               Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={updating || !isUpgrade()}
-              className="rounded-lg bg-primary px-5 py-2.5 font-label-md text-on-primary transition-colors hover:bg-primary-container active:scale-[0.98] flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
-            >
+            </Button>
+            <Button type="submit" variant="gradient" disabled={updating || !isUpgrade()}>
               {updating ? "Redirecting..." : "Checkout & Update"}
-            </button>
+            </Button>
           </div>
         </form>
       </Modal>
     </AppShell>
   );
 }
-

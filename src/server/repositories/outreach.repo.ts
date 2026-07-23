@@ -925,6 +925,18 @@ export const outreachSendRepo = {
       .where(eq(outreachSends.id, id));
   },
 
+  /** Admin-scoped: the tracking-pixel route (/api/track/open) is hit
+   *  directly by the recipient's mail client with no session/tenant
+   *  context, same reasoning as `getByProviderMessageId` above. First open
+   *  wins — a second fetch (image cached-then-refetched, forwarded email,
+   *  etc.) never overwrites the original timestamp. */
+  async markOpenedAdmin(id: string) {
+    await adminDb()
+      .update(outreachSends)
+      .set({ openedAt: new Date() })
+      .where(and(eq(outreachSends.id, id), isNull(outreachSends.openedAt)));
+  },
+
   async markFailed(ctx: TenantContext, id: string, errorReason: string) {
     await ctx.tx
       .update(outreachSends)
@@ -1099,5 +1111,27 @@ export const outreachSendRepo = {
         ),
       );
     return row?.count ?? 0;
+  },
+
+  /** Admin-scoped, cross-tenant scan for poll-outreach-replies.ts — same
+   *  shape as automatedSendRepo.listSentWithinWindowAdmin. Restricted to
+   *  `channel = "email"` campaigns: WhatsApp sends have no Gmail thread to
+   *  poll (their read/delivered signal comes from the Meta webhook instead,
+   *  already wired into outreachSends.deliveryStatus). */
+  async listSentWithinWindowAdmin(days: number) {
+    return await adminDb()
+      .select({
+        send: outreachSends,
+        campaign: outreachCampaigns,
+      })
+      .from(outreachSends)
+      .innerJoin(outreachCampaigns, eq(outreachSends.campaignId, outreachCampaigns.id))
+      .where(
+        and(
+          eq(outreachSends.status, "sent"),
+          eq(outreachCampaigns.channel, "email"),
+          sql`${outreachSends.sentAt} >= now() - make_interval(days => ${days})`,
+        ),
+      );
   },
 };

@@ -1,4 +1,4 @@
-import { and, eq, ne, count } from "drizzle-orm";
+import { and, eq, ne, count, sql } from "drizzle-orm";
 import { adminDb } from "@/server/db/client";
 import { users, tenants } from "@/server/db/schema";
 import type { TenantContext } from "@/server/db/tx";
@@ -32,6 +32,38 @@ export const userRepo = {
       .where(eq(users.authUserId, authUserId))
       .limit(1);
     return row ?? null;
+  },
+
+  /** All app-side accounts for a verified email, across every tenant, most
+   *  recent first — used only for orphaned-identity recovery (see
+   *  reclaim-orphaned-account.ts). Admin-scoped: an email can legitimately
+   *  exist under several tenants (invited as a member elsewhere, or a prior
+   *  workspace whose Supabase Auth identity was later deleted), and this
+   *  runs before we know which tenant (if any) the current session belongs
+   *  to. */
+  async listByEmailAdmin(email: string) {
+    return adminDb()
+      .select()
+      .from(users)
+      .where(eq(users.email, email))
+      .orderBy(sql`${users.createdAt} DESC`);
+  },
+
+  /** Re-point an orphaned account at a fresh Supabase Auth identity — used
+   *  when the account's previous authUserId's Supabase Auth row was deleted
+   *  (e.g. a manual account reset) and the same email signed back up,
+   *  minting a new one. The WHERE clause requires the row's authUserId to
+   *  still match what the caller last read (optimistic concurrency), so two
+   *  concurrent requests racing to reclaim the same orphaned row can't both
+   *  succeed — the loser gets 0 affected rows back as `null` rather than a
+   *  unique-constraint error. */
+  async relinkAuthUserIdAdmin(userId: string, previousAuthUserId: string, newAuthUserId: string) {
+    const rows = await adminDb()
+      .update(users)
+      .set({ authUserId: newAuthUserId })
+      .where(and(eq(users.id, userId), eq(users.authUserId, previousAuthUserId)))
+      .returning();
+    return rows[0] ?? null;
   },
 
   /** Count active members of a tenant (admin path — for seat checks). */

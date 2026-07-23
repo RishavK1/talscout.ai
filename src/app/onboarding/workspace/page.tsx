@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/app/auth-provider";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 
 export default function SetUpWorkspacePage() {
   const router = useRouter();
@@ -49,15 +51,21 @@ export default function SetUpWorkspacePage() {
       <main className="w-full max-w-[560px] mx-auto">
         {/* Progress Indicator */}
         <div className="mb-8 flex flex-col items-center">
-          <span className="font-label-md text-label-md text-on-surface-variant mb-3">Step 1 of 3</span>
+          <span className="mb-3 inline-flex items-center gap-2 rounded-full border border-border-low-alpha bg-surface-white px-3 py-1.5 font-label-md text-label-md text-on-surface-variant">
+            <span className="flex h-4 w-4 items-center justify-center rounded-full bg-tertiary-fixed">
+              <span className="material-symbols-outlined text-[12px] text-on-tertiary-fixed">bolt</span>
+            </span>
+            Step 1 of 3
+          </span>
           <div className="flex gap-2 w-48">
-            <div className="h-1 flex-1 bg-primary rounded-full"></div>
+            <div className="h-1 flex-1 rounded-full bg-primary-container"></div>
             <div className="h-1 flex-1 bg-border-low-alpha rounded-full"></div>
             <div className="h-1 flex-1 bg-border-low-alpha rounded-full"></div>
           </div>
         </div>
         {/* Card */}
-        <div className="bg-surface-white rounded-[16px] shadow-[0_4px_24px_rgba(44,35,34,0.05)] p-6 sm:p-8 md:p-10 border border-border-low-alpha/50">
+        <Card className="[--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
+          <CardContent>
           <header className="mb-8 text-center">
             <h2 className="font-headline-lg text-headline-lg text-on-surface mb-2">Create Workspace</h2>
             <p className="font-body-md text-body-md text-on-surface-variant">Set up your agency&apos;s digital headquarters to start collaborating with your team.</p>
@@ -106,14 +114,16 @@ export default function SetUpWorkspacePage() {
             </div>
             {/* Actions */}
             <div className="pt-4">
-              <button
+              <Button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-primary text-on-primary font-label-md text-label-md py-3 px-6 rounded-lg shadow-sm hover:bg-primary-container transition-colors duration-200 flex justify-center items-center gap-2 disabled:opacity-50 cursor-pointer"
+                variant="gradient"
+                size="lg"
+                className="w-full justify-center"
               >
                 <span>{loading ? "Creating..." : "Continue"}</span>
                 <span className="material-symbols-outlined" style={{ fontSize: "18px" }}>arrow_forward</span>
-              </button>
+              </Button>
             </div>
           </form>
           {/* Contextual Help */}
@@ -123,7 +133,8 @@ export default function SetUpWorkspacePage() {
               Need help setting up?
             </a>
           </div>
-        </div>
+          </CardContent>
+        </Card>
       </main>
     </div>
   );

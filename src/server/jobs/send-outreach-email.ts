@@ -12,6 +12,7 @@ import {
   type SequenceStepKey,
 } from "@/server/lib/spintax";
 import { decryptSecret } from "@/server/lib/secret-box";
+import { buildOpenTrackingUrl } from "@/server/lib/tracking-pixel";
 import { logger } from "@/server/observability/logger";
 import type {
   Services,
@@ -300,6 +301,7 @@ export async function sendOutreachEmail(
         messageId,
         inReplyTo: anchor?.rfc822MessageId ?? undefined,
         gmailThreadId: anchor?.gmailThreadId ?? undefined,
+        trackingPixelUrl: buildOpenTrackingUrl("bf", sendId),
       });
     } catch (e) {
       errorReason = e instanceof Error ? e.message : "send_failed";

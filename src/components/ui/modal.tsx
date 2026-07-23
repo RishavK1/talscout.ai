@@ -58,18 +58,20 @@ export function Modal({
             transition={{ duration: 0.2 }}
             onClick={onClose}
           />
-          {/* Panel — modals scale from center */}
+          {/* Panel — modals scale from center. Header stays pinned; body
+              scrolls on its own so tall content never gets clipped by a
+              short mobile viewport. */}
           <motion.div
             role="dialog"
             aria-modal="true"
-            className={`relative w-full ${maxWidth} rounded-[20px] border border-border-low-alpha bg-white shadow-floating`}
+            className={`relative flex max-h-[90vh] w-full ${maxWidth} flex-col rounded-xl border border-border-low-alpha bg-white shadow-floating`}
             initial={{ opacity: 0, scale: 0.96 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.97 }}
             transition={{ duration: 0.22, ease: easeOut }}
           >
-            <div className="flex items-start justify-between gap-4 border-b border-border-low-alpha p-6">
-              <div>
+            <div className="flex shrink-0 items-start justify-between gap-4 border-b border-border-low-alpha p-4 sm:p-6">
+              <div className="min-w-0">
                 <h2 className="font-headline-md text-headline-md text-primary serif-text">
                   {title}
                 </h2>
@@ -88,7 +90,7 @@ export function Modal({
                 <span className="material-symbols-outlined">close</span>
               </button>
             </div>
-            <div className="p-6">{children}</div>
+            <div className="overflow-y-auto p-4 sm:p-6">{children}</div>
           </motion.div>
         </div>
       )}

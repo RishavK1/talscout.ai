@@ -8,7 +8,11 @@ import { useAuth } from "@/components/app/auth-provider";
 import { api } from "@/lib/api";
 import { TopAppBar } from "@/components/app/top-app-bar";
 import { getRecentSearches } from "@/lib/recent-searches";
-
+import { Button } from "@/components/ui/button";
+import { Card, CardHeader, CardTitle, CardAction, CardContent } from "@/components/ui/card";
+import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { TableSkeleton } from "@/components/ui/skeletons";
 
 interface SimpleCandidate {
   id: string;
@@ -16,6 +20,18 @@ interface SimpleCandidate {
   currentTitle: string | null;
   status: string;
   createdAt: string;
+}
+
+interface ShortlistSummary {
+  candidateCount: number;
+}
+
+interface CampaignSummary {
+  status: string;
+}
+
+interface BlueprintSummary {
+  id: string;
 }
 
 export default function DashboardPage() {
@@ -26,6 +42,8 @@ export default function DashboardPage() {
   const [processedCandidates, setProcessedCandidates] = useState(0);
   const [processingCandidates, setProcessingCandidates] = useState(0);
   const [shortlistedCount, setShortlistedCount] = useState(0);
+  const [activeCampaignsCount, setActiveCampaignsCount] = useState(0);
+  const [blueprintsCount, setBlueprintsCount] = useState(0);
   const [recentCandidates, setRecentCandidates] = useState<SimpleCandidate[]>([]);
   const [loading, setLoading] = useState(true);
   // After a few seconds of loading, tell the user we're waking things up so a
@@ -34,6 +52,24 @@ export default function DashboardPage() {
 
   const displayName = user?.user_metadata?.full_name || user?.email?.split("@")[0] || "Recruiter";
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
+  const hasWorkspaceActivity =
+    totalCandidates > 0 ||
+    activeCampaignsCount > 0 ||
+    blueprintsCount > 0 ||
+    recentSearches.length > 0;
+  const readyPercent = totalCandidates > 0
+    ? Math.min(100, (processedCandidates / totalCandidates) * 100)
+    : 0;
+  const processingPercent = totalCandidates > 0
+    ? Math.min(100 - readyPercent, (processingCandidates / totalCandidates) * 100)
+    : 0;
+  const pipelineChart = totalCandidates > 0
+    ? `conic-gradient(
+        var(--color-primary-container) 0 ${readyPercent}%,
+        var(--color-primary-fixed-dim) ${readyPercent}% ${readyPercent + processingPercent}%,
+        var(--color-surface-container-high) ${readyPercent + processingPercent}% 100%
+      )`
+    : "conic-gradient(var(--color-surface-container-high) 0 100%)";
 
   // Time-of-day greeting (local time). Avoids hydration mismatch by computing
   // after mount rather than during the initial server render.
@@ -45,16 +81,19 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
-    if (profile?.tenantId) {
-      setRecentSearches(getRecentSearches(profile.tenantId));
-    }
+    if (!profile?.tenantId) return;
+    const tenantId = profile.tenantId;
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (!cancelled) setRecentSearches(getRecentSearches(tenantId));
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [profile?.tenantId]);
 
   useEffect(() => {
-    if (!loading) {
-      setSlowLoad(false);
-      return;
-    }
+    if (!loading) return;
     const t = setTimeout(() => setSlowLoad(true), 4000);
     return () => clearTimeout(t);
   }, [loading]);
@@ -71,12 +110,15 @@ export default function DashboardPage() {
         // Fire all requests in parallel instead of awaiting each in series.
         // The recent-candidates list (limit=5) already returns `total`, so we
         // reuse it for the Total Candidates stat — one fewer round-trip.
-        const [recentRes, processedRes, processingRes, shortlistsRes] = await Promise.all([
-          api.get<{ candidates: SimpleCandidate[]; total: number }>("/api/candidates?limit=5"),
-          api.get<{ total: number }>("/api/candidates?status=ready&limit=1"),
-          api.get<{ total: number }>("/api/candidates?status=processing&limit=1"),
-          api.get<{ shortlists: any[] }>("/api/shortlists"),
-        ]);
+        const [recentRes, processedRes, processingRes, shortlistsRes, campaignsRes, blueprintsRes] =
+          await Promise.all([
+            api.get<{ candidates: SimpleCandidate[]; total: number }>("/api/candidates?limit=5"),
+            api.get<{ total: number }>("/api/candidates?status=ready&limit=1"),
+            api.get<{ total: number }>("/api/candidates?status=processing&limit=1"),
+            api.get<{ shortlists: ShortlistSummary[] }>("/api/shortlists"),
+            api.get<{ campaigns: CampaignSummary[] }>("/api/automated-campaigns"),
+            api.get<{ blueprints: BlueprintSummary[] }>("/api/blueprints"),
+          ]);
 
         setTotalCandidates(recentRes.total);
         setRecentCandidates(recentRes.candidates);
@@ -84,13 +126,18 @@ export default function DashboardPage() {
         setProcessingCandidates(processingRes.total);
 
         const totalShortlisted = shortlistsRes.shortlists.reduce(
-          (acc: number, curr: any) => acc + curr.candidateCount,
+          (acc, curr) => acc + curr.candidateCount,
           0,
         );
         setShortlistedCount(totalShortlisted);
+        setActiveCampaignsCount(
+          campaignsRes.campaigns.filter((campaign) => campaign.status === "active").length,
+        );
+        setBlueprintsCount(blueprintsRes.blueprints.length);
       } catch (err) {
         console.error("Error loading dashboard data:", err);
       } finally {
+        setSlowLoad(false);
         setLoading(false);
       }
     };
@@ -119,10 +166,52 @@ export default function DashboardPage() {
     }
   };
 
+  const uploadColumns: DataTableColumn<SimpleCandidate>[] = [
+    {
+      key: "name",
+      header: "Candidate Name",
+      render: (c) => (
+        <span className="font-body-md text-body-md text-on-surface font-medium">
+          {c.fullName || "Unnamed Draft"}
+        </span>
+      ),
+    },
+    {
+      key: "role",
+      header: "Role Parsed",
+      render: (c) => (
+        <span className="font-body-md text-body-md text-on-surface-variant">
+          {c.currentTitle || "Not Parsed Yet"}
+        </span>
+      ),
+    },
+    {
+      key: "date",
+      header: "Date Uploaded",
+      render: (c) => (
+        <span className="font-data-mono text-data-mono text-on-surface-variant">
+          {formatUploadedDate(c.createdAt)}
+        </span>
+      ),
+    },
+    {
+      key: "status",
+      header: "AI Status",
+      render: (c) =>
+        c.status === "ready" ? (
+          <StatusBadge tone="active">Parsed</StatusBadge>
+        ) : c.status === "processing" ? (
+          <StatusBadge tone="invited">In Progress</StatusBadge>
+        ) : (
+          <StatusBadge tone="error">Error</StatusBadge>
+        ),
+    },
+  ];
+
   return (
     <AppShell>
       {/* Main Content Area */}
-      <div className="min-h-screen flex flex-col relative">
+      <div className="relative flex min-h-dvh min-w-0 flex-col">
         {/* TopAppBar */}
         <TopAppBar
           leftContent={
@@ -140,178 +229,308 @@ export default function DashboardPage() {
               className="w-full"
             >
               <div className="relative">
-                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
-                <input className="w-full pl-10 pr-4 py-2 bg-surface-white border border-border-low-alpha rounded-full font-body-md text-body-md text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all" placeholder="Search across organization..." type="text" />
+                <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant text-[20px]">search</span>
+                <input className="h-10 w-full rounded-xl border border-border-low-alpha bg-surface-white pl-10 pr-4 font-body-md text-[14px] text-on-surface shadow-[0_1px_2px_rgba(15,23,42,0.025)] placeholder:text-text-muted focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all" placeholder="Search candidates, skills or locations..." type="text" aria-label="Search candidates, skills or locations" />
               </div>
             </form>
           }
           rightContent={
-            <Link href="/upload" className="bg-primary text-white px-5 py-2.5 rounded-xl font-label-md text-label-md hover:shadow-lg transition-all active:scale-[0.98] whitespace-nowrap">
-              + Upload résumés
-            </Link>
+            <Button asChild variant="gradient" className="h-10 whitespace-nowrap rounded-xl px-4">
+              <Link href="/upload">
+                <span className="material-symbols-outlined text-[18px]">upload_file</span>
+                Upload résumés
+              </Link>
+            </Button>
           }
         />
         {/* Main Canvas */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-12 max-w-[1440px] mx-auto w-full">
+        <main className="mx-auto w-full max-w-[1380px] flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
           {/* Greeting Section */}
-          <section className="mb-12">
-            <h1 className="font-headline-lg text-headline-lg text-primary mb-2">{greeting}, {displayName}.</h1>
-            <p className="font-body-lg text-body-lg text-text-muted">Here is the latest intelligence on your recruitment pipeline.</p>
-            {slowLoad && (
-              <p className="mt-3 flex items-center gap-2 font-body-md text-body-md text-text-muted">
-                <span className="material-symbols-outlined text-[18px] animate-spin">progress_activity</span>
-                Waking things up — this can take a moment on the first visit of the day.
+          <section className="mb-7 flex min-h-[78px] items-center">
+            <div>
+              <p className="mb-1 font-label-md text-[12px] font-semibold uppercase tracking-[0.12em] text-primary">
+                Recruitment overview
               </p>
-            )}
+              <h1 className="font-body-md text-[26px] font-semibold leading-tight tracking-[-0.025em] text-on-surface sm:text-[30px]">
+                {greeting}, {displayName}
+              </h1>
+              <p className="mt-2 font-body-md text-[15px] text-text-muted">
+                A clear view of your candidate pipeline and outreach activity.
+              </p>
+              {slowLoad && (
+                <p className="mt-3 flex items-center gap-2 font-body-md text-[13px] text-text-muted">
+                  <span className="material-symbols-outlined text-[18px] animate-spin">progress_activity</span>
+                  Waking things up — this can take a moment on the first visit of the day.
+                </p>
+              )}
+            </div>
           </section>
           {/* Semantic Search Bar (Central) */}
-          <section className="mb-16">
-            <form
-              onSubmit={handleSemanticSearchSubmit}
-              className="bg-white p-2 rounded-2xl ambient-shadow border border-border-low-alpha flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-0 focus-within:border-primary transition-colors"
-            >
-              <div className="hidden sm:block pl-4 pr-2 text-primary">
-                <span className="material-symbols-outlined text-[28px]">robot_2</span>
-              </div>
-              <input value={semanticQuery} onChange={(e) => setSemanticQuery(e.target.value)} className="flex-1 bg-transparent border-none py-4 px-2 font-body-lg text-body-lg text-on-surface placeholder:text-outline-variant focus:outline-none focus:ring-0" placeholder="Try semantic search: 'Senior Python developers in Berlin with FinTech experience...'" type="text" />
-              <button type="submit" className="bg-tertiary-fixed text-on-tertiary-fixed px-6 py-4 rounded-xl font-label-md text-label-md hover:bg-tertiary-fixed-dim transition-colors flex items-center justify-center gap-2 cursor-pointer">
-                <span className="material-symbols-outlined text-[20px]">magic_button</span>
-                Find Candidates
-              </button>
+          <section className="mb-6">
+            <form onSubmit={handleSemanticSearchSubmit}>
+              <Card className="flex flex-col items-stretch gap-2 border-primary/15 p-2 shadow-[0_8px_28px_-18px_rgba(15,118,110,0.5)] focus-within:border-primary/45 sm:flex-row sm:items-center sm:gap-0">
+                <div className="ml-1 hidden h-10 w-10 items-center justify-center rounded-xl bg-primary-fixed text-on-primary-fixed sm:flex">
+                  <span className="material-symbols-outlined text-[21px]">travel_explore</span>
+                </div>
+                <input value={semanticQuery} onChange={(e) => setSemanticQuery(e.target.value)} className="min-w-0 flex-1 border-none bg-transparent px-3 py-3 font-body-md text-[15px] text-on-surface placeholder:text-text-muted focus:outline-none focus:ring-0" placeholder="Describe the candidate you need — e.g. Senior Python engineer in Berlin..." type="text" aria-label="Semantic candidate search" />
+                <Button
+                  type="submit"
+                  variant="secondary"
+                  size="lg"
+                  className="justify-center rounded-xl bg-primary-container text-on-primary-container hover:bg-primary hover:text-on-primary active:scale-[0.98]"
+                >
+                  <span className="material-symbols-outlined text-[19px]">search</span>
+                  Find Candidates
+                </Button>
+              </Card>
             </form>
           </section>
-          {/* Stat Cards Bento */}
-          <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
-            {/* Total Candidates */}
-            <div className="bg-white p-6 rounded-[20px] ambient-shadow border border-border-low-alpha flex flex-col justify-between">
-              <div className="flex justify-between items-start mb-4">
-                <div className="p-2 bg-surface-container rounded-lg text-primary">
-                  <span className="material-symbols-outlined">folder_shared</span>
+          {/* Consolidated overview */}
+          <section className="mb-6 grid grid-cols-1 gap-4 xl:grid-cols-[1.35fr_0.65fr]">
+            <Card className="flex flex-col overflow-hidden">
+              <CardHeader className="border-b border-border-low-alpha">
+                <div>
+                  <CardTitle className="font-body-md text-[16px] font-semibold text-on-surface">
+                    Candidate pipeline
+                  </CardTitle>
+                  <p className="mt-1 text-[13px] text-text-muted">
+                    A simple view of how your candidate database is progressing.
+                  </p>
                 </div>
-              </div>
-              <div>
-                <p className="font-label-md text-label-md text-on-surface-variant mb-1">Total Candidates</p>
-                <p className="font-data-mono text-display-lg text-primary tracking-tight">
-                  {loading ? "..." : totalCandidates.toLocaleString()}
-                </p>
-              </div>
-            </div>
-            {/* Processed Resumes */}
-            <div className="bg-white p-6 rounded-[20px] ambient-shadow border border-border-low-alpha flex flex-col justify-between">
-              <div className="flex justify-between items-start mb-4">
-                <div className="p-2 bg-surface-container rounded-lg text-primary">
-                  <span className="material-symbols-outlined">document_scanner</span>
+                {totalCandidates > 0 && (
+                  <CardAction>
+                    <Link className="text-[13px] font-medium text-primary hover:underline" href="/candidates">
+                      View candidates
+                    </Link>
+                  </CardAction>
+                )}
+              </CardHeader>
+              <CardContent className="p-6 sm:p-8">
+                {loading ? (
+                  <div className="grid animate-pulse items-center gap-8 sm:grid-cols-[180px_1fr]">
+                    <div className="mx-auto size-40 rounded-full bg-surface-container-high" />
+                    <div className="space-y-4">
+                      <div className="h-11 rounded-xl bg-surface-container-high" />
+                      <div className="h-11 rounded-xl bg-surface-container-high" />
+                      <div className="h-11 rounded-xl bg-surface-container-high" />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid items-center gap-8 sm:grid-cols-[180px_1fr]">
+                    <div
+                      className="relative mx-auto flex size-40 items-center justify-center rounded-full"
+                      style={{ background: pipelineChart }}
+                      role="img"
+                      aria-label={`${totalCandidates} total candidates: ${processedCandidates} ready, ${processingCandidates} processing`}
+                    >
+                      <div className="flex size-[116px] flex-col items-center justify-center rounded-full border border-border-low-alpha bg-surface-white shadow-ambient">
+                        <span className="text-[38px] font-semibold leading-none tracking-[-0.04em] text-on-surface">
+                          {totalCandidates.toLocaleString()}
+                        </span>
+                        <span className="mt-2 text-[11px] font-medium uppercase tracking-[0.1em] text-text-muted">
+                          Candidates
+                        </span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="divide-y divide-border-low-alpha">
+                        {[
+                          {
+                            label: "Ready",
+                            value: processedCandidates,
+                            color: "bg-primary-container",
+                          },
+                          {
+                            label: "Processing",
+                            value: processingCandidates,
+                            color: "bg-primary-fixed-dim",
+                          },
+                          {
+                            label: "Shortlisted",
+                            value: shortlistedCount,
+                            color: "bg-surface-container-highest",
+                          },
+                        ].map((item) => (
+                          <div key={item.label} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
+                            <span className={`size-2.5 rounded-full ${item.color}`} />
+                            <span className="flex-1 text-[14px] text-on-surface-variant">{item.label}</span>
+                            <span className="text-[17px] font-semibold tabular-nums text-on-surface">
+                              {item.value.toLocaleString()}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                      {totalCandidates === 0 && (
+                        <div className="mt-6 border-t border-border-low-alpha pt-5">
+                          <p className="text-[13px] leading-6 text-text-muted">
+                            Your pipeline will appear here after your first résumé is processed.
+                          </p>
+                          <Button asChild className="mt-4 rounded-xl bg-primary-container text-on-primary-container hover:bg-primary hover:text-on-primary">
+                            <Link href="/upload">
+                              <span className="material-symbols-outlined text-[18px]">upload_file</span>
+                              Upload your first résumé
+                            </Link>
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="overflow-hidden">
+              <CardHeader className="border-b border-border-low-alpha">
+                <div>
+                  <CardTitle className="font-body-md text-[16px] font-semibold text-on-surface">
+                    {hasWorkspaceActivity ? "Outreach" : "Getting started"}
+                  </CardTitle>
+                  <p className="mt-1 text-[13px] text-text-muted">
+                    {hasWorkspaceActivity ? "Your reusable outreach setup." : "Three steps to your first shortlist."}
+                  </p>
                 </div>
-              </div>
-              <div>
-                <p className="font-label-md text-label-md text-on-surface-variant mb-1">Parsed / Ready Candidates</p>
-                <p className="font-data-mono text-display-lg text-primary tracking-tight">
-                  {loading ? "..." : processedCandidates.toLocaleString()}
-                </p>
-              </div>
-            </div>
-            {/* In Processing */}
-            <div className="bg-white p-6 rounded-[20px] ambient-shadow border border-border-low-alpha flex flex-col justify-between">
-              <div className="flex justify-between items-start mb-4">
-                <div className="p-2 bg-surface-container rounded-lg text-primary">
-                  <span className="material-symbols-outlined">hourglass_top</span>
-                </div>
-              </div>
-              <div>
-                <p className="font-label-md text-label-md text-on-surface-variant mb-1">Résumés Processing</p>
-                <p className="font-data-mono text-display-lg text-primary tracking-tight">
-                  {loading ? "..." : processingCandidates.toLocaleString()}
-                </p>
-              </div>
-            </div>
-            {/* Shortlisted */}
-            <div className="bg-white p-6 rounded-[20px] ambient-shadow border border-border-low-alpha flex flex-col justify-between">
-              <div className="flex justify-between items-start mb-4">
-                <div className="p-2 bg-secondary-fixed text-on-secondary-fixed rounded-lg">
-                  <span className="material-symbols-outlined" data-weight="fill">star</span>
-                </div>
-              </div>
-              <div>
-                <p className="font-label-md text-label-md text-on-surface-variant mb-1">Shortlisted</p>
-                <p className="font-data-mono text-display-lg text-primary tracking-tight">{loading ? "..." : shortlistedCount.toLocaleString()}</p>
-              </div>
-            </div>
+              </CardHeader>
+              <CardContent className="flex-1 p-6">
+                {loading ? (
+                  <div className="space-y-4 animate-pulse">
+                    <div className="h-16 rounded-xl bg-surface-container-high" />
+                    <div className="h-16 rounded-xl bg-surface-container-high" />
+                    <div className="h-16 rounded-xl bg-surface-container-high" />
+                  </div>
+                ) : hasWorkspaceActivity ? (
+                  <div className="divide-y divide-border-low-alpha">
+                    <Link href="/automated-outreach" className="group flex items-center gap-4 py-4 first:pt-0">
+                      <span className="material-symbols-outlined text-[21px] text-primary">auto_awesome</span>
+                      <span className="flex-1 text-[14px] text-on-surface-variant">Active campaigns</span>
+                      <span className="text-[22px] font-semibold tabular-nums text-on-surface">{activeCampaignsCount}</span>
+                      <span className="material-symbols-outlined text-[17px] text-outline transition-transform group-hover:translate-x-0.5">chevron_right</span>
+                    </Link>
+                    <Link href="/blueprints" className="group flex items-center gap-4 py-4 last:pb-0">
+                      <span className="material-symbols-outlined text-[21px] text-primary">description</span>
+                      <span className="flex-1 text-[14px] text-on-surface-variant">Blueprints</span>
+                      <span className="text-[22px] font-semibold tabular-nums text-on-surface">{blueprintsCount}</span>
+                      <span className="material-symbols-outlined text-[17px] text-outline transition-transform group-hover:translate-x-0.5">chevron_right</span>
+                    </Link>
+                  </div>
+                ) : (
+                  <div className="flex h-full flex-col">
+                    <div className="mb-6">
+                      <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-[0.08em] text-text-muted">
+                        <span>Workspace setup</span>
+                        <span>0 of 3 complete</span>
+                      </div>
+                      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-container-high">
+                        <div className="h-full w-0 rounded-full bg-primary-container" />
+                      </div>
+                    </div>
+                    <ol className="space-y-5">
+                      {[
+                        ["Upload résumés", "Build your searchable candidate database.", "/upload"],
+                        ["Review profiles", "Confirm parsed details and shortlist the best.", "/candidates"],
+                        ["Start outreach", "Create a reusable message blueprint.", "/blueprints/new"],
+                      ].map(([title, description, href], index) => (
+                        <li key={title} className="flex gap-4">
+                          <span className="flex size-7 shrink-0 items-center justify-center rounded-full border border-outline-variant text-[12px] font-semibold text-primary">
+                            {index + 1}
+                          </span>
+                          <div>
+                            <Link href={href} className="text-[14px] font-semibold text-on-surface hover:text-primary">
+                              {title}
+                            </Link>
+                            <p className="mt-1 text-[12px] leading-5 text-text-muted">{description}</p>
+                          </div>
+                        </li>
+                      ))}
+                    </ol>
+                    <Button asChild className="mt-7 w-full rounded-xl bg-primary-container text-on-primary-container hover:bg-primary hover:text-on-primary">
+                      <Link href="/upload">
+                        Start with an upload
+                        <span className="material-symbols-outlined text-[17px]">arrow_forward</span>
+                      </Link>
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </section>
+          {!loading && !hasWorkspaceActivity && (
+            <section className="mb-6">
+              <Card className="overflow-hidden bg-surface-container-low/45">
+                <CardContent className="grid gap-7 p-6 sm:p-7 lg:grid-cols-[0.72fr_1.28fr] lg:items-center">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-primary">
+                      What happens next
+                    </p>
+                    <h2 className="mt-2 text-[20px] font-semibold tracking-[-0.02em] text-on-surface">
+                      One upload creates a usable recruiting workflow.
+                    </h2>
+                    <p className="mt-2 max-w-md text-[13px] leading-6 text-text-muted">
+                      TalScout structures the résumé first, then keeps every decision reviewable by your team.
+                    </p>
+                  </div>
+                  <ol className="grid gap-5 sm:grid-cols-4">
+                    {[
+                      ["document_scanner", "Parse", "Extract candidate data"],
+                      ["fact_check", "Review", "Confirm the profile"],
+                      ["manage_search", "Discover", "Search and shortlist"],
+                      ["send", "Reach out", "Start a conversation"],
+                    ].map(([icon, title, detail], index) => (
+                      <li key={title} className="relative">
+                        <div className="flex items-center gap-3 sm:block">
+                          <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary-fixed text-on-primary-fixed">
+                            <span className="material-symbols-outlined text-[19px]">{icon}</span>
+                          </span>
+                          <div className="sm:mt-3">
+                            <p className="text-[13px] font-semibold text-on-surface">
+                              <span className="mr-1 text-text-muted">{index + 1}.</span>
+                              {title}
+                            </p>
+                            <p className="mt-1 text-[11px] leading-5 text-text-muted">{detail}</p>
+                          </div>
+                        </div>
+                      </li>
+                    ))}
+                  </ol>
+                </CardContent>
+              </Card>
+            </section>
+          )}
           {/* Tables Section (Asymmetric Split) */}
-          <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {(loading || hasWorkspaceActivity) && (
+          <section className="grid grid-cols-1 gap-4 xl:grid-cols-3">
             {/* Recent Uploads (Takes up 2 columns) */}
-            <div className="lg:col-span-2 bg-white rounded-[20px] ambient-shadow border border-border-low-alpha overflow-hidden flex flex-col">
-              <div className="p-6 border-b border-border-low-alpha flex justify-between items-center">
-                <h3 className="font-headline-md text-headline-md text-primary">Recent Uploads</h3>
-                <Link className="font-label-md text-label-md text-primary hover:underline" href="/candidates">View All</Link>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[640px] text-left border-collapse">
-                  <thead>
-                    <tr className="bg-bg-cream/50">
-                      <th className="p-4 font-label-md text-label-md text-outline font-medium">Candidate Name</th>
-                      <th className="p-4 font-label-md text-label-md text-outline font-medium">Role Parsed</th>
-                      <th className="p-4 font-label-md text-label-md text-outline font-medium">Date Uploaded</th>
-                      <th className="p-4 font-label-md text-label-md text-outline font-medium">AI Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {loading ? (
-                      <tr>
-                        <td colSpan={4} className="p-8 text-center text-on-surface-variant">
-                          Loading candidates...
-                        </td>
-                      </tr>
-                    ) : recentCandidates.length === 0 ? (
-                      <tr>
-                        <td colSpan={4} className="p-8 text-center text-on-surface-variant">
-                          No candidates found. Upload some résumés to get started!
-                        </td>
-                      </tr>
-                    ) : (
-                      recentCandidates.map((c) => (
-                        <tr
-                          key={c.id}
-                          onClick={() => router.push(`/candidates/${c.id}`)}
-                          className="border-b border-border-low-alpha hover:bg-surface-container-lowest transition-colors cursor-pointer"
-                        >
-                          <td className="p-4 font-body-md text-body-md text-on-surface font-medium">
-                            {c.fullName || "Unnamed Draft"}
-                          </td>
-                          <td className="p-4 font-body-md text-body-md text-on-surface-variant">
-                            {c.currentTitle || "Not Parsed Yet"}
-                          </td>
-                          <td className="p-4 font-data-mono text-data-mono text-on-surface-variant">
-                            {formatUploadedDate(c.createdAt)}
-                          </td>
-                          <td className="p-4">
-                            {c.status === "ready" ? (
-                              <span className="inline-flex items-center px-2 py-1 bg-tertiary-fixed/20 text-tertiary-container rounded-full font-label-md text-[12px]">
-                                <span className="material-symbols-outlined text-[14px] mr-1">check_circle</span> Parsed
-                              </span>
-                            ) : c.status === "processing" ? (
-                              <span className="inline-flex items-center px-2 py-1 bg-surface-container-high text-on-surface-variant rounded-full font-label-md text-[12px]">
-                                <span className="material-symbols-outlined text-[14px] mr-1 animate-spin">sync</span> In Progress
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center px-2 py-1 bg-error/10 text-error rounded-full font-label-md text-[12px]">
-                                <span className="material-symbols-outlined text-[14px] mr-1">error</span> Error
-                              </span>
-                            )}
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            <Card className="h-full flex flex-col overflow-hidden xl:col-span-2">
+              <CardHeader className="border-b border-border-low-alpha">
+                <CardTitle className="font-body-md text-[15px] font-semibold text-on-surface">Recent candidates</CardTitle>
+                <CardAction>
+                  <Link className="font-label-md text-[13px] font-medium text-primary hover:underline" href="/candidates">View all</Link>
+                </CardAction>
+              </CardHeader>
+              <CardContent className="p-0">
+                {loading ? (
+                  <TableSkeleton rows={4} columns={2} withAvatar={false} />
+                ) : (
+                  <DataTable
+                    columns={uploadColumns}
+                    rows={recentCandidates}
+                    getRowKey={(c) => c.id}
+                    onRowClick={(c) => router.push(`/candidates/${c.id}`)}
+                    emptyState={
+                      <span className="font-body-md text-body-md text-on-surface-variant">
+                        No candidates found. Upload some résumés to get started!
+                      </span>
+                    }
+                  />
+                )}
+              </CardContent>
+            </Card>
             {/* Recent Searches (Takes 1 column) */}
-            <div className="lg:col-span-1 bg-white rounded-[20px] ambient-shadow border border-border-low-alpha overflow-hidden flex flex-col">
-              <div className="p-6 border-b border-border-low-alpha">
-                <h3 className="font-headline-md text-headline-md text-primary">Recent Searches</h3>
-              </div>
-              <div className="flex-grow p-4 space-y-2">
+            <Card className="h-full flex flex-col overflow-hidden xl:col-span-1">
+              <CardHeader className="border-b border-border-low-alpha">
+                <CardTitle className="font-body-md text-[15px] font-semibold text-on-surface">Recent searches</CardTitle>
+              </CardHeader>
+              <CardContent className="flex-grow p-4 space-y-2">
                 {recentSearches.length > 0 ? (
                   recentSearches.map((searchQuery, index) => (
                     <button
@@ -319,7 +538,7 @@ export default function DashboardPage() {
                       onClick={() => router.push(`/search?q=${encodeURIComponent(searchQuery)}`)}
                       className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-surface-container-low transition-colors text-left"
                     >
-                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/5 text-primary">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-fixed text-on-primary-fixed">
                         <span className="material-symbols-outlined text-[18px]">history</span>
                       </div>
                       <span className="font-body-md text-on-surface truncate flex-1">{searchQuery}</span>
@@ -331,9 +550,10 @@ export default function DashboardPage() {
                     <p className="font-body-md text-text-muted">No recent searches yet.</p>
                   </div>
                 )}
-              </div>
-            </div>
+              </CardContent>
+            </Card>
           </section>
+          )}
         </main>
       </div>
     </AppShell>

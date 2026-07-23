@@ -11,6 +11,8 @@ import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { fadeUp, easeOut } from "@/lib/motion";
 import { useAuth } from "@/components/app/auth-provider";
+import { Skeleton } from "@/components/ui/skeleton";
+import { TableSkeleton } from "@/components/ui/skeletons";
 
 /** Only needed once a user opens a lead's email history — kept out of the
  *  initial bundle for this already-large page. */
@@ -922,11 +924,30 @@ export default function BulkFireCampaignPage({
   if (loading || !campaign) {
     return (
       <AppShell>
-        <main className="flex min-h-screen items-center justify-center font-body-md text-on-surface-variant">
-          <span className="material-symbols-outlined mr-2 animate-spin">
-            sync
-          </span>{" "}
-          Loading campaign…
+        <main className="mx-auto max-w-[1440px] w-full p-4 sm:p-6 lg:p-12 min-h-screen">
+          <section className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="space-y-3">
+              <Skeleton className="h-7 w-56" />
+              <div className="flex items-center gap-2">
+                <Skeleton className="h-5 w-16 rounded-full" />
+                <Skeleton className="h-4 w-20" />
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Skeleton className="h-9 w-24 rounded-lg" />
+              <Skeleton className="h-9 w-20 rounded-lg" />
+            </div>
+          </section>
+          <div className="mb-8 rounded-[20px] border border-border-low-alpha bg-white p-6 space-y-3">
+            <Skeleton className="h-4 w-40" />
+            <Skeleton className="h-2 w-full rounded-full" />
+          </div>
+          <div className="rounded-[20px] border border-border-low-alpha bg-white overflow-hidden">
+            <div className="border-b border-border-low-alpha p-6">
+              <Skeleton className="h-5 w-28" />
+            </div>
+            <TableSkeleton rows={6} columns={3} />
+          </div>
         </main>
       </AppShell>
     );
@@ -1003,7 +1024,7 @@ export default function BulkFireCampaignPage({
         }
       />
 
-      <main className="mx-auto max-w-[1160px] p-4 sm:p-6 lg:p-12 min-h-screen">
+      <main className="mx-auto max-w-[1440px] w-full p-4 sm:p-6 lg:p-12 min-h-screen">
         <section className="mb-8 flex flex-wrap items-center justify-between gap-4">
           <div>
             <h1 className="font-headline-lg text-headline-lg text-primary mb-2">
@@ -1025,41 +1046,6 @@ export default function BulkFireCampaignPage({
                   campaign.errorReason}
               </p>
             )}
-            
-            {/* Mobile/Tablet campaign controls */}
-            <div className="flex flex-wrap items-center gap-2 mt-4 lg:hidden">
-              {campaign.status === "running" && (
-                <button
-                  type="button"
-                  disabled={controlBusy}
-                  onClick={() => runControl("pause")}
-                  className="rounded-lg border border-border-low-alpha bg-white px-4 py-2 font-label-md text-label-md text-on-surface transition-colors hover:bg-surface-container-low disabled:opacity-50"
-                >
-                  Pause
-                </button>
-              )}
-              {campaign.status === "paused" && (
-                <button
-                  type="button"
-                  disabled={controlBusy}
-                  onClick={() => runControl("resume")}
-                  className="rounded-lg border border-border-low-alpha bg-white px-4 py-2 font-label-md text-label-md text-on-surface transition-colors hover:bg-surface-container-low disabled:opacity-50"
-                >
-                  Resume
-                </button>
-              )}
-              {(campaign.status === "running" ||
-                campaign.status === "paused") && (
-                <button
-                  type="button"
-                  disabled={controlBusy}
-                  onClick={() => runControl("stop")}
-                  className="rounded-lg border border-error/20 bg-white px-4 py-2 font-label-md text-label-md text-error transition-colors hover:bg-error/5 disabled:opacity-50"
-                >
-                  Stop
-                </button>
-              )}
-            </div>
           </div>
         </section>
 
@@ -1901,7 +1887,7 @@ export default function BulkFireCampaignPage({
               Lowercase letters, numbers, and underscores only.
             </p>
           </div>
-          <div className="flex gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row">
             <div className="flex-1">
               <label className="mb-1 block font-label-md text-[11px] uppercase tracking-wide text-on-surface-variant">
                 Category

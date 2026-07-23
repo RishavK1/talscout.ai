@@ -8,24 +8,24 @@ export function LandingFaq() {
   const [open, setOpen] = useState<number | null>(0);
 
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-3">
+    <div className="flex flex-col border-t border-outline-variant">
       {FAQS.map((faq, i) => {
         const isOpen = open === i;
         return (
           <div
             key={faq.q}
-            className="overflow-hidden rounded-2xl border border-border-low-alpha bg-surface-white shadow-ambient transition-colors"
+            className="overflow-hidden border-b border-outline-variant bg-transparent"
           >
             <button
               type="button"
               onClick={() => setOpen(isOpen ? null : i)}
-              className="flex w-full items-center justify-between gap-4 px-6 py-5 text-left"
+              className="flex w-full items-center justify-between gap-4 py-5 text-left"
             >
-              <span className="font-headline-md text-[18px] text-on-surface">
+              <span className="text-[15px] font-semibold text-on-surface">
                 {faq.q}
               </span>
               <span
-                className={`material-symbols-outlined shrink-0 text-primary transition-transform duration-300 ${
+                className={`material-symbols-outlined shrink-0 text-[19px] text-text-muted transition-transform duration-300 ${
                   isOpen ? "rotate-180" : ""
                 }`}
               >
@@ -41,7 +41,7 @@ export function LandingFaq() {
                   transition={{ duration: 0.28, ease: [0.23, 1, 0.32, 1] }}
                   className="overflow-hidden"
                 >
-                  <p className="px-6 pb-6 font-body-md text-body-md leading-relaxed text-text-muted">
+                  <p className="max-w-2xl pb-6 pr-10 text-[13px] leading-6 text-text-muted">
                     {faq.a}
                   </p>
                 </motion.div>

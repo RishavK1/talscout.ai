@@ -64,6 +64,39 @@ const EnvSchema = z
      *  `senderAccounts.whatsappAccessTokenEnc`. */
     WHATSAPP_APP_SECRET: z.string().optional(),
 
+    /** ---- automated outreach campaign engine (new, opt-in — validated
+     *  lazily by use). All three are free-tier services; none are required
+     *  to run the feature at all — OpenStreetMap discovery + website email
+     *  scraping need no key. Hunter/Apollo top up the email-finder waterfall
+     *  with their free monthly credits when configured. GOOGLE_PLACES_API_KEY
+     *  is the one exception worth flagging: unlike the others it is NOT free
+     *  at scale (requires a Google Cloud billing account, bills past a small
+     *  free threshold) — it's wired in as an optional last-resort discovery
+     *  fallback and is never constructed/called anywhere unless this is
+     *  set. ---- */
+    HUNTER_API_KEY: z.string().optional(),
+    APOLLO_API_KEY: z.string().optional(),
+    GOOGLE_PLACES_API_KEY: z.string().optional(),
+    /** OpenRouter (free-tier models, no card) — a last-resort fallback for
+     *  the four Gemini-powered AI writing ports (blueprint research/
+     *  generation, campaign copywriting, reply drafting), tried only after
+     *  Gemini's primary AND fallback model both fail (e.g. daily quota
+     *  exhausted). Never the primary path when GEMINI_API_KEY is set. */
+    OPENROUTER_API_KEY: z.string().optional(),
+    /** Geoapify Places API (free: 3,000 credits/day, no card) — OSM-based,
+     *  wired as a discovery fallback alongside Overpass to top up sparse
+     *  results before ever reaching the paid Google Places fallback. */
+    GEOAPIFY_API_KEY: z.string().optional(),
+    /** Snov.io (free: 50 credits/month, no card) — OAuth2 client-credentials
+     *  domain search, another rung in the email-finder waterfall. Both must
+     *  be set together; the adapter is only constructed when both are present. */
+    SNOV_CLIENT_ID: z.string().optional(),
+    SNOV_CLIENT_SECRET: z.string().optional(),
+    /** Firecrawl (free: 1,000 credits/month, no card) — JS-rendering scrape
+     *  fallback for the site-scrape email-finder step, for sites our own
+     *  plain fetch can't read (client-rendered contact pages). */
+    FIRECRAWL_API_KEY: z.string().optional(),
+
     /** ---- live-mode tuning (all optional, sensible defaults) ---- */
     ANTHROPIC_MODEL: z.string().default("claude-haiku-4-5"),
     ANTHROPIC_FALLBACK_MODEL: z.string().default("claude-sonnet-4-6"),
