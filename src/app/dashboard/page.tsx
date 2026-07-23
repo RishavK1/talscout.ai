@@ -287,7 +287,7 @@ export default function DashboardPage() {
           </section>
           {/* Consolidated overview */}
           <section className="mb-6 grid grid-cols-1 gap-4 xl:grid-cols-[1.35fr_0.65fr]">
-            <Card className="overflow-hidden">
+            <Card className="flex flex-col overflow-hidden">
               <CardHeader className="border-b border-border-low-alpha">
                 <div>
                   <CardTitle className="font-body-md text-[16px] font-semibold text-on-surface">
@@ -391,7 +391,7 @@ export default function DashboardPage() {
                   </p>
                 </div>
               </CardHeader>
-              <CardContent className="p-6">
+              <CardContent className="flex-1 p-6">
                 {loading ? (
                   <div className="space-y-4 animate-pulse">
                     <div className="h-16 rounded-xl bg-surface-container-high" />
@@ -414,29 +414,88 @@ export default function DashboardPage() {
                     </Link>
                   </div>
                 ) : (
-                  <ol className="space-y-5">
-                    {[
-                      ["Upload résumés", "Build your searchable candidate database.", "/upload"],
-                      ["Review profiles", "Confirm parsed details and shortlist the best.", "/candidates"],
-                      ["Start outreach", "Create a reusable message blueprint.", "/blueprints/new"],
-                    ].map(([title, description, href], index) => (
-                      <li key={title} className="flex gap-4">
-                        <span className="flex size-7 shrink-0 items-center justify-center rounded-full border border-outline-variant text-[12px] font-semibold text-primary">
-                          {index + 1}
-                        </span>
-                        <div>
-                          <Link href={href} className="text-[14px] font-semibold text-on-surface hover:text-primary">
-                            {title}
-                          </Link>
-                          <p className="mt-1 text-[12px] leading-5 text-text-muted">{description}</p>
-                        </div>
-                      </li>
-                    ))}
-                  </ol>
+                  <div className="flex h-full flex-col">
+                    <div className="mb-6">
+                      <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-[0.08em] text-text-muted">
+                        <span>Workspace setup</span>
+                        <span>0 of 3 complete</span>
+                      </div>
+                      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-container-high">
+                        <div className="h-full w-0 rounded-full bg-primary-container" />
+                      </div>
+                    </div>
+                    <ol className="space-y-5">
+                      {[
+                        ["Upload résumés", "Build your searchable candidate database.", "/upload"],
+                        ["Review profiles", "Confirm parsed details and shortlist the best.", "/candidates"],
+                        ["Start outreach", "Create a reusable message blueprint.", "/blueprints/new"],
+                      ].map(([title, description, href], index) => (
+                        <li key={title} className="flex gap-4">
+                          <span className="flex size-7 shrink-0 items-center justify-center rounded-full border border-outline-variant text-[12px] font-semibold text-primary">
+                            {index + 1}
+                          </span>
+                          <div>
+                            <Link href={href} className="text-[14px] font-semibold text-on-surface hover:text-primary">
+                              {title}
+                            </Link>
+                            <p className="mt-1 text-[12px] leading-5 text-text-muted">{description}</p>
+                          </div>
+                        </li>
+                      ))}
+                    </ol>
+                    <Button asChild className="mt-7 w-full rounded-xl bg-primary-container text-on-primary-container hover:bg-primary hover:text-on-primary">
+                      <Link href="/upload">
+                        Start with an upload
+                        <span className="material-symbols-outlined text-[17px]">arrow_forward</span>
+                      </Link>
+                    </Button>
+                  </div>
                 )}
               </CardContent>
             </Card>
           </section>
+          {!loading && !hasWorkspaceActivity && (
+            <section className="mb-6">
+              <Card className="overflow-hidden bg-surface-container-low/45">
+                <CardContent className="grid gap-7 p-6 sm:p-7 lg:grid-cols-[0.72fr_1.28fr] lg:items-center">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-primary">
+                      What happens next
+                    </p>
+                    <h2 className="mt-2 text-[20px] font-semibold tracking-[-0.02em] text-on-surface">
+                      One upload creates a usable recruiting workflow.
+                    </h2>
+                    <p className="mt-2 max-w-md text-[13px] leading-6 text-text-muted">
+                      TalScout structures the résumé first, then keeps every decision reviewable by your team.
+                    </p>
+                  </div>
+                  <ol className="grid gap-5 sm:grid-cols-4">
+                    {[
+                      ["document_scanner", "Parse", "Extract candidate data"],
+                      ["fact_check", "Review", "Confirm the profile"],
+                      ["manage_search", "Discover", "Search and shortlist"],
+                      ["send", "Reach out", "Start a conversation"],
+                    ].map(([icon, title, detail], index) => (
+                      <li key={title} className="relative">
+                        <div className="flex items-center gap-3 sm:block">
+                          <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary-fixed text-on-primary-fixed">
+                            <span className="material-symbols-outlined text-[19px]">{icon}</span>
+                          </span>
+                          <div className="sm:mt-3">
+                            <p className="text-[13px] font-semibold text-on-surface">
+                              <span className="mr-1 text-text-muted">{index + 1}.</span>
+                              {title}
+                            </p>
+                            <p className="mt-1 text-[11px] leading-5 text-text-muted">{detail}</p>
+                          </div>
+                        </div>
+                      </li>
+                    ))}
+                  </ol>
+                </CardContent>
+              </Card>
+            </section>
+          )}
           {/* Tables Section (Asymmetric Split) */}
           {(loading || hasWorkspaceActivity) && (
           <section className="grid grid-cols-1 gap-4 xl:grid-cols-3">
