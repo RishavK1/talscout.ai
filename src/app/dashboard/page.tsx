@@ -40,6 +40,18 @@ interface SimpleCandidate {
   createdAt: string;
 }
 
+interface ShortlistSummary {
+  candidateCount: number;
+}
+
+interface CampaignSummary {
+  status: string;
+}
+
+interface BlueprintSummary {
+  id: string;
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const { user, profile, loading: authLoading } = useAuth();
@@ -69,16 +81,19 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
-    if (profile?.tenantId) {
-      setRecentSearches(getRecentSearches(profile.tenantId));
-    }
+    if (!profile?.tenantId) return;
+    const tenantId = profile.tenantId;
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (!cancelled) setRecentSearches(getRecentSearches(tenantId));
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [profile?.tenantId]);
 
   useEffect(() => {
-    if (!loading) {
-      setSlowLoad(false);
-      return;
-    }
+    if (!loading) return;
     const t = setTimeout(() => setSlowLoad(true), 4000);
     return () => clearTimeout(t);
   }, [loading]);
@@ -100,9 +115,9 @@ export default function DashboardPage() {
             api.get<{ candidates: SimpleCandidate[]; total: number }>("/api/candidates?limit=5"),
             api.get<{ total: number }>("/api/candidates?status=ready&limit=1"),
             api.get<{ total: number }>("/api/candidates?status=processing&limit=1"),
-            api.get<{ shortlists: any[] }>("/api/shortlists"),
-            api.get<{ campaigns: any[] }>("/api/automated-campaigns"),
-            api.get<{ blueprints: any[] }>("/api/blueprints"),
+            api.get<{ shortlists: ShortlistSummary[] }>("/api/shortlists"),
+            api.get<{ campaigns: CampaignSummary[] }>("/api/automated-campaigns"),
+            api.get<{ blueprints: BlueprintSummary[] }>("/api/blueprints"),
           ]);
 
         setTotalCandidates(recentRes.total);
@@ -111,17 +126,18 @@ export default function DashboardPage() {
         setProcessingCandidates(processingRes.total);
 
         const totalShortlisted = shortlistsRes.shortlists.reduce(
-          (acc: number, curr: any) => acc + curr.candidateCount,
+          (acc, curr) => acc + curr.candidateCount,
           0,
         );
         setShortlistedCount(totalShortlisted);
         setActiveCampaignsCount(
-          campaignsRes.campaigns.filter((c: any) => c.status === "active").length,
+          campaignsRes.campaigns.filter((campaign) => campaign.status === "active").length,
         );
         setBlueprintsCount(blueprintsRes.blueprints.length);
       } catch (err) {
         console.error("Error loading dashboard data:", err);
       } finally {
+        setSlowLoad(false);
         setLoading(false);
       }
     };
@@ -195,7 +211,7 @@ export default function DashboardPage() {
   return (
     <AppShell>
       {/* Main Content Area */}
-      <div className="min-h-screen flex flex-col relative">
+      <div className="relative flex min-h-dvh min-w-0 flex-col">
         {/* TopAppBar */}
         <TopAppBar
           leftContent={
@@ -213,47 +229,57 @@ export default function DashboardPage() {
               className="w-full"
             >
               <div className="relative">
-                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
-                <input className="w-full pl-10 pr-4 py-2 bg-surface-white border border-border-low-alpha rounded-full font-body-md text-body-md text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all" placeholder="Search across organization..." type="text" />
+                <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant text-[20px]">search</span>
+                <input className="h-10 w-full rounded-xl border border-border-low-alpha bg-surface-white pl-10 pr-4 font-body-md text-[14px] text-on-surface shadow-[0_1px_2px_rgba(15,23,42,0.025)] placeholder:text-text-muted focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all" placeholder="Search candidates, skills or locations..." type="text" aria-label="Search candidates, skills or locations" />
               </div>
             </form>
           }
           rightContent={
-            <Button asChild variant="gradient" className="whitespace-nowrap">
-              <Link href="/upload">+ Upload résumés</Link>
+            <Button asChild variant="gradient" className="h-10 whitespace-nowrap rounded-xl px-4">
+              <Link href="/upload">
+                <span className="material-symbols-outlined text-[18px]">upload_file</span>
+                Upload résumés
+              </Link>
             </Button>
           }
         />
         {/* Main Canvas */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-[1440px] mx-auto w-full">
+        <main className="mx-auto w-full max-w-[1380px] flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
           {/* Greeting Section */}
-          <Card className="mb-6 [--card-spacing:--spacing(5)]">
-            <CardContent>
-              <h1 className="font-headline-lg text-headline-lg text-primary mb-2">{greeting}, {displayName}.</h1>
-              <p className="font-body-lg text-body-lg text-text-muted">Here is the latest intelligence on your recruitment pipeline.</p>
+          <section className="mb-7 flex min-h-[78px] items-center">
+            <div>
+              <p className="mb-1 font-label-md text-[12px] font-semibold uppercase tracking-[0.12em] text-primary">
+                Recruitment overview
+              </p>
+              <h1 className="font-body-md text-[26px] font-semibold leading-tight tracking-[-0.025em] text-on-surface sm:text-[30px]">
+                {greeting}, {displayName}
+              </h1>
+              <p className="mt-2 font-body-md text-[15px] text-text-muted">
+                A clear view of your candidate pipeline and outreach activity.
+              </p>
               {slowLoad && (
-                <p className="mt-3 flex items-center gap-2 font-body-md text-body-md text-text-muted">
+                <p className="mt-3 flex items-center gap-2 font-body-md text-[13px] text-text-muted">
                   <span className="material-symbols-outlined text-[18px] animate-spin">progress_activity</span>
                   Waking things up — this can take a moment on the first visit of the day.
                 </p>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </section>
           {/* Semantic Search Bar (Central) */}
           <section className="mb-6">
             <form onSubmit={handleSemanticSearchSubmit}>
-              <Card className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-0 p-2 focus-within:border-primary transition-colors">
-                <div className="hidden sm:flex sm:items-center sm:justify-center h-10 w-10 ml-1 rounded-xl bg-tertiary-fixed text-on-tertiary-fixed">
-                  <span className="material-symbols-outlined text-[22px]">robot_2</span>
+              <Card className="flex flex-col items-stretch gap-2 border-primary/15 p-2 shadow-[0_8px_28px_-18px_rgba(15,118,110,0.5)] focus-within:border-primary/45 sm:flex-row sm:items-center sm:gap-0">
+                <div className="ml-1 hidden h-10 w-10 items-center justify-center rounded-xl bg-primary-fixed text-on-primary-fixed sm:flex">
+                  <span className="material-symbols-outlined text-[21px]">travel_explore</span>
                 </div>
-                <input value={semanticQuery} onChange={(e) => setSemanticQuery(e.target.value)} className="flex-1 bg-transparent border-none py-3 px-2 font-body-lg text-body-lg text-on-surface placeholder:text-outline-variant focus:outline-none focus:ring-0" placeholder="Try semantic search: 'Senior Python developers in Berlin with FinTech experience...'" type="text" />
+                <input value={semanticQuery} onChange={(e) => setSemanticQuery(e.target.value)} className="min-w-0 flex-1 border-none bg-transparent px-3 py-3 font-body-md text-[15px] text-on-surface placeholder:text-text-muted focus:outline-none focus:ring-0" placeholder="Describe the candidate you need — e.g. Senior Python engineer in Berlin..." type="text" aria-label="Semantic candidate search" />
                 <Button
                   type="submit"
                   variant="secondary"
                   size="lg"
-                  className="justify-center bg-tertiary-fixed text-on-tertiary-fixed hover:bg-tertiary-fixed-dim active:scale-[0.97]"
+                  className="justify-center rounded-xl bg-primary-container text-on-primary-container hover:bg-primary hover:text-on-primary active:scale-[0.98]"
                 >
-                  <span className="material-symbols-outlined text-[20px]">magic_button</span>
+                  <span className="material-symbols-outlined text-[19px]">search</span>
                   Find Candidates
                 </Button>
               </Card>
@@ -261,10 +287,10 @@ export default function DashboardPage() {
           </section>
           {/* Quick Actions */}
           <section className="mb-6">
-            <p className="mb-2 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">
+            <p className="mb-3 font-label-md text-[12px] font-semibold text-on-surface-variant uppercase tracking-[0.1em]">
               Quick actions
             </p>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
               {[
                 { href: "/upload", icon: "upload_file", label: "Upload résumés" },
                 { href: "/search", icon: "search", label: "Search candidates" },
@@ -272,12 +298,13 @@ export default function DashboardPage() {
                 { href: "/automated-outreach/new", icon: "auto_awesome", label: "New campaign" },
               ].map((action) => (
                 <Link key={action.href} href={action.href}>
-                  <Card className="h-full [--card-spacing:--spacing(5)] hover:border-primary-container/40 hover:bg-primary-container/[0.04] transition-colors">
-                    <CardContent className="flex items-center gap-4">
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary-container/10 text-primary-container">
-                        <span className="material-symbols-outlined text-[24px]">{action.icon}</span>
+                  <Card className="h-full [--card-spacing:--spacing(4)] hover:border-primary/25 hover:shadow-ambient">
+                    <CardContent className="flex items-center gap-3.5">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-surface-container text-primary">
+                        <span className="material-symbols-outlined text-[20px]">{action.icon}</span>
                       </div>
-                      <span className="font-body-md text-[15px] text-on-surface font-semibold">{action.label}</span>
+                      <span className="font-body-md text-[14px] text-on-surface font-medium">{action.label}</span>
+                      <span className="material-symbols-outlined ml-auto text-[17px] text-outline-variant">arrow_forward</span>
                     </CardContent>
                   </Card>
                 </Link>
@@ -286,10 +313,10 @@ export default function DashboardPage() {
           </section>
           {/* Stat Cards — candidate pipeline */}
           <section className="mb-6">
-            <p className="mb-2 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">
+            <p className="mb-3 font-label-md text-[12px] font-semibold text-on-surface-variant uppercase tracking-[0.1em]">
               Candidate pipeline
             </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
               {/* Total Candidates */}
               <Card className="h-full [--card-spacing:--spacing(4)]">
                 <CardContent>
@@ -297,12 +324,12 @@ export default function DashboardPage() {
                     <DashStatTileSkeleton />
                   ) : (
                     <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-container/10 text-primary-container">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary-fixed text-on-primary-fixed">
                         <span className="material-symbols-outlined text-[20px]">folder_shared</span>
                       </div>
                       <div>
-                        <p className="font-label-md text-label-md text-on-surface-variant">Total Candidates</p>
-                        <p className="font-data-mono text-headline-lg text-primary tracking-tight">
+                        <p className="font-label-md text-[12px] font-medium text-on-surface-variant">Total candidates</p>
+                        <p className="font-data-mono text-[25px] font-semibold leading-8 text-on-surface tracking-[-0.03em]">
                           {totalCandidates.toLocaleString()}
                         </p>
                       </div>
@@ -317,12 +344,12 @@ export default function DashboardPage() {
                     <DashStatTileSkeleton />
                   ) : (
                     <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-container/10 text-primary-container">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary-fixed text-on-primary-fixed">
                         <span className="material-symbols-outlined text-[20px]">document_scanner</span>
                       </div>
                       <div>
-                        <p className="font-label-md text-label-md text-on-surface-variant">Parsed / Ready</p>
-                        <p className="font-data-mono text-headline-lg text-primary tracking-tight">
+                        <p className="font-label-md text-[12px] font-medium text-on-surface-variant">Ready candidates</p>
+                        <p className="font-data-mono text-[25px] font-semibold leading-8 text-on-surface tracking-[-0.03em]">
                           {processedCandidates.toLocaleString()}
                         </p>
                       </div>
@@ -337,12 +364,12 @@ export default function DashboardPage() {
                     <DashStatTileSkeleton />
                   ) : (
                     <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-container/10 text-primary-container">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary-fixed text-on-primary-fixed">
                         <span className="material-symbols-outlined text-[20px]">hourglass_top</span>
                       </div>
                       <div>
-                        <p className="font-label-md text-label-md text-on-surface-variant">Processing</p>
-                        <p className="font-data-mono text-headline-lg text-primary tracking-tight">
+                        <p className="font-label-md text-[12px] font-medium text-on-surface-variant">In processing</p>
+                        <p className="font-data-mono text-[25px] font-semibold leading-8 text-on-surface tracking-[-0.03em]">
                           {processingCandidates.toLocaleString()}
                         </p>
                       </div>
@@ -357,12 +384,12 @@ export default function DashboardPage() {
                     <DashStatTileSkeleton />
                   ) : (
                     <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-container/10 text-primary-container">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary-fixed text-on-primary-fixed">
                         <span className="material-symbols-outlined text-[20px]" data-weight="fill">star</span>
                       </div>
                       <div>
-                        <p className="font-label-md text-label-md text-on-surface-variant">Shortlisted</p>
-                        <p className="font-data-mono text-headline-lg text-primary tracking-tight">{shortlistedCount.toLocaleString()}</p>
+                        <p className="font-label-md text-[12px] font-medium text-on-surface-variant">Shortlisted</p>
+                        <p className="font-data-mono text-[25px] font-semibold leading-8 text-on-surface tracking-[-0.03em]">{shortlistedCount.toLocaleString()}</p>
                       </div>
                     </div>
                   )}
@@ -372,23 +399,23 @@ export default function DashboardPage() {
           </section>
           {/* Stat Cards — outreach activity */}
           <section className="mb-6">
-            <p className="mb-2 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">
+            <p className="mb-3 font-label-md text-[12px] font-semibold text-on-surface-variant uppercase tracking-[0.1em]">
               Outreach activity
             </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Link href="/automated-outreach">
-                <Card className="h-full [--card-spacing:--spacing(4)] hover:border-primary-container/40 transition-colors">
+                <Card className="h-full [--card-spacing:--spacing(4)] hover:border-primary/25 hover:shadow-ambient">
                   <CardContent>
                     {loading ? (
                       <DashStatTileSkeleton />
                     ) : (
                       <div className="flex items-center gap-3">
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-container/10 text-primary-container">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary-fixed text-on-primary-fixed">
                           <span className="material-symbols-outlined text-[20px]">auto_awesome</span>
                         </div>
                         <div>
-                          <p className="font-label-md text-label-md text-on-surface-variant">Active Campaigns</p>
-                          <p className="font-data-mono text-headline-lg text-primary tracking-tight">
+                          <p className="font-label-md text-[12px] font-medium text-on-surface-variant">Active campaigns</p>
+                          <p className="font-data-mono text-[25px] font-semibold leading-8 text-on-surface tracking-[-0.03em]">
                             {activeCampaignsCount.toLocaleString()}
                           </p>
                         </div>
@@ -398,18 +425,18 @@ export default function DashboardPage() {
                 </Card>
               </Link>
               <Link href="/blueprints">
-                <Card className="h-full [--card-spacing:--spacing(4)] hover:border-primary-container/40 transition-colors">
+                <Card className="h-full [--card-spacing:--spacing(4)] hover:border-primary/25 hover:shadow-ambient">
                   <CardContent>
                     {loading ? (
                       <DashStatTileSkeleton />
                     ) : (
                       <div className="flex items-center gap-3">
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-container/10 text-primary-container">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary-fixed text-on-primary-fixed">
                           <span className="material-symbols-outlined text-[20px]">description</span>
                         </div>
                         <div>
-                          <p className="font-label-md text-label-md text-on-surface-variant">Blueprints</p>
-                          <p className="font-data-mono text-headline-lg text-primary tracking-tight">
+                          <p className="font-label-md text-[12px] font-medium text-on-surface-variant">Blueprints</p>
+                          <p className="font-data-mono text-[25px] font-semibold leading-8 text-on-surface tracking-[-0.03em]">
                             {blueprintsCount.toLocaleString()}
                           </p>
                         </div>
@@ -421,13 +448,13 @@ export default function DashboardPage() {
             </div>
           </section>
           {/* Tables Section (Asymmetric Split) */}
-          <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <section className="grid grid-cols-1 gap-4 xl:grid-cols-3">
             {/* Recent Uploads (Takes up 2 columns) */}
-            <Card className="lg:col-span-2 h-full flex flex-col overflow-hidden">
+            <Card className="h-full flex flex-col overflow-hidden xl:col-span-2">
               <CardHeader className="border-b border-border-low-alpha">
-                <CardTitle className="font-body-md font-semibold text-headline-md text-primary">Recent Uploads</CardTitle>
+                <CardTitle className="font-body-md text-[15px] font-semibold text-on-surface">Recent candidates</CardTitle>
                 <CardAction>
-                  <Link className="font-label-md text-label-md text-primary hover:underline" href="/candidates">View All</Link>
+                  <Link className="font-label-md text-[13px] font-medium text-primary hover:underline" href="/candidates">View all</Link>
                 </CardAction>
               </CardHeader>
               <CardContent className="p-0">
@@ -449,9 +476,9 @@ export default function DashboardPage() {
               </CardContent>
             </Card>
             {/* Recent Searches (Takes 1 column) */}
-            <Card className="lg:col-span-1 h-full flex flex-col overflow-hidden">
+            <Card className="h-full flex flex-col overflow-hidden xl:col-span-1">
               <CardHeader className="border-b border-border-low-alpha">
-                <CardTitle className="font-body-md font-semibold text-headline-md text-primary">Recent Searches</CardTitle>
+                <CardTitle className="font-body-md text-[15px] font-semibold text-on-surface">Recent searches</CardTitle>
               </CardHeader>
               <CardContent className="flex-grow p-4 space-y-2">
                 {recentSearches.length > 0 ? (
@@ -461,7 +488,7 @@ export default function DashboardPage() {
                       onClick={() => router.push(`/search?q=${encodeURIComponent(searchQuery)}`)}
                       className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-surface-container-low transition-colors text-left"
                     >
-                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-container/10 text-primary-container">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-fixed text-on-primary-fixed">
                         <span className="material-symbols-outlined text-[18px]">history</span>
                       </div>
                       <span className="font-body-md text-on-surface truncate flex-1">{searchQuery}</span>

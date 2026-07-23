@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { ThemeToggle } from "@/components/app/theme-toggle";
 
 interface TopAppBarProps {
   leftContent?: React.ReactNode;
@@ -20,7 +21,8 @@ export function TopAppBar({ leftContent, rightContent }: TopAppBarProps) {
         <div className="min-w-0 flex-1 lg:flex lg:max-w-xl lg:items-center">
           {leftContent}
         </div>
-        {rightContent ? (
+        <div className="flex min-w-0 shrink items-center justify-end gap-2 lg:gap-3">
+          {rightContent ? (
           // min-w-0 (not shrink-0): a fixed-width search box/button here used
           // to refuse to shrink no matter how little room the breadcrumb left
           // it — on a viewport narrower than sidebar + max-w-[1440px]'s
@@ -28,10 +30,12 @@ export function TopAppBar({ leftContent, rightContent }: TopAppBarProps) {
           // body's overflow-x:hidden, with no way to scroll to it. Letting
           // this side shrink too (its own children can still cap their own
           // width, e.g. `sm:w-64`) means the header always fits.
-          <div className="flex min-w-0 shrink items-center gap-3 lg:gap-4">
+          <div className="flex min-w-0 shrink items-center gap-3">
             {rightContent}
           </div>
-        ) : null}
+          ) : null}
+          <ThemeToggle className="hidden lg:inline-flex" />
+        </div>
       </div>
     </header>
   );

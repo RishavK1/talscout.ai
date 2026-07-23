@@ -23,7 +23,7 @@ const buttonVariants = cva(
          *  no gradient/shadow-lift (dozens of call sites already use
          *  `variant="gradient"`; the name stays so nothing else needs to
          *  change, only the flat-vs-glossy treatment behind it). */
-        gradient: "bg-primary-container text-on-primary hover:bg-primary transition-colors",
+        gradient: "bg-primary-container text-on-primary-container shadow-[0_1px_2px_rgba(15,23,42,0.16)] hover:bg-primary hover:text-on-primary transition-colors",
       },
       size: {
         default:

@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+@custom-variant dark (&:where(.dark, .dark *));
 
 /* ============================================================
    TalScout — design tokens ported 1:1 from the Stitch project
@@ -8,16 +9,16 @@
    ============================================================ */
 @theme {
   /* ---- Stitch color system (exact names + hex) ---- */
-  --color-primary: #004145;
-  --color-primary-container: #005a5f;
-  --color-primary-fixed: #a9eef4;
-  --color-primary-fixed-dim: #8dd2d7;
+  --color-primary: #0f766e;
+  --color-primary-container: #0f766e;
+  --color-primary-fixed: #ccfbf1;
+  --color-primary-fixed-dim: #99f6e4;
   --color-on-primary: #ffffff;
-  --color-on-primary-container: #8acfd4;
-  --color-on-primary-fixed: #002022;
-  --color-on-primary-fixed-variant: #004f54;
-  --color-inverse-primary: #8dd2d7;
-  --color-surface-tint: #1c686d;
+  --color-on-primary-container: #ffffff;
+  --color-on-primary-fixed: #134e4a;
+  --color-on-primary-fixed-variant: #115e59;
+  --color-inverse-primary: #5eead4;
+  --color-surface-tint: #0f766e;
 
   --color-secondary: #755b00;
   --color-secondary-container: #fed255;
@@ -28,45 +29,45 @@
   --color-on-secondary-fixed: #241a00;
   --color-on-secondary-fixed-variant: #584400;
 
-  --color-tertiary: #274100;
-  --color-tertiary-container: #385a00;
-  --color-tertiary-fixed: #a9f931;
-  --color-tertiary-fixed-dim: #8fdb00;
+  --color-tertiary: #0f766e;
+  --color-tertiary-container: #0f766e;
+  --color-tertiary-fixed: #ccfbf1;
+  --color-tertiary-fixed-dim: #99f6e4;
   --color-on-tertiary: #ffffff;
-  --color-on-tertiary-container: #8dd800;
-  --color-on-tertiary-fixed: #112000;
-  --color-on-tertiary-fixed-variant: #314f00;
+  --color-on-tertiary-container: #ffffff;
+  --color-on-tertiary-fixed: #134e4a;
+  --color-on-tertiary-fixed-variant: #115e59;
 
   --color-error: #ba1a1a;
   --color-error-container: #ffdad6;
   --color-on-error: #ffffff;
   --color-on-error-container: #93000a;
 
-  --color-bg-cream: #faf7f3;
-  --color-bg-secondary: #f7f4f0;
-  --color-background: #fff8f7;
-  --color-on-background: #221a19;
+  --color-bg-cream: #f6f8fb;
+  --color-bg-secondary: #f1f5f9;
+  --color-background: #f6f8fb;
+  --color-on-background: #0f172a;
 
-  --color-surface: #fff8f7;
+  --color-surface: #ffffff;
   --color-surface-white: #ffffff;
-  --color-surface-bright: #fff8f7;
-  --color-surface-dim: #e7d6d4;
+  --color-surface-bright: #ffffff;
+  --color-surface-dim: #e2e8f0;
   --color-surface-container-lowest: #ffffff;
-  --color-surface-container-low: #fff0ef;
-  --color-surface-container: #fbeae8;
-  --color-surface-container-high: #f5e4e2;
-  --color-surface-container-highest: #efdfdd;
-  --color-surface-variant: #efdfdd;
+  --color-surface-container-low: #f8fafc;
+  --color-surface-container: #f1f5f9;
+  --color-surface-container-high: #e9eef5;
+  --color-surface-container-highest: #e2e8f0;
+  --color-surface-variant: #e2e8f0;
 
-  --color-on-surface: #221a19;
-  --color-on-surface-variant: #3f4849;
-  --color-inverse-surface: #382e2d;
-  --color-inverse-on-surface: #feedeb;
-  --color-text-muted: #78706c;
+  --color-on-surface: #0f172a;
+  --color-on-surface-variant: #475569;
+  --color-inverse-surface: #f8fafc;
+  --color-inverse-on-surface: #0f172a;
+  --color-text-muted: #64748b;
 
-  --color-outline: #6f797a;
-  --color-outline-variant: #bec8c9;
-  --color-border-low-alpha: rgba(44, 35, 34, 0.09);
+  --color-outline: #64748b;
+  --color-outline-variant: #cbd5e1;
+  --color-border-low-alpha: rgba(15, 23, 42, 0.09);
 
   /* ---- radius (Stitch) ---- */
   --radius-lg: 0.5rem;
@@ -75,8 +76,8 @@
   --radius-3xl: 1.25rem;
 
   /* ---- shadows (Stitch) ---- */
-  --shadow-ambient: 0 4px 24px -4px rgba(44, 35, 34, 0.05);
-  --shadow-floating: 0 12px 32px -8px rgba(44, 35, 34, 0.08);
+  --shadow-ambient: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px rgba(15, 23, 42, 0.04);
+  --shadow-floating: 0 18px 45px -18px rgba(15, 23, 42, 0.22);
 
   /* ---- Stitch type scale (size + line-height + weight + tracking) ---- */
   --text-display-lg: 48px;
@@ -117,9 +118,9 @@
   --font-serif: var(--font-source-serif);
   --font-mono: var(--font-geist-mono);
 
-  --font-display-lg: var(--font-source-serif), Georgia, serif;
-  --font-headline-lg: var(--font-source-serif), Georgia, serif;
-  --font-headline-md: var(--font-source-serif), Georgia, serif;
+  --font-display-lg: var(--font-be-vietnam), system-ui, sans-serif;
+  --font-headline-lg: var(--font-be-vietnam), system-ui, sans-serif;
+  --font-headline-md: var(--font-be-vietnam), system-ui, sans-serif;
   --font-body-md: var(--font-be-vietnam), system-ui, sans-serif;
   --font-body-lg: var(--font-be-vietnam), system-ui, sans-serif;
   --font-label-md: var(--font-be-vietnam), system-ui, sans-serif;
@@ -230,6 +231,55 @@
   --sidebar-ring: var(--color-primary-container);
 }
 
+.dark {
+  --color-primary: #5eead4;
+  --color-primary-container: #14b8a6;
+  --color-primary-fixed: #134e4a;
+  --color-primary-fixed-dim: #115e59;
+  --color-on-primary: #042f2e;
+  --color-on-primary-container: #042f2e;
+  --color-on-primary-fixed: #ccfbf1;
+  --color-on-primary-fixed-variant: #99f6e4;
+  --color-tertiary: #5eead4;
+  --color-tertiary-container: #14b8a6;
+  --color-tertiary-fixed: #134e4a;
+  --color-tertiary-fixed-dim: #115e59;
+  --color-on-tertiary: #042f2e;
+  --color-on-tertiary-container: #042f2e;
+  --color-on-tertiary-fixed: #ccfbf1;
+  --color-on-tertiary-fixed-variant: #99f6e4;
+  --color-bg-cream: #090f1d;
+  --color-bg-secondary: #0d1526;
+  --color-background: #090f1d;
+  --color-on-background: #f8fafc;
+  --color-surface: #0f172a;
+  --color-surface-white: #111b2e;
+  --color-surface-bright: #162033;
+  --color-surface-dim: #080d18;
+  --color-surface-container-lowest: #0d1526;
+  --color-surface-container-low: #162033;
+  --color-surface-container: #1b273b;
+  --color-surface-container-high: #223047;
+  --color-surface-container-highest: #2a3951;
+  --color-surface-variant: #223047;
+  --color-on-surface: #f1f5f9;
+  --color-on-surface-variant: #a8b4c5;
+  --color-inverse-surface: #e2e8f0;
+  --color-inverse-on-surface: #0f172a;
+  --color-text-muted: #94a3b8;
+  --color-outline: #94a3b8;
+  --color-outline-variant: #334155;
+  --color-border-low-alpha: rgba(148, 163, 184, 0.16);
+  --color-error-container: #451a1a;
+  --color-on-error-container: #fecaca;
+  --muted-action: #1b273b;
+  --muted-action-foreground: #e2e8f0;
+  --sidebar-accent: #1e3a3a;
+  --sidebar-accent-foreground: #ccfbf1;
+  --shadow-ambient: 0 1px 2px rgba(0, 0, 0, 0.22), 0 16px 36px rgba(0, 0, 0, 0.16);
+  --shadow-floating: 0 22px 55px -20px rgba(0, 0, 0, 0.65);
+}
+
 html {
   scroll-behavior: smooth;
 }
@@ -240,6 +290,7 @@ body {
   font-family: var(--font-be-vietnam), system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  transition: background-color 180ms ease, color 180ms ease;
   overflow-x: hidden; /* mobile safety: clip stray horizontal overflow */
 }
 
@@ -305,11 +356,11 @@ body {
 }
 .glass-header,
 .glass-blur {
-  backdrop-filter: blur(8px);
-  background: rgba(255, 248, 247, 0.8);
+  backdrop-filter: blur(16px);
+  background: color-mix(in srgb, var(--color-bg-cream) 88%, transparent);
 }
 .glass-card {
-  background: rgba(255, 255, 255, 0.95);
+  background: color-mix(in srgb, var(--color-surface-white) 95%, transparent);
   backdrop-filter: blur(10px);
   border: 1px solid var(--color-border-low-alpha);
   box-shadow: 0 4px 24px -4px rgba(44, 35, 34, 0.05);
@@ -340,20 +391,20 @@ body {
   border-bottom: 2px solid #ecc246;
 }
 .status-pill-active {
-  background-color: #e7efe9;
-  color: #1b4332;
+  background-color: color-mix(in srgb, var(--color-primary-fixed) 74%, var(--color-surface-white));
+  color: var(--color-on-primary-fixed);
 }
 .status-pill-invited {
-  background-color: #fff9e6;
-  color: #755b00;
+  background-color: color-mix(in srgb, var(--color-secondary-fixed) 35%, var(--color-surface-white));
+  color: var(--color-secondary);
 }
 .plan-card-selected {
-  border: 2px solid #004145;
-  background-color: #ffffff;
+  border: 2px solid var(--color-primary);
+  background-color: var(--color-surface-white);
 }
 .plan-card-unselected {
-  border: 1px solid rgba(44, 35, 34, 0.1);
-  background-color: #ffffff;
+  border: 1px solid var(--color-border-low-alpha);
+  background-color: var(--color-surface-white);
 }
 .pricing-card {
   transition: transform 0.3s ease, box-shadow 0.3s ease;
@@ -363,8 +414,20 @@ body {
   box-shadow: 0 12px 32px rgba(44, 35, 34, 0.08);
 }
 .drop-zone-active {
-  border-color: #004145;
-  background-color: rgba(0, 65, 69, 0.02);
+  border-color: var(--color-primary);
+  background-color: color-mix(in srgb, var(--color-primary) 4%, transparent);
+}
+
+/* A small number of legacy authenticated screens still use Tailwind's
+   literal `bg-white` utility. Keep those surfaces theme-aware while they are
+   migrated to the semantic surface token. Marketing pages are intentionally
+   excluded so their dark hero compositions remain untouched. */
+.dark .app-shell .bg-white {
+  background-color: var(--color-surface-white);
+}
+
+.dark .app-shell .bg-white\/50 {
+  background-color: color-mix(in srgb, var(--color-surface-white) 50%, transparent);
 }
 .timeline-line::before {
   content: "";

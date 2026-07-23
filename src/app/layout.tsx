@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { Be_Vietnam_Pro, Source_Serif_4, Geist_Mono } from "next/font/google";
 import { Toaster } from "sonner";
 import { Analytics } from "@vercel/analytics/next";
@@ -79,6 +80,7 @@ export const metadata: Metadata = {
 };
 
 import { AuthProvider } from "@/components/app/auth-provider";
+import { ThemeProvider } from "@/components/app/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 // Nonce-based CSP (src/proxy.ts) requires every page to be dynamically
@@ -89,26 +91,37 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 // upside being traded away here.
 export const dynamic = "force-dynamic";
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
+
   return (
     <html
       lang="en"
+      suppressHydrationWarning
       className={`${beVietnam.variable} ${sourceSerif.variable} ${geistMono.variable} scroll-smooth antialiased`}
     >
       <head>
+        <script
+          nonce={nonce}
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem("talscout-theme");var d=t==="dark"||(!t&&matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.classList.toggle("dark",d);document.documentElement.style.colorScheme=d?"dark":"light"}catch(e){}})()`,
+          }}
+        />
         <link
           rel="stylesheet"
           href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap"
         />
       </head>
       <body className="min-h-dvh bg-bg-cream text-on-surface">
-        <TooltipProvider delayDuration={200}>
-          <AuthProvider>
-            {children}
-          </AuthProvider>
-        </TooltipProvider>
+        <ThemeProvider>
+          <TooltipProvider delayDuration={200}>
+            <AuthProvider>
+              {children}
+            </AuthProvider>
+          </TooltipProvider>
+        </ThemeProvider>
         <Analytics />
         <Toaster
           position="bottom-right"

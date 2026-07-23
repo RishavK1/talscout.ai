@@ -20,6 +20,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { useAuth } from "@/components/app/auth-provider";
+import { ThemeToggle } from "@/components/app/theme-toggle";
 
 /** Persisted independently of shadcn's own cookie-based default (see
  *  SidebarProvider's `open`/`onOpenChange` below) — keeps the exact
@@ -27,8 +28,8 @@ import { useAuth } from "@/components/app/auth-provider";
 const SIDEBAR_COLLAPSE_KEY = "sidebar-collapsed";
 /** Overrides shadcn's smaller defaults (16rem/3rem) to match this app's
  *  existing expanded/collapsed dimensions exactly. */
-const SIDEBAR_WIDTH = "280px";
-const SIDEBAR_WIDTH_ICON = "84px";
+const SIDEBAR_WIDTH = "264px";
+const SIDEBAR_WIDTH_ICON = "72px";
 
 type Item = { href: string; icon: string; label: string; capability?: string };
 
@@ -56,10 +57,12 @@ function NavLink({
   item,
   active,
   locked,
+  collapsed,
 }: {
   item: Item;
   active: boolean;
   locked?: boolean;
+  collapsed: boolean;
 }) {
   // Locked (plan doesn't include it): route to billing/upgrade, show a lock.
   if (locked) {
@@ -70,12 +73,18 @@ function NavLink({
         tooltip={`${item.label} — upgrade to unlock`}
         className="text-sidebar-foreground/50"
       >
-        <Link href="/billing">
-          <span className="material-symbols-outlined text-[20px]">{item.icon}</span>
-          <span>{item.label}</span>
-          <span className="material-symbols-outlined ml-auto text-[16px] text-sidebar-foreground/50">
-            lock
+        <Link href="/billing" aria-label={collapsed ? `${item.label} — upgrade to unlock` : undefined}>
+          <span className="material-symbols-outlined shrink-0 text-[20px]" aria-hidden="true">
+            {item.icon}
           </span>
+          {!collapsed && (
+            <>
+              <span>{item.label}</span>
+              <span className="material-symbols-outlined ml-auto text-[16px] text-sidebar-foreground/50" aria-hidden="true">
+                lock
+              </span>
+            </>
+          )}
         </Link>
       </SidebarMenuButton>
     );
@@ -88,22 +97,22 @@ function NavLink({
       tooltip={item.label}
       className="text-sidebar-foreground"
     >
-      <Link href={item.href}>
+      <Link href={item.href} aria-label={collapsed ? item.label : undefined}>
         <span
           className="material-symbols-outlined shrink-0 text-[20px]"
+          aria-hidden="true"
           {...(active ? { "data-weight": "fill" } : {})}
         >
           {item.icon}
         </span>
-        <span>{item.label}</span>
+        {!collapsed && <span>{item.label}</span>}
       </Link>
     </SidebarMenuButton>
   );
 }
 
-/** Small floating chevron toggle, matching this app's original affordance —
- *  kept alongside shadcn's own `<SidebarRail />` (drag/click edge-strip) for
- *  desktop users who expect a discoverable button rather than a thin strip. */
+/** Header-integrated sidebar control. It stays fully inside the sidebar
+ *  instead of straddling the content boundary, which keeps both states clean. */
 function SidebarCollapseToggle() {
   const { toggleSidebar, state } = useSidebar();
   const collapsed = state === "collapsed";
@@ -113,15 +122,14 @@ function SidebarCollapseToggle() {
       onClick={toggleSidebar}
       aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
       title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-      className="absolute -right-3 top-20 z-20 hidden h-6 w-6 items-center justify-center rounded-full border border-border-low-alpha bg-white text-on-surface-variant shadow-ambient transition-colors hover:text-primary md:flex"
+      className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-transparent text-on-surface-variant transition-[color,background-color,transform] hover:bg-surface-container hover:text-on-surface active:scale-95 lg:flex"
     >
       <span
         className={cn(
-          "material-symbols-outlined text-[16px] transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]",
-          collapsed && "rotate-180",
+          "material-symbols-outlined text-[20px] transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)]",
         )}
       >
-        chevron_left
+        {collapsed ? "chevron_right" : "chevron_left"}
       </span>
     </button>
   );
@@ -134,7 +142,7 @@ function MobileTopBar() {
   const { workspaceName, profile } = useAuth();
   const logoUrl = profile?.logo;
   return (
-    <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border-low-alpha bg-surface-white px-4 lg:hidden">
+    <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border-low-alpha bg-surface-white/95 px-4 backdrop-blur-xl lg:hidden">
       <button
         type="button"
         aria-label="Open menu"
@@ -156,52 +164,60 @@ function MobileTopBar() {
           {workspaceName || "Workspace"}
         </span>
       </Link>
+      <ThemeToggle className="ml-auto border-0 bg-transparent shadow-none" />
     </header>
   );
 }
 
 function AppSidebar() {
   const { workspaceName, profile, can, loading: authLoading } = useAuth();
+  const { state } = useSidebar();
   const pathname = usePathname();
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
   const logoUrl = profile?.logo;
+  const collapsed = state === "collapsed";
 
   return (
     <Sidebar collapsible="icon" className="border-r border-border-low-alpha bg-surface-white">
-      <SidebarHeader className="p-4 group-data-[collapsible=icon]:p-2">
-        <Link
-          href="/dashboard"
-          title={workspaceName || "Workspace"}
-          className="flex items-center gap-3 overflow-hidden"
-        >
-          {logoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={logoUrl}
-              alt="Logo"
-              className="h-10 w-10 shrink-0 rounded object-cover border border-border-low-alpha group-data-[collapsible=icon]:size-8"
-            />
-          ) : (
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-container text-on-primary group-data-[collapsible=icon]:size-8">
-              <span className="material-symbols-outlined">work</span>
+      <SidebarHeader className="h-[73px] flex-row items-center border-b border-border-low-alpha px-3 py-3 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2">
+        {!collapsed && (
+          <Link
+            href="/dashboard"
+            title={workspaceName || "Workspace"}
+            className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden"
+          >
+            {logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={logoUrl}
+                alt="Logo"
+                className="h-9 w-9 shrink-0 rounded-xl object-cover border border-border-low-alpha"
+              />
+            ) : (
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary-container text-on-primary-container shadow-[0_1px_2px_rgba(15,23,42,0.12)]">
+                <span className="material-symbols-outlined text-[20px]">work</span>
+              </div>
+            )}
+            <div className="min-w-0 overflow-hidden whitespace-nowrap">
+              <h2 className="truncate font-body-md text-[16px] font-semibold tracking-[-0.01em] text-on-surface">
+                {workspaceName || "Workspace"}
+              </h2>
+              <p className="truncate font-label-md text-[11px] text-on-surface-variant">
+                Recruitment workspace
+              </p>
             </div>
-          )}
-          <div className="overflow-hidden whitespace-nowrap group-data-[collapsible=icon]:hidden">
-            <h2 className="font-headline-md text-headline-md text-primary truncate max-w-[160px]">
-              {workspaceName || "Workspace"}
-            </h2>
-            <p className="font-label-md text-label-md text-on-surface-variant">Recruitment Team</p>
-          </div>
-        </Link>
+          </Link>
+        )}
+        <SidebarCollapseToggle />
       </SidebarHeader>
 
-      <SidebarContent className="px-2">
-        <SidebarGroup>
+      <SidebarContent className="px-2 py-2">
+        <SidebarGroup className="group-data-[collapsible=icon]:px-1">
           <SidebarGroupLabel className="uppercase tracking-wider">Main</SidebarGroupLabel>
           <SidebarMenu className="gap-1">
             {mainNav.map((item) => (
               <SidebarMenuItem key={item.href}>
-                <NavLink item={item} active={isActive(item.href)} />
+                <NavLink item={item} active={isActive(item.href)} collapsed={collapsed} />
               </SidebarMenuItem>
             ))}
           </SidebarMenu>
@@ -209,7 +225,7 @@ function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="border-t border-border-low-alpha px-2 py-3">
-        <SidebarGroup className="p-0">
+        <SidebarGroup className="p-0 group-data-[collapsible=icon]:px-1">
           <SidebarGroupLabel className="uppercase tracking-wider">Workspace</SidebarGroupLabel>
           <SidebarMenu className="gap-1">
             {footerNav.map((item) => (
@@ -217,6 +233,7 @@ function AppSidebar() {
                 <NavLink
                   item={item}
                   active={isActive(item.href)}
+                  collapsed={collapsed}
                   locked={item.capability ? (authLoading ? false : !can(item.capability)) : false}
                 />
               </SidebarMenuItem>
@@ -224,7 +241,6 @@ function AppSidebar() {
           </SidebarMenu>
         </SidebarGroup>
       </SidebarFooter>
-      <SidebarCollapseToggle />
       <SidebarRail />
     </Sidebar>
   );
@@ -246,7 +262,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <SidebarProvider
       open={!collapsed}
       onOpenChange={handleOpenChange}
-      className="bg-bg-cream"
+      className="app-shell bg-bg-cream"
       style={{ "--sidebar-width": SIDEBAR_WIDTH, "--sidebar-width-icon": SIDEBAR_WIDTH_ICON } as React.CSSProperties}
     >
       <AppSidebar />
