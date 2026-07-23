@@ -6,9 +6,9 @@ const columns: { heading: string; links: FootLink[] }[] = [
   {
     heading: "Product",
     links: [
-      { label: "Features", href: "/#features" },
+      { label: "Product", href: "/#product" },
       { label: "Pricing", href: "/pricing" },
-      { label: "Integrations", href: "/#features" },
+      { label: "How it works", href: "/#how" },
     ],
   },
   {
@@ -31,23 +31,25 @@ const columns: { heading: string; links: FootLink[] }[] = [
 
 export function SiteFooter() {
   return (
-    <footer className="w-full border-t border-border-low-alpha bg-bg-cream px-6 py-12 md:px-12">
-      <div className="mx-auto grid max-w-[1440px] grid-cols-1 gap-8 md:grid-cols-4">
+    <footer className="w-full border-t border-outline-variant bg-surface-container-low px-6 py-14 text-on-surface shadow-[inset_0_1px_0_rgba(255,255,255,0.5)] transition-colors dark:shadow-none lg:px-8">
+      <div className="mx-auto grid max-w-[1240px] grid-cols-1 gap-10 md:grid-cols-4">
         <div className="md:col-span-1">
           <Link
             href="/"
-            className="mb-4 inline-block font-headline-md text-headline-md tracking-tight text-primary"
+            className="mb-4 inline-flex items-center gap-2.5 text-[19px] font-semibold tracking-[-0.02em] text-on-surface"
           >
+            <span className="flex size-8 items-center justify-center rounded-lg bg-primary-container text-on-primary-container">
+              <span className="material-symbols-outlined text-[18px]">travel_explore</span>
+            </span>
             TalScout
           </Link>
-          <p className="mt-2 max-w-xs font-body-md text-[14px] text-on-surface">
-            Intelligent résumé parsing and semantic search for modern talent
-            teams.
+          <p className="mt-2 max-w-sm text-[15px] leading-7 text-on-surface-variant">
+            Candidate intelligence and outreach infrastructure for modern recruiting teams.
           </p>
         </div>
         {columns.map((col) => (
           <div key={col.heading} className="flex flex-col gap-3">
-            <h4 className="mb-2 font-label-md text-[12px] uppercase tracking-wider text-text-muted">
+            <h4 className="mb-2 text-[12px] font-bold uppercase tracking-[0.12em] text-on-surface">
               {col.heading}
             </h4>
             {col.links.map((l) =>
@@ -57,7 +59,7 @@ export function SiteFooter() {
                   href={l.href}
                   target={l.href.startsWith("http") ? "_blank" : undefined}
                   rel={l.href.startsWith("http") ? "noreferrer" : undefined}
-                  className="font-label-md text-label-md text-on-surface-variant transition-colors duration-200 hover:text-secondary"
+                  className="text-[14px] font-medium text-on-surface-variant transition-colors duration-200 hover:text-primary"
                 >
                   {l.label}
                 </a>
@@ -65,7 +67,7 @@ export function SiteFooter() {
                 <Link
                   key={l.label}
                   href={l.href}
-                  className="font-label-md text-label-md text-on-surface-variant transition-colors duration-200 hover:text-secondary"
+                  className="text-[14px] font-medium text-on-surface-variant transition-colors duration-200 hover:text-primary"
                 >
                   {l.label}
                 </Link>
@@ -74,8 +76,8 @@ export function SiteFooter() {
           </div>
         ))}
       </div>
-      <div className="mx-auto mt-12 max-w-[1440px] border-t border-border-low-alpha pt-8">
-        <p className="font-body-md text-[14px] text-text-muted">
+      <div className="mx-auto mt-12 max-w-[1240px] border-t border-outline-variant pt-7">
+        <p className="text-[13px] font-medium text-on-surface-variant">
           © {new Date().getFullYear()} TalScout AI. All rights reserved.
         </p>
       </div>
