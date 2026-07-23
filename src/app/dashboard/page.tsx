@@ -12,25 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardAction, CardContent } from "@/components/ui/card";
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { Skeleton } from "@/components/ui/skeleton";
 import { TableSkeleton } from "@/components/ui/skeletons";
-
-/** Icon-left / label+value-right stat tile skeleton — matches this page's
- *  specific tile shape (different from analytics' icon-top StatCard).
- *  The WHOLE tile (icon chip, label, value) renders as skeleton blocks
- *  while loading, not just the numeric value inside an otherwise-live card. */
-function DashStatTileSkeleton() {
-  return (
-    <div className="flex items-center gap-3">
-      <Skeleton className="h-9 w-9 shrink-0 rounded-lg" />
-      <div className="space-y-1.5">
-        <Skeleton className="h-3 w-24" />
-        <Skeleton className="h-6 w-14" />
-      </div>
-    </div>
-  );
-}
-
 
 interface SimpleCandidate {
   id: string;
@@ -70,6 +52,24 @@ export default function DashboardPage() {
 
   const displayName = user?.user_metadata?.full_name || user?.email?.split("@")[0] || "Recruiter";
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
+  const hasWorkspaceActivity =
+    totalCandidates > 0 ||
+    activeCampaignsCount > 0 ||
+    blueprintsCount > 0 ||
+    recentSearches.length > 0;
+  const readyPercent = totalCandidates > 0
+    ? Math.min(100, (processedCandidates / totalCandidates) * 100)
+    : 0;
+  const processingPercent = totalCandidates > 0
+    ? Math.min(100 - readyPercent, (processingCandidates / totalCandidates) * 100)
+    : 0;
+  const pipelineChart = totalCandidates > 0
+    ? `conic-gradient(
+        var(--color-primary-container) 0 ${readyPercent}%,
+        var(--color-primary-fixed-dim) ${readyPercent}% ${readyPercent + processingPercent}%,
+        var(--color-surface-container-high) ${readyPercent + processingPercent}% 100%
+      )`
+    : "conic-gradient(var(--color-surface-container-high) 0 100%)";
 
   // Time-of-day greeting (local time). Avoids hydration mismatch by computing
   // after mount rather than during the initial server render.
@@ -285,169 +285,160 @@ export default function DashboardPage() {
               </Card>
             </form>
           </section>
-          {/* Quick Actions */}
-          <section className="mb-6">
-            <p className="mb-3 font-label-md text-[12px] font-semibold text-on-surface-variant uppercase tracking-[0.1em]">
-              Quick actions
-            </p>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              {[
-                { href: "/upload", icon: "upload_file", label: "Upload résumés" },
-                { href: "/search", icon: "search", label: "Search candidates" },
-                { href: "/blueprints/new", icon: "description", label: "New blueprint" },
-                { href: "/automated-outreach/new", icon: "auto_awesome", label: "New campaign" },
-              ].map((action) => (
-                <Link key={action.href} href={action.href}>
-                  <Card className="h-full [--card-spacing:--spacing(4)] hover:border-primary/25 hover:shadow-ambient">
-                    <CardContent className="flex items-center gap-3.5">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-surface-container text-primary">
-                        <span className="material-symbols-outlined text-[20px]">{action.icon}</span>
-                      </div>
-                      <span className="font-body-md text-[14px] text-on-surface font-medium">{action.label}</span>
-                      <span className="material-symbols-outlined ml-auto text-[17px] text-outline-variant">arrow_forward</span>
-                    </CardContent>
-                  </Card>
-                </Link>
-              ))}
-            </div>
-          </section>
-          {/* Stat Cards — candidate pipeline */}
-          <section className="mb-6">
-            <p className="mb-3 font-label-md text-[12px] font-semibold text-on-surface-variant uppercase tracking-[0.1em]">
-              Candidate pipeline
-            </p>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              {/* Total Candidates */}
-              <Card className="h-full [--card-spacing:--spacing(4)]">
-                <CardContent>
-                  {loading ? (
-                    <DashStatTileSkeleton />
-                  ) : (
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary-fixed text-on-primary-fixed">
-                        <span className="material-symbols-outlined text-[20px]">folder_shared</span>
-                      </div>
-                      <div>
-                        <p className="font-label-md text-[12px] font-medium text-on-surface-variant">Total candidates</p>
-                        <p className="font-data-mono text-[25px] font-semibold leading-8 text-on-surface tracking-[-0.03em]">
+          {/* Consolidated overview */}
+          <section className="mb-6 grid grid-cols-1 gap-4 xl:grid-cols-[1.35fr_0.65fr]">
+            <Card className="overflow-hidden">
+              <CardHeader className="border-b border-border-low-alpha">
+                <div>
+                  <CardTitle className="font-body-md text-[16px] font-semibold text-on-surface">
+                    Candidate pipeline
+                  </CardTitle>
+                  <p className="mt-1 text-[13px] text-text-muted">
+                    A simple view of how your candidate database is progressing.
+                  </p>
+                </div>
+                {totalCandidates > 0 && (
+                  <CardAction>
+                    <Link className="text-[13px] font-medium text-primary hover:underline" href="/candidates">
+                      View candidates
+                    </Link>
+                  </CardAction>
+                )}
+              </CardHeader>
+              <CardContent className="p-6 sm:p-8">
+                {loading ? (
+                  <div className="grid animate-pulse items-center gap-8 sm:grid-cols-[180px_1fr]">
+                    <div className="mx-auto size-40 rounded-full bg-surface-container-high" />
+                    <div className="space-y-4">
+                      <div className="h-11 rounded-xl bg-surface-container-high" />
+                      <div className="h-11 rounded-xl bg-surface-container-high" />
+                      <div className="h-11 rounded-xl bg-surface-container-high" />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid items-center gap-8 sm:grid-cols-[180px_1fr]">
+                    <div
+                      className="relative mx-auto flex size-40 items-center justify-center rounded-full"
+                      style={{ background: pipelineChart }}
+                      role="img"
+                      aria-label={`${totalCandidates} total candidates: ${processedCandidates} ready, ${processingCandidates} processing`}
+                    >
+                      <div className="flex size-[116px] flex-col items-center justify-center rounded-full border border-border-low-alpha bg-surface-white shadow-ambient">
+                        <span className="text-[38px] font-semibold leading-none tracking-[-0.04em] text-on-surface">
                           {totalCandidates.toLocaleString()}
-                        </p>
+                        </span>
+                        <span className="mt-2 text-[11px] font-medium uppercase tracking-[0.1em] text-text-muted">
+                          Candidates
+                        </span>
                       </div>
                     </div>
-                  )}
-                </CardContent>
-              </Card>
-              {/* Processed Resumes */}
-              <Card className="h-full [--card-spacing:--spacing(4)]">
-                <CardContent>
-                  {loading ? (
-                    <DashStatTileSkeleton />
-                  ) : (
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary-fixed text-on-primary-fixed">
-                        <span className="material-symbols-outlined text-[20px]">document_scanner</span>
+
+                    <div>
+                      <div className="divide-y divide-border-low-alpha">
+                        {[
+                          {
+                            label: "Ready",
+                            value: processedCandidates,
+                            color: "bg-primary-container",
+                          },
+                          {
+                            label: "Processing",
+                            value: processingCandidates,
+                            color: "bg-primary-fixed-dim",
+                          },
+                          {
+                            label: "Shortlisted",
+                            value: shortlistedCount,
+                            color: "bg-surface-container-highest",
+                          },
+                        ].map((item) => (
+                          <div key={item.label} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
+                            <span className={`size-2.5 rounded-full ${item.color}`} />
+                            <span className="flex-1 text-[14px] text-on-surface-variant">{item.label}</span>
+                            <span className="text-[17px] font-semibold tabular-nums text-on-surface">
+                              {item.value.toLocaleString()}
+                            </span>
+                          </div>
+                        ))}
                       </div>
-                      <div>
-                        <p className="font-label-md text-[12px] font-medium text-on-surface-variant">Ready candidates</p>
-                        <p className="font-data-mono text-[25px] font-semibold leading-8 text-on-surface tracking-[-0.03em]">
-                          {processedCandidates.toLocaleString()}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-              {/* In Processing */}
-              <Card className="h-full [--card-spacing:--spacing(4)]">
-                <CardContent>
-                  {loading ? (
-                    <DashStatTileSkeleton />
-                  ) : (
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary-fixed text-on-primary-fixed">
-                        <span className="material-symbols-outlined text-[20px]">hourglass_top</span>
-                      </div>
-                      <div>
-                        <p className="font-label-md text-[12px] font-medium text-on-surface-variant">In processing</p>
-                        <p className="font-data-mono text-[25px] font-semibold leading-8 text-on-surface tracking-[-0.03em]">
-                          {processingCandidates.toLocaleString()}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-              {/* Shortlisted */}
-              <Card className="h-full [--card-spacing:--spacing(4)]">
-                <CardContent>
-                  {loading ? (
-                    <DashStatTileSkeleton />
-                  ) : (
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary-fixed text-on-primary-fixed">
-                        <span className="material-symbols-outlined text-[20px]" data-weight="fill">star</span>
-                      </div>
-                      <div>
-                        <p className="font-label-md text-[12px] font-medium text-on-surface-variant">Shortlisted</p>
-                        <p className="font-data-mono text-[25px] font-semibold leading-8 text-on-surface tracking-[-0.03em]">{shortlistedCount.toLocaleString()}</p>
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          </section>
-          {/* Stat Cards — outreach activity */}
-          <section className="mb-6">
-            <p className="mb-3 font-label-md text-[12px] font-semibold text-on-surface-variant uppercase tracking-[0.1em]">
-              Outreach activity
-            </p>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Link href="/automated-outreach">
-                <Card className="h-full [--card-spacing:--spacing(4)] hover:border-primary/25 hover:shadow-ambient">
-                  <CardContent>
-                    {loading ? (
-                      <DashStatTileSkeleton />
-                    ) : (
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary-fixed text-on-primary-fixed">
-                          <span className="material-symbols-outlined text-[20px]">auto_awesome</span>
-                        </div>
-                        <div>
-                          <p className="font-label-md text-[12px] font-medium text-on-surface-variant">Active campaigns</p>
-                          <p className="font-data-mono text-[25px] font-semibold leading-8 text-on-surface tracking-[-0.03em]">
-                            {activeCampaignsCount.toLocaleString()}
+                      {totalCandidates === 0 && (
+                        <div className="mt-6 border-t border-border-low-alpha pt-5">
+                          <p className="text-[13px] leading-6 text-text-muted">
+                            Your pipeline will appear here after your first résumé is processed.
                           </p>
+                          <Button asChild className="mt-4 rounded-xl bg-primary-container text-on-primary-container hover:bg-primary hover:text-on-primary">
+                            <Link href="/upload">
+                              <span className="material-symbols-outlined text-[18px]">upload_file</span>
+                              Upload your first résumé
+                            </Link>
+                          </Button>
                         </div>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </Link>
-              <Link href="/blueprints">
-                <Card className="h-full [--card-spacing:--spacing(4)] hover:border-primary/25 hover:shadow-ambient">
-                  <CardContent>
-                    {loading ? (
-                      <DashStatTileSkeleton />
-                    ) : (
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary-fixed text-on-primary-fixed">
-                          <span className="material-symbols-outlined text-[20px]">description</span>
-                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="overflow-hidden">
+              <CardHeader className="border-b border-border-low-alpha">
+                <div>
+                  <CardTitle className="font-body-md text-[16px] font-semibold text-on-surface">
+                    {hasWorkspaceActivity ? "Outreach" : "Getting started"}
+                  </CardTitle>
+                  <p className="mt-1 text-[13px] text-text-muted">
+                    {hasWorkspaceActivity ? "Your reusable outreach setup." : "Three steps to your first shortlist."}
+                  </p>
+                </div>
+              </CardHeader>
+              <CardContent className="p-6">
+                {loading ? (
+                  <div className="space-y-4 animate-pulse">
+                    <div className="h-16 rounded-xl bg-surface-container-high" />
+                    <div className="h-16 rounded-xl bg-surface-container-high" />
+                    <div className="h-16 rounded-xl bg-surface-container-high" />
+                  </div>
+                ) : hasWorkspaceActivity ? (
+                  <div className="divide-y divide-border-low-alpha">
+                    <Link href="/automated-outreach" className="group flex items-center gap-4 py-4 first:pt-0">
+                      <span className="material-symbols-outlined text-[21px] text-primary">auto_awesome</span>
+                      <span className="flex-1 text-[14px] text-on-surface-variant">Active campaigns</span>
+                      <span className="text-[22px] font-semibold tabular-nums text-on-surface">{activeCampaignsCount}</span>
+                      <span className="material-symbols-outlined text-[17px] text-outline transition-transform group-hover:translate-x-0.5">chevron_right</span>
+                    </Link>
+                    <Link href="/blueprints" className="group flex items-center gap-4 py-4 last:pb-0">
+                      <span className="material-symbols-outlined text-[21px] text-primary">description</span>
+                      <span className="flex-1 text-[14px] text-on-surface-variant">Blueprints</span>
+                      <span className="text-[22px] font-semibold tabular-nums text-on-surface">{blueprintsCount}</span>
+                      <span className="material-symbols-outlined text-[17px] text-outline transition-transform group-hover:translate-x-0.5">chevron_right</span>
+                    </Link>
+                  </div>
+                ) : (
+                  <ol className="space-y-5">
+                    {[
+                      ["Upload résumés", "Build your searchable candidate database.", "/upload"],
+                      ["Review profiles", "Confirm parsed details and shortlist the best.", "/candidates"],
+                      ["Start outreach", "Create a reusable message blueprint.", "/blueprints/new"],
+                    ].map(([title, description, href], index) => (
+                      <li key={title} className="flex gap-4">
+                        <span className="flex size-7 shrink-0 items-center justify-center rounded-full border border-outline-variant text-[12px] font-semibold text-primary">
+                          {index + 1}
+                        </span>
                         <div>
-                          <p className="font-label-md text-[12px] font-medium text-on-surface-variant">Blueprints</p>
-                          <p className="font-data-mono text-[25px] font-semibold leading-8 text-on-surface tracking-[-0.03em]">
-                            {blueprintsCount.toLocaleString()}
-                          </p>
+                          <Link href={href} className="text-[14px] font-semibold text-on-surface hover:text-primary">
+                            {title}
+                          </Link>
+                          <p className="mt-1 text-[12px] leading-5 text-text-muted">{description}</p>
                         </div>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </Link>
-            </div>
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </CardContent>
+            </Card>
           </section>
           {/* Tables Section (Asymmetric Split) */}
+          {(loading || hasWorkspaceActivity) && (
           <section className="grid grid-cols-1 gap-4 xl:grid-cols-3">
             {/* Recent Uploads (Takes up 2 columns) */}
             <Card className="h-full flex flex-col overflow-hidden xl:col-span-2">
@@ -503,6 +494,7 @@ export default function DashboardPage() {
               </CardContent>
             </Card>
           </section>
+          )}
         </main>
       </div>
     </AppShell>
