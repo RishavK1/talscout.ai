@@ -173,7 +173,14 @@ function AppSidebar() {
   const { workspaceName, profile, can, loading: authLoading } = useAuth();
   const { state } = useSidebar();
   const pathname = usePathname();
-  const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
+  // Longest-match wins, so a nested route only lights up its own row. With a
+  // plain startsWith, /automated-outreach/replies matched BOTH "Reply Review"
+  // (exact) and "Automated Outreach" (prefix), highlighting two rows at once.
+  const activeHref = [...mainNav, ...footerNav]
+    .map((i) => i.href)
+    .filter((href) => pathname === href || pathname.startsWith(href + "/"))
+    .sort((a, b) => b.length - a.length)[0];
+  const isActive = (href: string) => href === activeHref;
   const logoUrl = profile?.logo;
   const collapsed = state === "collapsed";
 

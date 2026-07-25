@@ -481,6 +481,20 @@ body {
   background-color: color-mix(in srgb, var(--color-primary) 4%, transparent);
 }
 
+/* Hovering the ALREADY-SELECTED sidebar row must not repaint it. The button's
+   utility string carries both `data-active:bg-sidebar-accent` (the solid teal
+   selected state) and a plain `hover:bg-surface-container-low`; Tailwind emits
+   hover after data-active at equal specificity, so hovering the selected row
+   swapped its teal for the grey hover tint — the row appeared to "un-select"
+   under the cursor. Scoping the hover utility itself (data-[active=false]:hover:…)
+   isn't reliable here — Tailwind does not emit that variant pair for this
+   file — so the selected state is re-asserted with a higher-specificity rule
+   (two attribute selectors beat the single hover class). */
+[data-slot="sidebar-menu-button"][data-active="true"]:hover {
+  background-color: var(--sidebar-accent);
+  color: var(--sidebar-accent-foreground);
+}
+
 /* A number of legacy screens still use Tailwind's literal `bg-white` utility
    where they mean "card surface". Keep those theme-aware while they are
    migrated to the semantic token.

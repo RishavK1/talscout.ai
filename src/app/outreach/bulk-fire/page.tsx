@@ -14,6 +14,12 @@ import { useAuth } from "@/components/app/auth-provider";
 import { outreachLimits } from "@/lib/plans";
 import { PageSpinner } from "@/components/ui/page-spinner";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { PageHeaderCard } from "@/components/app/page-header-card";
+import { StatusBadge, type StatusBadgeProps } from "@/components/ui/status-badge";
+import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
+import { TableSkeleton } from "@/components/ui/skeletons";
 
 interface Campaign {
   id: string;
@@ -51,14 +57,17 @@ const SENDER_ICON: Record<Sender["type"], string> = {
   whatsapp: "chat",
 };
 
-const STATUS_STYLE: Record<Campaign["status"], string> = {
-  draft: "bg-surface-container-high text-on-surface-variant",
-  importing: "bg-secondary-container/30 text-secondary",
-  ready: "bg-tertiary-fixed/30 text-on-tertiary-fixed-variant",
-  running: "bg-primary/10 text-primary",
-  paused: "bg-surface-container-high text-on-surface-variant",
-  completed: "bg-tertiary/10 text-tertiary",
-  error: "bg-error/10 text-error",
+/** Campaign status → shared StatusBadge tone. Replaces a hand-rolled map of
+ *  one-off pill classes so these read identically to every other status pill
+ *  in the app (and stay theme-aware in dark mode). */
+const STATUS_TONE: Record<Campaign["status"], StatusBadgeProps["tone"]> = {
+  draft: "draft",
+  importing: "brass",
+  ready: "invited",
+  running: "active",
+  paused: "draft",
+  completed: "active",
+  error: "error",
 };
 
 export default function BulkFirePage() {
@@ -310,6 +319,79 @@ export default function BulkFirePage() {
     );
   }
 
+  const campaignColumns: DataTableColumn<Campaign>[] = [
+    {
+      key: "name",
+      header: "Campaign",
+      render: (c) => (
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-container/10 text-primary-container">
+            <span className="material-symbols-outlined text-[18px]">
+              {c.channel === "whatsapp" ? "chat" : "mail"}
+            </span>
+          </div>
+          <span className="font-body-md text-[14px] font-medium text-on-surface">{c.name}</span>
+        </div>
+      ),
+    },
+    {
+      key: "status",
+      header: "Status",
+      render: (c) => (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <StatusBadge tone={STATUS_TONE[c.status]} className="capitalize">
+            {c.status}
+          </StatusBadge>
+          {c.scheduledFireAt && (
+            <StatusBadge
+              tone="brass"
+              title={new Date(c.scheduledFireAt).toLocaleString()}
+            >
+              Scheduled{" "}
+              {new Date(c.scheduledFireAt).toLocaleDateString(undefined, {
+                month: "short",
+                day: "numeric",
+              })}
+            </StatusBadge>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: "created",
+      header: "Created",
+      render: (c) => (
+        <span className="font-data-mono text-[12px] text-on-surface-variant">
+          {new Date(c.createdAt).toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          })}
+        </span>
+      ),
+    },
+    {
+      key: "actions",
+      header: "",
+      render: (c) => (
+        <button
+          type="button"
+          onClick={(e) => {
+            // The row itself navigates — keep the click from bubbling into it.
+            e.preventDefault();
+            e.stopPropagation();
+            setDeleteTarget(c);
+          }}
+          aria-label={`Delete ${c.name}`}
+          title="Delete campaign"
+          className="flex h-8 w-8 items-center justify-center rounded-lg text-on-surface-variant/60 transition-colors hover:bg-error/10 hover:text-error"
+        >
+          <span className="material-symbols-outlined text-[18px]">delete</span>
+        </button>
+      ),
+    },
+  ];
+
   return (
     <AppShell>
       <TopAppBar
@@ -324,13 +406,10 @@ export default function BulkFirePage() {
         }
         rightContent={
           canOutreach ? (
-            <button
-              type="button"
-              onClick={() => setNewCampaignOpen(true)}
-              className="bg-primary text-on-primary px-5 py-2.5 rounded-xl font-label-md text-label-md hover:shadow-lg transition-all active:scale-[0.98] whitespace-nowrap"
-            >
-              + New campaign
-            </button>
+            <Button type="button" variant="gradient" onClick={() => setNewCampaignOpen(true)} className="whitespace-nowrap">
+              <span className="material-symbols-outlined text-[18px]">add_circle</span>
+              New campaign
+            </Button>
           ) : (
             <Link
               href="/billing"
@@ -346,19 +425,28 @@ export default function BulkFirePage() {
         }
       />
       <main className="mx-auto max-w-[1440px] w-full p-4 sm:p-6 lg:p-12 min-h-screen">
-        <section className="mb-10">
-          <h1 className="font-headline-lg text-headline-lg text-primary mb-2">
-            Bulk Fire
-          </h1>
-          <p className="font-body-md text-body-md text-text-muted max-w-2xl">
-            Import leads from a docx playbook, personalize with spintax, and
-            send a paced, multi-account cold-email sequence — durable
-            server-side sends that keep going even after you close this tab.
-          </p>
-        </section>
+        <PageHeaderCard
+          icon="send"
+          title="Bulk Fire"
+          description="Bring your own list. Import leads, build a sequence once, and send it across rotating mailboxes at a pace that keeps you out of spam folders."
+          action={
+            canOutreach ? (
+              <Button
+                type="button"
+                variant="gradient"
+                size="lg"
+                onClick={() => setNewCampaignOpen(true)}
+                className="w-full justify-center sm:w-auto"
+              >
+                <span className="material-symbols-outlined text-[20px]">add_circle</span>
+                New campaign
+              </Button>
+            ) : undefined
+          }
+        />
 
         {!canOutreach ? (
-          <section className="rounded-[20px] border-2 border-dashed border-border-low-alpha p-10 text-center">
+          <section className="rounded-xl border border-dashed border-border-low-alpha p-10 text-center">
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-bg-cream text-on-surface-variant/50">
               <span className="material-symbols-outlined text-[28px]">
                 lock
@@ -410,29 +498,32 @@ export default function BulkFirePage() {
                 </Link>
               ) : (
                 <>
-                  <button
+                  <Button
                     type="button"
+                    variant="outline"
                     onClick={handleConnectGmail}
                     disabled={connectingGmail}
-                    className="flex-1 sm:flex-initial rounded-lg border border-border-low-alpha bg-white px-4 py-2 font-label-md text-label-md text-on-surface transition-colors hover:bg-surface-container-low disabled:opacity-50 text-center"
+                    className="flex-1 justify-center sm:flex-initial"
                   >
-                    {connectingGmail ? "Redirecting…" : "+ Connect Gmail"}
-                  </button>
-                  <button
+                    {connectingGmail ? "Redirecting…" : "Connect Gmail"}
+                  </Button>
+                  <Button
                     type="button"
+                    variant="outline"
                     onClick={() => setSmtpOpen(true)}
-                    className="flex-1 sm:flex-initial rounded-lg border border-border-low-alpha bg-white px-4 py-2 font-label-md text-label-md text-on-surface transition-colors hover:bg-surface-container-low text-center"
+                    className="flex-1 justify-center sm:flex-initial"
                   >
-                    + Add SMTP
-                  </button>
+                    Add SMTP
+                  </Button>
                   {canWhatsApp ? (
-                    <button
+                    <Button
                       type="button"
+                      variant="outline"
                       onClick={() => setWhatsappOpen(true)}
-                      className="flex-1 sm:flex-initial rounded-lg border border-border-low-alpha bg-white px-4 py-2 font-label-md text-label-md text-on-surface transition-colors hover:bg-surface-container-low text-center"
+                      className="flex-1 justify-center sm:flex-initial"
                     >
-                      + Connect WhatsApp
-                    </button>
+                      Connect WhatsApp
+                    </Button>
                   ) : (
                     <Link
                       href="/billing"
@@ -453,7 +544,7 @@ export default function BulkFirePage() {
           {loading ? (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {Array.from({ length: 3 }, (_, i) => (
-                <div key={i} className="flex flex-col gap-3 rounded-[20px] border border-border-low-alpha bg-white p-5">
+                <div key={i} className="flex flex-col gap-3 rounded-xl border border-border-low-alpha bg-surface-white p-5">
                   <div className="flex items-center gap-2">
                     <Skeleton className="h-5 w-5 rounded" />
                     <div className="space-y-1.5">
@@ -466,7 +557,7 @@ export default function BulkFirePage() {
               ))}
             </div>
           ) : senders.length === 0 ? (
-            <div className="rounded-[20px] border-2 border-dashed border-border-low-alpha p-8 text-center font-body-md text-on-surface-variant">
+            <div className="rounded-xl border border-dashed border-border-low-alpha p-8 text-center font-body-md text-on-surface-variant">
               No sender accounts connected yet. Connect at least one Gmail or
               SMTP account before firing a campaign.
             </div>
@@ -481,7 +572,7 @@ export default function BulkFirePage() {
                 <motion.div
                   key={s.id}
                   variants={itemVariants}
-                  className="flex flex-col gap-3 rounded-[20px] border border-border-low-alpha bg-white p-5"
+                  className="flex flex-col gap-3 rounded-xl border border-border-low-alpha bg-surface-white p-5"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-2">
@@ -509,9 +600,17 @@ export default function BulkFirePage() {
                       {s.isActive ? "Active" : "Paused"}
                     </span>
                   </div>
-                  <div className="font-data-mono text-[12px] text-text-muted">
-                    Daily limit: {s.dailyLimit}/day
-                  </div>
+                  {/* The per-mailbox `dailyLimit` used to be surfaced here as
+                      "Daily limit: N/day". It is not editable anywhere in the
+                      product, so every user saw an arbitrary number they never
+                      chose (the schema default, 40) and could not change —
+                      pure noise next to the plan's real, visible send caps. The
+                      value still exists and is still enforced server-side when
+                      a fire is scheduled (see outreach.service.ts's
+                      per-sender budget); it's a deliverability guardrail that
+                      protects the customer's own mailbox reputation, so it is
+                      deliberately kept as an internal safety net rather than a
+                      user-facing knob. */}
                   {s.type === "gmail" && !s.gmailHasReadScope && (
                     <p
                       title="Follow-ups can't auto-skip leads who already replied until this mailbox is reconnected with read access. Sending is unaffected."
@@ -524,22 +623,26 @@ export default function BulkFirePage() {
                     </p>
                   )}
                   <div className="flex gap-2 pt-1">
-                    <button
+                    <Button
                       type="button"
+                      variant="outline"
+                      size="sm"
                       disabled={senderBusyId === s.id}
                       onClick={() => toggleSenderActive(s)}
-                      className="flex-1 rounded-lg border border-border-low-alpha px-3 py-1.5 font-label-md text-[12px] text-on-surface transition-colors hover:bg-surface-container-low disabled:opacity-50"
+                      className="flex-1 justify-center"
                     >
                       {s.isActive ? "Pause" : "Resume"}
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                       type="button"
+                      variant="outline"
+                      size="sm"
                       disabled={senderBusyId === s.id}
                       onClick={() => removeSender(s)}
-                      className="rounded-lg border border-error/20 px-3 py-1.5 font-label-md text-[12px] text-error transition-colors hover:bg-error/5 disabled:opacity-50"
+                      className="border-error/25 text-error hover:bg-error/5"
                     >
                       Disconnect
-                    </button>
+                    </Button>
                   </div>
                 </motion.div>
               ))}
@@ -552,101 +655,31 @@ export default function BulkFirePage() {
           <h2 className="mb-4 font-headline-md text-headline-md text-on-surface">
             Campaigns
           </h2>
-          {loading ? (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {Array.from({ length: 3 }, (_, i) => (
-                <div key={i} className="flex flex-col gap-3 rounded-[20px] border border-border-low-alpha bg-white p-5">
-                  <Skeleton className="h-4 w-32" />
-                  <Skeleton className="h-3 w-24" />
-                  <Skeleton className="h-2 w-full rounded-full" />
-                </div>
-              ))}
-            </div>
-          ) : (
-            <motion.div
-              variants={stagger()}
-              initial="hidden"
-              animate="show"
-              className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3"
-            >
-              <motion.div
-                variants={itemVariants}
-                onClick={() => setNewCampaignOpen(true)}
-                className="group flex min-h-[180px] cursor-pointer flex-col items-center justify-center space-y-3 rounded-[20px] border-2 border-dashed border-border-low-alpha p-8 text-center transition-all duration-300 hover:border-primary/30 hover:bg-white/50"
-              >
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-surface-container-low transition-colors group-hover:bg-primary/10">
-                  <span className="material-symbols-outlined text-primary text-[28px]">
-                    add
-                  </span>
-                </div>
-                <h4 className="font-headline-md text-[16px] text-on-surface">
-                  New campaign
-                </h4>
-              </motion.div>
-
-              {campaigns.map((c) => (
-                <motion.div key={c.id} variants={itemVariants}>
-                  <Link
-                    href={`/outreach/bulk-fire/${c.id}`}
-                    className="flex min-h-[180px] flex-col justify-between rounded-[20px] border border-border-low-alpha bg-white p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-md"
-                  >
-                    <div>
-                      <div className="mb-3 flex items-start justify-between gap-2">
-                        <h3 className="flex items-center gap-1.5 font-headline-md text-[18px] text-on-surface leading-snug">
-                          <span className="material-symbols-outlined text-[16px] text-on-surface-variant/70">
-                            {c.channel === "whatsapp" ? "chat" : "mail"}
-                          </span>
-                          {c.name}
-                        </h3>
-                        <div className="flex shrink-0 items-center gap-1.5">
-                          <span
-                            className={`rounded-full px-2.5 py-0.5 font-label-md text-[11px] capitalize ${STATUS_STYLE[c.status]}`}
-                          >
-                            {c.status}
-                          </span>
-                          {c.scheduledFireAt && (
-                            <span
-                              title={new Date(c.scheduledFireAt).toLocaleString()}
-                              className="rounded-full bg-secondary-container/30 px-2.5 py-0.5 font-label-md text-[11px] text-secondary"
-                            >
-                              Scheduled{" "}
-                              {new Date(c.scheduledFireAt).toLocaleDateString(
-                                undefined,
-                                { month: "short", day: "numeric" },
-                              )}
-                            </span>
-                          )}
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              setDeleteTarget(c);
-                            }}
-                            aria-label={`Delete ${c.name}`}
-                            title="Delete campaign"
-                            className="flex h-7 w-7 items-center justify-center rounded-full text-on-surface-variant/60 transition-colors hover:bg-error/10 hover:text-error active:scale-[0.94]"
-                          >
-                            <span className="material-symbols-outlined text-[16px]">
-                              delete
-                            </span>
-                          </button>
-                        </div>
-                      </div>
+          <Card className="overflow-hidden">
+            <CardContent className="p-0">
+              {loading ? (
+                <TableSkeleton rows={4} columns={3} withAvatar />
+              ) : (
+                <DataTable
+                  columns={campaignColumns}
+                  rows={campaigns}
+                  getRowKey={(c) => c.id}
+                  onRowClick={(c) => router.push(`/outreach/bulk-fire/${c.id}`)}
+                  emptyState={
+                    <div className="flex flex-col items-center gap-3">
+                      <span className="material-symbols-outlined text-outline text-[32px]">send</span>
+                      <p className="font-body-md text-body-md text-on-surface-variant">
+                        No campaigns yet. Create one, import your leads, and build the sequence.
+                      </p>
+                      <Button type="button" variant="gradient" onClick={() => setNewCampaignOpen(true)}>
+                        New campaign
+                      </Button>
                     </div>
-                    <div className="flex items-center justify-between border-t border-border-low-alpha pt-3">
-                      <span className="font-data-mono text-[12px] text-text-muted">
-                        Created {new Date(c.createdAt).toLocaleDateString()}
-                      </span>
-                      <span className="material-symbols-outlined text-[18px] text-primary">
-                        arrow_forward
-                      </span>
-                    </div>
-                  </Link>
-                </motion.div>
-              ))}
-            </motion.div>
-          )}
+                  }
+                />
+              )}
+            </CardContent>
+          </Card>
         </section>
           </>
         )}

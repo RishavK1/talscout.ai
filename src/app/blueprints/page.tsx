@@ -9,6 +9,7 @@ import { TopAppBar } from "@/components/app/top-app-bar";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { PageHeaderCard } from "@/components/app/page-header-card";
 import { StatusBadge, type StatusBadgeProps } from "@/components/ui/status-badge";
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 import { TableSkeleton } from "@/components/ui/skeletons";
@@ -107,28 +108,19 @@ export default function BlueprintsPage() {
           }
         />
         <main className="flex-1 p-4 sm:p-6 lg:p-12 max-w-[1440px] mx-auto w-full">
-          <Card className="mb-6 border border-border-low-alpha bg-surface-white [--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
-            <CardContent className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
-              <div className="flex items-start gap-4">
-                <div className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary-container/10 text-primary-container sm:flex">
-                  <span className="material-symbols-outlined">description</span>
-                </div>
-                <div className="space-y-1.5">
-                  <h1 className="font-headline-lg text-headline-lg text-primary">Blueprints</h1>
-                  <p className="font-body-lg text-body-lg text-text-muted max-w-lg">
-                    AI-generated business context — what you sell, who it&apos;s for, and
-                    how to talk about it — that powers your outreach copy.
-                  </p>
-                </div>
-              </div>
+          <PageHeaderCard
+            icon="description"
+            title="Blueprints"
+            description="AI-generated business context — what you sell, who it's for, and how to talk about it — that powers your outreach copy."
+            action={
               <Button asChild variant="gradient" size="lg" className="w-full justify-center sm:w-auto">
                 <Link href="/blueprints/new">
                   <span className="material-symbols-outlined text-[20px]">add_circle</span>
                   New blueprint
                 </Link>
               </Button>
-            </CardContent>
-          </Card>
+            }
+          />
 
           <Card className="overflow-hidden">
             <CardContent className="p-0">
