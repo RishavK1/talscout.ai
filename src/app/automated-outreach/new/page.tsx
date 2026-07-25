@@ -144,7 +144,11 @@ export default function NewAutomatedCampaignPage() {
             </div>
           }
         />
-        <main className="flex-1 p-4 sm:p-6 lg:p-12 max-w-[720px] mx-auto w-full">
+        {/* Was max-w-[720px], which left most of a desktop viewport empty on
+            either side of a four-step form. Matches the blueprint wizard's
+            width; the field rows below pair up on >=md so the extra space is
+            actually used rather than just stretching single inputs. */}
+        <main className="flex-1 p-4 sm:p-6 lg:p-12 max-w-[1100px] mx-auto w-full">
           {loadingOptions ? (
             <div className="flex items-center justify-center min-h-[300px]">
               <span className="material-symbols-outlined animate-spin text-primary text-[32px]">sync</span>
@@ -209,6 +213,7 @@ export default function NewAutomatedCampaignPage() {
                       className="w-full rounded-xl border border-border-low-alpha bg-bg-cream/30 px-4 py-3 font-body-md focus:outline-none focus:ring-1 focus:ring-primary placeholder-outline"
                     />
                   </div>
+                  <div className="grid gap-6 md:grid-cols-2">
                   <div>
                     <label className="block font-label-md text-label-md text-primary mb-2">Blueprint</label>
                     <select
@@ -248,6 +253,7 @@ export default function NewAutomatedCampaignPage() {
                       </p>
                     )}
                   </div>
+                  </div>
                 </CardContent>
               </Card>
 
@@ -263,6 +269,7 @@ export default function NewAutomatedCampaignPage() {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-6">
+                  <div className="grid gap-6 md:grid-cols-2">
                   <div>
                     <label className="block font-label-md text-label-md text-primary mb-2">
                       Business category
@@ -290,6 +297,7 @@ export default function NewAutomatedCampaignPage() {
                       Use a city, not a country — discovery searches ~10km around
                       the location&apos;s center.
                     </p>
+                  </div>
                   </div>
                   {selectedBlueprint?.sections && (
                     <div className="rounded-xl border border-border-low-alpha bg-bg-cream/30 p-4">

@@ -266,7 +266,14 @@ function TrendChart({ data, loading }: { data: DailyPoint[]; loading: boolean })
       )}
       {hover && (
         <div
-          className="absolute pointer-events-none bg-on-surface text-white rounded-lg px-3 py-1.5 font-label-md text-[12px] -translate-x-1/2 -translate-y-full"
+          // `text-surface-white` rather than a literal `text-white`: both this
+          // and `bg-on-surface` invert with the theme, so the pill stays dark-
+          // on-light in light mode and light-on-dark in dark mode. With the
+          // literal white it was white text on a near-white pill in dark mode —
+          // the date was effectively invisible. (The --color-inverse-surface
+          // pair looks like the right token for this but is light in BOTH
+          // themes, so it can't be used here.)
+          className="absolute pointer-events-none bg-on-surface text-surface-white rounded-lg px-3 py-1.5 font-label-md text-[12px] -translate-x-1/2 -translate-y-full shadow-sm"
           style={{
             left: `${(hover.x / width) * 100}%`,
             top: `${(hover.y / height) * 100}%`,
