@@ -22,10 +22,16 @@ export function SiteNav() {
           </Link>
           <nav className="hidden items-center gap-6 md:flex">
             <Link
-              href="/#features"
+              href="/#outreach"
               className="font-label-md text-label-md text-on-surface-variant transition-colors hover:text-primary"
             >
-              Product
+              AI Outreach
+            </Link>
+            <Link
+              href="/#talent"
+              className="font-label-md text-label-md text-on-surface-variant transition-colors hover:text-primary"
+            >
+              Talent
             </Link>
             <Link
               href="/pricing"

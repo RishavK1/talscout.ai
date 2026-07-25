@@ -6,9 +6,10 @@ const columns: { heading: string; links: FootLink[] }[] = [
   {
     heading: "Product",
     links: [
-      { label: "Product", href: "/#product" },
+      { label: "AI Outreach", href: "/#outreach" },
+      { label: "Bulk Fire", href: "/#bulk-fire" },
+      { label: "Talent", href: "/#talent" },
       { label: "Pricing", href: "/pricing" },
-      { label: "How it works", href: "/#how" },
     ],
   },
   {

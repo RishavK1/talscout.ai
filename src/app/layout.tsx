@@ -27,9 +27,9 @@ const geistMono = Geist_Mono({
 
 const SITE_URL = "https://talscout.rishavkamboj.online";
 const SITE_NAME = "TalScout";
-const TITLE = "TalScout — Stop typing résumés. Start finding and reaching talent.";
+const TITLE = "TalScout — AI that finds your next customer and your next hire.";
 const DESCRIPTION =
-  "Transform chaotic PDFs into a structured, searchable candidate database in seconds, then bulk-fire AI-personalized outreach campaigns to win new client business or re-engage candidates. Built for staffing and recruiting teams who demand precision, speed, and growth.";
+  "Two AI engines in one workspace. Outreach discovers businesses that fit what you sell, writes each a personal cold email, and sends it from your own mailbox. Talent parses every résumé into a structured profile you can search in plain English. Run one, or run both.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -39,18 +39,18 @@ export const metadata: Metadata = {
   },
   description: DESCRIPTION,
   keywords: [
+    "AI cold email",
+    "b2b lead generation",
+    "automated outreach",
+    "cold email outreach",
+    "sales outreach software",
+    "lead discovery",
+    "AI email personalization",
+    "bulk email outreach",
+    "business development emails",
     "resume parsing",
     "candidate database",
     "semantic search",
-    "recruiting software",
-    "applicant tracking",
-    "AI recruiting",
-    "talent search",
-    "b2b lead generation",
-    "cold email outreach",
-    "sales outreach software",
-    "business development emails",
-    "bulk email outreach",
   ],
   alternates: {
     canonical: "/",

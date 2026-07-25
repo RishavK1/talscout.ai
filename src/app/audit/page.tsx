@@ -392,7 +392,7 @@ export default function AuditLogPage() {
               <div className="flex flex-col gap-3">
                 <span className="font-label-md font-bold text-primary">Product</span>
                 <Link className="text-label-md text-on-surface-variant hover:text-secondary transition-colors" href="/audit">Audit logs</Link>
-                <Link className="text-label-md text-on-surface-variant hover:text-secondary transition-colors" href="/#features">API Access</Link>
+                <Link className="text-label-md text-on-surface-variant hover:text-secondary transition-colors" href="/#pricing">API Access</Link>
               </div>
               <div className="flex flex-col gap-3">
                 <span className="font-label-md font-bold text-primary">Legal</span>

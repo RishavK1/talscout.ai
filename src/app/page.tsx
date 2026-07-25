@@ -8,32 +8,73 @@ import { LandingFaq } from "@/components/marketing/landing-faq";
 import { useAuth } from "@/components/app/auth-provider";
 import { PLAN_ORDER, PLANS } from "@/lib/plans";
 
-const WORKFLOW = [
+const PIPELINE = [
   {
     number: "01",
-    title: "Ingest every résumé",
-    body: "Upload PDF and DOCX files individually or in bulk. TalScout handles inconsistent layouts and scanned documents.",
+    icon: "auto_awesome",
+    title: "Build your blueprint",
+    body: "Give us your website. We research it live on the web, ask a few questions, and turn the answers into a structured brief the AI writes from.",
   },
   {
     number: "02",
-    title: "Structure the intelligence",
-    body: "Names, contacts, skills, experience, education and work history become clean, reviewable candidate profiles.",
+    icon: "travel_explore",
+    title: "Discover businesses",
+    body: "Pick a category and a place. We pull real businesses from mapping and places data — not a stale purchased list.",
   },
   {
     number: "03",
-    title: "Search and take action",
-    body: "Describe the person you need, understand why they match, shortlist them, and launch personalized outreach.",
+    icon: "alternate_email",
+    title: "Find the email",
+    body: "A waterfall of sources looks for a real contact address. No email found means no email sent — that lead never enters the pipeline.",
+  },
+  {
+    number: "04",
+    icon: "filter_alt",
+    title: "Qualify the fit",
+    body: "The AI reads each business against your blueprint's rules and drops the ones that were never a fit, before a single email goes out.",
+  },
+  {
+    number: "05",
+    icon: "send",
+    title: "Write and send",
+    body: "Every email is written for that one business, then sent from your own mailbox on a paced, human-looking schedule.",
+  },
+];
+
+const DELIVERABILITY = [
+  {
+    icon: "mail_lock",
+    title: "Your mailbox, not ours",
+    body: "Connect Gmail or any SMTP account. Mail leaves from your domain, so replies land in your inbox and your reputation stays yours.",
+  },
+  {
+    icon: "schedule",
+    title: "Paced, never blasted",
+    body: "Sends are spread across the day with natural jitter instead of firing a whole batch in one minute.",
+  },
+  {
+    icon: "forum",
+    title: "Threaded follow-ups",
+    body: "Day 3 and Day 7 reply into the original conversation, from the same sender — never as a cold new message.",
+  },
+  {
+    icon: "encrypted",
+    title: "Encrypted credentials",
+    body: "Mailbox tokens and SMTP passwords are encrypted at rest with AES-256-GCM and only decrypted at the moment of sending.",
   },
 ];
 
 const TRUST_POINTS = [
-  { icon: "database", title: "Tenant-isolated data", body: "Workspace boundaries are enforced at the database layer." },
-  { icon: "fact_check", title: "Human review", body: "Recruiters approve extracted data before it becomes a source of truth." },
-  { icon: "policy", title: "Role-based access", body: "Permissions and plan capabilities are enforced server-side." },
+  { icon: "database", title: "Tenant-isolated data", body: "Workspace boundaries are enforced at the database layer, not just in app code." },
+  { icon: "fact_check", title: "Grounded, not invented", body: "Copy is written strictly from your blueprint. The AI is instructed never to fabricate claims or numbers." },
+  { icon: "policy", title: "Role-based access", body: "Permissions and plan capabilities are enforced server-side on every request." },
   { icon: "receipt_long", title: "Auditable workflows", body: "Scale plans include a workspace activity trail for accountability." },
 ];
 
-function ProductWindow() {
+/** Hero visual — one workspace frame holding BOTH engines, given equal space
+ *  and equal visual weight. Outreach and Talent work differently, but neither
+ *  is a sidebar feature of the other. */
+function WorkspaceWindow() {
   return (
     <div className="overflow-hidden rounded-[22px] border border-border-low-alpha bg-surface-white shadow-[0_34px_90px_-42px_rgba(15,23,42,0.42)]">
       <div className="flex h-11 items-center justify-between border-b border-border-low-alpha bg-surface-container-low/80 px-4">
@@ -43,132 +84,173 @@ function ProductWindow() {
           <span className="size-2.5 rounded-full bg-outline-variant" />
         </div>
         <span className="font-data-mono text-[10px] uppercase tracking-[0.14em] text-outline">
-          Candidate intelligence
+          TalScout workspace
         </span>
         <span className="size-5" />
       </div>
 
-      <div className="grid min-h-[430px] grid-cols-[54px_1fr] sm:grid-cols-[150px_1fr]">
-        <aside className="border-r border-border-low-alpha bg-surface-white p-2.5 sm:p-4">
-          <div className="mb-7 flex items-center gap-2">
-            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary-container text-on-primary-container">
-              <span className="material-symbols-outlined text-[18px]">travel_explore</span>
+      {/* Engine 1 — Outreach */}
+      <div className="bg-bg-cream p-4 sm:p-5">
+        <div className="mb-3.5 flex items-start justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <span className="flex size-8 items-center justify-center rounded-lg bg-primary-container text-on-primary-container">
+              <span className="material-symbols-outlined text-[17px]">rocket_launch</span>
             </span>
-            <span className="hidden text-[13px] font-semibold text-on-surface sm:inline">TalScout</span>
-          </div>
-          {[
-            ["search", "Search"],
-            ["group", "Candidates"],
-            ["star", "Shortlists"],
-            ["insights", "Analytics"],
-          ].map(([icon, label], index) => (
-            <div
-              key={label}
-              className={`mb-1 flex h-9 items-center gap-2 rounded-lg px-2 ${
-                index === 0 ? "bg-primary-container text-on-primary-container" : "text-on-surface-variant"
-              }`}
-            >
-              <span className="material-symbols-outlined text-[17px]">{icon}</span>
-              <span className="hidden text-[11px] sm:inline">{label}</span>
-            </div>
-          ))}
-        </aside>
-
-        <div className="min-w-0 bg-bg-cream p-4 sm:p-6">
-          <div className="mb-5 flex items-start justify-between gap-4">
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">Semantic search</p>
-              <h3 className="mt-1 text-[18px] font-semibold tracking-[-0.02em] text-on-surface sm:text-[22px]">
-                Find the right candidate
-              </h3>
+              <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-primary">Outreach</p>
+              <p className="mt-0.5 text-[14px] font-semibold tracking-[-0.015em] text-on-surface sm:text-[16px]">
+                Dentists · Austin, TX
+              </p>
             </div>
-            <span className="hidden rounded-lg border border-border-low-alpha bg-surface-white px-2.5 py-1.5 text-[10px] font-medium text-text-muted sm:inline">
-              248 profiles
-            </span>
           </div>
+          <span className="shrink-0 rounded-md bg-tertiary-fixed px-2 py-1 text-[9px] font-semibold text-on-tertiary-fixed">
+            Active
+          </span>
+        </div>
 
-          <div className="mb-4 flex items-center gap-2.5 rounded-xl border border-border-low-alpha bg-surface-white px-3 py-3 shadow-sm">
-            <span className="material-symbols-outlined text-[18px] text-outline">search</span>
-            <span className="min-w-0 flex-1 truncate text-[11px] text-on-surface-variant sm:text-[13px]">
-              Senior product designer · design systems · remote
-            </span>
-            <span className="rounded-md bg-primary-fixed px-2 py-1 text-[9px] font-semibold text-primary">AI search</span>
-          </div>
-
-          <div className="mb-2 flex items-center justify-between">
-            <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-outline">Best matches</span>
-            <span className="text-[10px] text-outline">Ranked by fit</span>
-          </div>
-
+        <div className="mb-3 grid grid-cols-4 divide-x divide-border-low-alpha rounded-xl border border-border-low-alpha bg-surface-white">
           {[
-            {
-              initials: "ER",
-              name: "Elena Rodriguez",
-              role: "Lead Product Designer",
-              location: "San Francisco · Remote",
-              score: "94",
-              reason: "Led a multi-product design system across 3 SaaS platforms.",
-            },
-            {
-              initials: "MJ",
-              name: "Marcus Johnson",
-              role: "Senior Product Designer",
-              location: "Austin · Remote",
-              score: "91",
-              reason: "Strong systems practice with enterprise workflow experience.",
-            },
-          ].map((candidate, index) => (
-            <div
-              key={candidate.name}
-              className={`mb-3 rounded-xl border bg-surface-white p-3.5 ${
-                index === 0 ? "border-primary/20 shadow-[0_8px_24px_-18px_rgba(13,148,136,0.55)]" : "border-border-low-alpha"
-              }`}
-            >
-              <div className="flex items-start gap-3">
-                <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-surface-container text-[11px] font-semibold text-text-muted">
-                  {candidate.initials}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="truncate text-[12px] font-semibold text-on-surface">{candidate.name}</p>
-                      <p className="truncate text-[10px] text-text-muted">
-                        {candidate.role} · {candidate.location}
-                      </p>
-                    </div>
-                    <span className="font-data-mono text-[12px] font-semibold text-primary">{candidate.score}%</span>
-                  </div>
-                  <p className="mt-2 hidden border-t border-border-low-alpha pt-2 text-[10px] leading-relaxed text-text-muted sm:block">
-                    {candidate.reason}
-                  </p>
-                </div>
-              </div>
+            ["142", "Found"],
+            ["96", "Emails"],
+            ["61", "Qualified"],
+            ["14", "Replies"],
+          ].map(([value, label]) => (
+            <div key={label} className="px-1.5 py-2.5 text-center">
+              <p className="font-data-mono text-[15px] font-semibold text-on-surface">{value}</p>
+              <p className="mt-0.5 text-[9px] text-text-muted">{label}</p>
             </div>
           ))}
+        </div>
+
+        <div className="rounded-xl border border-primary/20 bg-surface-white p-3 shadow-[0_8px_24px_-18px_rgba(13,148,136,0.55)]">
+          <div className="flex items-center gap-2.5">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-surface-container text-text-muted">
+              <span className="material-symbols-outlined text-[16px]">storefront</span>
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[11px] font-semibold text-on-surface">Brightsmile Family Dental</p>
+              <p className="truncate text-[9px] text-text-muted">No website · 4.6★ · Austin</p>
+            </div>
+            <span className="shrink-0 rounded-md bg-primary-fixed px-2 py-0.5 text-[9px] font-semibold text-primary">
+              Sent
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div className="h-px bg-border-low-alpha" />
+
+      {/* Engine 2 — Talent */}
+      <div className="bg-surface-white p-4 sm:p-5">
+        <div className="mb-3.5 flex items-start justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <span className="flex size-8 items-center justify-center rounded-lg bg-primary-container text-on-primary-container">
+              <span className="material-symbols-outlined text-[17px]">group</span>
+            </span>
+            <div>
+              <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-primary">Talent</p>
+              <p className="mt-0.5 text-[14px] font-semibold tracking-[-0.015em] text-on-surface sm:text-[16px]">
+                Semantic candidate search
+              </p>
+            </div>
+          </div>
+          <span className="hidden shrink-0 rounded-md border border-border-low-alpha px-2 py-1 text-[9px] font-medium text-text-muted sm:inline">
+            248 profiles
+          </span>
+        </div>
+
+        <div className="mb-3 flex items-center gap-2 rounded-xl border border-border-low-alpha bg-bg-cream px-3 py-2.5">
+          <span className="material-symbols-outlined text-[16px] text-outline">search</span>
+          <span className="min-w-0 flex-1 truncate text-[10px] text-on-surface-variant sm:text-[11px]">
+            ICU nurse · Texas · night shifts
+          </span>
+        </div>
+
+        {[
+          ["DK", "Dana Kim", "ICU RN · Houston", "96%"],
+          ["LP", "Luis Peña", "Critical Care RN · Dallas", "92%"],
+        ].map(([initials, name, role, score], index) => (
+          <div
+            key={name}
+            className={`flex items-center gap-2.5 rounded-xl border bg-surface-white p-3 ${
+              index === 0
+                ? "mb-2 border-primary/20 shadow-[0_8px_24px_-18px_rgba(13,148,136,0.55)]"
+                : "border-border-low-alpha"
+            }`}
+          >
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-surface-container text-[10px] font-semibold text-text-muted">
+              {initials}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[11px] font-semibold text-on-surface">{name}</p>
+              <p className="truncate text-[9px] text-text-muted">{role}</p>
+            </div>
+            <span className="shrink-0 font-data-mono text-[11px] font-semibold text-primary">{score}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Blueprint visual — the structured business brief every email is written
+ *  from. This is the "how the AI knows your business" proof point. */
+function BlueprintWindow() {
+  return (
+    <div className="overflow-hidden rounded-[22px] border border-border-low-alpha bg-surface-white shadow-[0_28px_70px_-42px_rgba(15,23,42,0.4)]">
+      <div className="border-b border-border-low-alpha px-5 py-4">
+        <div className="flex items-center justify-between">
+          <p className="text-[11px] font-semibold text-on-surface">Blueprint · Northside Web Studio</p>
+          <span className="rounded-md bg-primary-fixed px-2 py-1 text-[9px] font-semibold text-primary">Active</span>
+        </div>
+        <p className="mt-1 text-[10px] text-text-muted">Generated from your site + live web research</p>
+      </div>
+      <div className="space-y-3 p-5">
+        {[
+          ["What we offer", "Done-for-you websites for local service businesses, live in 14 days."],
+          ["Who it's for", "Independent trades and clinics with 2–20 staff, no in-house marketing."],
+          ["Differentiator", "Fixed price, no retainer, full handover of the site."],
+          ["Voice", "Plain, direct, no agency jargon."],
+        ].map(([label, value]) => (
+          <div key={label} className="rounded-xl border border-border-low-alpha bg-bg-cream p-3.5">
+            <p className="text-[9px] font-semibold uppercase tracking-[0.13em] text-outline">{label}</p>
+            <p className="mt-1.5 text-[11px] leading-5 text-on-surface-variant">{value}</p>
+          </div>
+        ))}
+        <div className="rounded-xl border border-primary/20 bg-primary-fixed/40 p-3.5 dark:bg-primary-container/10">
+          <div className="flex items-center gap-1.5">
+            <span className="material-symbols-outlined text-[13px] text-primary">filter_alt</span>
+            <p className="text-[9px] font-semibold uppercase tracking-[0.13em] text-primary">Lead rules</p>
+          </div>
+          <p className="mt-1.5 text-[11px] leading-5 text-on-surface-variant">
+            Only businesses with no site or a weak one. Never franchises or chains.
+          </p>
         </div>
       </div>
     </div>
   );
 }
 
-function OutreachWindow() {
+/** Bulk Fire visual — the bring-your-own-list engine. Distinct from the
+ *  automated campaign window above so the two features read as separate. */
+function BulkFireWindow() {
   return (
     <div className="overflow-hidden rounded-[20px] border border-border-low-alpha bg-surface-white shadow-[0_28px_70px_-40px_rgba(15,23,42,0.38)]">
       <div className="flex items-center justify-between border-b border-border-low-alpha px-5 py-4">
         <div>
-          <p className="text-[11px] font-semibold text-on-surface">Senior engineering shortlist</p>
-          <p className="mt-0.5 text-[10px] text-text-muted">Personalized candidate outreach</p>
+          <p className="text-[11px] font-semibold text-on-surface">Q3 agency list</p>
+          <p className="mt-0.5 text-[10px] text-text-muted">1,240 contacts imported from CSV</p>
         </div>
         <span className="rounded-md bg-tertiary-fixed px-2 py-1 text-[9px] font-semibold text-on-tertiary-fixed">
-          Active
+          Firing
         </span>
       </div>
       <div className="p-5">
         <div className="mb-4 grid grid-cols-3 divide-x divide-border-low-alpha rounded-xl border border-border-low-alpha bg-bg-cream">
           {[
-            ["84", "Candidates"],
-            ["72", "Sent"],
-            ["11", "Replies"],
+            ["1,240", "Contacts"],
+            ["842", "Sent"],
+            ["97", "Replies"],
           ].map(([value, label]) => (
             <div key={label} className="px-3 py-3 text-center">
               <p className="font-data-mono text-[17px] font-semibold text-on-surface">{value}</p>
@@ -178,9 +260,9 @@ function OutreachWindow() {
         </div>
         <p className="mb-2 text-[9px] font-semibold uppercase tracking-[0.13em] text-outline">Sequence</p>
         {[
-          ["01", "Personal introduction", "Sent", "Day 0"],
-          ["02", "Role context and value", "Scheduled", "Day 3"],
-          ["03", "Final follow-up", "Draft", "Day 7"],
+          ["01", "Opening email", "Sent", "Day 0"],
+          ["02", "Follow-up in thread", "Sending", "Day 3"],
+          ["03", "Final nudge", "Scheduled", "Day 7"],
         ].map(([step, title, status, day]) => (
           <div key={step} className="flex items-center gap-3 border-b border-border-low-alpha py-3 last:border-0">
             <span className="flex size-7 items-center justify-center rounded-lg bg-surface-container font-data-mono text-[9px] text-text-muted">
@@ -191,6 +273,95 @@ function OutreachWindow() {
               <p className="mt-0.5 text-[9px] text-outline">{day}</p>
             </div>
             <span className="text-[9px] font-medium text-text-muted">{status}</span>
+          </div>
+        ))}
+        <div className="mt-4 flex flex-wrap gap-2 border-t border-border-low-alpha pt-4">
+          {["3 senders rotating", "Paced sending", "Stops on reply"].map((chip) => (
+            <span
+              key={chip}
+              className="rounded-md border border-border-low-alpha bg-bg-cream px-2 py-1 text-[9px] font-medium text-text-muted"
+            >
+              {chip}
+            </span>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Reply-handling visual — AI drafts, a human always approves. */
+function ReplyWindow() {
+  return (
+    <div className="overflow-hidden rounded-[22px] border border-border-low-alpha bg-surface-white shadow-[0_28px_70px_-42px_rgba(15,23,42,0.4)]">
+      <div className="border-b border-border-low-alpha px-5 py-4">
+        <p className="text-[11px] font-semibold text-on-surface">Reply from Cedar Park Dental Care</p>
+        <p className="mt-0.5 text-[10px] text-text-muted">Detected in thread · 2 hours ago</p>
+      </div>
+      <div className="p-5">
+        <div className="rounded-xl border border-border-low-alpha bg-bg-cream p-4">
+          <p className="text-[9px] font-semibold uppercase tracking-[0.13em] text-outline">They said</p>
+          <p className="mt-2 text-[11px] leading-5 text-on-surface-variant">
+            “Interesting timing — we&apos;ve been meaning to redo the site. What does it usually run?”
+          </p>
+        </div>
+
+        <div className="mt-4 rounded-xl border border-primary/20 bg-surface-white p-4">
+          <div className="flex items-center gap-1.5">
+            <span className="material-symbols-outlined text-[14px] text-primary">auto_awesome</span>
+            <p className="text-[9px] font-semibold uppercase tracking-[0.13em] text-primary">AI-drafted reply</p>
+          </div>
+          <p className="mt-2.5 text-[11px] leading-5 text-on-surface-variant">
+            Happy to share — most builds like yours land in a fixed range, and I can send a firm number once
+            I know how many pages you need. Would a short call this week work?
+          </p>
+          <div className="mt-3 flex items-center gap-2 border-t border-border-low-alpha pt-3">
+            <span className="inline-flex h-8 items-center rounded-lg bg-primary-container px-3 text-[10px] font-semibold text-on-primary-container">
+              Approve &amp; send
+            </span>
+            <span className="inline-flex h-8 items-center rounded-lg border border-outline-variant px-3 text-[10px] font-medium text-text-muted">
+              Edit
+            </span>
+            <span className="inline-flex h-8 items-center rounded-lg border border-outline-variant px-3 text-[10px] font-medium text-text-muted">
+              Reject
+            </span>
+          </div>
+        </div>
+
+        <p className="mt-3 text-[10px] leading-4 text-text-muted">
+          Nothing sends itself. Every reply waits for a human.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/** Talent-side visual — deliberately smaller and later on the page than the
+ *  outreach windows above; this is a separate product, not the headline. */
+function TalentWindow() {
+  return (
+    <div className="rounded-[22px] border border-border-low-alpha bg-surface-white p-5 shadow-[0_28px_70px_-42px_rgba(15,23,42,0.4)]">
+      <div className="rounded-xl border border-border-low-alpha bg-bg-cream p-4">
+        <p className="text-[9px] font-semibold uppercase tracking-[0.13em] text-outline">Search request</p>
+        <p className="mt-2 text-[13px] font-medium text-on-surface-variant">
+          “ICU nurse in Texas, 3+ years, comfortable with night shifts”
+        </p>
+      </div>
+      <div className="mt-4 space-y-3">
+        {[
+          ["Dana Kim", "ICU RN · Houston", "96%", "5 years critical care; current night-shift rotation."],
+          ["Luis Peña", "Critical Care RN · Dallas", "92%", "Trauma ICU background with 4 years of experience."],
+          ["Amara Okafor", "ICU Nurse · Austin", "89%", "Strong acute-care experience; flexible shift preference."],
+        ].map(([name, role, score, reason]) => (
+          <div key={name} className="rounded-xl border border-border-low-alpha p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[12px] font-semibold text-on-surface">{name}</p>
+                <p className="mt-0.5 text-[10px] text-text-muted">{role}</p>
+              </div>
+              <span className="font-data-mono text-[12px] font-semibold text-primary">{score}</span>
+            </div>
+            <p className="mt-3 border-t border-border-low-alpha pt-3 text-[10px] leading-4 text-text-muted">{reason}</p>
           </div>
         ))}
       </div>
@@ -207,6 +378,7 @@ export default function LandingPage() {
       <LandingNav />
 
       <main className="flex-grow">
+        {/* ---- Hero: outreach-first ---- */}
         <section className="relative overflow-hidden border-b border-border-low-alpha bg-bg-cream pt-28">
           <div
             aria-hidden
@@ -220,13 +392,15 @@ export default function LandingPage() {
           <div className="relative mx-auto grid w-full max-w-[1240px] grid-cols-1 items-center gap-16 px-6 pb-20 pt-20 lg:grid-cols-[1.02fr_0.98fr] lg:px-8 lg:pb-28 lg:pt-24">
             <Reveal>
               <p className="mb-6 text-[12px] font-semibold uppercase tracking-[0.16em] text-primary">
-                Talent intelligence for recruiting teams
+                AI outreach &amp; talent intelligence
               </p>
               <h1 className="max-w-[690px] text-[44px] font-semibold leading-[1.02] tracking-[-0.045em] text-on-surface sm:text-[58px] lg:text-[66px]">
-                Turn every résumé into a searchable talent advantage.
+                AI that finds your next customer — and your next hire.
               </h1>
               <p className="mt-7 max-w-[590px] text-[17px] leading-8 text-text-muted sm:text-[19px]">
-                TalScout structures candidate data, understands recruiter intent, and helps your team move from résumé to shortlist to outreach—without the manual work.
+                Two AI engines in one workspace. Outreach discovers businesses that fit what you sell and
+                writes each of them a personal email. Talent turns your résumé pile into a database you can
+                search in plain English. Run one, or run both.
               </p>
 
               <div className="mt-9 flex flex-col gap-3 sm:flex-row">
@@ -234,19 +408,19 @@ export default function LandingPage() {
                   href={primaryHref}
                   className="group inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-primary-container px-6 text-[14px] font-semibold text-on-primary-container shadow-[0_10px_28px_-12px_rgba(15,118,110,0.5)] transition-colors hover:bg-primary hover:text-on-primary"
                 >
-                  {user ? "Open your workspace" : "Start building your talent database"}
+                  {user ? "Open your workspace" : "Get started free"}
                   <span className="material-symbols-outlined text-[17px] transition-transform group-hover:translate-x-0.5">arrow_forward</span>
                 </Link>
                 <Link
-                  href="/#product"
+                  href="/#platform"
                   className="inline-flex h-12 items-center justify-center rounded-xl border border-outline-variant bg-surface-white px-6 text-[14px] font-semibold text-on-surface-variant transition-colors hover:border-outline hover:bg-bg-cream"
                 >
-                  See the product
+                  See how it works
                 </Link>
               </div>
 
               <div className="mt-9 flex flex-wrap gap-x-6 gap-y-3 text-[12px] text-text-muted">
-                {["PDF and DOCX ingestion", "Human-reviewed profiles", "Tenant-isolated workspaces"].map((item) => (
+                {["Leads found for you", "Résumés parsed and searchable", "You approve every send"].map((item) => (
                   <span key={item} className="inline-flex items-center gap-2">
                     <span className="material-symbols-outlined text-[15px] text-primary">check</span>
                     {item}
@@ -256,18 +430,19 @@ export default function LandingPage() {
             </Reveal>
 
             <Reveal delay={0.08} className="relative lg:translate-y-5">
-              <ProductWindow />
+              <WorkspaceWindow />
             </Reveal>
           </div>
         </section>
 
+        {/* ---- Capability strip ---- */}
         <section className="border-b border-border-low-alpha bg-surface-white">
           <div className="mx-auto grid max-w-[1240px] grid-cols-2 divide-x divide-border-low-alpha px-6 sm:grid-cols-4 lg:px-8">
             {[
-              ["AI parsing", "Structured, reviewable profiles"],
-              ["Semantic search", "Meaning over keyword matching"],
-              ["Shortlists", "Move the right people forward"],
-              ["Outreach", "Personalized sequences at scale"],
+              ["Lead discovery", "Real businesses, found for you"],
+              ["Personalized copy", "Written per lead, never templated"],
+              ["Résumé parsing", "PDFs into structured profiles"],
+              ["Semantic search", "Find people by meaning"],
             ].map(([title, body]) => (
               <div key={title} className="px-4 py-7 first:pl-0 sm:px-6">
                 <p className="text-[12px] font-semibold text-on-surface">{title}</p>
@@ -277,51 +452,163 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section id="how" className="scroll-mt-24 bg-surface-white px-6 py-24 lg:px-8 lg:py-32">
+        {/* ---- Two separate engines: the core clarification ---- */}
+        <section id="platform" className="scroll-mt-24 bg-surface-white px-6 py-24 lg:px-8 lg:py-32">
           <div className="mx-auto max-w-[1240px]">
             <Reveal className="grid gap-8 border-b border-border-low-alpha pb-12 lg:grid-cols-[0.8fr_1.2fr]">
-              <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-primary">One connected workflow</p>
+              <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-primary">Two engines, one workspace</p>
               <div>
                 <h2 className="max-w-3xl text-[34px] font-semibold leading-[1.12] tracking-[-0.035em] text-on-surface sm:text-[44px]">
-                  From document chaos to confident action.
+                  Two engines. Both built all the way.
                 </h2>
                 <p className="mt-5 max-w-2xl text-[16px] leading-7 text-text-muted">
-                  The value is not another isolated AI feature. It is a dependable system that makes candidate information useful at every stage of recruiting.
+                  Outreach brings you new customers. Talent makes your candidate data usable. They work in
+                  completely different ways and never cross wires — no résumé feeds a campaign, no lead lands
+                  in your candidate database — but neither is an add-on to the other. Run one, or run both.
                 </p>
               </div>
             </Reveal>
 
-            <div className="grid gap-0 lg:grid-cols-3">
-              {WORKFLOW.map((step) => (
-                <Reveal
-                  key={step.number}
-                  className="border-b border-border-low-alpha py-10 lg:border-b-0 lg:border-r lg:px-8 lg:py-14 lg:first:pl-0 lg:last:border-r-0 lg:last:pr-0"
-                >
-                  <span className="font-data-mono text-[12px] text-primary">{step.number}</span>
-                  <h3 className="mt-8 text-[19px] font-semibold tracking-[-0.02em] text-on-surface">{step.title}</h3>
-                  <p className="mt-3 max-w-sm text-[14px] leading-6 text-text-muted">{step.body}</p>
+            <div className="grid gap-6 pt-12 lg:grid-cols-2">
+              {[
+                {
+                  icon: "rocket_launch",
+                  name: "Outreach",
+                  lead: "Win new business",
+                  body: "Find businesses that fit what you sell, write to them, and handle the replies — either fully automated, or fired at a list you already own.",
+                  points: [
+                    "AI Automated Outreach — finds the leads itself",
+                    "Bulk Fire — your list, your sequence",
+                    "AI reply drafting with human approval",
+                  ],
+                  href: "/#outreach",
+                  cta: "Explore outreach",
+                },
+                {
+                  icon: "group",
+                  name: "Talent",
+                  lead: "Place the right people",
+                  body: "Turn a pile of résumés into structured profiles, then find the right person by describing them in plain English instead of guessing keywords.",
+                  points: [
+                    "AI résumé parsing with human review",
+                    "Semantic candidate search with reasons",
+                    "Shortlists your team can act on",
+                  ],
+                  href: "/#talent",
+                  cta: "Explore talent",
+                },
+              ].map((engine, index) => (
+                <Reveal key={engine.name} delay={index * 0.08}>
+                  <div className="flex h-full flex-col rounded-[22px] border border-primary/25 bg-bg-cream p-8 shadow-[0_20px_60px_-40px_rgba(13,148,136,0.5)]">
+                    <div className="flex items-center gap-3">
+                      <span className="flex size-11 items-center justify-center rounded-xl bg-primary-container text-on-primary-container">
+                        <span className="material-symbols-outlined text-[22px]">{engine.icon}</span>
+                      </span>
+                      <div>
+                        <span className="rounded-md bg-primary-fixed px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-primary">
+                          {engine.lead}
+                        </span>
+                        <h3 className="mt-1.5 text-[22px] font-semibold tracking-[-0.025em] text-on-surface">
+                          {engine.name}
+                        </h3>
+                      </div>
+                    </div>
+                    <p className="mt-6 text-[15px] leading-7 text-text-muted">{engine.body}</p>
+                    <ul className="mt-7 space-y-3 border-t border-border-low-alpha pt-6">
+                      {engine.points.map((item) => (
+                        <li key={item} className="flex gap-2.5 text-[13px] leading-5 text-on-surface-variant">
+                          <span className="material-symbols-outlined mt-0.5 text-[15px] text-primary">check_circle</span>
+                          {item}
+                        </li>
+                      ))}
+                    </ul>
+                    <div className="mt-auto pt-7">
+                      <Link
+                        href={engine.href}
+                        className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-primary transition-colors hover:text-on-surface"
+                      >
+                        {engine.cta}
+                        <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+                      </Link>
+                    </div>
+                  </div>
                 </Reveal>
               ))}
             </div>
           </div>
         </section>
 
-        <section id="product" className="scroll-mt-24 bg-bg-cream px-6 py-24 lg:px-8 lg:py-32">
+        {/* ---- AI Automated Outreach: the pipeline ---- */}
+        <section id="outreach" className="scroll-mt-24 border-y border-border-low-alpha bg-bg-cream px-6 py-24 lg:px-8 lg:py-32">
+          <div className="mx-auto max-w-[1240px]">
+            <Reveal className="max-w-3xl">
+              <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-primary">AI Automated Outreach</p>
+              <h2 className="mt-5 text-[36px] font-semibold leading-[1.1] tracking-[-0.035em] text-on-surface sm:text-[48px]">
+                You never touch a lead list again.
+              </h2>
+              <p className="mt-6 text-[16px] leading-7 text-text-muted">
+                This is the part that runs without you. Set the campaign once — what you sell, who you want,
+                where they are — and the pipeline below repeats on its own, finding new businesses and starting
+                real conversations while you work on something else.
+              </p>
+            </Reveal>
+
+            <div className="mt-16 grid gap-px overflow-hidden rounded-[22px] border border-border-low-alpha bg-border-low-alpha sm:grid-cols-2 lg:grid-cols-5">
+              {PIPELINE.map((step, index) => (
+                <Reveal
+                  key={step.number}
+                  delay={index * 0.05}
+                  className="flex h-full flex-col bg-surface-white p-6 lg:p-7"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="flex size-9 items-center justify-center rounded-lg bg-primary-fixed text-primary dark:bg-primary-container/20">
+                      <span className="material-symbols-outlined text-[18px]">{step.icon}</span>
+                    </span>
+                    <span className="font-data-mono text-[11px] text-outline">{step.number}</span>
+                  </div>
+                  <h3 className="mt-6 text-[15px] font-semibold tracking-[-0.015em] text-on-surface">{step.title}</h3>
+                  <p className="mt-2.5 text-[13px] leading-6 text-text-muted">{step.body}</p>
+                </Reveal>
+              ))}
+            </div>
+
+            <Reveal delay={0.1}>
+              <div className="mt-6 grid gap-6 rounded-[22px] border border-border-low-alpha bg-surface-white p-8 sm:grid-cols-3 lg:p-10">
+                {[
+                  ["Runs on a schedule", "New leads are discovered and contacted on an ongoing cadence, not once."],
+                  ["Day 0 · 3 · 7", "Each lead gets an opener and two follow-ups, all in one thread."],
+                  ["Stops when they reply", "A detected reply cancels the remaining follow-ups automatically."],
+                ].map(([title, body]) => (
+                  <div key={title}>
+                    <p className="text-[14px] font-semibold text-on-surface">{title}</p>
+                    <p className="mt-2 text-[13px] leading-6 text-text-muted">{body}</p>
+                  </div>
+                ))}
+              </div>
+            </Reveal>
+          </div>
+        </section>
+
+        {/* ---- The Blueprint ---- */}
+        <section className="bg-surface-white px-6 py-24 lg:px-8 lg:py-32">
           <div className="mx-auto max-w-[1240px]">
             <div className="grid items-center gap-14 lg:grid-cols-2 lg:gap-24">
               <Reveal>
-                <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-primary">Search intelligence</p>
+                <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-primary">The blueprint</p>
                 <h2 className="mt-5 max-w-xl text-[36px] font-semibold leading-[1.1] tracking-[-0.035em] text-on-surface sm:text-[46px]">
-                  Find people by fit, not by exact phrasing.
+                  The AI learns your business before it writes a word.
                 </h2>
                 <p className="mt-6 max-w-xl text-[16px] leading-7 text-text-muted">
-                  Describe the role in plain English. TalScout retrieves relevant profiles, reranks them by genuine fit, and explains why each candidate surfaced.
+                  Generic AI copy reads like generic AI copy. So we start by building a blueprint: we read your
+                  website, research your company live on the web, and ask you a short set of questions. Everything
+                  the AI writes afterwards is grounded in that one document.
                 </p>
                 <div className="mt-8 space-y-5">
                   {[
-                    ["Two-stage matching", "Semantic retrieval followed by profile-level reranking."],
-                    ["Explainable results", "Every match includes a concise reason your recruiter can evaluate."],
-                    ["Structured filters", "Combine meaning with location, experience and skills."],
+                    ["Live web research", "We look beyond your homepage — recent news, reviews and reputation feed the brief."],
+                    ["Your own words", "A free-text box where you explain the business in your language. It outranks everything else."],
+                    ["Targeting rules", "The blueprint also defines who is not a fit, and that gate runs before any email is written."],
+                    ["Grounded output", "The writer is instructed to never invent a claim, metric or testimonial that isn't in your blueprint."],
                   ].map(([title, body]) => (
                     <div key={title} className="grid grid-cols-[20px_1fr] gap-3">
                       <span className="material-symbols-outlined mt-0.5 text-[17px] text-primary">check_circle</span>
@@ -335,71 +622,157 @@ export default function LandingPage() {
               </Reveal>
 
               <Reveal delay={0.08}>
-                <div className="rounded-[22px] border border-border-low-alpha bg-surface-white p-5 shadow-[0_28px_70px_-42px_rgba(15,23,42,0.4)]">
-                  <div className="rounded-xl border border-border-low-alpha bg-bg-cream p-4">
-                    <p className="text-[9px] font-semibold uppercase tracking-[0.13em] text-outline">Search request</p>
-                    <p className="mt-2 text-[13px] font-medium text-on-surface-variant">
-                      “ICU nurse in Texas, 3+ years, comfortable with night shifts”
-                    </p>
-                  </div>
-                  <div className="mt-4 space-y-3">
-                    {[
-                      ["Dana Kim", "ICU RN · Houston", "96%", "5 years critical care; current night-shift rotation."],
-                      ["Luis Peña", "Critical Care RN · Dallas", "92%", "Trauma ICU background with 4 years of experience."],
-                      ["Amara Okafor", "ICU Nurse · Austin", "89%", "Strong acute-care experience; flexible shift preference."],
-                    ].map(([name, role, score, reason]) => (
-                      <div key={name} className="rounded-xl border border-border-low-alpha p-4">
-                        <div className="flex items-center justify-between gap-3">
-                          <div>
-                            <p className="text-[12px] font-semibold text-on-surface">{name}</p>
-                            <p className="mt-0.5 text-[10px] text-text-muted">{role}</p>
-                          </div>
-                          <span className="font-data-mono text-[12px] font-semibold text-primary">{score}</span>
-                        </div>
-                        <p className="mt-3 border-t border-border-low-alpha pt-3 text-[10px] leading-4 text-text-muted">{reason}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </Reveal>
-            </div>
-
-            <div className="my-24 h-px bg-surface-container-high lg:my-32" />
-
-            <div className="grid items-center gap-14 lg:grid-cols-2 lg:gap-24">
-              <Reveal className="lg:order-2">
-                <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-primary">Outreach execution</p>
-                <h2 className="mt-5 max-w-xl text-[36px] font-semibold leading-[1.1] tracking-[-0.035em] text-on-surface sm:text-[46px]">
-                  Move from shortlist to conversation.
-                </h2>
-                <p className="mt-6 max-w-xl text-[16px] leading-7 text-text-muted">
-                  Build a reusable sequence, personalize it to each recipient, and manage sends without leaving the candidate workflow.
-                </p>
-                <div className="mt-8 grid grid-cols-2 gap-6 border-t border-border-low-alpha pt-7">
-                  <div>
-                    <p className="text-[20px] font-semibold tracking-[-0.02em] text-on-surface">Email + WhatsApp</p>
-                    <p className="mt-1 text-[12px] text-text-muted">Channel support by plan</p>
-                  </div>
-                  <div>
-                    <p className="text-[20px] font-semibold tracking-[-0.02em] text-on-surface">Human approval</p>
-                    <p className="mt-1 text-[12px] text-text-muted">Review before messages send</p>
-                  </div>
-                </div>
-              </Reveal>
-              <Reveal delay={0.08} className="lg:order-1">
-                <OutreachWindow />
+                <BlueprintWindow />
               </Reveal>
             </div>
           </div>
         </section>
 
+        {/* ---- Bulk Fire ---- */}
+        <section id="bulk-fire" className="scroll-mt-24 border-y border-border-low-alpha bg-bg-cream px-6 py-24 lg:px-8 lg:py-32">
+          <div className="mx-auto max-w-[1240px]">
+            <div className="grid items-center gap-14 lg:grid-cols-2 lg:gap-24">
+              <Reveal delay={0.08} className="lg:order-1">
+                <BulkFireWindow />
+              </Reveal>
+
+              <Reveal className="lg:order-2">
+                <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-primary">Bulk Fire</p>
+                <h2 className="mt-5 max-w-xl text-[36px] font-semibold leading-[1.1] tracking-[-0.035em] text-on-surface sm:text-[46px]">
+                  Already have the list? Fire at it.
+                </h2>
+                <p className="mt-6 max-w-xl text-[16px] leading-7 text-text-muted">
+                  Bulk Fire is the manual counterpart to automated campaigns. Bring your own contacts, build a
+                  sequence once, and send it across multiple mailboxes at a pace that keeps you out of spam
+                  folders. No discovery, no qualification — you already know who you want.
+                </p>
+                <div className="mt-8 grid gap-5 sm:grid-cols-2">
+                  {[
+                    ["upload_file", "Import in bulk", "Drop in a CSV and map your columns."],
+                    ["swap_horiz", "Rotate senders", "Spread volume across several connected mailboxes."],
+                    ["timeline", "Build the sequence", "An opener plus follow-ups, threaded together."],
+                    ["chat", "WhatsApp channel", "Add WhatsApp Business alongside email on Scale."],
+                  ].map(([icon, title, body]) => (
+                    <div key={title} className="rounded-xl border border-border-low-alpha bg-surface-white p-5">
+                      <span className="material-symbols-outlined text-[19px] text-primary">{icon}</span>
+                      <p className="mt-3.5 text-[13px] font-semibold text-on-surface">{title}</p>
+                      <p className="mt-1.5 text-[12px] leading-5 text-text-muted">{body}</p>
+                    </div>
+                  ))}
+                </div>
+              </Reveal>
+            </div>
+          </div>
+        </section>
+
+        {/* ---- Replies ---- */}
+        <section className="bg-surface-white px-6 py-24 lg:px-8 lg:py-32">
+          <div className="mx-auto max-w-[1240px]">
+            <div className="grid items-center gap-14 lg:grid-cols-2 lg:gap-24">
+              <Reveal>
+                <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-primary">Replies</p>
+                <h2 className="mt-5 max-w-xl text-[36px] font-semibold leading-[1.1] tracking-[-0.035em] text-on-surface sm:text-[46px]">
+                  The hard part is what happens after they answer.
+                </h2>
+                <p className="mt-6 max-w-xl text-[16px] leading-7 text-text-muted">
+                  TalScout watches your sending mailbox for replies, drafts a response grounded in the same
+                  blueprint, and puts it in front of you. You approve, edit or reject. Nothing is ever sent to a
+                  real prospect without a person deciding.
+                </p>
+                <div className="mt-8 grid grid-cols-2 gap-6 border-t border-border-low-alpha pt-7">
+                  <div>
+                    <p className="text-[20px] font-semibold tracking-[-0.02em] text-on-surface">Human approval</p>
+                    <p className="mt-1 text-[12px] text-text-muted">Required on every AI reply</p>
+                  </div>
+                  <div>
+                    <p className="text-[20px] font-semibold tracking-[-0.02em] text-on-surface">Auto-stop</p>
+                    <p className="mt-1 text-[12px] text-text-muted">Follow-ups cancel on reply</p>
+                  </div>
+                </div>
+              </Reveal>
+
+              <Reveal delay={0.08}>
+                <ReplyWindow />
+              </Reveal>
+            </div>
+          </div>
+        </section>
+
+        {/* ---- Deliverability ---- */}
+        <section className="border-y border-border-low-alpha bg-bg-cream px-6 py-24 lg:px-8 lg:py-32">
+          <div className="mx-auto max-w-[1240px]">
+            <Reveal className="grid gap-8 lg:grid-cols-[0.8fr_1.2fr]">
+              <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-primary">Sending &amp; deliverability</p>
+              <div>
+                <h2 className="max-w-3xl text-[34px] font-semibold leading-[1.12] tracking-[-0.035em] text-on-surface sm:text-[44px]">
+                  Cold email only works if it actually arrives.
+                </h2>
+                <p className="mt-5 max-w-2xl text-[16px] leading-7 text-text-muted">
+                  Volume is the easy part. Staying out of the spam folder is the whole game — so sending is
+                  built around your own mailbox, paced like a person, and threaded like a real conversation.
+                </p>
+              </div>
+            </Reveal>
+
+            <div className="mt-14 grid gap-px overflow-hidden rounded-[22px] border border-border-low-alpha bg-border-low-alpha sm:grid-cols-2 lg:grid-cols-4">
+              {DELIVERABILITY.map((item, index) => (
+                <Reveal key={item.title} delay={index * 0.05} className="h-full bg-surface-white p-7">
+                  <span className="material-symbols-outlined text-[21px] text-primary">{item.icon}</span>
+                  <h3 className="mt-5 text-[14px] font-semibold text-on-surface">{item.title}</h3>
+                  <p className="mt-2 text-[12px] leading-5 text-text-muted">{item.body}</p>
+                </Reveal>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ---- Talent (separate product) ---- */}
+        <section id="talent" className="scroll-mt-24 bg-surface-white px-6 py-24 lg:px-8 lg:py-32">
+          <div className="mx-auto max-w-[1240px]">
+            <div className="grid items-center gap-14 lg:grid-cols-2 lg:gap-24">
+              <Reveal>
+                <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-primary">Talent intelligence</p>
+                <h2 className="mt-5 max-w-xl text-[36px] font-semibold leading-[1.1] tracking-[-0.035em] text-on-surface sm:text-[46px]">
+                  Every résumé you own, finally searchable.
+                </h2>
+                <p className="mt-6 max-w-xl text-[16px] leading-7 text-text-muted">
+                  Most candidate databases are a folder of PDFs nobody can query. TalScout reads every
+                  document into a structured profile, then lets you find the right person by describing them
+                  the way you would to a colleague — and tells you why each one matched.
+                </p>
+                <div className="mt-8 space-y-5">
+                  {[
+                    ["AI parsing with review", "PDF and DOCX in, structured profiles out — a recruiter confirms before it's saved."],
+                    ["Search by meaning", "Two-stage retrieval and reranking, with a reason attached to every match."],
+                    ["Shortlists", "Group the people worth moving forward and keep your team aligned."],
+                    ["Bulk ingestion", "Stand up a whole database in minutes by dropping in your existing files."],
+                  ].map(([title, body]) => (
+                    <div key={title} className="grid grid-cols-[20px_1fr] gap-3">
+                      <span className="material-symbols-outlined mt-0.5 text-[17px] text-primary">check_circle</span>
+                      <div>
+                        <p className="text-[14px] font-semibold text-on-surface">{title}</p>
+                        <p className="mt-1 text-[13px] leading-5 text-text-muted">{body}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Reveal>
+
+              <Reveal delay={0.08}>
+                <TalentWindow />
+              </Reveal>
+            </div>
+          </div>
+        </section>
+
+        {/* ---- Trust ---- */}
         <section className="bg-primary-container px-6 py-24 text-on-primary-container dark:border-y dark:border-border-low-alpha dark:bg-surface dark:text-on-surface lg:px-8 lg:py-28">
           <div className="mx-auto max-w-[1240px]">
             <Reveal className="grid gap-10 lg:grid-cols-[0.8fr_1.2fr]">
               <div>
                 <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-primary-fixed dark:text-primary">Built for trust</p>
                 <h2 className="mt-5 max-w-md text-[34px] font-semibold leading-[1.12] tracking-[-0.035em] sm:text-[42px]">
-                  Candidate data deserves production-grade boundaries.
+                  Your prospects and your candidates both deserve real guardrails.
                 </h2>
               </div>
               <div className="grid gap-px overflow-hidden rounded-2xl border border-white/15 bg-white/15 dark:border-outline-variant dark:bg-border-low-alpha sm:grid-cols-2">
@@ -415,6 +788,7 @@ export default function LandingPage() {
           </div>
         </section>
 
+        {/* ---- Pricing ---- */}
         <section id="pricing" className="scroll-mt-24 bg-surface-white px-6 py-24 lg:px-8 lg:py-32">
           <div className="mx-auto max-w-[1240px]">
             <Reveal className="grid gap-8 lg:grid-cols-[0.8fr_1.2fr]">
@@ -424,7 +798,8 @@ export default function LandingPage() {
                   Choose the operating scale your team needs.
                 </h2>
                 <p className="mt-5 max-w-2xl text-[16px] leading-7 text-text-muted">
-                  Core parsing and semantic search are included on every paid plan. Higher tiers add volume, workflow controls, and outreach capabilities.
+                  Both engines are included on every plan. Higher tiers add send volume, more connected
+                  mailboxes, more blueprints and campaigns, plus Bulk Fire and live web research.
                 </p>
               </div>
             </Reveal>
@@ -480,6 +855,7 @@ export default function LandingPage() {
           </div>
         </section>
 
+        {/* ---- FAQ ---- */}
         <section id="faq" className="scroll-mt-24 border-t border-border-low-alpha bg-bg-cream px-6 py-24 lg:px-8 lg:py-28">
           <div className="mx-auto grid max-w-[1240px] gap-12 lg:grid-cols-[0.65fr_1.35fr]">
             <Reveal>
@@ -488,7 +864,8 @@ export default function LandingPage() {
                 Questions worth answering.
               </h2>
               <p className="mt-5 max-w-sm text-[14px] leading-6 text-text-muted">
-                Need a deeper product or security conversation? Contact our team and we will walk through your workflow.
+                Need a deeper product or deliverability conversation? Contact our team and we will walk through
+                your setup.
               </p>
             </Reveal>
             <Reveal delay={0.06}>
@@ -497,12 +874,13 @@ export default function LandingPage() {
           </div>
         </section>
 
+        {/* ---- Closing CTA ---- */}
         <section className="bg-surface-white px-6 py-20 lg:px-8 lg:py-24">
           <Reveal className="mx-auto flex max-w-[1240px] flex-col items-start justify-between gap-9 rounded-[24px] bg-primary-container px-7 py-12 text-on-primary-container shadow-[0_32px_80px_-44px_rgba(15,118,110,0.75)] dark:border dark:border-outline-variant dark:bg-surface-container-low dark:text-on-surface dark:shadow-[0_28px_70px_-42px_rgba(0,0,0,0.9)] sm:px-10 lg:flex-row lg:items-center lg:px-14 lg:py-14">
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-primary-fixed dark:text-primary">Build a better talent system</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-primary-fixed dark:text-primary">Put both engines to work</p>
               <h2 className="mt-4 max-w-2xl text-[32px] font-semibold leading-[1.12] tracking-[-0.035em] sm:text-[40px]">
-                Make your candidate database useful again.
+                Your next customer and your next hire are both already out there.
               </h2>
             </div>
             <Link

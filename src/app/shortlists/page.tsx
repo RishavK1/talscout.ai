@@ -208,9 +208,9 @@ export default function ShortlistsPage() {
             </div>
             <div className="flex flex-col space-y-3">
               <span className="font-label-md text-primary mb-2">Product</span>
-              <Link className="text-on-surface-variant hover:text-secondary transition-colors" href="/#features">Candidate Search</Link>
-              <Link className="text-on-surface-variant hover:text-secondary transition-colors" href="/#features">Semantic Matching</Link>
-              <Link className="text-on-surface-variant hover:text-secondary transition-colors" href="/#features">Team Collaboration</Link>
+              <Link className="text-on-surface-variant hover:text-secondary transition-colors" href="/#talent">Candidate Search</Link>
+              <Link className="text-on-surface-variant hover:text-secondary transition-colors" href="/#talent">Semantic Matching</Link>
+              <Link className="text-on-surface-variant hover:text-secondary transition-colors" href="/#talent">Team Collaboration</Link>
             </div>
             <div className="flex flex-col space-y-3">
               <span className="font-label-md text-primary mb-2">Support</span>

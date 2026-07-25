@@ -7,8 +7,9 @@ import { useAuth } from "@/components/app/auth-provider";
 import { ThemeToggle } from "@/components/app/theme-toggle";
 
 const LINKS = [
-  { label: "Product", href: "/#product" },
-  { label: "How it works", href: "/#how" },
+  { label: "AI Outreach", href: "/#outreach" },
+  { label: "Bulk Fire", href: "/#bulk-fire" },
+  { label: "Talent", href: "/#talent" },
   { label: "Pricing", href: "/#pricing" },
   { label: "FAQ", href: "/#faq" },
 ];
