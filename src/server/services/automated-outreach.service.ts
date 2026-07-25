@@ -8,9 +8,12 @@ import {
 } from "@/server/repositories/automated-outreach.repo";
 import { blueprintRepo } from "@/server/repositories/blueprint.repo";
 import { senderAccountRepo } from "@/server/repositories/outreach.repo";
+import { tenantRepo } from "@/server/repositories/tenant.repo";
+import { billingService } from "@/server/services/billing.service";
+import { automatedOutreachLimits } from "@/lib/plans";
 import { getServices } from "@/server/container";
 import { toCredentials, generateMessageId } from "@/server/lib/automated-mail-credentials";
-import { NotFound, Conflict, BadRequest } from "@/server/http/errors";
+import { NotFound, Conflict, BadRequest, PaymentRequired } from "@/server/http/errors";
 import { logger } from "@/server/observability/logger";
 import { RUN_AUTOMATED_CAMPAIGN_NOW_JOB } from "@/server/jobs/run-automated-campaign";
 import type {
@@ -20,16 +23,34 @@ import type {
 } from "@/server/validation/automated-outreach";
 import type { BlueprintSections } from "@/server/ports";
 
-/** Independent of Bulk Fire's plan-based daily cap — an entirely separate
- *  counter against automated_sends, enforced with its own advisory-lock
- *  key (see lockTenantForAutomatedDailyCap) so the two features' concurrent-
- *  send serialization never contends with each other. */
-export const AUTOMATED_DAILY_SEND_CAP = 50;
+/** Fallback used only when a tenant row can't be resolved (should not happen
+ *  in practice). The REAL cap is per-plan — see automatedDailySendCapFor
+ *  below and `automatedDailySendCap` in lib/plans.ts. Independent of Bulk
+ *  Fire's own daily cap: an entirely separate counter against
+ *  automated_sends, enforced with its own advisory-lock key (see
+ *  lockTenantForAutomatedDailyCap) so the two features' concurrent-send
+ *  serialization never contends with each other. */
+export const AUTOMATED_DAILY_SEND_CAP_FALLBACK = 25;
 
-async function lockTenantForAutomatedDailyCap(ctx: TenantContext) {
+/** Resolves this tenant's plan-based automated-outreach daily send cap.
+ *  Admin-scoped read (same as billingService.assertCapability) because the
+ *  cron pipeline calls this outside any user request. */
+export async function automatedDailySendCapFor(tenantId: string): Promise<number> {
+  const tenant = await tenantRepo.getByIdAdmin(tenantId);
+  if (!tenant) return AUTOMATED_DAILY_SEND_CAP_FALLBACK;
+  return automatedOutreachLimits(tenant.plan || "starter").dailySendCap;
+}
+
+export async function lockTenantForAutomatedDailyCap(ctx: TenantContext) {
   await ctx.tx.execute(
     sql`select pg_advisory_xact_lock(hashtext(${ctx.tenantId} || ':automated'))`,
   );
+}
+
+/** This tenant's automated-outreach quotas, resolved from its current plan. */
+async function planLimitsFor(ctx: TenantContext) {
+  const tenant = await tenantRepo.getByIdAdmin(ctx.tenantId);
+  return automatedOutreachLimits(tenant?.plan || "starter");
 }
 
 async function assertBlueprintUsable(ctx: TenantContext, blueprintId: string) {
@@ -77,6 +98,7 @@ export const automatedOutreachService = {
   },
 
   async createCampaign(ctx: TenantContext, body: CreateAutomatedCampaignBody) {
+    await billingService.assertCapability(ctx, "automated_outreach");
     await assertBlueprintUsable(ctx, body.blueprintId);
     await assertSenderUsable(ctx, body.senderAccountId, body.replyPollingEnabled ?? true);
     return await automatedCampaignRepo.create(ctx, body);
@@ -113,9 +135,22 @@ export const automatedOutreachService = {
   },
 
   async resumeCampaign(ctx: TenantContext, id: string) {
+    await billingService.assertCapability(ctx, "automated_outreach");
     const existing = await automatedOutreachService.getCampaign(ctx, id);
     if (existing.status !== "paused" && existing.status !== "draft") {
       throw new Conflict("Only a paused or draft campaign can be activated");
+    }
+    // Concurrent-campaign quota is checked at ACTIVATION, not creation — a
+    // workspace may author any number of drafts; the plan only bounds how
+    // many run (and therefore consume discovery/enrichment/AI budget) at once.
+    const { maxActiveCampaigns } = await planLimitsFor(ctx);
+    if (Number.isFinite(maxActiveCampaigns)) {
+      const activeNow = await automatedCampaignRepo.countActive(ctx);
+      if (activeNow >= maxActiveCampaigns) {
+        throw new PaymentRequired(
+          `Your plan allows ${maxActiveCampaigns} active campaign${maxActiveCampaigns === 1 ? "" : "s"} at a time. Pause another campaign or upgrade to run more.`,
+        );
+      }
     }
     // Re-validate blueprint/sender still qualify — either could have
     // drifted (blueprint archived, sender disconnected) since creation.
@@ -311,5 +346,3 @@ export const automatedOutreachService = {
     };
   },
 };
-
-export { lockTenantForAutomatedDailyCap };

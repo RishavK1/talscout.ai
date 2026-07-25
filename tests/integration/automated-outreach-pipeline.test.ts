@@ -7,7 +7,7 @@ import { resetDb } from "../helpers/seed";
 import { makeUser } from "../helpers/auth-fixtures";
 import { call } from "../helpers/http";
 import { adminDb, closePools } from "../../src/server/db/client";
-import { blueprints, senderAccounts, automatedLeads, automatedSends, automatedCampaigns } from "../../src/server/db/schema";
+import { blueprints, senderAccounts, automatedLeads, automatedSends, automatedCampaigns, tenants } from "../../src/server/db/schema";
 import { encryptSecret } from "../../src/server/lib/secret-box";
 import { withTenantTx } from "../../src/server/db/tx";
 import {
@@ -19,6 +19,12 @@ import { getServices } from "../../src/server/container";
 import type { BlueprintSections } from "../../src/server/ports";
 
 const params = (id: string) => ({ params: Promise.resolve({ id }) });
+
+/** Tenants default to the starter plan (1 active campaign, 25 sends/day).
+ *  Tests that exercise pipeline behavior rather than billing limits move to
+ *  a plan with enough headroom so a quota never masks what's under test. */
+const setPlan = (tenantId: string, plan: string) =>
+  adminDb().update(tenants).set({ plan }).where(eq(tenants.id, tenantId));
 
 const MINIMAL_SECTIONS: BlueprintSections = {
   whoWeAre: "Acme Co.",
@@ -237,16 +243,18 @@ describe("runAutomatedCampaigns — discover → enrich → generate → schedul
     expect(sends).toHaveLength(15); // 5 leads × 3 steps, not 30
   });
 
-  it("enforces an independent 50/day cap — truncates the batch and leaves the rest for tomorrow", async () => {
+  it("enforces the plan's independent daily cap — truncates the batch and leaves the rest for tomorrow", async () => {
     const { tenant, token } = await makeUser("recruiter");
     const blueprint = await seedActiveBlueprint(tenant.id);
     const sender = await seedGmailSender(tenant.id);
 
-    // Pad today's automated-send count to 48 via a filler campaign BEFORE
-    // activating the real campaign below — activation now triggers an
-    // immediate run (resumeCampaign's afterCommit), so the cap must already
-    // be in place for THAT run to be the one that gets truncated to the 2
-    // slots left, rather than the explicit sweep at the end of this test.
+    // Tenants default to the starter plan, whose automated cap is 25/day
+    // (see automatedDailySendCap in lib/plans.ts). Pad today's count to 23
+    // via a filler campaign BEFORE activating the real campaign below —
+    // activation triggers an immediate run (resumeCampaign's afterCommit),
+    // so the cap must already be in place for THAT run to be the one
+    // truncated to the 2 remaining slots, rather than the explicit sweep at
+    // the end of this test.
     const fillerBlueprint = await seedActiveBlueprint(tenant.id, "Filler Offer");
     const fillerCampaign = await call(createCampaignPOST, {
       token,
@@ -265,7 +273,7 @@ describe("runAutomatedCampaigns — discover → enrich → generate → schedul
       const fillerLeads = await automatedLeadRepo.upsertDiscovered(
         ctx,
         fillerCampaignId,
-        Array.from({ length: 48 }, (_, i) => ({
+        Array.from({ length: 23 }, (_, i) => ({
           sourcePlaceId: `filler:${i}`,
           name: `Filler ${i}`,
         })),
@@ -290,8 +298,8 @@ describe("runAutomatedCampaigns — discover → enrich → generate → schedul
     // immediate run already handled.
     await runAutomatedCampaigns(getServices());
 
-    // The cap gates how many LEADS start a new sequence today (2 of the
-    // remaining 50/day slots), not raw row count — each surviving lead still
+    // The cap gates how many LEADS start a new sequence today (the 2
+    // remaining slots of the plan's 25), not raw row count — each surviving lead still
     // gets its full Day 0/3/7 sequence, mirroring Bulk Fire's own
     // cascadeFollowups precedent (see scheduleAndEnqueue's doc comment).
     const sends = await sendsForCampaign(campaignId);
@@ -332,6 +340,7 @@ describe("runAutomatedCampaigns — blueprint becomes unusable mid-flight", () =
 describe("runAutomatedCampaigns — regenerating a blueprint mid-campaign never mutates already-generated sends", () => {
   it("already-scheduled Day 0/3/7 copy is frozen at generation time, unaffected by a later blueprint regenerate", async () => {
     const { tenant, token } = await makeUser("recruiter");
+    await setPlan(tenant.id, "scale"); // two concurrently-active campaigns below
     const blueprint = await seedActiveBlueprint(tenant.id);
     const sender = await seedGmailSender(tenant.id);
     const campaignId = await createActiveCampaign(token, blueprint.id, sender.id, "vet");
@@ -435,6 +444,7 @@ describe("runAutomatedCampaigns — lead qualification gate", () => {
 
   it("'no_or_weak_site' + website present → routes through the lead qualifier, both outcomes land the right status + reason", async () => {
     const { tenant, token } = await makeUser("recruiter");
+    await setPlan(tenant.id, "scale"); // two concurrently-active campaigns below
     const blueprint = await seedQualifyingBlueprint(tenant.id, "no_or_weak_site", "Web Design Offer");
     const sender = await seedGmailSender(tenant.id);
     // MockLeadDiscovery embeds a %%POLISHED%% marker in every generated

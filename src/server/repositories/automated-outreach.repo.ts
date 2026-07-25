@@ -195,6 +195,17 @@ export const automatedCampaignRepo = {
       .where(and(eq(automatedCampaigns.tenantId, ctx.tenantId), eq(automatedCampaigns.blueprintId, blueprintId)));
     return row?.count ?? 0;
   },
+
+  /** Campaigns currently running, for the plan's concurrent-campaign quota.
+   *  Only "active" counts — draft/paused/error campaigns cost nothing, so a
+   *  workspace can author as many as it likes and choose which to run. */
+  async countActive(ctx: TenantContext): Promise<number> {
+    const [row] = await ctx.tx
+      .select({ count: sql<number>`count(*)::int` })
+      .from(automatedCampaigns)
+      .where(and(eq(automatedCampaigns.tenantId, ctx.tenantId), eq(automatedCampaigns.status, "active")));
+    return row?.count ?? 0;
+  },
 };
 
 export const automatedLeadRepo = {

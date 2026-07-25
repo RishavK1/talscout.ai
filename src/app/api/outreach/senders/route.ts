@@ -23,6 +23,11 @@ export const POST = withAuth<CreateSmtpSenderBody>(
   {
     role: "recruiter",
     bodySchema: createSmtpSenderSchema,
-    rateLimit: { limit: 10, windowSeconds: 3600, keyPrefix: "outreach_sender_create" },
+    // Must stay comfortably ABOVE the largest plan's sender allowance
+    // (Scale: 10 — see outreachMaxSenderAccounts in lib/plans.ts), otherwise
+    // a customer connecting their full allowance exhausts the window and
+    // can't retry a mistyped mailbox for an hour. The plan quota, not this
+    // limiter, is what enforces how many senders a workspace may own.
+    rateLimit: { limit: 25, windowSeconds: 3600, keyPrefix: "outreach_sender_create" },
   },
 );

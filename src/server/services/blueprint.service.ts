@@ -1,8 +1,11 @@
 import type { TenantContext } from "@/server/db/tx";
 import { blueprintRepo } from "@/server/repositories/blueprint.repo";
 import { automatedCampaignRepo } from "@/server/repositories/automated-outreach.repo";
+import { tenantRepo } from "@/server/repositories/tenant.repo";
+import { billingService } from "@/server/services/billing.service";
+import { automatedOutreachLimits, planHasCapability } from "@/lib/plans";
 import { getServices } from "@/server/container";
-import { NotFound, Conflict, BadRequest } from "@/server/http/errors";
+import { NotFound, Conflict, BadRequest, PaymentRequired } from "@/server/http/errors";
 import { logger } from "@/server/observability/logger";
 import type {
   BlueprintSuggestions,
@@ -23,6 +26,20 @@ import type {
  * rate limit (see the API routes). Website text is treated as untrusted data
  * inside the adapter, never here.
  */
+/** This tenant's automated-outreach quotas, resolved from its current plan. */
+async function planLimitsFor(ctx: TenantContext) {
+  const tenant = await tenantRepo.getByIdAdmin(ctx.tenantId);
+  return automatedOutreachLimits(tenant?.plan || "starter");
+}
+
+/** Live web research is a Growth+ capability — it's the one metered external
+ *  call in blueprint generation, so it degrades to "no research" rather than
+ *  throwing on lower plans (generation still works from site text + answers). */
+async function planAllowsWebResearch(ctx: TenantContext): Promise<boolean> {
+  const tenant = await tenantRepo.getByIdAdmin(ctx.tenantId);
+  return planHasCapability(tenant?.plan || "starter", "blueprint_web_research");
+}
+
 export const blueprintService = {
   async list(ctx: TenantContext) {
     return await blueprintRepo.list(ctx);
@@ -35,8 +52,18 @@ export const blueprintService = {
   },
 
   async create(ctx: TenantContext, body: CreateBlueprintBody) {
+    await billingService.assertCapability(ctx, "automated_outreach");
     const existing = await blueprintRepo.findByName(ctx, body.name);
     if (existing) throw new Conflict("A blueprint with that name already exists");
+    const { maxBlueprints } = await planLimitsFor(ctx);
+    if (Number.isFinite(maxBlueprints)) {
+      const live = await blueprintRepo.list(ctx);
+      if (live.length >= maxBlueprints) {
+        throw new PaymentRequired(
+          `Your plan includes ${maxBlueprints} blueprint${maxBlueprints === 1 ? "" : "s"}. Delete one or upgrade to add more.`,
+        );
+      }
+    }
     return await blueprintRepo.create(ctx, {
       name: body.name,
       websiteUrl: body.websiteUrl ?? null,
@@ -85,9 +112,12 @@ export const blueprintService = {
   /** Wizard Step 2: research a website and return suggested intake options.
    *  Stateless — does not persist anything. */
   async suggestFromWebsite(
-    _ctx: TenantContext,
+    ctx: TenantContext,
     body: SuggestBlueprintBody,
   ): Promise<BlueprintSuggestions> {
+    // Gated like the rest of the wizard: this is a real (paid) LLM call plus
+    // an outbound site fetch, so it must not be reachable without the plan.
+    await billingService.assertCapability(ctx, "automated_outreach");
     return await getServices().blueprintResearcher.suggest({
       websiteUrl: body.websiteUrl,
       name: body.name,
@@ -102,6 +132,7 @@ export const blueprintService = {
     id: string,
     answersOverride?: IntakeAnswersBody,
   ) {
+    await billingService.assertCapability(ctx, "automated_outreach");
     const row = await blueprintService.get(ctx, id);
 
     const stored = (row.intakeAnswers as BlueprintIntakeAnswers | null) ?? null;
@@ -125,13 +156,16 @@ export const blueprintService = {
 
     // One Perplexity call per generate() — never per-lead/per-email (see
     // WebResearcher's doc comment in ports/index.ts). Failure/no-key both
-    // resolve to null, so this never blocks generation.
-    const webResearch = merged.websiteUrl
-      ? await getServices().webResearcher.research({
-          businessName: merged.businessName ?? row.name,
-          websiteUrl: merged.websiteUrl,
-        })
-      : null;
+    // resolve to null, so this never blocks generation. Gated to plans with
+    // `blueprint_web_research`: lower plans simply generate from site text +
+    // confirmed answers, which is the exact path taken when no key is set.
+    const webResearch =
+      merged.websiteUrl && (await planAllowsWebResearch(ctx))
+        ? await getServices().webResearcher.research({
+            businessName: merged.businessName ?? row.name,
+            websiteUrl: merged.websiteUrl,
+          })
+        : null;
     const generatorInput = webResearch
       ? { ...merged, answers: { ...merged.answers, webResearch } }
       : merged;

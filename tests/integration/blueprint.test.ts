@@ -15,11 +15,16 @@ import { call } from "../helpers/http";
 import { adminDb, closePools } from "../../src/server/db/client";
 import { withTenantTx } from "../../src/server/db/tx";
 import { blueprintRepo } from "../../src/server/repositories/blueprint.repo";
-import { senderAccounts } from "../../src/server/db/schema";
+import { senderAccounts, tenants } from "../../src/server/db/schema";
 import { encryptSecret } from "../../src/server/lib/secret-box";
 import { getServices } from "../../src/server/container";
+import { eq } from "drizzle-orm";
 
 const params = (id: string) => ({ params: Promise.resolve({ id }) });
+
+/** Tenants default to starter (1 blueprint, no live web research). */
+const setPlan = (tenantId: string, plan: string) =>
+  adminDb().update(tenants).set({ plan }).where(eq(tenants.id, tenantId));
 
 beforeEach(async () => {
   await resetDb();
@@ -263,7 +268,10 @@ describe("blueprint wizard: suggest + generate (mock adapter)", () => {
   });
 
   it("calls webResearcher once per generate() and threads its result into the generator's answers as webResearch", async () => {
-    const { token } = await makeUser("recruiter");
+    const { tenant, token } = await makeUser("recruiter");
+    // Live web research is a Growth+ capability (blueprint_web_research) —
+    // the starter default deliberately skips it, covered separately below.
+    await setPlan(tenant.id, "growth");
     const created = await call(createBlueprintPOST, { token, body: { name: "Acme Offer" } });
     const id = created.json.data.id;
 

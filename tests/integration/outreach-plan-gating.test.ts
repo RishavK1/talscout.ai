@@ -122,16 +122,18 @@ describe("Starter plan has no bulk-fire outreach access", () => {
   });
 });
 
-describe("Growth plan — 1 sender account, 100/day cap, no scheduler", () => {
-  it("connecting a second sender account → 402", async () => {
+describe("Growth plan — 3 sender accounts, 100/day cap, no scheduler", () => {
+  it("allows up to 3 connected senders, rejects the 4th", async () => {
     const { tenant, token } = await makeUser("recruiter");
     await setPlan(tenant.id, "growth");
 
-    const first = await call(createSenderPOST, { token, body: smtpBody("a@test.local") });
-    expect(first.status).toBe(201);
+    for (const email of ["a@test.local", "b@test.local", "c@test.local"]) {
+      const res = await call(createSenderPOST, { token, body: smtpBody(email) });
+      expect(res.status).toBe(201);
+    }
 
-    const second = await call(createSenderPOST, { token, body: smtpBody("b@test.local") });
-    expect(second.status).toBe(402);
+    const fourth = await call(createSenderPOST, { token, body: smtpBody("d@test.local") });
+    expect(fourth.status).toBe(402);
   });
 
   it("firing to more leads than the daily cap fires as many as fit and skips the rest", async () => {
@@ -222,17 +224,17 @@ describe("Growth plan — 1 sender account, 100/day cap, no scheduler", () => {
   });
 });
 
-describe("Scale plan — 5 sender accounts, unlimited sends, scheduler available", () => {
-  it("allows up to 5 connected senders, rejects the 6th", async () => {
+describe("Scale plan — 10 sender accounts, unlimited bulk-fire sends, scheduler available", () => {
+  it("allows up to 10 connected senders, rejects the 11th", async () => {
     const { tenant, token } = await makeUser("recruiter");
     await setPlan(tenant.id, "scale");
 
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 10; i++) {
       const res = await call(createSenderPOST, { token, body: smtpBody(`s${i}@test.local`) });
       expect(res.status).toBe(201);
     }
-    const sixth = await call(createSenderPOST, { token, body: smtpBody("s5@test.local") });
-    expect(sixth.status).toBe(402);
+    const eleventh = await call(createSenderPOST, { token, body: smtpBody("s10@test.local") });
+    expect(eleventh.status).toBe(402);
   });
 
   it("fires to every eligible lead with no daily-cap truncation", async () => {

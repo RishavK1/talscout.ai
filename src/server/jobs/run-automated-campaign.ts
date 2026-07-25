@@ -8,7 +8,7 @@ import { blueprintRepo } from "@/server/repositories/blueprint.repo";
 import { scheduleSends } from "@/server/lib/spintax";
 import {
   lockTenantForAutomatedDailyCap,
-  AUTOMATED_DAILY_SEND_CAP,
+  automatedDailySendCapFor,
 } from "@/server/services/automated-outreach.service";
 import { SEND_AUTOMATED_EMAIL_JOB } from "@/server/jobs/send-automated-email";
 import { inlineStepRun, type StepRun } from "@/server/jobs/step-runner";
@@ -181,15 +181,19 @@ async function runOneCampaign(
     enrichedThisTick += batchResult.processed;
   }
 
-  // ---- Phase 3: generate copy, gated by the 50/day cap ----
+  // ---- Phase 3: generate copy, gated by the plan's daily cap ----
 
   // Budget is an ESTIMATE used to bound how many (potentially slow) AI calls
   // we attempt — the AUTHORITATIVE cap check happens later, in a short
   // locked transaction with no external I/O inside it (see Phase 4 below).
+  // The cap is per-plan (see automatedDailySendCapFor); resolved once here
+  // and reused below so a mid-tick plan change can't produce two different
+  // budgets within the same run.
+  const dailyCap = await automatedDailySendCapFor(tenantId);
   const sentSoFar = await withTenantTx({ tenantId }, (ctx) =>
     automatedSendRepo.countScheduledOrSentTodayForTenant(ctx),
   );
-  const budget = Math.max(AUTOMATED_DAILY_SEND_CAP - sentSoFar, 0);
+  const budget = Math.max(dailyCap - sentSoFar, 0);
   if (budget <= 0) return;
 
   const ready = await withTenantTx({ tenantId }, (ctx) =>
@@ -219,7 +223,9 @@ async function runOneCampaign(
   // string on replay in any step that reads it. Doing both in one step means
   // nothing ever reads a schedule row's `scheduledAt` after it's crossed a
   // step boundary.
-  await stepRun(`schedule-and-enqueue-${cid}`, () => scheduleAndEnqueue(campaign, generated, tenantId, services));
+  await stepRun(`schedule-and-enqueue-${cid}`, () =>
+    scheduleAndEnqueue(campaign, generated, tenantId, services, dailyCap),
+  );
 }
 
 /** The free, no-AI-call path — resolves everything except the one genuinely
@@ -428,6 +434,7 @@ async function scheduleAndEnqueue(
   generated: GeneratedCopy[],
   tenantId: string,
   services: Services,
+  dailyCap: number,
 ): Promise<void> {
   // Authoritative, lock-protected cap re-check + insert — fast, DB-only.
   // `onConflictDoNothing` on (campaignId, leadId, stepIndex) is the
@@ -444,7 +451,7 @@ async function scheduleAndEnqueue(
   const scheduledRows = await withTenantTx({ tenantId }, async (ctx) => {
     await lockTenantForAutomatedDailyCap(ctx);
     const sentNow = await automatedSendRepo.countScheduledOrSentTodayForTenant(ctx);
-    const remainingNow = Math.max(AUTOMATED_DAILY_SEND_CAP - sentNow, 0);
+    const remainingNow = Math.max(dailyCap - sentNow, 0);
     const day0Entries = generated.filter((g) => g.stepIndex === 0);
     const leadIdsToSchedule = new Set(day0Entries.slice(0, remainingNow).map((g) => g.leadId));
     const toSchedule = generated.filter((g) => leadIdsToSchedule.has(g.leadId));

@@ -1,5 +1,6 @@
 "use client";
 
+import { Fragment } from "react";
 import Link from "next/link";
 import { FaqAccordion } from "@/components/pricing/faq-accordion";
 import { PricingPlans } from "@/components/pricing/pricing-plans";
@@ -7,56 +8,70 @@ import { SiteNav } from "@/components/marketing/site-nav";
 import { SiteFooter } from "@/components/marketing/site-footer";
 import { PLANS, PLAN_ORDER, CAPABILITY_LABEL, planHasCapability } from "@/lib/plans";
 
-const COMPARISON_ROWS: { label: string; render: (planId: (typeof PLAN_ORDER)[number]) => string }[] = [
+type PlanIdT = (typeof PLAN_ORDER)[number];
+type Row = { label: string; render: (planId: PlanIdT) => string };
+
+const num = (n: number) => (Number.isFinite(n) ? n.toLocaleString() : "Unlimited");
+const yesNo = (id: PlanIdT, cap: Parameters<typeof planHasCapability>[1]) =>
+  planHasCapability(id, cap) ? "Included" : "—";
+
+/** Grouped so the two engines read as equally complete offerings rather than
+ *  one long undifferentiated list. */
+const COMPARISON_GROUPS: { heading: string; rows: Row[] }[] = [
   {
-    label: "Résumés / month",
-    render: (id) => {
-      const n = PLANS[id].uploadsPerMonth;
-      return n >= 100000 ? "Unlimited" : n.toLocaleString();
-    },
-  },
-  { label: "Semantic candidate search", render: () => "Included" },
-  {
-    label: CAPABILITY_LABEL.bulk_upload,
-    render: (id) => (planHasCapability(id, "bulk_upload") ? "Included" : "—"),
-  },
-  {
-    label: CAPABILITY_LABEL.advanced_filters,
-    render: (id) => (planHasCapability(id, "advanced_filters") ? "Included" : "—"),
-  },
-  {
-    label: CAPABILITY_LABEL.ats_export,
-    render: (id) => (planHasCapability(id, "ats_export") ? "Included" : "—"),
-  },
-  {
-    label: CAPABILITY_LABEL.api_access,
-    render: (id) => (planHasCapability(id, "api_access") ? "Included" : "—"),
-  },
-  {
-    label: CAPABILITY_LABEL.audit_log,
-    render: (id) => (planHasCapability(id, "audit_log") ? "Included" : "—"),
+    heading: "AI Outreach",
+    rows: [
+      { label: CAPABILITY_LABEL.automated_outreach, render: (id) => yesNo(id, "automated_outreach") },
+      { label: "Automated emails / day", render: (id) => num(PLANS[id].automatedDailySendCap) },
+      { label: "Blueprints", render: (id) => num(PLANS[id].maxBlueprints) },
+      { label: "Active campaigns", render: (id) => num(PLANS[id].maxActiveAutomatedCampaigns) },
+      { label: "Lead discovery & email finding", render: () => "Included" },
+      { label: "AI qualification & reply drafting", render: () => "Included" },
+      {
+        label: CAPABILITY_LABEL.blueprint_web_research,
+        render: (id) => yesNo(id, "blueprint_web_research"),
+      },
+      { label: "Sender mailboxes", render: (id) => num(PLANS[id].outreachMaxSenderAccounts) },
+    ],
   },
   {
-    label: CAPABILITY_LABEL.sso,
-    render: (id) => (planHasCapability(id, "sso") ? "Included" : "—"),
+    heading: "Bulk Fire",
+    rows: [
+      { label: CAPABILITY_LABEL.outreach_bulk_fire, render: (id) => yesNo(id, "outreach_bulk_fire") },
+      {
+        label: "Bulk Fire emails / day",
+        render: (id) => {
+          const cap = PLANS[id].outreachDailySendCap;
+          return cap === 0 ? "—" : num(cap);
+        },
+      },
+      { label: CAPABILITY_LABEL.outreach_scheduler, render: (id) => yesNo(id, "outreach_scheduler") },
+      { label: CAPABILITY_LABEL.whatsapp_channel, render: (id) => yesNo(id, "whatsapp_channel") },
+    ],
   },
   {
-    label: "Outreach: daily email cap",
-    render: (id) => {
-      const cap = PLANS[id].outreachDailySendCap;
-      return cap === 0 ? "—" : Number.isFinite(cap) ? cap.toLocaleString() : "Unlimited";
-    },
+    heading: "Talent",
+    rows: [
+      {
+        label: "Résumés / month",
+        render: (id) => {
+          const n = PLANS[id].uploadsPerMonth;
+          return n >= 100000 ? "Unlimited" : n.toLocaleString();
+        },
+      },
+      { label: "AI parsing & semantic search", render: () => "Included" },
+      { label: CAPABILITY_LABEL.bulk_upload, render: (id) => yesNo(id, "bulk_upload") },
+      { label: CAPABILITY_LABEL.advanced_filters, render: (id) => yesNo(id, "advanced_filters") },
+      { label: CAPABILITY_LABEL.ats_export, render: (id) => yesNo(id, "ats_export") },
+    ],
   },
   {
-    label: "Outreach: sender accounts",
-    render: (id) => {
-      const n = PLANS[id].outreachMaxSenderAccounts;
-      return n === 0 ? "—" : String(n);
-    },
-  },
-  {
-    label: CAPABILITY_LABEL.outreach_scheduler,
-    render: (id) => (planHasCapability(id, "outreach_scheduler") ? "Included" : "—"),
+    heading: "Platform",
+    rows: [
+      { label: CAPABILITY_LABEL.api_access, render: (id) => yesNo(id, "api_access") },
+      { label: CAPABILITY_LABEL.sso, render: (id) => yesNo(id, "sso") },
+      { label: CAPABILITY_LABEL.audit_log, render: (id) => yesNo(id, "audit_log") },
+    ],
   },
 ];
 
@@ -69,7 +84,7 @@ export default function PricingPage() {
         <section className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-12 text-center">
           <h1 className="font-display-lg text-3xl sm:text-display-lg text-primary mb-4">Simple per-seat pricing</h1>
           <p className="font-body-lg text-body-lg text-on-surface-variant">
-            Pay per recruiter. Upgrade any time — downgrades and cancellations go through support.
+            Pay per seat. Both engines are on every plan — higher tiers add volume, mailboxes and Bulk Fire. Upgrade any time; downgrades and cancellations go through support.
           </p>
           <PricingPlans />
         </section>
@@ -94,13 +109,26 @@ export default function PricingPage() {
                 </tr>
               </thead>
               <tbody className="font-body-md text-body-md">
-                {COMPARISON_ROWS.map((row, i) => (
-                  <tr key={row.label} className={i < COMPARISON_ROWS.length - 1 ? "border-b border-border-low-alpha" : undefined}>
-                    <td className="p-6">{row.label}</td>
-                    {PLAN_ORDER.map((id) => (
-                      <td key={id} className="p-6">{row.render(id)}</td>
+                {COMPARISON_GROUPS.map((group) => (
+                  <Fragment key={group.heading}>
+                    <tr className="bg-bg-secondary">
+                      <th
+                        scope="colgroup"
+                        colSpan={PLAN_ORDER.length + 1}
+                        className="px-6 py-3 text-left font-label-md text-label-md uppercase tracking-[0.12em] text-on-surface-variant border-y border-border-low-alpha"
+                      >
+                        {group.heading}
+                      </th>
+                    </tr>
+                    {group.rows.map((row) => (
+                      <tr key={row.label} className="border-b border-border-low-alpha">
+                        <td className="p-6">{row.label}</td>
+                        {PLAN_ORDER.map((id) => (
+                          <td key={id} className="p-6">{row.render(id)}</td>
+                        ))}
+                      </tr>
                     ))}
-                  </tr>
+                  </Fragment>
                 ))}
               </tbody>
               </table>
@@ -136,9 +164,9 @@ export default function PricingPage() {
             </div>
             <div className="relative z-10 text-center md:text-left">
               <h2 className="font-display-lg text-headline-lg text-white mb-2">
-                Ready to transform your recruitment?
+                Ready to fill your pipeline?
               </h2>
-              <p className="font-body-md text-white/80">Set up your workspace and start parsing résumés in minutes.</p>
+              <p className="font-body-md text-white/80">Set up your workspace and launch your first campaign in minutes.</p>
             </div>
             <Link
               href="/signup"
