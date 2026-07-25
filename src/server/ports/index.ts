@@ -336,6 +336,14 @@ export interface BlueprintSuggestions {
   /** Best-effort human-readable business name inferred from the site. */
   businessName?: string;
   fields: BlueprintSuggestedField[];
+  /** A first-person paragraph describing the business, written FROM the
+   *  researched site so the wizard's freeform "tell us everything" box starts
+   *  populated instead of blank. The user edits or replaces it; whatever they
+   *  submit is what reaches the generator as `additionalContext` (which the
+   *  generator prompts treat as the highest-priority source). Best-effort —
+   *  omitted when the site yielded too little to say anything concrete, since
+   *  a fabricated description is worse than an empty box. */
+  draftContext?: string;
 }
 
 export interface BlueprintResearcher {

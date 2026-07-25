@@ -21,6 +21,9 @@ interface SuggestedField {
 interface Suggestions {
   businessName?: string;
   fields: SuggestedField[];
+  /** AI-drafted first-person description of the business, from the same
+   *  research pass — seeds the freeform box so it never starts blank. */
+  draftContext?: string;
 }
 
 type Answers = Record<string, string | string[]>;
@@ -41,6 +44,8 @@ export default function NewBlueprintPage() {
   const [answers, setAnswers] = useState<Answers>({});
   const [customInputs, setCustomInputs] = useState<Record<string, string>>({});
   const [additionalContext, setAdditionalContext] = useState("");
+  /** True once research pre-filled the box, so the UI can say so and offer a reset. */
+  const [contextWasDrafted, setContextWasDrafted] = useState(false);
 
   // Step 3
   const [generating, setGenerating] = useState(false);
@@ -98,6 +103,14 @@ export default function NewBlueprintPage() {
           res.fields.map((f) => [f.field, f.multi ? [] : f.options[0] ?? ""]),
         ),
       );
+      // Seed the freeform box from the same research pass. Only when the user
+      // hasn't already written something — re-running research must never wipe
+      // their own words. `draftContext` is best-effort and absent when the site
+      // was too thin to describe honestly, in which case the box stays empty.
+      if (res.draftContext) {
+        setAdditionalContext((prev) => (prev.trim() ? prev : res.draftContext!.slice(0, 2000)));
+        setContextWasDrafted(true);
+      }
       setStep(1);
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : "Failed to research website");
@@ -268,9 +281,19 @@ export default function NewBlueprintPage() {
                     placeholder="e.g. We only want independent local dentists, not chains or DSOs. Our best customers are 2-8 person practices that just moved offices. Never call us a 'marketing agency' — we're a 'growth partner'. We don't work with anyone under a 12-month commitment..."
                     className="w-full rounded-xl border border-border-low-alpha bg-white px-4 py-3 font-body-md text-body-md focus:outline-none focus:ring-1 focus:ring-primary placeholder-outline resize-y"
                   />
-                  <p className="mt-1.5 text-right font-label-md text-[11px] text-text-muted">
-                    {additionalContext.length}/2000
-                  </p>
+                  <div className="mt-1.5 flex items-center justify-between gap-3">
+                    {contextWasDrafted ? (
+                      <p className="flex items-center gap-1.5 font-label-md text-[11px] text-primary">
+                        <span className="material-symbols-outlined text-[14px]">auto_awesome</span>
+                        Drafted from your website — edit or replace it so it sounds like you.
+                      </p>
+                    ) : (
+                      <span />
+                    )}
+                    <p className="shrink-0 font-label-md text-[11px] text-text-muted">
+                      {additionalContext.length}/2000
+                    </p>
+                  </div>
                 </CardContent>
               </Card>
 

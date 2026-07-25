@@ -40,6 +40,9 @@ export class MockBlueprintResearcher implements BlueprintResearcher {
     const n = args.name.trim() || "Your Business";
     return {
       businessName: n,
+      // Deterministic stand-in for the real adapters' researched paragraph —
+      // lets the wizard's pre-fill wiring be exercised without a network call.
+      draftContext: `We are ${n}. We help small teams get more done, and our customers stay with us because onboarding is fast.`,
       fields: FIELD_QUESTIONS.map((q) => ({
         field: q.field,
         question: q.question,

@@ -111,6 +111,32 @@ describe("blueprint CRUD", () => {
     expect(listed.json.data.blueprints).toHaveLength(0);
   });
 
+  it("lets you re-create a blueprint with the name of one you deleted", async () => {
+    const { token } = await makeUser("recruiter");
+
+    const first = await call(createBlueprintPOST, { token, body: { name: "75Way" } });
+    expect(first.status).toBe(201);
+
+    const del = await call(deleteBlueprintDELETE, {
+      token,
+      method: "DELETE",
+      routeCtx: params(first.json.data.id),
+    });
+    expect(del.status).toBe(200);
+
+    // Regression: blueprints_tenant_name_uq used to cover soft-deleted rows,
+    // so this insert passed the service's findByName check (which filters them
+    // out) and then violated the constraint — surfacing to the user as a bare
+    // "Something went wrong" with the name permanently burned.
+    const again = await call(createBlueprintPOST, { token, body: { name: "75Way" } });
+    expect(again.status).toBe(201);
+    expect(again.json.data.id).not.toBe(first.json.data.id);
+
+    // And the live-row uniqueness rule still holds.
+    const dup = await call(createBlueprintPOST, { token, body: { name: "75Way" } });
+    expect(dup.status).toBe(409);
+  });
+
   it("refuses to delete a blueprint that an automated campaign still uses", async () => {
     const { tenant, token } = await makeUser("admin");
     const created = await call(createBlueprintPOST, { token, body: { name: "Acme Offer" } });
@@ -194,6 +220,20 @@ describe("blueprint wizard: suggest + generate (mock adapter)", () => {
 
     const listed = await call(listBlueprintsGET, { token });
     expect(listed.json.data.blueprints).toHaveLength(0);
+  });
+
+  it("suggest returns a draftContext so the wizard's freeform box starts pre-filled", async () => {
+    const { token } = await makeUser("recruiter");
+    const res = await call(suggestBlueprintPOST, {
+      token,
+      body: { name: "Acme Offer", websiteUrl: "https://acme.example" },
+    });
+
+    expect(res.status).toBe(200);
+    // Seeds the "tell us everything" box from the same research pass, rather
+    // than making the user describe a business we just finished reading about.
+    expect(typeof res.json.data.draftContext).toBe("string");
+    expect(res.json.data.draftContext).toContain("Acme Offer");
   });
 
   it("suggest surfaces a provider failure as a 4xx/5xx, not a silent 200", async () => {

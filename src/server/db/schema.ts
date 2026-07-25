@@ -13,6 +13,7 @@ import {
   index,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 /**
  * Schema mirrors the ERD in SYSTEM_DESIGN.md. Every tenant-scoped table carries
@@ -417,7 +418,14 @@ export const senderAccounts = pgTable(
   },
   (t) => [
     index("sender_accounts_tenant_idx").on(t.tenantId),
-    uniqueIndex("sender_accounts_tenant_email_uq").on(t.tenantId, t.email),
+    // PARTIAL on purpose: sender accounts are SOFT-deleted, so a full unique
+    // index would count disconnected rows and permanently block reconnecting
+    // the same mailbox. Every read path already filters on
+    // `isNull(deletedAt)`, so uniqueness only ever needs to hold among live
+    // rows — see the matching note on blueprints_tenant_name_uq below.
+    uniqueIndex("sender_accounts_tenant_email_uq")
+      .on(t.tenantId, t.email)
+      .where(sql`${t.deletedAt} is null`),
   ],
 );
 
@@ -626,7 +634,16 @@ export const blueprints = pgTable(
   },
   (t) => [
     index("blueprints_tenant_idx").on(t.tenantId),
-    uniqueIndex("blueprints_tenant_name_uq").on(t.tenantId, t.name),
+    // PARTIAL on purpose. Blueprints are SOFT-deleted (deletedAt), and a full
+    // unique index counts those hidden rows: creating "Acme", deleting it, then
+    // creating "Acme" again passed the service's friendly duplicate-name check
+    // (findByName filters isNull(deletedAt)) and then blew up on this
+    // constraint — surfacing as a bare "Something went wrong" with no way for
+    // the user to recover the name short of renaming. Scoping the index to live
+    // rows makes the DB agree with every read path in the app.
+    uniqueIndex("blueprints_tenant_name_uq")
+      .on(t.tenantId, t.name)
+      .where(sql`${t.deletedAt} is null`),
   ],
 );
 
