@@ -307,9 +307,9 @@ export default function CandidatesPage() {
 
         {/* Toolbar + Data Canvas */}
         <Card className="overflow-hidden">
-          <CardHeader className="flex-row flex-wrap items-center justify-between gap-4 border-b border-border-low-alpha">
-            <div className="flex flex-wrap items-center gap-3 flex-1">
-              <div className="relative w-full md:w-64">
+          <CardHeader className="flex flex-col items-stretch gap-3 border-b border-border-low-alpha sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-4">
+            <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+              <div className="relative w-full shrink-0 sm:w-64">
                 <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant/60 text-[20px]">filter_list</span>
                 <input
                   className="w-full pl-9 pr-4 py-2 bg-bg-cream border border-border-low-alpha rounded-lg focus:ring-1 focus:ring-primary/20 focus:border-primary outline-none font-body-md text-[14px] text-on-surface placeholder:text-on-surface-variant/60"
@@ -319,22 +319,23 @@ export default function CandidatesPage() {
                   onChange={(e) => setQ(e.target.value)}
                 />
               </div>
-              <div className="flex gap-2">
+              <div className="flex min-w-0 flex-wrap gap-2">
                 {roleFilter !== "" && (
                   <button
                     type="button"
                     onClick={() => setRoleFilter("")}
-                    className="px-3 py-1.5 rounded-full border border-secondary text-secondary font-label-md text-[13px] hover:bg-secondary/5 transition-colors flex items-center gap-1"
+                    className="flex max-w-full items-center gap-1 rounded-full border border-secondary px-3 py-1.5 font-label-md text-[13px] text-secondary transition-colors hover:bg-secondary/5"
                   >
-                    Role: {roleFilter} <span className="material-symbols-outlined text-[16px]">close</span>
+                    <span className="truncate">Role: {roleFilter}</span>
+                    <span className="material-symbols-outlined shrink-0 text-[16px]">close</span>
                   </button>
                 )}
-                <label className="px-3 py-1.5 rounded-full border border-border-low-alpha text-on-surface-variant font-label-md text-[13px] hover:bg-bg-cream transition-colors flex items-center gap-1 cursor-pointer">
-                  Experience
+                <label className="flex min-w-0 flex-1 basis-[calc(50%-0.25rem)] cursor-pointer items-center gap-1 rounded-full border border-border-low-alpha px-3 py-1.5 font-label-md text-[13px] text-on-surface-variant transition-colors hover:bg-bg-cream sm:basis-auto sm:flex-none">
+                  <span className="shrink-0">Experience</span>
                   <select
                     value={experience}
                     onChange={(e) => setExperience(e.target.value)}
-                    className="bg-transparent outline-none font-label-md text-[13px] text-on-surface-variant cursor-pointer"
+                    className="min-w-0 flex-1 cursor-pointer bg-transparent text-right font-label-md text-[13px] text-on-surface-variant outline-none sm:flex-none"
                     aria-label="Filter by experience"
                   >
                     {EXPERIENCE_OPTIONS.map((opt) => (
@@ -344,12 +345,12 @@ export default function CandidatesPage() {
                     ))}
                   </select>
                 </label>
-                <label className="px-3 py-1.5 rounded-full border border-border-low-alpha text-on-surface-variant font-label-md text-[13px] hover:bg-bg-cream transition-colors flex items-center gap-1 cursor-pointer">
-                  Status
+                <label className="flex min-w-0 flex-1 basis-[calc(50%-0.25rem)] cursor-pointer items-center gap-1 rounded-full border border-border-low-alpha px-3 py-1.5 font-label-md text-[13px] text-on-surface-variant transition-colors hover:bg-bg-cream sm:basis-auto sm:flex-none">
+                  <span className="shrink-0">Status</span>
                   <select
                     value={status}
                     onChange={(e) => setStatus(e.target.value)}
-                    className="bg-transparent outline-none font-label-md text-[13px] text-on-surface-variant cursor-pointer"
+                    className="min-w-0 flex-1 cursor-pointer bg-transparent text-right font-label-md text-[13px] text-on-surface-variant outline-none sm:flex-none"
                     aria-label="Filter by status"
                   >
                     <option value="All">All</option>
@@ -360,8 +361,8 @@ export default function CandidatesPage() {
                 </label>
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              <span className="font-label-md text-[13px] text-on-surface-variant">Showing {paged.length} of {totalCount}</span>
+            <div className="flex w-full items-center justify-between gap-3 sm:w-auto sm:justify-end">
+              <span className="min-w-0 truncate font-label-md text-[13px] text-on-surface-variant">Showing {paged.length} of {totalCount}</span>
               <div className="flex gap-1 border border-border-low-alpha rounded-lg p-1 bg-bg-cream">
                 <button
                   type="button"
@@ -463,12 +464,12 @@ export default function CandidatesPage() {
 
             {/* Server-side pagination — each page button fetches that page from the API */}
             {!loading && paged.length > 0 && (
-              <div className="px-6 py-4 border-t border-border-low-alpha bg-surface-white flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-col gap-3 border-t border-border-low-alpha bg-surface-white px-4 py-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:px-6">
                 <span className="font-body-md text-[13px] text-on-surface-variant">
                   Showing {(currentPage - 1) * PAGE_SIZE + 1}–
                   {Math.min(currentPage * PAGE_SIZE, totalCount)} of {totalCount}
                 </span>
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2 self-end sm:self-auto">
                   <button
                     type="button"
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
