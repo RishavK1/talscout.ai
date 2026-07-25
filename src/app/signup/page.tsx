@@ -81,7 +81,7 @@ export default function SignUpPage() {
   if (emailSent) {
     return (
       <main className="flex min-h-screen w-full items-center justify-center bg-bg-cream p-4">
-        <div className="w-full max-w-[480px] rounded-xl border border-border-low-alpha bg-white p-10 text-center shadow-[0_10px_40px_rgba(44,35,34,0.06)]">
+        <div className="w-full max-w-[480px] rounded-xl border border-border-low-alpha bg-surface-white p-10 text-center shadow-[0_10px_40px_rgba(44,35,34,0.06)]">
           <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-container/10">
             <span className="material-symbols-outlined text-[28px] text-primary">mark_email_unread</span>
           </div>
@@ -119,11 +119,11 @@ export default function SignUpPage() {
       {/* Left Panel (55%): Registration Flow */}
       <section className="w-full lg:flex-[0.55] bg-bg-cream flex items-center justify-center p-4 sm:p-6 relative overflow-y-auto">
         {/* Auth Card */}
-        <div className="w-full max-w-[480px] bg-white rounded-xl p-10 shadow-[0_10px_40px_rgba(44,35,34,0.06)] border border-border-low-alpha">
+        <div className="w-full max-w-[480px] bg-surface-white rounded-xl p-10 shadow-[0_10px_40px_rgba(44,35,34,0.06)] border border-border-low-alpha">
           {/* Logo Cluster */}
           <Link href="/" className="flex items-center gap-2 mb-8">
             <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-              <span className="material-symbols-outlined text-white text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>psychology</span>
+              <span className="material-symbols-outlined text-on-primary text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>psychology</span>
             </div>
             <span className="font-headline-md text-headline-md text-primary tracking-tight">TalScout</span>
           </Link>
@@ -152,7 +152,7 @@ export default function SignUpPage() {
               <div className="w-full border-t border-border-low-alpha"></div>
             </div>
             <div className="relative flex justify-center text-xs">
-              <span className="bg-white px-4 font-label-md text-text-muted">or</span>
+              <span className="bg-surface-white px-4 font-label-md text-text-muted">or</span>
             </div>
           </div>
           {/* Form */}
@@ -206,7 +206,7 @@ export default function SignUpPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full text-center py-4 bg-primary text-white font-label-md text-label-md rounded-lg shadow-sm hover:opacity-90 active:scale-[0.98] transition-all duration-200 mt-2 disabled:opacity-50"
+              className="w-full text-center py-4 bg-primary text-on-primary font-label-md text-label-md rounded-lg shadow-sm hover:opacity-90 active:scale-[0.98] transition-all duration-200 mt-2 disabled:opacity-50"
             >
               {loading ? "Creating account..." : "Create account"}
             </button>
@@ -233,13 +233,13 @@ export default function SignUpPage() {
         <div className="relative z-10 max-w-lg">
           {/* AI Insight Badge Visual */}
           <div className="mb-12 animate-fade-in-up">
-            <div className="inline-flex items-center gap-4 bg-white/10 backdrop-blur-md p-4 pr-8 rounded-2xl border border-white/10">
+            <div className="inline-flex items-center gap-4 bg-on-primary/10 backdrop-blur-md p-4 pr-8 rounded-2xl border border-on-primary/10">
               <div className="w-14 h-14 bg-secondary-container rounded-xl flex items-center justify-center shadow-lg">
                 <span className="font-data-mono text-secondary font-bold text-lg">94%</span>
               </div>
               <div>
                 <p className="text-bg-cream font-label-md text-label-md mb-0.5">AI Match Score</p>
-                <p className="text-white/60 text-[12px] font-body-md">Precision Candidate Analysis</p>
+                <p className="text-on-primary/60 text-[12px] font-body-md">Precision Candidate Analysis</p>
               </div>
             </div>
           </div>
@@ -251,14 +251,14 @@ export default function SignUpPage() {
             <footer className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-full border-2 border-white/20 flex items-center justify-center bg-surface-container-high text-primary font-headline-md">SJ</div>
               <div>
-                <cite className="not-italic font-label-md text-label-md text-white block">Sarah Jenkins</cite>
+                <cite className="not-italic font-label-md text-label-md text-on-primary block">Sarah Jenkins</cite>
                 <span className="text-bg-cream/60 text-body-md font-body-md">Head of Talent @ TechFlow</span>
               </div>
             </footer>
           </blockquote>
           {/* Logo Anchor bottom */}
           <div className="absolute bottom-12 left-16">
-            <div className="flex items-center gap-2 text-white/40">
+            <div className="flex items-center gap-2 text-on-primary/40">
               <span className="material-symbols-outlined text-[18px]">verified_user</span>
               <span className="text-[12px] font-body-md uppercase tracking-widest">Enterprise Secured Recruitment</span>
             </div>

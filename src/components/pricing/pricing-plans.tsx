@@ -169,7 +169,7 @@ export function PricingPlans() {
                   href={buttonHref}
                   className={
                     plan.highlighted
-                      ? "w-full py-3 rounded-lg bg-primary text-white font-label-md text-label-md hover:opacity-90 transition-all text-center"
+                      ? "w-full py-3 rounded-lg bg-primary text-on-primary font-label-md text-label-md hover:opacity-90 transition-all text-center"
                       : "w-full py-3 rounded-lg border border-primary text-primary font-label-md text-label-md hover:bg-primary/5 transition-colors text-center"
                   }
                 >

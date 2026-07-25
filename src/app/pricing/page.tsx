@@ -148,29 +148,29 @@ export default function PricingPage() {
             <div className="absolute inset-0 opacity-10 pointer-events-none">
               {/* Subtle background pattern */}
               <div className="grid grid-cols-12 w-full h-full">
-                <div className="border-r border-white/20 h-full"></div>
-                <div className="border-r border-white/20 h-full"></div>
-                <div className="border-r border-white/20 h-full"></div>
-                <div className="border-r border-white/20 h-full"></div>
-                <div className="border-r border-white/20 h-full"></div>
-                <div className="border-r border-white/20 h-full"></div>
-                <div className="border-r border-white/20 h-full"></div>
-                <div className="border-r border-white/20 h-full"></div>
-                <div className="border-r border-white/20 h-full"></div>
-                <div className="border-r border-white/20 h-full"></div>
-                <div className="border-r border-white/20 h-full"></div>
+                <div className="border-r border-on-secondary/20 h-full"></div>
+                <div className="border-r border-on-secondary/20 h-full"></div>
+                <div className="border-r border-on-secondary/20 h-full"></div>
+                <div className="border-r border-on-secondary/20 h-full"></div>
+                <div className="border-r border-on-secondary/20 h-full"></div>
+                <div className="border-r border-on-secondary/20 h-full"></div>
+                <div className="border-r border-on-secondary/20 h-full"></div>
+                <div className="border-r border-on-secondary/20 h-full"></div>
+                <div className="border-r border-on-secondary/20 h-full"></div>
+                <div className="border-r border-on-secondary/20 h-full"></div>
+                <div className="border-r border-on-secondary/20 h-full"></div>
                 <div className="h-full"></div>
               </div>
             </div>
             <div className="relative z-10 text-center md:text-left">
-              <h2 className="font-display-lg text-headline-lg text-white mb-2">
+              <h2 className="font-display-lg text-headline-lg text-on-secondary mb-2">
                 Ready to fill your pipeline?
               </h2>
-              <p className="font-body-md text-white/80">Set up your workspace and launch your first campaign in minutes.</p>
+              <p className="font-body-md text-on-secondary/80">Set up your workspace and launch your first campaign in minutes.</p>
             </div>
             <Link
               href="/signup"
-              className="relative z-10 bg-primary text-white px-10 py-4 rounded-lg font-label-md text-label-md hover:bg-primary-container transition-all shadow-xl"
+              className="relative z-10 bg-primary text-on-primary px-10 py-4 rounded-lg font-label-md text-label-md hover:bg-primary-container transition-all shadow-xl"
             >
               Get started now
             </Link>

@@ -494,7 +494,7 @@ export default function CandidatesPage() {
                       className={
                         "w-8 h-8 rounded font-label-md text-[13px] flex items-center justify-center transition-colors " +
                         (p === currentPage
-                          ? "bg-primary-container text-on-primary"
+                          ? "bg-primary-container text-on-primary-container"
                           : "border border-border-low-alpha text-on-surface-variant hover:bg-bg-cream")
                       }
                     >

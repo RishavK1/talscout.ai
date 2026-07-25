@@ -21,7 +21,7 @@ export function InviteMemberButton({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="px-8 py-4 bg-primary text-white rounded-lg font-headline-md text-[16px] font-semibold hover:shadow-lg transition-all active:scale-95 flex items-center gap-2"
+        className="px-8 py-4 bg-primary text-on-primary rounded-lg font-headline-md text-[16px] font-semibold hover:shadow-lg transition-all active:scale-95 flex items-center gap-2"
       >
         <span className="material-symbols-outlined">person_add</span>
         Invite member

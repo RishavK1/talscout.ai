@@ -222,7 +222,7 @@ export default function ShortlistsPage() {
               <span className="font-label-md text-primary mb-2">Stay Updated</span>
               <div className="flex gap-2">
                 <input className="bg-white border border-border-low-alpha rounded-lg px-4 py-2 text-label-md w-full focus:ring-1 focus:ring-primary" placeholder="Your email" type="text" />
-                <button type="button" className="bg-primary text-white p-2 px-4 rounded-lg">
+                <button type="button" className="bg-primary text-on-primary p-2 px-4 rounded-lg">
                   <span className="material-symbols-outlined text-sm">send</span>
                 </button>
               </div>

@@ -13,7 +13,7 @@ export function SiteNav() {
             href="/"
             className="flex items-center gap-2.5"
           >
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-container text-on-primary shadow-sm">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-container text-on-primary-container shadow-sm">
               <span className="material-symbols-outlined text-[20px]">travel_explore</span>
             </span>
             <span className="font-headline-lg text-headline-md tracking-tight text-primary">
@@ -45,7 +45,7 @@ export function SiteNav() {
           {user ? (
             <Link
               href="/dashboard"
-              className="rounded-lg bg-primary-container px-5 py-2.5 font-label-md text-label-md text-on-primary shadow-sm transition-colors hover:bg-primary active:scale-95"
+              className="rounded-lg bg-primary-container px-5 py-2.5 font-label-md text-label-md text-on-primary-container shadow-sm transition-colors hover:bg-primary active:scale-95"
             >
               Dashboard
             </Link>
@@ -59,7 +59,7 @@ export function SiteNav() {
               </Link>
               <Link
                 href="/signup"
-                className="rounded-lg bg-primary-container px-5 py-2.5 font-label-md text-label-md text-on-primary shadow-sm transition-colors hover:bg-primary active:scale-95"
+                className="rounded-lg bg-primary-container px-5 py-2.5 font-label-md text-label-md text-on-primary-container shadow-sm transition-colors hover:bg-primary active:scale-95"
               >
                 Get started
               </Link>

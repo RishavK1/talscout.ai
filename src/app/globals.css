@@ -289,6 +289,36 @@
   --sidebar-ring: #78a99f;
   --shadow-ambient: 0 1px 2px rgba(0, 0, 0, 0.3), 0 18px 42px rgba(0, 0, 0, 0.2);
   --shadow-floating: 0 26px 70px -28px rgba(0, 0, 0, 0.8);
+
+  /* Secondary (brass/gold) family. These were missing from the dark theme
+     entirely, so they kept their LIGHT values: --color-secondary is a dark
+     gold (#755b00) used as TEXT in ~44 places — including `hover:text-secondary`
+     on footer links, which made them fade to near-invisible on hover against a
+     dark surface. Transformed the same way the primary/tertiary families are
+     above: the "main" tone lightens so it reads as text on dark, the "fixed"
+     (chip background) tones darken, and every on-* pair flips to match. */
+  --color-secondary: #e0c26a;
+  --color-secondary-container: #5c4700;
+  --color-secondary-fixed: #3d2f00;
+  --color-secondary-fixed-dim: #a98b2e;
+  --color-on-secondary: #1a1400;
+  --color-on-secondary-container: #ffe08e;
+  --color-on-secondary-fixed: #f4e3b0;
+  --color-on-secondary-fixed-variant: #d9c07a;
+
+  /* `text-primary` is generated from the shadcn --primary slot, not from
+     --color-primary: @theme inline declares `--color-primary: var(--primary)`,
+     and :root declares `--primary: var(--color-primary-container)`. That chain
+     re-resolves under .dark to #2f6b63 — only 2.89:1 against the page and
+     1.98:1 for text sitting inside a primary-fixed chip, both below WCAG AA.
+     The dark palette already defines the right tone for this role
+     (--color-primary: #78a99f) but it never reached any text because of that
+     indirection. Pointing the slot at it fixes text-primary, bg-primary
+     buttons (which pair with the near-black --color-on-primary) and the badge
+     chips at once. --color-primary-container itself is deliberately left as-is
+     so bg-primary-container + text-on-primary-container keeps its contrast. */
+  --primary: #78a99f;
+  --ring: #78a99f;
 }
 
 html {
@@ -335,6 +365,14 @@ body {
 /* ---- Stitch per-screen custom utilities (consolidated, 1:1) ---- */
 .bg-hero-gradient {
   background: linear-gradient(180deg, #faf7f3 0%, #ffffff 100%);
+}
+/* The gradient above is a hardcoded LIGHT ramp with no theme tokens in it, so
+   in dark mode the legal pages (privacy/terms/cookies/security, all built on
+   LegalPage) rendered a white header band with near-black heading text on an
+   otherwise dark page. Mirrors bg-cream → surface-white, the same two surfaces
+   the light ramp walks between. */
+.dark .bg-hero-gradient {
+  background: linear-gradient(180deg, #0d0f12 0%, #14181c 100%);
 }
 .sidebar-active {
   background-color: #fff;
@@ -397,6 +435,20 @@ body {
   color: #735a00;
   border: 1px solid #ecc246;
 }
+/* Both hardcode pale-amber backgrounds with dark-gold text — fine on a light
+   page, a glaring bright chip in dark mode. brass-badge is used by the shared
+   StatusBadge component, so it surfaces on billing, settings, blueprints and
+   automated-outreach. Inverted to a deep-gold chip with light text, keeping the
+   same brass identity. */
+.dark .brass-pill {
+  background-color: #5c4700;
+  color: #ffe08e;
+}
+.dark .brass-badge {
+  background-color: #3d2f00;
+  color: #f4e3b0;
+  border-color: #7a6420;
+}
 .brass-highlight {
   background-color: rgba(236, 194, 70, 0.2);
   border-bottom: 2px solid #ecc246;
@@ -429,15 +481,24 @@ body {
   background-color: color-mix(in srgb, var(--color-primary) 4%, transparent);
 }
 
-/* A small number of legacy authenticated screens still use Tailwind's
-   literal `bg-white` utility. Keep those surfaces theme-aware while they are
-   migrated to the semantic surface token. Marketing pages are intentionally
-   excluded so their dark hero compositions remain untouched. */
-.dark .app-shell .bg-white {
+/* A number of legacy screens still use Tailwind's literal `bg-white` utility
+   where they mean "card surface". Keep those theme-aware while they are
+   migrated to the semantic token.
+
+   Deliberately NOT scoped to .app-shell any more: Modal portals its panel to
+   <body> (see components/ui/modal.tsx — required so a transformed ancestor
+   can't break `position: fixed` centering), which puts every modal outside
+   .app-shell. Scoped this way, modal bodies kept a literal white panel in dark
+   mode while their `text-on-surface` copy flipped to near-white — invisible
+   text. Affected the lead-email viewers and the Bulk Fire dialogs.
+
+   The one element that must stay literally white in dark mode is a switch
+   knob; that now uses bg-[#ffffff] explicitly so it opts out of this remap. */
+.dark .bg-white {
   background-color: var(--color-surface-white);
 }
 
-.dark .app-shell .bg-white\/50 {
+.dark .bg-white\/50 {
   background-color: color-mix(in srgb, var(--color-surface-white) 50%, transparent);
 }
 .timeline-line::before {

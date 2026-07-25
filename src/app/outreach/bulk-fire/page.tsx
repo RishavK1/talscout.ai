@@ -327,7 +327,7 @@ export default function BulkFirePage() {
             <button
               type="button"
               onClick={() => setNewCampaignOpen(true)}
-              className="bg-primary text-white px-5 py-2.5 rounded-xl font-label-md text-label-md hover:shadow-lg transition-all active:scale-[0.98] whitespace-nowrap"
+              className="bg-primary text-on-primary px-5 py-2.5 rounded-xl font-label-md text-label-md hover:shadow-lg transition-all active:scale-[0.98] whitespace-nowrap"
             >
               + New campaign
             </button>

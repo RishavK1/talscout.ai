@@ -432,7 +432,11 @@ export default function NewAutomatedCampaignPage() {
                     >
                       <span
                         className={cn(
-                          "absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-transform",
+                          // Explicit literal white, not `bg-white`: this is a switch
+                          // knob, the one place that must stay light in dark mode
+                          // (the global `.dark .bg-white` surface remap would sink
+                          // it into the track).
+                          "absolute top-1 h-5 w-5 rounded-full bg-[#ffffff] shadow-sm transition-transform",
                           replyPollingEnabled ? "translate-x-6" : "translate-x-1",
                         )}
                       />
