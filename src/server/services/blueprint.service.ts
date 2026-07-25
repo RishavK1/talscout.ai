@@ -123,9 +123,22 @@ export const blueprintService = {
       );
     }
 
+    // One Perplexity call per generate() — never per-lead/per-email (see
+    // WebResearcher's doc comment in ports/index.ts). Failure/no-key both
+    // resolve to null, so this never blocks generation.
+    const webResearch = merged.websiteUrl
+      ? await getServices().webResearcher.research({
+          businessName: merged.businessName ?? row.name,
+          websiteUrl: merged.websiteUrl,
+        })
+      : null;
+    const generatorInput = webResearch
+      ? { ...merged, answers: { ...merged.answers, webResearch } }
+      : merged;
+
     let sections;
     try {
-      sections = await getServices().blueprintGenerator.generate(merged);
+      sections = await getServices().blueprintGenerator.generate(generatorInput);
     } catch (err) {
       logger.error({ err, blueprintId: id }, "blueprint_generate_failed");
       throw new BadRequest("Blueprint generation failed — please try again");

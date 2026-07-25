@@ -17,6 +17,7 @@ import { withTenantTx } from "../../src/server/db/tx";
 import { blueprintRepo } from "../../src/server/repositories/blueprint.repo";
 import { senderAccounts } from "../../src/server/db/schema";
 import { encryptSecret } from "../../src/server/lib/secret-box";
+import { getServices } from "../../src/server/container";
 
 const params = (id: string) => ({ params: Promise.resolve({ id }) });
 
@@ -259,6 +260,65 @@ describe("blueprint wizard: suggest + generate (mock adapter)", () => {
     expect(generated.json.data.sections.painWeSolve).toContain(
       "Only target agencies with 2-8 people, never chains.",
     );
+  });
+
+  it("calls webResearcher once per generate() and threads its result into the generator's answers as webResearch", async () => {
+    const { token } = await makeUser("recruiter");
+    const created = await call(createBlueprintPOST, { token, body: { name: "Acme Offer" } });
+    const id = created.json.data.id;
+
+    const services = getServices();
+    const researchSpy = vi
+      .spyOn(services.webResearcher, "research")
+      .mockResolvedValue("Recent news: Acme Offer was featured in a local business roundup.");
+    const generateSpy = vi.spyOn(services.blueprintGenerator, "generate");
+
+    await call(generateBlueprintPOST, {
+      token,
+      body: {
+        intakeAnswers: {
+          businessName: "Acme Offer",
+          websiteUrl: "https://acme.example",
+          answers: { whatWeSell: "A scheduling tool", icp: "Small agencies" },
+        },
+      },
+      routeCtx: params(id),
+    });
+
+    expect(researchSpy).toHaveBeenCalledTimes(1);
+    expect(researchSpy).toHaveBeenCalledWith({
+      businessName: "Acme Offer",
+      websiteUrl: "https://acme.example",
+    });
+    expect(generateSpy).toHaveBeenCalledTimes(1);
+    expect(generateSpy.mock.calls[0][0].answers.webResearch).toBe(
+      "Recent news: Acme Offer was featured in a local business roundup.",
+    );
+  });
+
+  it("never calls webResearcher when there's no website URL, and never adds a webResearch key when research finds nothing", async () => {
+    const { token } = await makeUser("recruiter");
+    const created = await call(createBlueprintPOST, { token, body: { name: "Acme Offer" } });
+    const id = created.json.data.id;
+
+    const services = getServices();
+    const researchSpy = vi.spyOn(services.webResearcher, "research");
+    const generateSpy = vi.spyOn(services.blueprintGenerator, "generate");
+
+    await call(generateBlueprintPOST, {
+      token,
+      body: {
+        intakeAnswers: {
+          businessName: "Acme Offer",
+          answers: { whatWeSell: "A scheduling tool", icp: "Small agencies" },
+        },
+      },
+      routeCtx: params(id),
+    });
+
+    // No websiteUrl at all — never worth a metered Perplexity call.
+    expect(researchSpy).not.toHaveBeenCalled();
+    expect(generateSpy.mock.calls[0][0].answers.webResearch).toBeUndefined();
   });
 
   it("refuses to generate without any intake answers", async () => {

@@ -27,6 +27,8 @@ import {
   OpenRouterBlueprintResearcher,
   OpenRouterBlueprintGenerator,
 } from "@/server/adapters/openrouter.blueprint";
+import { MockWebResearcher } from "@/server/adapters/mock.web-researcher";
+import { PerplexityWebResearcher } from "@/server/adapters/perplexity.web-researcher";
 import { MockLeadDiscovery } from "@/server/adapters/mock.lead-discovery";
 import { OverpassLeadDiscovery } from "@/server/adapters/overpass.lead-discovery";
 import { GeoapifyLeadDiscovery } from "@/server/adapters/geoapify.lead-discovery";
@@ -133,6 +135,7 @@ export function getServices(): Services {
       whatsappTemplateManager: new MockWhatsAppTemplateManager(),
       blueprintResearcher: new MockBlueprintResearcher(),
       blueprintGenerator: new MockBlueprintGenerator(),
+      webResearcher: new MockWebResearcher(),
       leadDiscovery: new MockLeadDiscovery(),
       emailFinder: new MockEmailFinder(),
       leadQualifier: new MockLeadQualifier(),
@@ -257,6 +260,13 @@ export function getServices(): Services {
         ? new FallbackBlueprintGenerator(geminiBlueprintGenerator, openRouterBlueprintGenerator)
         : (geminiBlueprintGenerator ?? openRouterBlueprintGenerator ?? new MockBlueprintGenerator());
 
+    // Perplexity Sonar — metered, unlike every other adapter above, so it's
+    // wired ONLY into blueprint generate() (once per blueprint), never into
+    // the free-forever suggest/qualify/copy paths. No fallback chain: a
+    // missing key or a failed call both just mean "no extra research this
+    // time" (see WebResearcher's doc comment), never a hard failure.
+    const webResearcher = env.PERPLEXITY_API_KEY ? new PerplexityWebResearcher() : new MockWebResearcher();
+
     // Automated outreach: lead discovery is free-by-default (OpenStreetMap,
     // no key). Fallbacks are tried in order, each only topping up a short
     // result: Geoapify (free, 3,000 credits/day) first if configured, then
@@ -329,6 +339,7 @@ export function getServices(): Services {
       whatsappTemplateManager: new WhatsAppTemplateManagerAdapter(),
       blueprintResearcher,
       blueprintGenerator,
+      webResearcher,
       leadDiscovery,
       emailFinder,
       leadQualifier,

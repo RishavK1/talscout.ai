@@ -96,6 +96,12 @@ const EnvSchema = z
      *  fallback for the site-scrape email-finder step, for sites our own
      *  plain fetch can't read (client-rendered contact pages). */
     FIRECRAWL_API_KEY: z.string().optional(),
+    /** Perplexity Sonar — metered, NOT free-forever like the keys above.
+     *  Wired ONLY into blueprint generate() (see webResearcher in
+     *  container.ts), called once per blueprint generation, never per-lead
+     *  or per-email, to keep credit spend proportional to the rarest, most
+     *  reused artifact in the pipeline. */
+    PERPLEXITY_API_KEY: z.string().optional(),
 
     /** ---- live-mode tuning (all optional, sensible defaults) ---- */
     ANTHROPIC_MODEL: z.string().default("claude-haiku-4-5"),

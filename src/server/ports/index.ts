@@ -404,6 +404,17 @@ export interface BlueprintGenerator {
   generate(input: BlueprintIntakeAnswers): Promise<BlueprintSections>;
 }
 
+/** Real-time web research beyond a single-page fetch (recent news, reviews,
+ *  reputation signals, competitive context) — used ONCE per blueprint
+ *  generate() call (not per-lead, not per-email) since it's backed by a
+ *  metered search API, unlike the free-forever adapters elsewhere in this
+ *  file. Must never throw and must return null on any failure/no-signal
+ *  case — a missing research block just means the generator falls back to
+ *  the plain site-text fetch it already had. */
+export interface WebResearcher {
+  research(args: { businessName: string; websiteUrl?: string }): Promise<string | null>;
+}
+
 /** ---- Automated outreach campaign ports ----
  *  Fully separate seams from the outreach_* (bulk-fire) tables/ports above —
  *  these back a blueprint-powered discover→enrich→write→send pipeline plus
@@ -559,6 +570,7 @@ export interface Services {
   whatsappTemplateManager: WhatsAppTemplateManager;
   blueprintResearcher: BlueprintResearcher;
   blueprintGenerator: BlueprintGenerator;
+  webResearcher: WebResearcher;
   leadDiscovery: LeadDiscovery;
   emailFinder: EmailFinder;
   leadQualifier: LeadQualifier;
