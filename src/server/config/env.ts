@@ -102,6 +102,13 @@ const EnvSchema = z
      *  or per-email, to keep credit spend proportional to the rarest, most
      *  reused artifact in the pipeline. */
     PERPLEXITY_API_KEY: z.string().optional(),
+    /** A SECOND, separate Perplexity account/key (own independent credit
+     *  balance) wired as the PRIMARY tier — ahead of Gemini/OpenRouter — for
+     *  blueprint suggest/generate and lead qualification (see
+     *  perplexity.client.ts, container.ts). Deliberately a distinct env var
+     *  from PERPLEXITY_API_KEY above so the two budgets never share a meter:
+     *  that one stays reserved for the real-time web-research call. */
+    PERPLEXITY_API_KEY_PRIMARY: z.string().optional(),
 
     /** ---- live-mode tuning (all optional, sensible defaults) ---- */
     ANTHROPIC_MODEL: z.string().default("claude-haiku-4-5"),

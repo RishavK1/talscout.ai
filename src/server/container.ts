@@ -27,6 +27,11 @@ import {
   OpenRouterBlueprintResearcher,
   OpenRouterBlueprintGenerator,
 } from "@/server/adapters/openrouter.blueprint";
+import {
+  PerplexityBlueprintResearcher,
+  PerplexityBlueprintGenerator,
+} from "@/server/adapters/perplexity.blueprint";
+import { PerplexityLeadQualifier } from "@/server/adapters/perplexity.lead-qualifier";
 import { MockWebResearcher } from "@/server/adapters/mock.web-researcher";
 import { PerplexityWebResearcher } from "@/server/adapters/perplexity.web-researcher";
 import { MockLeadDiscovery } from "@/server/adapters/mock.lead-discovery";
@@ -243,6 +248,18 @@ export function getServices(): Services {
     // fallback tier below Gemini (never the primary) — reached only once
     // Gemini's own primary+fallback model both fail, e.g. its free daily
     // quota is exhausted. See fallback-ai.ts / openrouter.client.ts.
+    //
+    // When PERPLEXITY_API_KEY_PRIMARY is ALSO set (a second, separate
+    // Perplexity account/key on its own credit budget — distinct from
+    // PERPLEXITY_API_KEY's web-research role below), it's wired as the
+    // FIRST tier ahead of Gemini: Perplexity → Gemini → OpenRouter. See
+    // perplexity.client.ts.
+    const perplexityBlueprintResearcher = env.PERPLEXITY_API_KEY_PRIMARY
+      ? new PerplexityBlueprintResearcher()
+      : null;
+    const perplexityBlueprintGenerator = env.PERPLEXITY_API_KEY_PRIMARY
+      ? new PerplexityBlueprintGenerator()
+      : null;
     const geminiBlueprintResearcher = env.GEMINI_API_KEY ? new GeminiBlueprintResearcher() : null;
     const geminiBlueprintGenerator = env.GEMINI_API_KEY ? new GeminiBlueprintGenerator() : null;
     const openRouterBlueprintResearcher = env.OPENROUTER_API_KEY
@@ -251,14 +268,22 @@ export function getServices(): Services {
     const openRouterBlueprintGenerator = env.OPENROUTER_API_KEY
       ? new OpenRouterBlueprintGenerator()
       : null;
-    const blueprintResearcher =
+    const geminiThenOpenRouterResearcher =
       geminiBlueprintResearcher && openRouterBlueprintResearcher
         ? new FallbackBlueprintResearcher(geminiBlueprintResearcher, openRouterBlueprintResearcher)
-        : (geminiBlueprintResearcher ?? openRouterBlueprintResearcher ?? new MockBlueprintResearcher());
-    const blueprintGenerator =
+        : (geminiBlueprintResearcher ?? openRouterBlueprintResearcher);
+    const blueprintResearcher =
+      perplexityBlueprintResearcher && geminiThenOpenRouterResearcher
+        ? new FallbackBlueprintResearcher(perplexityBlueprintResearcher, geminiThenOpenRouterResearcher)
+        : (perplexityBlueprintResearcher ?? geminiThenOpenRouterResearcher ?? new MockBlueprintResearcher());
+    const geminiThenOpenRouterGenerator =
       geminiBlueprintGenerator && openRouterBlueprintGenerator
         ? new FallbackBlueprintGenerator(geminiBlueprintGenerator, openRouterBlueprintGenerator)
-        : (geminiBlueprintGenerator ?? openRouterBlueprintGenerator ?? new MockBlueprintGenerator());
+        : (geminiBlueprintGenerator ?? openRouterBlueprintGenerator);
+    const blueprintGenerator =
+      perplexityBlueprintGenerator && geminiThenOpenRouterGenerator
+        ? new FallbackBlueprintGenerator(perplexityBlueprintGenerator, geminiThenOpenRouterGenerator)
+        : (perplexityBlueprintGenerator ?? geminiThenOpenRouterGenerator ?? new MockBlueprintGenerator());
 
     // Perplexity Sonar — metered, unlike every other adapter above, so it's
     // wired ONLY into blueprint generate() (once per blueprint), never into
@@ -308,15 +333,21 @@ export function getServices(): Services {
         ? new FallbackOutreachCopywriter(geminiOutreachCopywriter, openRouterOutreachCopywriter)
         : (geminiOutreachCopywriter ?? openRouterOutreachCopywriter ?? new MockOutreachCopywriter());
 
-    // Same Gemini-primary / OpenRouter-last-resort-fallback pattern — only
-    // ever called for the one case run-automated-campaign.ts's own free
-    // rule-based checks can't decide (see qualifyLeadCheaply there).
+    // Perplexity-primary (PERPLEXITY_API_KEY_PRIMARY) → Gemini →
+    // OpenRouter-last-resort-fallback — only ever called for the one case
+    // run-automated-campaign.ts's own free rule-based checks can't decide
+    // (see qualifyLeadCheaply there).
+    const perplexityLeadQualifier = env.PERPLEXITY_API_KEY_PRIMARY ? new PerplexityLeadQualifier() : null;
     const geminiLeadQualifier = env.GEMINI_API_KEY ? new GeminiLeadQualifier() : null;
     const openRouterLeadQualifier = env.OPENROUTER_API_KEY ? new OpenRouterLeadQualifier() : null;
-    const leadQualifier =
+    const geminiThenOpenRouterQualifier =
       geminiLeadQualifier && openRouterLeadQualifier
         ? new FallbackLeadQualifier(geminiLeadQualifier, openRouterLeadQualifier)
-        : (geminiLeadQualifier ?? openRouterLeadQualifier ?? new MockLeadQualifier());
+        : (geminiLeadQualifier ?? openRouterLeadQualifier);
+    const leadQualifier =
+      perplexityLeadQualifier && geminiThenOpenRouterQualifier
+        ? new FallbackLeadQualifier(perplexityLeadQualifier, geminiThenOpenRouterQualifier)
+        : (perplexityLeadQualifier ?? geminiThenOpenRouterQualifier ?? new MockLeadQualifier());
 
     const geminiReplyDrafter = env.GEMINI_API_KEY ? new GeminiReplyDrafter() : null;
     const openRouterReplyDrafter = env.OPENROUTER_API_KEY ? new OpenRouterReplyDrafter() : null;
