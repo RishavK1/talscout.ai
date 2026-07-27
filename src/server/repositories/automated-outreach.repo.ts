@@ -45,6 +45,7 @@ export interface AutomatedCampaignCreateInput {
   signatureClosing?: string;
   styleExamples?: string[];
   replyPollingEnabled?: boolean;
+  marketResearch?: string;
 }
 
 export interface AutomatedCampaignUpdateInput {
@@ -56,6 +57,7 @@ export interface AutomatedCampaignUpdateInput {
   signatureClosing?: string;
   styleExamples?: string[];
   replyPollingEnabled?: boolean;
+  marketResearch?: string;
   status?: AutomatedCampaignStatus;
 }
 
@@ -93,6 +95,7 @@ export const automatedCampaignRepo = {
         signatureClosing: input.signatureClosing ?? "Best regards",
         styleExamples: input.styleExamples ?? null,
         replyPollingEnabled: input.replyPollingEnabled ?? true,
+        marketResearch: input.marketResearch ?? null,
         status: "draft",
       })
       .returning();
@@ -111,6 +114,7 @@ export const automatedCampaignRepo = {
     if (input.replyPollingEnabled !== undefined) {
       patch.replyPollingEnabled = input.replyPollingEnabled;
     }
+    if (input.marketResearch !== undefined) patch.marketResearch = input.marketResearch;
     if (input.status !== undefined) patch.status = input.status;
 
     const [row] = await ctx.tx

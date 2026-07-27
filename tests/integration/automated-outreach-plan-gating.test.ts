@@ -5,6 +5,7 @@ import { POST as suggestBlueprintPOST } from "../../src/app/api/blueprints/sugge
 import { POST as generateBlueprintPOST } from "../../src/app/api/blueprints/[id]/generate/route";
 import { POST as createCampaignPOST } from "../../src/app/api/automated-campaigns/route";
 import { POST as resumeCampaignPOST } from "../../src/app/api/automated-campaigns/[id]/resume/route";
+import { POST as researchMarketPOST } from "../../src/app/api/automated-campaigns/research/route";
 import { resetDb } from "../helpers/seed";
 import { makeUser } from "../helpers/auth-fixtures";
 import { call } from "../helpers/http";
@@ -147,6 +148,36 @@ describe("automated_outreach capability matrix", () => {
     });
 
     expect(researchSpy).toHaveBeenCalledTimes(1);
+    vi.restoreAllMocks();
+  });
+
+  it("campaign wizard's market research is gated the same way as blueprint web research", async () => {
+    const { tenant, token } = await makeUser("recruiter");
+    const blueprint = await seedActiveBlueprint(tenant.id, "Offer for research");
+
+    await setPlan(tenant.id, "starter");
+    const marketResearchSpy = vi.spyOn(getServices().marketResearcher, "research");
+    const starterRes = await call(researchMarketPOST, {
+      token,
+      body: { blueprintId: blueprint.id, category: "dentist", location: "Austin, TX" },
+    });
+    expect(starterRes.status).toBe(200);
+    expect(starterRes.json.data.research).toBeNull();
+    expect(marketResearchSpy).not.toHaveBeenCalled();
+
+    await setPlan(tenant.id, "growth");
+    marketResearchSpy.mockResolvedValue("Austin dentists rarely have modern websites.");
+    const growthRes = await call(researchMarketPOST, {
+      token,
+      body: { blueprintId: blueprint.id, category: "dentist", location: "Austin, TX" },
+    });
+    expect(growthRes.status).toBe(200);
+    expect(growthRes.json.data.research).toBe("Austin dentists rarely have modern websites.");
+    expect(marketResearchSpy).toHaveBeenCalledTimes(1);
+    expect(marketResearchSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ category: "dentist", location: "Austin, TX" }),
+    );
+
     vi.restoreAllMocks();
   });
 

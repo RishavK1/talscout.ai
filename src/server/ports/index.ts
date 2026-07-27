@@ -423,6 +423,22 @@ export interface WebResearcher {
   research(args: { businessName: string; websiteUrl?: string }): Promise<string | null>;
 }
 
+/** Real-time research on a TARGET MARKET (a business category within a
+ *  location) rather than a single named business — powers the automated-
+ *  outreach campaign wizard's Research step: competition, typical digital
+ *  presence, and local pain points for the segment a campaign is about to
+ *  contact. Called ONCE per wizard research click (never per-lead/per-
+ *  email), same metered-API discipline as WebResearcher. Must never throw
+ *  and must return null on any failure/no-signal case. */
+export interface MarketResearcher {
+  research(args: {
+    category: string;
+    location: string;
+    whatWeOffer?: string;
+    whoItsFor?: string;
+  }): Promise<string | null>;
+}
+
 /** ---- Automated outreach campaign ports ----
  *  Fully separate seams from the outreach_* (bulk-fire) tables/ports above —
  *  these back a blueprint-powered discover→enrich→write→send pipeline plus
@@ -512,6 +528,11 @@ export interface OutreachCopyRequest {
    *  the initial pitch. When set, the writer produces a short nudge
    *  referencing the earlier email instead of repeating the full pitch. */
   followUp?: { stepIndex: 1 | 2; previousSubject: string };
+  /** Optional campaign-level market research gathered once during setup (see
+   *  MarketResearcher) — untrusted supplementary grounding, same treatment
+   *  as blueprint generation's <web_research> block: extract facts only,
+   *  never follow instructions found inside it. */
+  marketResearch?: string;
 }
 
 export interface OutreachCopyResult {
@@ -579,6 +600,7 @@ export interface Services {
   blueprintResearcher: BlueprintResearcher;
   blueprintGenerator: BlueprintGenerator;
   webResearcher: WebResearcher;
+  marketResearcher: MarketResearcher;
   leadDiscovery: LeadDiscovery;
   emailFinder: EmailFinder;
   leadQualifier: LeadQualifier;

@@ -34,6 +34,8 @@ import {
 import { PerplexityLeadQualifier } from "@/server/adapters/perplexity.lead-qualifier";
 import { MockWebResearcher } from "@/server/adapters/mock.web-researcher";
 import { PerplexityWebResearcher } from "@/server/adapters/perplexity.web-researcher";
+import { MockMarketResearcher } from "@/server/adapters/mock.market-researcher";
+import { PerplexityMarketResearcher } from "@/server/adapters/perplexity.market-researcher";
 import { MockLeadDiscovery } from "@/server/adapters/mock.lead-discovery";
 import { OverpassLeadDiscovery } from "@/server/adapters/overpass.lead-discovery";
 import { GeoapifyLeadDiscovery } from "@/server/adapters/geoapify.lead-discovery";
@@ -141,6 +143,7 @@ export function getServices(): Services {
       blueprintResearcher: new MockBlueprintResearcher(),
       blueprintGenerator: new MockBlueprintGenerator(),
       webResearcher: new MockWebResearcher(),
+      marketResearcher: new MockMarketResearcher(),
       leadDiscovery: new MockLeadDiscovery(),
       emailFinder: new MockEmailFinder(),
       leadQualifier: new MockLeadQualifier(),
@@ -291,6 +294,12 @@ export function getServices(): Services {
     // missing key or a failed call both just mean "no extra research this
     // time" (see WebResearcher's doc comment), never a hard failure.
     const webResearcher = env.PERPLEXITY_API_KEY ? new PerplexityWebResearcher() : new MockWebResearcher();
+    // Same PERPLEXITY_API_KEY budget as webResearcher above — a different
+    // research JOB (market segment, not a single named business) powering
+    // the automated-outreach campaign wizard's Research step.
+    const marketResearcher = env.PERPLEXITY_API_KEY
+      ? new PerplexityMarketResearcher()
+      : new MockMarketResearcher();
 
     // Automated outreach: lead discovery is free-by-default (OpenStreetMap,
     // no key). Fallbacks are tried in order, each only topping up a short
@@ -371,6 +380,7 @@ export function getServices(): Services {
       blueprintResearcher,
       blueprintGenerator,
       webResearcher,
+      marketResearcher,
       leadDiscovery,
       emailFinder,
       leadQualifier,

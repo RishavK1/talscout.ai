@@ -132,6 +132,30 @@ describe("automated campaign CRUD", () => {
     expect(listed.json.data.campaigns).toHaveLength(1);
   });
 
+  it("persists marketResearch from the wizard's Research step and lets it be updated later", async () => {
+    const { tenant, token } = await makeUser("recruiter");
+    const blueprint = await seedActiveBlueprint(tenant.id);
+    const sender = await seedGmailSender(tenant.id, "a@test.local", true);
+
+    const res = await call(createCampaignPOST, {
+      token,
+      body: baseCampaignBody(blueprint.id, sender.id, {
+        marketResearch: "Dentists in Austin rarely have modern websites.",
+      }),
+    });
+    expect(res.status).toBe(201);
+    expect(res.json.data.marketResearch).toBe("Dentists in Austin rarely have modern websites.");
+
+    const patched = await call(patchCampaignPATCH, {
+      token,
+      method: "PATCH",
+      routeCtx: params(res.json.data.id),
+      body: { marketResearch: "Updated research." },
+    });
+    expect(patched.status).toBe(200);
+    expect(patched.json.data.marketResearch).toBe("Updated research.");
+  });
+
   it("rejects creation when the blueprint hasn't been generated (status != active)", async () => {
     const { tenant, token } = await makeUser("recruiter");
     const draftBlueprint = await seedDraftBlueprint(tenant.id);

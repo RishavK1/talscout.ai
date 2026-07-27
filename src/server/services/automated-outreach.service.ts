@@ -10,7 +10,7 @@ import { blueprintRepo } from "@/server/repositories/blueprint.repo";
 import { senderAccountRepo } from "@/server/repositories/outreach.repo";
 import { tenantRepo } from "@/server/repositories/tenant.repo";
 import { billingService } from "@/server/services/billing.service";
-import { automatedOutreachLimits } from "@/lib/plans";
+import { automatedOutreachLimits, planHasCapability } from "@/lib/plans";
 import { getServices } from "@/server/container";
 import { toCredentials, generateMessageId } from "@/server/lib/automated-mail-credentials";
 import { NotFound, Conflict, BadRequest, PaymentRequired } from "@/server/http/errors";
@@ -20,6 +20,7 @@ import type {
   CreateAutomatedCampaignBody,
   UpdateAutomatedCampaignBody,
   ListAutomatedLeadsQuery,
+  ResearchMarketBody,
 } from "@/server/validation/automated-outreach";
 import type { BlueprintSections } from "@/server/ports";
 
@@ -51,6 +52,15 @@ export async function lockTenantForAutomatedDailyCap(ctx: TenantContext) {
 async function planLimitsFor(ctx: TenantContext) {
   const tenant = await tenantRepo.getByIdAdmin(ctx.tenantId);
   return automatedOutreachLimits(tenant?.plan || "starter");
+}
+
+/** Live web research is a Growth+ capability — same gate blueprint
+ *  generation uses for its own Perplexity call (see blueprint.service.ts).
+ *  Lower plans just skip the wizard's Research step (null result, never an
+ *  error) rather than losing the ability to create a campaign at all. */
+async function planAllowsWebResearch(ctx: TenantContext): Promise<boolean> {
+  const tenant = await tenantRepo.getByIdAdmin(ctx.tenantId);
+  return planHasCapability(tenant?.plan || "starter", "blueprint_web_research");
 }
 
 async function assertBlueprintUsable(ctx: TenantContext, blueprintId: string) {
@@ -95,6 +105,28 @@ export const automatedOutreachService = {
     const row = await automatedCampaignRepo.getById(ctx, id);
     if (!row) throw new NotFound("Campaign not found");
     return row;
+  },
+
+  /** Wizard Research step: real-time market research for a category+location,
+   *  grounded in the selected blueprint's own positioning. Stateless — the
+   *  caller (the wizard) is responsible for submitting the result back as
+   *  `marketResearch` on campaign create. Gated to Growth+ (same capability
+   *  as blueprint web research); lower plans get null rather than an error
+   *  so the rest of the wizard still works. */
+  async researchMarket(ctx: TenantContext, body: ResearchMarketBody): Promise<{ research: string | null }> {
+    await billingService.assertCapability(ctx, "automated_outreach");
+    if (!(await planAllowsWebResearch(ctx))) return { research: null };
+
+    const blueprint = await blueprintRepo.getById(ctx, body.blueprintId);
+    const sections = (blueprint?.sections as BlueprintSections | null) ?? null;
+
+    const research = await getServices().marketResearcher.research({
+      category: body.category,
+      location: body.location,
+      whatWeOffer: sections?.whatWeOffer,
+      whoItsFor: sections?.whoItsFor,
+    });
+    return { research };
   },
 
   async createCampaign(ctx: TenantContext, body: CreateAutomatedCampaignBody) {

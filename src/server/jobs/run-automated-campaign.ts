@@ -393,7 +393,12 @@ async function generateCopyBatch(
 
     let day0;
     try {
-      day0 = await services.outreachCopywriter.generateEmail({ blueprint: sections, lead: leadArg, styleExamples });
+      day0 = await services.outreachCopywriter.generateEmail({
+        blueprint: sections,
+        lead: leadArg,
+        styleExamples,
+        marketResearch: campaign.marketResearch ?? undefined,
+      });
     } catch (err) {
       logger.warn({ err, leadId: lead.id }, "automated_lead_copy_generation_failed");
       continue;
@@ -413,6 +418,7 @@ async function generateCopyBatch(
           lead: leadArg,
           styleExamples,
           followUp: { stepIndex, previousSubject: day0.subject },
+          marketResearch: campaign.marketResearch ?? undefined,
         });
         out.push({
           leadId: lead.id,

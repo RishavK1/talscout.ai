@@ -1,4 +1,4 @@
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { POST as createCampaignPOST } from "../../src/app/api/automated-campaigns/route";
 import { POST as resumeCampaignPOST } from "../../src/app/api/automated-campaigns/[id]/resume/route";
@@ -85,6 +85,7 @@ async function createActiveCampaign(
   blueprintId: string,
   senderAccountId: string,
   category: string,
+  overrides: Record<string, unknown> = {},
 ) {
   const created = await call(createCampaignPOST, {
     token,
@@ -95,6 +96,7 @@ async function createActiveCampaign(
       discoveryQuery: { category, location: { text: "Austin, TX" } },
       signatureName: "Jane Doe",
       replyPollingEnabled: false,
+      ...overrides,
     },
   });
   const id = created.json.data.id as string;
@@ -165,6 +167,29 @@ describe("runAutomatedCampaigns — discover → enrich → generate → schedul
       .sort((a, b) => a - b);
     const spanMs = day0Times[day0Times.length - 1] - day0Times[0];
     expect(spanMs).toBeGreaterThan(3 * 60_000); // well over "all in one minute"
+  });
+
+  it("threads the campaign's saved marketResearch into every generated email", async () => {
+    const { tenant, token } = await makeUser("recruiter");
+    const blueprint = await seedActiveBlueprint(tenant.id);
+    const sender = await seedGmailSender(tenant.id);
+    const research = "Austin dentists rarely run paid ads and mostly rely on referrals.";
+    // Spy BEFORE creating/activating — activation's afterCommit hook
+    // enqueues an immediate run-now job that InProcessQueue (mock/test mode)
+    // executes inline and synchronously, so by the time createActiveCampaign
+    // resolves the whole discover→enrich→generate→schedule cycle has often
+    // already happened once.
+    const generateSpy = vi.spyOn(getServices().outreachCopywriter, "generateEmail");
+    await createActiveCampaign(token, blueprint.id, sender.id, "dentist", {
+      marketResearch: research,
+    });
+    await runAutomatedCampaigns(getServices());
+
+    expect(generateSpy).toHaveBeenCalled();
+    for (const call of generateSpy.mock.calls) {
+      expect(call[0].marketResearch).toBe(research);
+    }
+    vi.restoreAllMocks();
   });
 
   it("excludes leads with no findable email from the send pipeline entirely", async () => {

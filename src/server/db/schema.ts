@@ -682,6 +682,13 @@ export const automatedCampaigns = pgTable(
     /** Up to 2 example emails used as few-shot style guidance — validated at
      *  the API layer, stored as string[]. */
     styleExamples: jsonb("style_examples"),
+    /** Optional real-time market research (competition, typical digital
+     *  presence, local pain points for this category+location) — gathered
+     *  once during campaign setup via the wizard's Research step, then
+     *  threaded into every generated email as untrusted supplementary
+     *  grounding (see OutreachCopyRequest.marketResearch). Null when the
+     *  plan doesn't include web research or the user skipped that step. */
+    marketResearch: text("market_research"),
     /** Requires the sender to be Gmail with read scope (enforced at create
      *  time in the service) — SMTP/no-read-scope senders force this false. */
     replyPollingEnabled: boolean("reply_polling_enabled").notNull().default(true),

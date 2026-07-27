@@ -1,0 +1,1 @@
+ALTER TABLE "automated_campaigns" ADD COLUMN "market_research" text;

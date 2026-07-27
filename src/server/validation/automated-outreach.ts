@@ -26,8 +26,18 @@ export const createAutomatedCampaignSchema = z.object({
   /** Up to 2 example emails — few-shot style guidance for AI-generated copy. */
   styleExamples: z.array(z.string().min(1).max(5_000)).max(2).optional(),
   replyPollingEnabled: z.boolean().optional(),
+  /** Optional result of the wizard's Research step (see /research route) —
+   *  persisted verbatim and threaded into every generated email. */
+  marketResearch: z.string().max(4_000).optional(),
 });
 export type CreateAutomatedCampaignBody = z.infer<typeof createAutomatedCampaignSchema>;
+
+export const researchMarketSchema = z.object({
+  blueprintId: z.uuid(),
+  category: z.string().min(1).max(100),
+  location: z.string().min(1).max(200),
+});
+export type ResearchMarketBody = z.infer<typeof researchMarketSchema>;
 
 export const updateAutomatedCampaignSchema = z
   .object({
@@ -39,6 +49,7 @@ export const updateAutomatedCampaignSchema = z
     signatureClosing: z.string().max(100).optional(),
     styleExamples: z.array(z.string().min(1).max(5_000)).max(2).optional(),
     replyPollingEnabled: z.boolean().optional(),
+    marketResearch: z.string().max(4_000).optional(),
   })
   .refine((v) => Object.keys(v).length > 0, { message: "At least one field is required" });
 export type UpdateAutomatedCampaignBody = z.infer<typeof updateAutomatedCampaignSchema>;
