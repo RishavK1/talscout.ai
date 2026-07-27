@@ -484,12 +484,12 @@ export default function BulkFirePage() {
                 {maxSenderAccounts === 1 ? "" : "s"} used on your plan
               </p>
             </div>
-            <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+            <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:justify-end">
               {senders.length >= maxSenderAccounts ? (
                 <Link
                   href="/billing"
                   title="Upgrade to connect more sender accounts"
-                  className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 rounded-lg border border-primary px-4 py-2 font-label-md text-label-md text-primary transition-colors hover:bg-primary/5 text-center"
+                  className="flex min-h-10 items-center justify-center gap-1.5 rounded-lg border border-primary px-4 py-2 text-center font-label-md text-label-md text-primary transition-colors hover:bg-primary/5 sm:flex-initial"
                 >
                   <span className="material-symbols-outlined text-[16px]">
                     lock
@@ -503,7 +503,7 @@ export default function BulkFirePage() {
                     variant="outline"
                     onClick={handleConnectGmail}
                     disabled={connectingGmail}
-                    className="flex-1 justify-center sm:flex-initial"
+                    className="min-h-10 w-full justify-center sm:w-auto sm:flex-initial"
                   >
                     {connectingGmail ? "Redirecting…" : "Connect Gmail"}
                   </Button>
@@ -511,7 +511,7 @@ export default function BulkFirePage() {
                     type="button"
                     variant="outline"
                     onClick={() => setSmtpOpen(true)}
-                    className="flex-1 justify-center sm:flex-initial"
+                    className="min-h-10 w-full justify-center sm:w-auto sm:flex-initial"
                   >
                     Add SMTP
                   </Button>
@@ -520,7 +520,7 @@ export default function BulkFirePage() {
                       type="button"
                       variant="outline"
                       onClick={() => setWhatsappOpen(true)}
-                      className="flex-1 justify-center sm:flex-initial"
+                      className="min-h-10 w-full justify-center sm:w-auto sm:flex-initial"
                     >
                       Connect WhatsApp
                     </Button>
@@ -528,7 +528,7 @@ export default function BulkFirePage() {
                     <Link
                       href="/billing"
                       title="WhatsApp outreach is a Scale plan feature — upgrade to unlock"
-                      className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 rounded-lg border border-border-low-alpha bg-white px-4 py-2 font-label-md text-label-md text-on-surface-variant/70 transition-colors hover:bg-surface-container-low text-center"
+                      className="flex min-h-10 items-center justify-center gap-1.5 rounded-lg border border-border-low-alpha bg-white px-4 py-2 text-center font-label-md text-label-md text-on-surface-variant/70 transition-colors hover:bg-surface-container-low sm:flex-initial"
                     >
                       <span className="material-symbols-outlined text-[14px]">
                         lock
@@ -622,14 +622,14 @@ export default function BulkFirePage() {
                       Reconnect to enable reply detection for follow-ups
                     </p>
                   )}
-                  <div className="flex gap-2 pt-1">
+                  <div className="grid grid-cols-1 gap-2 pt-1 sm:grid-cols-2">
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
                       disabled={senderBusyId === s.id}
                       onClick={() => toggleSenderActive(s)}
-                      className="flex-1 justify-center"
+                      className="min-h-10 w-full justify-center sm:min-h-7"
                     >
                       {s.isActive ? "Pause" : "Resume"}
                     </Button>
@@ -639,7 +639,7 @@ export default function BulkFirePage() {
                       size="sm"
                       disabled={senderBusyId === s.id}
                       onClick={() => removeSender(s)}
-                      className="border-error/25 text-error hover:bg-error/5"
+                      className="min-h-10 w-full justify-center border-error/25 text-error hover:bg-error/5 sm:min-h-7"
                     >
                       Disconnect
                     </Button>

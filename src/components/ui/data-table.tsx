@@ -26,6 +26,8 @@ export interface DataTableProps<T> {
   emptyState?: ReactNode;
   onRowClick?: (row: T) => void;
   className?: string;
+  mobileCard?: (row: T) => ReactNode;
+  mobileScrollHint?: string;
 }
 
 export function DataTable<T>({
@@ -35,12 +37,14 @@ export function DataTable<T>({
   emptyState,
   onRowClick,
   className,
+  mobileCard,
+  mobileScrollHint = "Swipe left to see more columns",
 }: DataTableProps<T>) {
   if (rows.length === 0 && emptyState) {
     return <div className="p-8 text-center">{emptyState}</div>;
   }
 
-  return (
+  const table = (
     <Table className={className}>
       <TableHeader>
         <TableRow className="border-border-low-alpha hover:bg-transparent">
@@ -79,5 +83,52 @@ export function DataTable<T>({
         ))}
       </TableBody>
     </Table>
+  );
+
+  if (mobileCard) {
+    return (
+      <>
+        <div className="divide-y divide-border-low-alpha md:hidden">
+          {rows.map((row) => {
+            const key = getRowKey(row);
+            const isClickable = Boolean(onRowClick);
+            return (
+              <div
+                key={key}
+                role={isClickable ? "button" : undefined}
+                tabIndex={isClickable ? 0 : undefined}
+                onClick={onRowClick ? () => onRowClick(row) : undefined}
+                onKeyDown={
+                  onRowClick
+                    ? (event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          onRowClick(row);
+                        }
+                      }
+                    : undefined
+                }
+                className={cn(
+                  "outline-none transition-colors focus-visible:bg-surface-container-lowest focus-visible:ring-2 focus-visible:ring-primary/20",
+                  isClickable && "cursor-pointer active:bg-surface-container-lowest",
+                )}
+              >
+                {mobileCard(row)}
+              </div>
+            );
+          })}
+        </div>
+        <div className="hidden md:block">{table}</div>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <div className="border-b border-border-low-alpha bg-surface-container-low/60 px-4 py-2 font-label-md text-[11px] uppercase tracking-wider text-on-surface-variant md:hidden">
+        {mobileScrollHint}
+      </div>
+      {table}
+    </>
   );
 }

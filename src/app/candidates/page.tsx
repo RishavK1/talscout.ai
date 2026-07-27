@@ -405,6 +405,51 @@ export default function CandidatesPage() {
                 rows={paged}
                 getRowKey={(c) => c.id}
                 onRowClick={(c) => router.push(`/candidates/${c.id}`)}
+                mobileCard={(c) => (
+                  <div className="space-y-4 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-container font-headline-md text-on-primary">
+                          {c.initials}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="truncate font-label-md text-label-md font-semibold text-primary">
+                            {c.name}
+                          </div>
+                          <div className="truncate font-body-md text-[13px] text-on-surface-variant">
+                            {c.email}
+                          </div>
+                        </div>
+                      </div>
+                      <CandidateStatusBadge status={c.status} />
+                    </div>
+                    <div className="space-y-2 rounded-lg bg-surface-container-low/50 p-3">
+                      <div className="flex items-start gap-2 font-body-md text-[13px] text-on-surface">
+                        <span className="material-symbols-outlined mt-0.5 text-[16px] text-on-surface-variant">
+                          work
+                        </span>
+                        <span className="min-w-0 flex-1">{c.title}</span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 font-body-md text-[13px] text-on-surface-variant">
+                        <span className="inline-flex min-w-0 items-center gap-1">
+                          <span className="material-symbols-outlined text-[16px]">location_on</span>
+                          <span className="truncate">{c.location}</span>
+                        </span>
+                        <span className="font-data-mono text-data-mono">{c.expLabel} yrs</span>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {c.skills.slice(0, 3).map((skill, i) => (
+                        <Badge key={skill} variant="outline" className={getSkillBadgeClass(i)}>
+                          {skill}
+                        </Badge>
+                      ))}
+                      {c.skills.length > 3 && (
+                        <Badge variant="outline" className={SKILL_PLAIN}>+{c.skills.length - 3}</Badge>
+                      )}
+                    </div>
+                  </div>
+                )}
                 emptyState={
                   <span className="font-body-md text-body-md text-on-surface-variant">
                     No candidates match your filters.

@@ -271,6 +271,50 @@ export default function TeamSeatsPage() {
                 columns={memberColumns}
                 rows={filtered}
                 getRowKey={(m) => m.id}
+                mobileCard={(m) => {
+                  const display = getMemberDisplay(m.email);
+                  const isCurrentUser = profile?.userId === m.id;
+                  return (
+                    <div className="space-y-4 p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-container-highest font-headline-md text-[14px] text-primary">
+                            {display.initials}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="truncate font-body-md font-semibold text-primary">{display.name}</p>
+                            <p className="truncate font-label-md text-text-muted">{m.email}</p>
+                          </div>
+                        </div>
+                        <StatusBadge tone={m.status === "active" ? "active" : "invited"} className="uppercase tracking-tight">
+                          {m.status}
+                        </StatusBadge>
+                      </div>
+                      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-surface-container-low/50 p-3">
+                        <div>
+                          <p className="font-label-md text-[11px] uppercase tracking-wider text-on-surface-variant">
+                            Role
+                          </p>
+                          <StatusBadge tone="brass" dot={false} className="mt-1 uppercase tracking-tight">
+                            {m.role}
+                          </StatusBadge>
+                        </div>
+                        {!isCurrentUser && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setRemoveTarget(m)}
+                            className="min-h-10 border-error/25 px-4 text-error hover:bg-error/5"
+                          >
+                            <span className="material-symbols-outlined text-[18px]">delete</span>
+                            Remove
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                }}
                 emptyState={
                   <div className="flex flex-col items-center justify-center text-center">
                     <div className="flex h-14 w-14 items-center justify-center rounded-full bg-secondary-fixed text-on-secondary-fixed mb-3">
