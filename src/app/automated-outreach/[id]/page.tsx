@@ -145,21 +145,19 @@ function SourceBadge({ source }: { source: AutomatedLead["emailSource"] }) {
   return (
     <Badge
       variant="outline"
-      className={cn("gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-label-md font-medium", meta.badge)}
+      className={cn("rounded-md px-2.5 py-1 text-[12px] font-label-md font-medium", meta.badge)}
     >
-      <span className="material-symbols-outlined text-[14px]">{meta.icon}</span>
       {meta.label}
     </Badge>
   );
 }
 
-function MetaChip({ icon, children }: { icon: string; children: React.ReactNode }) {
+function MetaChip({ children }: { children: React.ReactNode }) {
   return (
     <Badge
       variant="outline"
-      className="h-auto gap-1.5 rounded-full border-border-low-alpha bg-surface-container-low px-3 py-1.5 text-[12px] font-label-md text-on-surface-variant"
+      className="h-auto rounded-md border-border-low-alpha bg-surface-container-low/70 px-2.5 py-1.5 text-[12px] font-label-md text-on-surface-variant"
     >
-      <span className="material-symbols-outlined text-[16px] text-primary">{icon}</span>
       {children}
     </Badge>
   );
@@ -330,7 +328,12 @@ export default function AutomatedCampaignDetailPage({
       headerClassName: cn(headCls, "w-10"),
       cellClassName: cn(cellCls, "w-10"),
       render: (lead) => (
-        <input type="checkbox" checked={selected.has(lead.id)} onChange={() => toggleSelect(lead.id)} />
+        <input
+          type="checkbox"
+          checked={selected.has(lead.id)}
+          onChange={() => toggleSelect(lead.id)}
+          className="h-4 w-4 rounded border-outline-variant text-primary focus:ring-primary/20"
+        />
       ),
     },
     {
@@ -386,17 +389,19 @@ export default function AutomatedCampaignDetailPage({
       headerClassName: headCls,
       cellClassName: cellCls,
       render: (lead) => (
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="sm"
           onClick={(e) => {
             e.stopPropagation();
             setEmailsLead(lead);
           }}
-          className="flex items-center gap-1.5 font-label-md text-[12px] text-primary hover:underline"
+          className="h-8 gap-1.5 px-2 text-primary hover:bg-primary/5"
         >
           <span className="material-symbols-outlined text-[16px]">mail</span>
-          View emails
-        </button>
+          Emails
+        </Button>
       ),
     },
   ];
@@ -417,74 +422,73 @@ export default function AutomatedCampaignDetailPage({
             </div>
           }
         />
-        <main className="flex-1 p-4 sm:p-6 lg:p-12 max-w-[1200px] mx-auto w-full">
-          <section className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div className="min-w-0">
-              <div className="mb-3 flex flex-wrap items-center gap-3">
-                <h1 className="font-headline-lg text-headline-lg text-primary">{campaign.name}</h1>
-                <StatusBadge tone={CAMPAIGN_STATUS_TONE[campaign.status]}>
-                  {CAMPAIGN_STATUS_LABEL[campaign.status]}
-                </StatusBadge>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <MetaChip icon="category">{campaign.discoveryQuery.category}</MetaChip>
-                <MetaChip icon="location_on">{locationLabel}</MetaChip>
-                {campaign.replyPollingEnabled && <MetaChip icon="forum">Reply polling</MetaChip>}
-                {campaign.lastDiscoveryRunAt && (
-                  <MetaChip icon="schedule">
-                    Last run{" "}
-                    {new Date(campaign.lastDiscoveryRunAt).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </MetaChip>
+        <main className="mx-auto flex w-full max-w-[1200px] flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-12">
+          <section className="rounded-xl border border-border-low-alpha bg-surface-white p-4 sm:p-6">
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+              <div className="min-w-0">
+                <div className="mb-3 flex flex-wrap items-center gap-2">
+                  <h1 className="font-headline-lg text-[28px] leading-tight text-primary sm:text-headline-lg">
+                    {campaign.name}
+                  </h1>
+                  <StatusBadge tone={CAMPAIGN_STATUS_TONE[campaign.status]}>
+                    {CAMPAIGN_STATUS_LABEL[campaign.status]}
+                  </StatusBadge>
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <MetaChip>{campaign.discoveryQuery.category}</MetaChip>
+                  <MetaChip>{locationLabel}</MetaChip>
+                  {campaign.replyPollingEnabled && <MetaChip>Reply polling</MetaChip>}
+                  {campaign.lastDiscoveryRunAt && (
+                    <MetaChip>
+                      Last run{" "}
+                      {new Date(campaign.lastDiscoveryRunAt).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </MetaChip>
+                  )}
+                </div>
+                {campaign.errorReason && (
+                  <p className="mt-3 font-body-md text-[13px] text-error">{campaign.errorReason}</p>
                 )}
               </div>
-              {campaign.errorReason && (
-                <p className="mt-3 font-body-md text-[13px] text-error">{campaign.errorReason}</p>
-              )}
-            </div>
-            <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
-              {(campaign.status === "active" || campaign.status === "paused" || campaign.status === "draft") && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="lg"
-                  onClick={toggleCampaign}
-                  disabled={busy}
-                  className="w-full sm:w-auto"
-                >
-                  <span className="material-symbols-outlined text-[18px]">
-                    {busy ? "sync" : campaign.status === "active" ? "pause" : "play_arrow"}
-                  </span>
-                  {campaign.status === "active" ? "Pause campaign" : "Activate campaign"}
-                </Button>
-              )}
-              {profile?.role === "admin" && (
-                <Button
-                  type="button"
-                  variant="destructive"
-                  size="lg"
-                  onClick={() => setConfirmDelete(true)}
-                  className="w-full sm:w-auto"
-                >
-                  Delete
-                </Button>
-              )}
+              <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-2 lg:w-auto lg:shrink-0">
+                {(campaign.status === "active" || campaign.status === "paused" || campaign.status === "draft") && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="lg"
+                    onClick={toggleCampaign}
+                    disabled={busy}
+                    className="w-full justify-center lg:w-auto"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">
+                      {busy ? "sync" : campaign.status === "active" ? "pause" : "play_arrow"}
+                    </span>
+                    {campaign.status === "active" ? "Pause campaign" : "Activate campaign"}
+                  </Button>
+                )}
+                {profile?.role === "admin" && (
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="lg"
+                    onClick={() => setConfirmDelete(true)}
+                    className="w-full justify-center lg:w-auto"
+                  >
+                    Delete
+                  </Button>
+                )}
+              </div>
             </div>
           </section>
 
-          <Card className="overflow-hidden">
-            <CardHeader className="border-b border-border-low-alpha">
-              <CardTitle className="font-body-md text-headline-md font-semibold text-primary">
-                Leads
-                {!loading && total > 0 && (
-                  <span className="ml-2 font-label-md text-[13px] font-normal text-text-muted">
-                    {total}
-                  </span>
-                )}
+          <Card className="overflow-hidden rounded-xl border-border-low-alpha bg-surface-white py-0">
+            <CardHeader className="border-b border-border-low-alpha px-4 py-4 sm:px-5">
+              <CardTitle className="font-body-md text-[16px] font-semibold text-on-surface">
+                Leads {!loading && total > 0 && <span className="text-text-muted">({total})</span>}
               </CardTitle>
               <CardAction>
                 <select
@@ -493,7 +497,7 @@ export default function AutomatedCampaignDetailPage({
                     setStatusFilter(e.target.value);
                     setPage(1);
                   }}
-                  className="rounded-lg border border-border-low-alpha bg-bg-cream/30 px-3 py-2 font-label-md text-label-md focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="rounded-lg border border-border-low-alpha bg-surface-white px-3 py-2 font-label-md text-label-md text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
                 >
                   <option value="">All statuses</option>
                   <option value="ready">Ready</option>
@@ -513,6 +517,50 @@ export default function AutomatedCampaignDetailPage({
                   columns={leadColumns}
                   rows={leads}
                   getRowKey={(lead) => lead.id}
+                  mobileCard={(lead) => (
+                    <div className="space-y-4 p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <label className="flex min-w-0 flex-1 items-start gap-3">
+                          <input
+                            type="checkbox"
+                            checked={selected.has(lead.id)}
+                            onChange={() => toggleSelect(lead.id)}
+                            className="mt-1 h-4 w-4 rounded border-outline-variant text-primary focus:ring-primary/20"
+                            aria-label={`Select ${lead.businessName}`}
+                          />
+                          <span className="min-w-0">
+                            <span className="block font-body-md text-[14px] font-semibold leading-snug text-on-surface">
+                              {lead.businessName}
+                            </span>
+                            <span className="mt-1 block truncate font-data-mono text-[12px] text-on-surface-variant">
+                              {lead.email ?? "No email found"}
+                            </span>
+                          </span>
+                        </label>
+                        <LeadStatusPill status={lead.status} />
+                      </div>
+                      <div className="grid gap-2 rounded-lg bg-surface-container-low/50 p-3 font-body-md text-[13px] text-on-surface-variant">
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="font-label-md text-[11px] uppercase tracking-wider">Source</span>
+                          <SourceBadge source={lead.emailSource} />
+                        </div>
+                        <div className="flex items-start justify-between gap-3">
+                          <span className="shrink-0 font-label-md text-[11px] uppercase tracking-wider">Location</span>
+                          <span className="min-w-0 text-right">{lead.addressText ?? "—"}</span>
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setEmailsLead(lead)}
+                        className="min-h-10 w-full justify-center"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">mail</span>
+                        View emails
+                      </Button>
+                    </div>
+                  )}
                   emptyState={
                     <span className="font-body-md text-body-md text-on-surface-variant">
                       No leads yet — the next scheduled run will discover some.
