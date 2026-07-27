@@ -30,8 +30,8 @@ export function LandingNav() {
     <header
       className={`fixed top-0 z-50 w-full transition-all duration-300 ${
         scrolled
-          ? "border-b border-border-low-alpha bg-surface-white/90 backdrop-blur-xl"
-          : "border-b border-transparent bg-surface-white/70 backdrop-blur-md"
+          ? "border-b border-border-low-alpha bg-surface-white/95 backdrop-blur-lg"
+          : "border-b border-border-low-alpha bg-surface-white/90 backdrop-blur-lg"
       }`}
     >
       <div className="mx-auto flex h-[72px] w-full max-w-[1240px] items-center justify-between px-6 lg:px-8">
@@ -61,7 +61,7 @@ export function LandingNav() {
           {user ? (
             <Link
               href="/dashboard"
-              className="inline-flex h-10 items-center rounded-xl bg-primary-container px-4 text-[13px] font-semibold text-on-primary-container transition-colors hover:bg-primary hover:text-on-primary"
+              className="inline-flex h-10 items-center rounded-lg bg-primary-container px-4 text-[13px] font-semibold text-on-primary-container transition-colors hover:bg-primary hover:text-on-primary"
             >
               Dashboard
             </Link>
@@ -75,7 +75,7 @@ export function LandingNav() {
               </Link>
               <Link
                 href="/signup"
-                className="inline-flex h-10 items-center rounded-xl bg-primary-container px-4 text-[13px] font-semibold text-on-primary-container transition-colors hover:bg-primary hover:text-on-primary"
+                className="inline-flex h-10 items-center rounded-lg bg-primary-container px-4 text-[13px] font-semibold text-on-primary-container transition-colors hover:bg-primary hover:text-on-primary"
               >
                 Get started
               </Link>

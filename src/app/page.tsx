@@ -76,7 +76,7 @@ const TRUST_POINTS = [
  *  is a sidebar feature of the other. */
 function WorkspaceWindow() {
   return (
-    <div className="overflow-hidden rounded-[22px] border border-border-low-alpha bg-surface-white shadow-[0_34px_90px_-42px_rgba(15,23,42,0.42)]">
+    <div className="overflow-hidden rounded-2xl border border-border-low-alpha bg-surface-white shadow-floating">
       <div className="flex h-11 items-center justify-between border-b border-border-low-alpha bg-surface-container-low/80 px-4">
         <div className="flex items-center gap-1.5" aria-hidden>
           <span className="size-2.5 rounded-full bg-outline-variant" />
@@ -197,7 +197,7 @@ function WorkspaceWindow() {
  *  from. This is the "how the AI knows your business" proof point. */
 function BlueprintWindow() {
   return (
-    <div className="overflow-hidden rounded-[22px] border border-border-low-alpha bg-surface-white shadow-[0_28px_70px_-42px_rgba(15,23,42,0.4)]">
+    <div className="overflow-hidden rounded-2xl border border-border-low-alpha bg-surface-white shadow-floating">
       <div className="border-b border-border-low-alpha px-5 py-4">
         <div className="flex items-center justify-between">
           <p className="text-[11px] font-semibold text-on-surface">Blueprint · Northside Web Studio</p>
@@ -235,7 +235,7 @@ function BlueprintWindow() {
  *  automated campaign window above so the two features read as separate. */
 function BulkFireWindow() {
   return (
-    <div className="overflow-hidden rounded-[20px] border border-border-low-alpha bg-surface-white shadow-[0_28px_70px_-40px_rgba(15,23,42,0.38)]">
+    <div className="overflow-hidden rounded-2xl border border-border-low-alpha bg-surface-white shadow-floating">
       <div className="flex items-center justify-between border-b border-border-low-alpha px-5 py-4">
         <div>
           <p className="text-[11px] font-semibold text-on-surface">Q3 agency list</p>
@@ -293,7 +293,7 @@ function BulkFireWindow() {
 /** Reply-handling visual — AI drafts, a human always approves. */
 function ReplyWindow() {
   return (
-    <div className="overflow-hidden rounded-[22px] border border-border-low-alpha bg-surface-white shadow-[0_28px_70px_-42px_rgba(15,23,42,0.4)]">
+    <div className="overflow-hidden rounded-2xl border border-border-low-alpha bg-surface-white shadow-floating">
       <div className="border-b border-border-low-alpha px-5 py-4">
         <p className="text-[11px] font-semibold text-on-surface">Reply from Cedar Park Dental Care</p>
         <p className="mt-0.5 text-[10px] text-text-muted">Detected in thread · 2 hours ago</p>
@@ -340,7 +340,7 @@ function ReplyWindow() {
  *  outreach windows above; this is a separate product, not the headline. */
 function TalentWindow() {
   return (
-    <div className="rounded-[22px] border border-border-low-alpha bg-surface-white p-5 shadow-[0_28px_70px_-42px_rgba(15,23,42,0.4)]">
+    <div className="rounded-2xl border border-border-low-alpha bg-surface-white p-5 shadow-floating">
       <div className="rounded-xl border border-border-low-alpha bg-bg-cream p-4">
         <p className="text-[9px] font-semibold uppercase tracking-[0.13em] text-outline">Search request</p>
         <p className="mt-2 text-[13px] font-medium text-on-surface-variant">
@@ -382,38 +382,37 @@ export default function LandingPage() {
         <section className="relative overflow-hidden border-b border-border-low-alpha bg-bg-cream pt-28">
           <div
             aria-hidden
-            className="pointer-events-none absolute inset-0 opacity-70 [background-image:linear-gradient(to_right,var(--color-border-low-alpha)_1px,transparent_1px),linear-gradient(to_bottom,var(--color-border-low-alpha)_1px,transparent_1px)] [background-size:64px_64px] [mask-image:linear-gradient(to_bottom,black,transparent_78%)] dark:opacity-30"
+            className="pointer-events-none absolute inset-0 opacity-55 [background-image:linear-gradient(to_right,var(--color-border-low-alpha)_1px,transparent_1px),linear-gradient(to_bottom,var(--color-border-low-alpha)_1px,transparent_1px)] [background-size:64px_64px] [mask-image:linear-gradient(to_bottom,black,transparent_82%)] dark:opacity-25"
           />
           <div
             aria-hidden
-            className="absolute left-1/2 top-[-420px] size-[780px] -translate-x-1/2 rounded-full bg-primary-fixed/60 blur-[140px] dark:bg-primary-container/15 dark:blur-[180px]"
+            className="pointer-events-none absolute right-[4%] top-32 size-[520px] rounded-full bg-primary-fixed/40 blur-[130px] dark:bg-primary-container/10"
           />
-
-          <div className="relative mx-auto grid w-full max-w-[1240px] grid-cols-1 items-center gap-16 px-6 pb-20 pt-20 lg:grid-cols-[1.02fr_0.98fr] lg:px-8 lg:pb-28 lg:pt-24">
+          <div className="relative mx-auto grid w-full max-w-[1240px] grid-cols-1 items-center gap-16 px-6 pb-20 pt-16 lg:grid-cols-[1.02fr_0.98fr] lg:px-8 lg:pb-28 lg:pt-20">
             <Reveal>
-              <p className="mb-6 text-[12px] font-semibold uppercase tracking-[0.16em] text-primary">
-                AI outreach &amp; talent intelligence
+              <p className="mb-6 flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
+                <span className="h-px w-7 bg-primary/70" aria-hidden />
+                Outreach and talent intelligence
               </p>
-              <h1 className="max-w-[690px] text-[44px] font-semibold leading-[1.02] tracking-[-0.045em] text-on-surface sm:text-[58px] lg:text-[66px]">
-                AI that finds your next customer — and your next hire.
+              <h1 className="max-w-[670px] text-[43px] font-semibold leading-[1.04] tracking-[-0.04em] text-on-surface sm:text-[54px] lg:text-[61px]">
+                Find your next customer and your next hire.
               </h1>
-              <p className="mt-7 max-w-[590px] text-[17px] leading-8 text-text-muted sm:text-[19px]">
-                Two AI engines in one workspace. Outreach discovers businesses that fit what you sell and
-                writes each of them a personal email. Talent turns your résumé pile into a database you can
-                search in plain English. Run one, or run both.
+              <p className="mt-7 max-w-[570px] text-[16px] leading-8 text-text-muted sm:text-[18px]">
+                One workspace for two focused systems. Discover businesses that fit what you sell, or turn
+                your résumés into a candidate database your team can search in plain English.
               </p>
 
               <div className="mt-9 flex flex-col gap-3 sm:flex-row">
                 <Link
                   href={primaryHref}
-                  className="group inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-primary-container px-6 text-[14px] font-semibold text-on-primary-container shadow-[0_10px_28px_-12px_rgba(15,118,110,0.5)] transition-colors hover:bg-primary hover:text-on-primary"
+                  className="group inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-primary-container px-6 text-[14px] font-semibold text-on-primary-container shadow-ambient transition-all hover:-translate-y-0.5 hover:bg-primary hover:text-on-primary hover:shadow-floating"
                 >
                   {user ? "Open your workspace" : "Get started free"}
                   <span className="material-symbols-outlined text-[17px] transition-transform group-hover:translate-x-0.5">arrow_forward</span>
                 </Link>
                 <Link
                   href="/#platform"
-                  className="inline-flex h-12 items-center justify-center rounded-xl border border-outline-variant bg-surface-white px-6 text-[14px] font-semibold text-on-surface-variant transition-colors hover:border-outline hover:bg-bg-cream"
+                  className="inline-flex h-12 items-center justify-center rounded-lg border border-outline-variant bg-surface-white px-6 text-[14px] font-semibold text-on-surface-variant transition-colors hover:border-outline hover:bg-surface-container-low"
                 >
                   See how it works
                 </Link>
@@ -429,24 +428,37 @@ export default function LandingPage() {
               </div>
             </Reveal>
 
-            <Reveal delay={0.08} className="relative lg:translate-y-5">
-              <WorkspaceWindow />
+            <Reveal delay={0.08} className="relative isolate lg:translate-y-5">
+              <div
+                aria-hidden
+                className="absolute inset-x-5 bottom-[-18px] top-8 -z-20 rotate-[1.5deg] rounded-[22px] border border-primary/15 bg-primary-fixed/55 dark:bg-primary-container/10"
+              />
+              <div
+                aria-hidden
+                className="absolute inset-x-2 bottom-[-8px] top-3 -z-10 -rotate-[0.6deg] rounded-[20px] border border-border-low-alpha bg-surface-white/75 shadow-ambient backdrop-blur-sm"
+              />
+              <div className="relative">
+                <WorkspaceWindow />
+              </div>
             </Reveal>
           </div>
         </section>
 
         {/* ---- Capability strip ---- */}
-        <section className="border-b border-border-low-alpha bg-surface-white">
-          <div className="mx-auto grid max-w-[1240px] grid-cols-2 divide-x divide-border-low-alpha px-6 sm:grid-cols-4 lg:px-8">
+        <section className="relative z-20 -mt-8 bg-transparent px-6">
+          <div className="mx-auto grid max-w-[1240px] grid-cols-2 divide-x divide-border-low-alpha overflow-hidden rounded-2xl border border-border-low-alpha bg-surface-white px-2 shadow-floating sm:grid-cols-4 sm:px-4">
             {[
               ["Lead discovery", "Real businesses, found for you"],
               ["Personalized copy", "Written per lead, never templated"],
               ["Résumé parsing", "PDFs into structured profiles"],
               ["Semantic search", "Find people by meaning"],
-            ].map(([title, body]) => (
-              <div key={title} className="px-4 py-7 first:pl-0 sm:px-6">
-                <p className="text-[12px] font-semibold text-on-surface">{title}</p>
-                <p className="mt-1 hidden text-[11px] text-text-muted sm:block">{body}</p>
+            ].map(([title, body], index) => (
+              <div key={title} className="px-4 py-6 sm:px-6">
+                <p className="font-data-mono text-[9px] tracking-[0.12em] text-outline">
+                  {String(index + 1).padStart(2, "0")}
+                </p>
+                <p className="mt-2 text-[12px] font-semibold text-on-surface">{title}</p>
+                <p className="mt-1 hidden text-[11px] leading-5 text-text-muted sm:block">{body}</p>
               </div>
             ))}
           </div>
@@ -499,16 +511,17 @@ export default function LandingPage() {
                 },
               ].map((engine, index) => (
                 <Reveal key={engine.name} delay={index * 0.08}>
-                  <div className="flex h-full flex-col rounded-[22px] border border-primary/25 bg-bg-cream p-8 shadow-[0_20px_60px_-40px_rgba(13,148,136,0.5)]">
+                  <div className="relative flex h-full flex-col overflow-hidden rounded-2xl border border-border-low-alpha bg-surface-white p-8 shadow-ambient transition-all duration-300 hover:-translate-y-1 hover:border-primary/25 hover:shadow-floating">
+                    <span className="absolute inset-x-0 top-0 h-1 bg-primary-container" aria-hidden />
                     <div className="flex items-center gap-3">
                       <span className="flex size-11 items-center justify-center rounded-xl bg-primary-container text-on-primary-container">
                         <span className="material-symbols-outlined text-[22px]">{engine.icon}</span>
                       </span>
                       <div>
-                        <span className="rounded-md bg-primary-fixed px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-primary">
+                        <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-primary">
                           {engine.lead}
                         </span>
-                        <h3 className="mt-1.5 text-[22px] font-semibold tracking-[-0.025em] text-on-surface">
+                        <h3 className="mt-1 text-[22px] font-semibold tracking-[-0.025em] text-on-surface">
                           {engine.name}
                         </h3>
                       </div>
@@ -553,7 +566,7 @@ export default function LandingPage() {
               </p>
             </Reveal>
 
-            <div className="mt-16 grid gap-px overflow-hidden rounded-[22px] border border-border-low-alpha bg-border-low-alpha sm:grid-cols-2 lg:grid-cols-5">
+            <div className="mt-16 grid gap-px overflow-hidden rounded-2xl border border-border-low-alpha bg-border-low-alpha sm:grid-cols-2 lg:grid-cols-5">
               {PIPELINE.map((step, index) => (
                 <Reveal
                   key={step.number}
@@ -573,7 +586,7 @@ export default function LandingPage() {
             </div>
 
             <Reveal delay={0.1}>
-              <div className="mt-6 grid gap-6 rounded-[22px] border border-border-low-alpha bg-surface-white p-8 sm:grid-cols-3 lg:p-10">
+              <div className="mt-6 grid gap-6 rounded-2xl border border-border-low-alpha bg-surface-white p-8 sm:grid-cols-3 lg:p-10">
                 {[
                   ["Runs on a schedule", "New leads are discovered and contacted on an ongoing cadence, not once."],
                   ["Day 0 · 3 · 7", "Each lead gets an opener and two follow-ups, all in one thread."],
@@ -653,7 +666,7 @@ export default function LandingPage() {
                     ["timeline", "Build the sequence", "An opener plus follow-ups, threaded together."],
                     ["chat", "WhatsApp channel", "Add WhatsApp Business alongside email on Scale."],
                   ].map(([icon, title, body]) => (
-                    <div key={title} className="rounded-xl border border-border-low-alpha bg-surface-white p-5">
+                    <div key={title} className="border-t border-border-low-alpha pt-5">
                       <span className="material-symbols-outlined text-[19px] text-primary">{icon}</span>
                       <p className="mt-3.5 text-[13px] font-semibold text-on-surface">{title}</p>
                       <p className="mt-1.5 text-[12px] leading-5 text-text-muted">{body}</p>
@@ -714,7 +727,7 @@ export default function LandingPage() {
               </div>
             </Reveal>
 
-            <div className="mt-14 grid gap-px overflow-hidden rounded-[22px] border border-border-low-alpha bg-border-low-alpha sm:grid-cols-2 lg:grid-cols-4">
+            <div className="mt-14 grid gap-px overflow-hidden rounded-2xl border border-border-low-alpha bg-border-low-alpha sm:grid-cols-2 lg:grid-cols-4">
               {DELIVERABILITY.map((item, index) => (
                 <Reveal key={item.title} delay={index * 0.05} className="h-full bg-surface-white p-7">
                   <span className="material-symbols-outlined text-[21px] text-primary">{item.icon}</span>
@@ -804,7 +817,7 @@ export default function LandingPage() {
               </div>
             </Reveal>
 
-            <div className="mt-14 grid overflow-hidden rounded-[22px] border border-border-low-alpha lg:grid-cols-3">
+            <div className="mt-14 grid overflow-hidden rounded-2xl border border-border-low-alpha lg:grid-cols-3">
               {PLAN_ORDER.map((id, index) => {
                 const plan = PLANS[id];
                 return (
@@ -876,7 +889,7 @@ export default function LandingPage() {
 
         {/* ---- Closing CTA ---- */}
         <section className="bg-surface-white px-6 py-20 lg:px-8 lg:py-24">
-          <Reveal className="mx-auto flex max-w-[1240px] flex-col items-start justify-between gap-9 rounded-[24px] bg-primary-container px-7 py-12 text-on-primary-container shadow-[0_32px_80px_-44px_rgba(15,118,110,0.75)] dark:border dark:border-outline-variant dark:bg-surface-container-low dark:text-on-surface dark:shadow-[0_28px_70px_-42px_rgba(0,0,0,0.9)] sm:px-10 lg:flex-row lg:items-center lg:px-14 lg:py-14">
+          <Reveal className="mx-auto flex max-w-[1240px] flex-col items-start justify-between gap-9 rounded-2xl bg-primary-container px-7 py-12 text-on-primary-container shadow-floating dark:border dark:border-outline-variant dark:bg-surface-container-low dark:text-on-surface sm:px-10 lg:flex-row lg:items-center lg:px-14 lg:py-14">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-primary-fixed dark:text-primary">Put both engines to work</p>
               <h2 className="mt-4 max-w-2xl text-[32px] font-semibold leading-[1.12] tracking-[-0.035em] sm:text-[40px]">
