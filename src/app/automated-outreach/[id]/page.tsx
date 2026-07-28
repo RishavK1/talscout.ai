@@ -26,6 +26,7 @@ interface AutomatedCampaign {
   name: string;
   status: "draft" | "active" | "paused" | "completed" | "error";
   discoveryQuery: { category: string; location: { text: string } | { lat: number; lon: number } };
+  maxLeadsPerRun: number;
   replyPollingEnabled: boolean;
   lastDiscoveryRunAt: string | null;
   lastReplyPollAt: string | null;
@@ -453,6 +454,20 @@ export default function AutomatedCampaignDetailPage({
                 {campaign.errorReason && (
                   <p className="mt-3 font-body-md text-[13px] text-error">{campaign.errorReason}</p>
                 )}
+                {!campaign.errorReason &&
+                  !loading &&
+                  campaign.lastDiscoveryRunAt &&
+                  total > 0 &&
+                  total < campaign.maxLeadsPerRun && (
+                    <p className="mt-3 flex items-start gap-1.5 font-body-md text-[13px] text-text-muted">
+                      <span className="material-symbols-outlined text-[16px] shrink-0">info</span>
+                      Found {total} of {campaign.maxLeadsPerRun} target leads so far — free discovery
+                      sources don&apos;t have contact info for every business in{" "}
+                      {campaign.discoveryQuery.category} / {locationLabel}. New leads get added
+                      automatically as more become discoverable; try a broader category or location
+                      for more volume.
+                    </p>
+                  )}
               </div>
               <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-2 lg:w-auto lg:shrink-0">
                 {(campaign.status === "active" || campaign.status === "paused" || campaign.status === "draft") && (
