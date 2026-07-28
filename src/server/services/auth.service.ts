@@ -89,6 +89,26 @@ export async function provisionWorkspace(input: {
     };
   }
 
+  // An admin invited this email before it had an account: claim that pending
+  // row instead of provisioning a fresh workspace below. Without this the
+  // invitee silently got their OWN empty tenant — the invite row sat
+  // unclaimed forever, still consuming one of the inviting workspace's
+  // seats, and the two never met. Deliberately placed after the two
+  // authUserId-keyed lookups above: an email that ALREADY has an account
+  // keeps it (this app is one workspace per login), so only a genuinely new
+  // identity can consume an invite.
+  const claimed = await userRepo.claimInviteAdmin(input.email, input.authUserId);
+  if (claimed) {
+    const tenant = await tenantRepo.getByIdAdmin(claimed.tenantId);
+    return {
+      tenantId: claimed.tenantId,
+      userId: claimed.id,
+      role: claimed.role,
+      workspaceName: tenant?.name,
+      created: false,
+    };
+  }
+
   try {
     const { tenant, user } = await tenantRepo.createTenantWithAdmin(input);
     return {

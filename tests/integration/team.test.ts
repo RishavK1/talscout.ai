@@ -1,10 +1,15 @@
-import { beforeEach, afterAll, describe, expect, it } from "vitest";
+import { beforeEach, afterAll, describe, expect, it, vi } from "vitest";
+import { eq } from "drizzle-orm";
 import { GET as teamGET, POST as invitePOST } from "../../src/app/api/team/route";
 import { DELETE as removeDELETE } from "../../src/app/api/team/[userId]/route";
+import { POST as signupPOST } from "../../src/app/api/auth/signup/route";
 import { resetDb, seedSubscription } from "../helpers/seed";
 import { makeUser } from "../helpers/auth-fixtures";
+import { mintToken } from "../helpers/jwt";
 import { call } from "../helpers/http";
-import { closePools } from "../../src/server/db/client";
+import { adminDb, closePools } from "../../src/server/db/client";
+import { users } from "../../src/server/db/schema";
+import { getServices } from "../../src/server/container";
 
 const params = (userId: string) => ({ params: Promise.resolve({ userId }) });
 
@@ -146,5 +151,82 @@ describe("RBAC + IDOR on team endpoints", () => {
       routeCtx: params(b.user.id),
     });
     expect(res.status).toBe(404);
+  });
+});
+
+describe("invite delivery + acceptance", () => {
+  it("actually emails the invitee, and reports it back", async () => {
+    const { tenant, token } = await makeUser("admin");
+    await seedSubscription(tenant.id, { status: "active", seats: 5 });
+    const mailSpy = vi.spyOn(getServices().mailer, "send");
+
+    const res = await call(invitePOST, {
+      token,
+      body: { email: "newhire@x.com", role: "recruiter" },
+    });
+
+    expect(res.status).toBe(201);
+    expect(res.json.data.emailSent).toBe(true);
+    // The whole point: an invite that sends nothing is the bug this covers.
+    expect(mailSpy).toHaveBeenCalledTimes(1);
+    const message = mailSpy.mock.calls[0][0];
+    expect(message.to).toBe("newhire@x.com");
+    expect(message.text).toContain("/signup");
+    vi.restoreAllMocks();
+  });
+
+  it("a failing mail provider still creates the member, reported honestly", async () => {
+    const { tenant, token } = await makeUser("admin");
+    await seedSubscription(tenant.id, { status: "active", seats: 5 });
+    vi.spyOn(getServices().mailer, "send").mockRejectedValue(new Error("provider down"));
+
+    const res = await call(invitePOST, {
+      token,
+      body: { email: "newhire@x.com", role: "recruiter" },
+    });
+
+    // The seat is already reserved — a mail hiccup must not fail the invite,
+    // but it must not be reported as a sent email either.
+    expect(res.status).toBe(201);
+    expect(res.json.data.emailSent).toBe(false);
+    expect(res.json.data.signupUrl).toContain("/signup");
+    vi.restoreAllMocks();
+  });
+
+  it("signing up with an invited email JOINS that workspace instead of creating a new one", async () => {
+    const { tenant, token } = await makeUser("admin");
+    await seedSubscription(tenant.id, { status: "active", seats: 5 });
+    await call(invitePOST, { token, body: { email: "invitee@x.com", role: "recruiter" } });
+
+    const inviteeToken = await mintToken("22222222-2222-2222-2222-222222222222", {
+      email: "invitee@x.com",
+    });
+    const signup = await call(signupPOST, {
+      token: inviteeToken,
+      body: { workspaceName: "Ignored — they were invited" },
+    });
+
+    // 200 (joined), never 201 (created) — and the SAME tenant as the inviter.
+    expect(signup.status).toBe(200);
+    expect(signup.json.data.tenantId).toBe(tenant.id);
+    expect(signup.json.data.role).toBe("recruiter");
+
+    // No stray second tenant, and the invite row is now active, not orphaned.
+    const rows = await adminDb().select().from(users).where(eq(users.email, "invitee@x.com"));
+    expect(rows).toHaveLength(1);
+    expect(rows[0].status).toBe("active");
+    expect(rows[0].tenantId).toBe(tenant.id);
+  });
+
+  it("an email with no invite still gets its own workspace (regression guard)", async () => {
+    const strangerToken = await mintToken("33333333-3333-3333-3333-333333333333", {
+      email: "stranger@x.com",
+    });
+    const signup = await call(signupPOST, {
+      token: strangerToken,
+      body: { workspaceName: "Stranger Co" },
+    });
+    expect(signup.status).toBe(201);
+    expect(signup.json.data.role).toBe("admin");
   });
 });

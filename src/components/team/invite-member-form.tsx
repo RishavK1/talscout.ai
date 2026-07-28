@@ -28,13 +28,20 @@ export function InviteMemberForm({
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<"admin" | "recruiter" | "viewer">("recruiter");
   const [inviting, setInviting] = useState(false);
+  /** What the server actually managed to do — the success screen used to
+   *  claim an email was sent unconditionally, including when none was. */
+  const [result, setResult] = useState<{ emailSent: boolean; signupUrl: string } | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) return;
     try {
       setInviting(true);
-      await api.post("/api/team", { email, role });
+      const res = await api.post<{ emailSent: boolean; signupUrl: string }>("/api/team", {
+        email,
+        role,
+      });
+      setResult({ emailSent: res.emailSent, signupUrl: res.signupUrl });
       setSent(true);
       setEmail("");
       onSent?.();
@@ -47,15 +54,33 @@ export function InviteMemberForm({
   };
 
   if (sent) {
+    const emailSent = result?.emailSent ?? false;
     return (
       <div className="py-4 text-center">
         <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-tertiary-fixed/20 text-tertiary-container">
-          <span className="material-symbols-outlined">check_circle</span>
+          <span className="material-symbols-outlined">{emailSent ? "check_circle" : "link"}</span>
         </div>
-        <p className="font-headline-md text-[18px] text-primary serif-text">Invitation sent</p>
-        <p className="mt-1 font-body-md text-[14px] text-on-surface-variant">
-          They&apos;ll get an email to join your workspace.
+        <p className="font-headline-md text-[18px] text-primary serif-text">
+          {emailSent ? "Invitation sent" : "Member added — share this link"}
         </p>
+        <p className="mt-1 font-body-md text-[14px] text-on-surface-variant">
+          {emailSent
+            ? "They'll get an email to join your workspace. They must sign up with the same email address."
+            : "We couldn't send the invitation email. Send them this link — they need to sign up with the invited email address."}
+        </p>
+        {!emailSent && result?.signupUrl && (
+          <button
+            type="button"
+            onClick={() => {
+              navigator.clipboard.writeText(result.signupUrl);
+              toast.success("Signup link copied");
+            }}
+            className="mx-auto mt-3 flex items-center gap-2 rounded-lg border border-outline px-4 py-2 font-label-md text-primary transition-colors hover:bg-surface-container-low"
+          >
+            <span className="material-symbols-outlined text-[18px]">content_copy</span>
+            Copy signup link
+          </button>
+        )}
         <button
           type="button"
           onClick={onDone}

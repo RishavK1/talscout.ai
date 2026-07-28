@@ -1,4 +1,4 @@
-import { and, eq, ne, count, sql } from "drizzle-orm";
+import { and, eq, ne, count, sql, isNull } from "drizzle-orm";
 import { adminDb } from "@/server/db/client";
 import { users, tenants } from "@/server/db/schema";
 import type { TenantContext } from "@/server/db/tx";
@@ -62,6 +62,33 @@ export const userRepo = {
       .update(users)
       .set({ authUserId: newAuthUserId })
       .where(and(eq(users.id, userId), eq(users.authUserId, previousAuthUserId)))
+      .returning();
+    return rows[0] ?? null;
+  },
+
+  /** Claim a pending invite for a freshly-signed-up identity — links the
+   *  invited row (authUserId NULL, status "invited") to the real auth user
+   *  and activates it, so the invitee lands in the workspace that invited
+   *  them instead of getting a brand-new one of their own.
+   *
+   *  The WHERE clause requires the row to STILL be unclaimed (same optimistic
+   *  concurrency as relinkAuthUserIdAdmin above), so two concurrent signups
+   *  for the same invite can't both succeed — the loser gets null back and
+   *  falls through to normal provisioning rather than erroring.
+   *
+   *  Admin-scoped by necessity: this runs before the caller belongs to any
+   *  tenant, which is precisely the tenant this invite would grant. */
+  async claimInviteAdmin(email: string, authUserId: string) {
+    const rows = await adminDb()
+      .update(users)
+      .set({ authUserId, status: "active" })
+      .where(
+        and(
+          eq(users.email, email),
+          eq(users.status, "invited"),
+          isNull(users.authUserId),
+        ),
+      )
       .returning();
     return rows[0] ?? null;
   },
