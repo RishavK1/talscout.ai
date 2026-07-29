@@ -20,14 +20,22 @@ export class FallbackLeadDiscovery implements LeadDiscovery {
     const results = await this.primary.discover(query);
     const seen = new Set(results.map((l) => l.sourcePlaceId));
 
+    // Businesses an earlier run already found. Filtered centrally here so a
+    // provider that doesn't implement `excludeSourcePlaceIds` itself still
+    // can't spend this chain's remaining budget re-returning known results —
+    // which would leave a repeat run reporting "full" while contributing
+    // nothing new. See the field's doc comment in ports/index.ts.
+    const known = query.excludeSourcePlaceIds ?? new Set<string>();
+
     for (const fallback of this.fallbacks) {
       if (results.length >= query.limit) break;
       const remaining = query.limit - results.length;
       const topUp = await fallback.discover({ ...query, limit: remaining });
       for (const lead of topUp) {
-        if (seen.has(lead.sourcePlaceId)) continue;
+        if (seen.has(lead.sourcePlaceId) || known.has(lead.sourcePlaceId)) continue;
         seen.add(lead.sourcePlaceId);
         results.push(lead);
+        if (results.length >= query.limit) break;
       }
     }
     return results;

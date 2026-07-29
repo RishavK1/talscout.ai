@@ -123,9 +123,12 @@ describe("runAutomatedCampaigns — discover → enrich → generate → schedul
     const { tenant, token } = await makeUser("recruiter");
     const blueprint = await seedActiveBlueprint(tenant.id);
     const sender = await seedGmailSender(tenant.id);
+    // Activating below already triggers one real, full discover→enrich→
+    // generate→schedule run via resumeCampaign's afterCommit hook (see
+    // createActiveCampaign) — no separate runAutomatedCampaigns() call here,
+    // that would be a second, genuinely distinct tick (see the "dedups on a
+    // repeated run" test below for what that looks like).
     const campaignId = await createActiveCampaign(token, blueprint.id, sender.id, "dentist");
-
-    await runAutomatedCampaigns(getServices());
 
     const leads = await leadsForCampaign(campaignId);
     expect(leads).toHaveLength(5);
@@ -205,8 +208,6 @@ describe("runAutomatedCampaigns — discover → enrich → generate → schedul
       "restaurant %%NOEMAIL%%",
     );
 
-    await runAutomatedCampaigns(getServices());
-
     const leads = await leadsForCampaign(campaignId);
     expect(leads).toHaveLength(5);
     expect(leads.every((l) => l.status === "no_email")).toBe(true);
@@ -252,20 +253,54 @@ describe("runAutomatedCampaigns — discover → enrich → generate → schedul
     expect(pending.map((l) => l.sourcePlaceId)).toEqual(["osm:node/1000"]);
   });
 
-  it("dedups on a repeated run — no duplicate leads or double sends", async () => {
+  it("a repeated tick finds NEW businesses instead of re-fetching the same page forever", async () => {
+    // Regression test for the actual production incident: two real campaigns
+    // ran their first tick fine, then sat "active" with lastDiscoveryRunAt
+    // updating every 6 hours while producing zero new leads — forever. Root
+    // cause was discovery being stateless across runs: every tick asked the
+    // same provider the same question, got the same capped, stable-ordered
+    // page of results back, and dedup discarded 100% of it as already-known.
+    // The campaign LOOKED alive (lastDiscoveryRunAt kept advancing) while
+    // being permanently stuck. Fixed by threading known sourcePlaceIds into
+    // discovery (see LeadDiscoveryQuery.excludeSourcePlaceIds) so a repeat
+    // run pages PAST what it already has.
     const { tenant, token } = await makeUser("recruiter");
     const blueprint = await seedActiveBlueprint(tenant.id);
     const sender = await seedGmailSender(tenant.id);
+    // Activating already runs tick #1 (5 leads — one MOCK_PAGE_SIZE page, see
+    // mock.lead-discovery.ts). MockLeadDiscovery's universe is 12 total, so
+    // it takes 3 pages of 5 to exhaust: 5, then 5 more, then the last 2.
     const campaignId = await createActiveCampaign(token, blueprint.id, sender.id, "cafe");
+    const afterTick1 = await leadsForCampaign(campaignId);
+    expect(afterTick1).toHaveLength(5);
 
+    // Tick #2 — a later cron sweep with no code change since. Must reach a
+    // genuinely NEW page (5 more), not re-discover the same 5 and find
+    // "nothing new" again — that exact silent stall is the production bug.
     await runAutomatedCampaigns(getServices());
+    const afterTick2 = await leadsForCampaign(campaignId);
+    expect(afterTick2).toHaveLength(10); // not stuck at 5
+    expect(new Set(afterTick2.map((l) => l.sourcePlaceId)).size).toBe(10); // no dupes
+
+    // Tick #3 — reaches the last 2 remaining businesses. The universe is now
+    // fully exhausted.
     await runAutomatedCampaigns(getServices());
+    const afterTick3 = await leadsForCampaign(campaignId);
+    expect(afterTick3).toHaveLength(12);
+    expect(new Set(afterTick3.map((l) => l.sourcePlaceId)).size).toBe(12);
 
-    const leads = await leadsForCampaign(campaignId);
-    expect(leads).toHaveLength(5); // not 10
+    // Tick #4 — nothing left to find. Must not error, must not fabricate
+    // leads, must not touch what's already there.
+    await runAutomatedCampaigns(getServices());
+    expect(await leadsForCampaign(campaignId)).toHaveLength(12);
 
+    // Every business still gets its full Day 0/3/7 sequence exactly once —
+    // the original dedup guarantee this test used to cover, still true.
     const sends = await sendsForCampaign(campaignId);
-    expect(sends).toHaveLength(15); // 5 leads × 3 steps, not 30
+    const byLead = new Map<string, number>();
+    for (const s of sends) byLead.set(s.leadId, (byLead.get(s.leadId) ?? 0) + 1);
+    expect(byLead.size).toBe(12);
+    for (const count of byLead.values()) expect(count).toBe(3);
   });
 
   it("enforces the plan's independent daily cap — truncates the batch and leaves the rest for tomorrow", async () => {
@@ -317,11 +352,12 @@ describe("runAutomatedCampaigns — discover → enrich → generate → schedul
       );
     });
 
+    // Activating triggers the one real run this test is about — no separate
+    // runAutomatedCampaigns() call, that would be a genuinely later tick and
+    // (now that discovery pages forward — see the "repeated tick" test above)
+    // would pull in a new page of leads that has nothing to do with cap
+    // truncation.
     const campaignId = await createActiveCampaign(token, blueprint.id, sender.id, "gym");
-
-    // A subsequent sweep must not double-process what activation's
-    // immediate run already handled.
-    await runAutomatedCampaigns(getServices());
 
     // The cap gates how many LEADS start a new sequence today (the 2
     // remaining slots of the plan's 25), not raw row count — each surviving lead still
@@ -370,8 +406,6 @@ describe("runAutomatedCampaigns — regenerating a blueprint mid-campaign never 
     const sender = await seedGmailSender(tenant.id);
     const campaignId = await createActiveCampaign(token, blueprint.id, sender.id, "vet");
 
-    await runAutomatedCampaigns(getServices());
-
     const sendsBefore = await sendsForCampaign(campaignId);
     expect(sendsBefore).toHaveLength(15); // 5 leads x 3 steps
     // The mock copywriter embeds whatWeOffer/differentiator verbatim, so this
@@ -408,7 +442,6 @@ describe("runAutomatedCampaigns — regenerating a blueprint mid-campaign never 
     // does get copy from the new sections — proving the "unchanged" check
     // above isn't a coincidence of the mock always returning identical text.
     const campaignId2 = await createActiveCampaign(token, blueprint.id, sender.id, "vet clinic");
-    await runAutomatedCampaigns(getServices());
     const newSends = await sendsForCampaign(campaignId2);
     expect(newSends.length).toBeGreaterThan(0);
     expect(newSends.every((s) => s.body.includes("A brand-new completely different offer"))).toBe(true);
@@ -422,8 +455,6 @@ describe("runAutomatedCampaigns — lead qualification gate", () => {
     const sender = await seedGmailSender(tenant.id);
     const campaignId = await createActiveCampaign(token, blueprint.id, sender.id, "florist");
 
-    await runAutomatedCampaigns(getServices());
-
     const leads = await leadsForCampaign(campaignId);
     expect(leads).toHaveLength(5);
     expect(leads.every((l) => l.status === "queued")).toBe(true);
@@ -434,8 +465,6 @@ describe("runAutomatedCampaigns — lead qualification gate", () => {
     const blueprint = await seedQualifyingBlueprint(tenant.id, "no_or_weak_site", "Website Builder Offer");
     const sender = await seedGmailSender(tenant.id);
     const campaignId = await createActiveCampaign(token, blueprint.id, sender.id, "plumber %%NOWEBSITE%%");
-
-    await runAutomatedCampaigns(getServices());
 
     const leads = await leadsForCampaign(campaignId);
     expect(leads).toHaveLength(5);
@@ -448,8 +477,6 @@ describe("runAutomatedCampaigns — lead qualification gate", () => {
     const blueprint = await seedQualifyingBlueprint(tenant.id, "has_site", "SEO Audit Offer");
     const sender = await seedGmailSender(tenant.id);
     const campaignId = await createActiveCampaign(token, blueprint.id, sender.id, "salon %%NOWEBSITE%%");
-
-    await runAutomatedCampaigns(getServices());
 
     const leads = await leadsForCampaign(campaignId);
     expect(leads).toHaveLength(5);
@@ -477,8 +504,6 @@ describe("runAutomatedCampaigns — lead qualification gate", () => {
     // reads that as "already has a great site" (disqualified).
     const campaignId = await createActiveCampaign(token, blueprint.id, sender.id, "dentist %%POLISHED%%");
 
-    await runAutomatedCampaigns(getServices());
-
     const leads = await leadsForCampaign(campaignId);
     expect(leads).toHaveLength(5);
     expect(leads.every((l) => l.website)).toBe(true);
@@ -487,7 +512,6 @@ describe("runAutomatedCampaigns — lead qualification gate", () => {
 
     // Same setup WITHOUT the polish marker — the qualifier should let it through.
     const campaignId2 = await createActiveCampaign(token, blueprint.id, sender.id, "dentist");
-    await runAutomatedCampaigns(getServices());
     const leads2 = await leadsForCampaign(campaignId2);
     expect(leads2).toHaveLength(5);
     expect(leads2.every((l) => l.status === "queued")).toBe(true);

@@ -216,6 +216,24 @@ export const automatedLeadRepo = {
   /** Bulk insert with onConflictDoNothing on (campaignId, sourcePlaceId) —
    *  the discovery-dedup guarantee. Returns only the newly-inserted rows so
    *  the enrichment step only processes genuinely new leads this tick. */
+  /** Every business this campaign has already discovered, in the provider's
+   *  own id space. Fed to the next discovery run so it can page/expand PAST
+   *  what it already has instead of re-fetching the same capped page forever
+   *  (see LeadDiscoveryQuery.excludeSourcePlaceIds). Ids only — never the
+   *  full rows — so this stays cheap as a campaign's lead table grows. */
+  async listSourcePlaceIds(ctx: TenantContext, campaignId: string): Promise<Set<string>> {
+    const rows = await ctx.tx
+      .select({ sourcePlaceId: automatedLeads.sourcePlaceId })
+      .from(automatedLeads)
+      .where(
+        and(
+          eq(automatedLeads.tenantId, ctx.tenantId),
+          eq(automatedLeads.campaignId, campaignId),
+        ),
+      );
+    return new Set(rows.map((r) => r.sourcePlaceId));
+  },
+
   async upsertDiscovered(ctx: TenantContext, campaignId: string, leads: DiscoveredLead[]) {
     if (leads.length === 0) return [];
     return await ctx.tx

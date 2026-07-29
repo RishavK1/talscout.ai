@@ -43,6 +43,11 @@ const USER_AGENT = GEOCODE_USER_AGENT;
  *  their own radius. */
 const DEFAULT_RADIUS_METERS = 10_000;
 
+/** Ceiling on how many elements a single Overpass query may return. Bounds the
+ *  inflated fetch used to page past already-known businesses (see discover)
+ *  so a long-running campaign can't grow its query without limit. */
+const OVERPASS_MAX_ELEMENTS = 1_000;
+
 /** category → OSM tag(s). Best-effort map; unknown categories fall back to
  *  trying shop=<category> and amenity=<category> literally, since many OSM
  *  tag values already match common English category words. */
@@ -127,13 +132,24 @@ export class OverpassLeadDiscovery implements LeadDiscovery {
         ? [query.location.radiusMeters]
         : [DEFAULT_RADIUS_METERS, 25_000, 50_000];
 
+    const known = query.excludeSourcePlaceIds ?? new Set<string>();
     const byId = new Map<string, DiscoveredLead>();
     for (const radius of radii) {
       if (byId.size >= query.limit) break;
-      const elements = await this.fetchAtRadius(query.category, center, radius, query.limit);
+      // Ask for the already-known count ON TOP of what we still need. Overpass
+      // returns a stable-ordered page capped by this number, so on a repeat run
+      // the first `known.size` results are all businesses we already have —
+      // requesting only `limit` would return nothing but those and find zero
+      // new ones no matter how wide the radius got.
+      const fetchLimit = Math.min(query.limit + known.size, OVERPASS_MAX_ELEMENTS);
+      const elements = await this.fetchAtRadius(query.category, center, radius, fetchLimit);
       for (const el of elements) {
         const lead = elementToLead(el);
-        if (lead && !byId.has(lead.sourcePlaceId)) byId.set(lead.sourcePlaceId, lead);
+        if (!lead || byId.has(lead.sourcePlaceId)) continue;
+        // Already discovered on an earlier run: skip WITHOUT counting toward
+        // the limit, so a saturated inner radius can't stop the escalation.
+        if (known.has(lead.sourcePlaceId)) continue;
+        byId.set(lead.sourcePlaceId, lead);
         if (byId.size >= query.limit) break;
       }
     }

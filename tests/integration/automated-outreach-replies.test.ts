@@ -16,7 +16,6 @@ import { adminDb, closePools } from "../../src/server/db/client";
 import { blueprints, senderAccounts, automatedReplyDrafts, automatedSends } from "../../src/server/db/schema";
 import { encryptSecret } from "../../src/server/lib/secret-box";
 import { withTenantTx } from "../../src/server/db/tx";
-import { runAutomatedCampaigns } from "../../src/server/jobs/run-automated-campaign";
 import { sendAutomatedEmail } from "../../src/server/jobs/send-automated-email";
 import { pollAutomatedReplies } from "../../src/server/jobs/poll-automated-replies";
 import { getServices } from "../../src/server/container";
@@ -87,13 +86,22 @@ function mockMailer(): MockOutreachMailer {
   return getServices().outreachMailer as MockOutreachMailer;
 }
 
-/** Runs discovery/enrichment/copy-gen (which now only SCHEDULES paced sends,
- *  never fires them inline — see automated-outreach-pipeline.test.ts), then
- *  directly drains every scheduled row through the send job itself rather
- *  than waiting on real wall-clock pacing delays. These reply-flow tests
- *  care about what happens once a send has gone out, not about pacing. */
+/** Drains every scheduled row through the send job itself rather than
+ *  waiting on real wall-clock pacing delays. These reply-flow tests care
+ *  about what happens once a send has gone out, not about pacing.
+ *
+ *  Deliberately does NOT call runAutomatedCampaigns itself — every caller
+ *  activates the campaign immediately beforehand via
+ *  createActiveReplyPollingCampaign, whose resumeCampaign call already
+ *  triggers one full discover→enrich→generate→schedule run synchronously
+ *  (see run-automated-campaign.ts's afterCommit hook, executed inline by
+ *  InProcessQueue in test mode). A second explicit call here used to be a
+ *  silent no-op only because discovery couldn't tell a repeat run from a
+ *  fresh one — now that it pages past what it's already found (see
+ *  automated-outreach-pipeline.test.ts's "repeated tick" regression test),
+ *  a redundant call here would pull in a second page of leads these tests
+ *  aren't about. */
 async function runCampaignAndCompleteSends(tenantId: string) {
-  await runAutomatedCampaigns(getServices());
   const scheduled = await withTenantTx({ tenantId }, (ctx) =>
     ctx.tx.select().from(automatedSends).where(eq(automatedSends.tenantId, tenantId)),
   );

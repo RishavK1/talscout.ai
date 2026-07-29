@@ -448,6 +448,18 @@ export interface LeadDiscoveryQuery {
   category: string;
   location: { lat: number; lon: number; radiusMeters: number } | { text: string };
   limit: number;
+  /** Businesses this campaign has ALREADY discovered on a previous run.
+   *  Implementations must not count these toward `limit` — they're dropped by
+   *  the caller's dedup anyway, so counting them means a repeat run "fills up"
+   *  on results it will immediately discard and stops looking.
+   *
+   *  Without this, discovery is stateless across runs: every tick asked the
+   *  same question, got the same capped page of results back in the same
+   *  order, inserted nothing, and left the campaign silently stuck forever
+   *  while still updating `lastDiscoveryRunAt` (so it looked healthy). Passing
+   *  the known set is what lets a provider page/expand PAST the exhausted
+   *  frontier into genuinely new businesses. */
+  excludeSourcePlaceIds?: ReadonlySet<string>;
 }
 
 export interface DiscoveredLead {

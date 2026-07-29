@@ -285,12 +285,22 @@ async function discoverPhase(
     category: string;
     location: { lat: number; lon: number; radiusMeters: number } | { text: string };
   };
+  // What this campaign already has. Passing it lets discovery look PAST the
+  // businesses we've seen — without it, every tick re-fetched the same capped,
+  // stable-ordered page, inserted nothing (dedup), and the campaign sat
+  // "active" producing zero leads forever while still stamping
+  // lastDiscoveryRunAt so it looked healthy. See the port's doc comment.
+  const known = await withTenantTx({ tenantId }, (ctx) =>
+    automatedLeadRepo.listSourcePlaceIds(ctx, campaign.id),
+  );
+
   let discovered;
   try {
     discovered = await services.leadDiscovery.discover({
       category: discoveryQuery.category,
       location: discoveryQuery.location,
       limit: Math.min(campaign.maxLeadsPerRun * DISCOVERY_POOL_MULTIPLIER, DISCOVERY_POOL_CAP),
+      excludeSourcePlaceIds: known,
     });
   } catch (err) {
     // A transient discovery-provider outage must never permanently halt the
