@@ -277,7 +277,7 @@ export default function DashboardPage() {
                   type="submit"
                   variant="secondary"
                   size="lg"
-                  className="justify-center rounded-xl bg-primary-container text-on-primary-container hover:bg-primary hover:text-on-primary active:scale-[0.98]"
+                  className="justify-center rounded-xl bg-primary-container text-on-primary-container hover:brightness-110 active:scale-[0.98]"
                 >
                   <span className="material-symbols-outlined text-[19px]">search</span>
                   Find Candidates
@@ -366,7 +366,7 @@ export default function DashboardPage() {
                           <p className="text-[13px] leading-6 text-text-muted">
                             Your pipeline will appear here after your first résumé is processed.
                           </p>
-                          <Button asChild className="mt-4 rounded-xl bg-primary-container text-on-primary-container hover:bg-primary hover:text-on-primary">
+                          <Button asChild className="mt-4 rounded-xl bg-primary-container text-on-primary-container hover:brightness-110">
                             <Link href="/upload">
                               <span className="material-symbols-outlined text-[18px]">upload_file</span>
                               Upload your first résumé
@@ -443,7 +443,7 @@ export default function DashboardPage() {
                         </li>
                       ))}
                     </ol>
-                    <Button asChild className="mt-7 w-full rounded-xl bg-primary-container text-on-primary-container hover:bg-primary hover:text-on-primary">
+                    <Button asChild className="mt-7 w-full rounded-xl bg-primary-container text-on-primary-container hover:brightness-110">
                       <Link href="/upload">
                         Start with an upload
                         <span className="material-symbols-outlined text-[17px]">arrow_forward</span>

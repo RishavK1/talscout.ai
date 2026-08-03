@@ -170,7 +170,7 @@ export default function PricingPage() {
             </div>
             <Link
               href="/signup"
-              className="relative z-10 bg-primary text-on-primary px-10 py-4 rounded-lg font-label-md text-label-md hover:bg-primary-container transition-all shadow-xl"
+              className="relative z-10 bg-primary text-on-primary px-10 py-4 rounded-lg font-label-md text-label-md hover:brightness-110 transition-all shadow-xl"
             >
               Get started now
             </Link>

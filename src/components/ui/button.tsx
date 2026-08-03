@@ -22,8 +22,22 @@ const buttonVariants = cva(
         /** The app's one branded primary CTA look — flat solid teal fill,
          *  no gradient/shadow-lift (dozens of call sites already use
          *  `variant="gradient"`; the name stays so nothing else needs to
-         *  change, only the flat-vs-glossy treatment behind it). */
-        gradient: "bg-primary-container text-on-primary-container shadow-[0_1px_2px_rgba(15,23,42,0.16)] hover:bg-primary hover:text-on-primary transition-colors",
+         *  change, only the flat-vs-glossy treatment behind it).
+         *
+         *  Hover deliberately does NOT swap to `bg-primary`/`text-on-primary`
+         *  — those two tokens are a DIFFERENT design role (`--color-primary`
+         *  is the lightened tone used for TEXT on dark surfaces, e.g.
+         *  `text-primary` headings; `--color-primary-container` is the solid
+         *  button-fill tone; see globals.css's `.dark` block comment on
+         *  `--primary`). In light mode the two happen to be identical, so
+         *  this looked harmless — but in dark mode they were deliberately
+         *  split apart (#2f6b63 fill vs. #78a99f text) for a contrast fix,
+         *  which turned this hover into an unintended full color-AND-text
+         *  flip (dark-teal-on-white to light-sage-on-near-black) instead of
+         *  a subtle hover state. `brightness` nudges the SAME fill/text
+         *  pair uniformly instead, so hover reads as "slightly lighter,"
+         *  not "became a different button." */
+        gradient: "bg-primary-container text-on-primary-container shadow-[0_1px_2px_rgba(15,23,42,0.16)] hover:brightness-110 active:brightness-95",
       },
       size: {
         default:

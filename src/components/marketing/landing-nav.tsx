@@ -61,7 +61,7 @@ export function LandingNav() {
           {user ? (
             <Link
               href="/dashboard"
-              className="inline-flex h-10 items-center rounded-xl bg-primary-container px-4 text-[13px] font-semibold text-on-primary-container transition-colors hover:bg-primary hover:text-on-primary"
+              className="inline-flex h-10 items-center rounded-xl bg-primary-container px-4 text-[13px] font-semibold text-on-primary-container transition-[filter] hover:brightness-110"
             >
               Dashboard
             </Link>
@@ -75,7 +75,7 @@ export function LandingNav() {
               </Link>
               <Link
                 href="/signup"
-                className="inline-flex h-10 items-center rounded-xl bg-primary-container px-4 text-[13px] font-semibold text-on-primary-container transition-colors hover:bg-primary hover:text-on-primary"
+                className="inline-flex h-10 items-center rounded-xl bg-primary-container px-4 text-[13px] font-semibold text-on-primary-container transition-[filter] hover:brightness-110"
               >
                 Get started
               </Link>

@@ -912,7 +912,7 @@ export default function BulkFireCampaignPage({
           </p>
           <Link
             href="/outreach/bulk-fire"
-            className="rounded-lg bg-primary px-5 py-2.5 font-label-md text-on-primary transition-colors hover:bg-primary-container"
+            className="rounded-lg bg-primary px-5 py-2.5 font-label-md text-on-primary transition-[filter] hover:brightness-110"
           >
             Back to Bulk Fire
           </Link>
@@ -1605,7 +1605,7 @@ export default function BulkFireCampaignPage({
                       type="button"
                       onClick={handleSaveSequence}
                       disabled={savingSequence}
-                      className="rounded-lg bg-primary px-4 py-2 font-label-md text-[12px] text-on-primary transition-colors hover:bg-primary-container disabled:opacity-50"
+                      className="rounded-lg bg-primary px-4 py-2 font-label-md text-[12px] text-on-primary transition-[filter] hover:brightness-110 disabled:opacity-50"
                     >
                       {savingSequence ? "Saving…" : "Save sequence"}
                     </button>
@@ -2042,7 +2042,7 @@ export default function BulkFireCampaignPage({
             <button
               type="submit"
               disabled={submittingTemplate}
-              className="rounded-lg bg-primary px-4 py-2 font-label-md text-[12px] text-on-primary transition-colors hover:bg-primary-container disabled:opacity-50"
+              className="rounded-lg bg-primary px-4 py-2 font-label-md text-[12px] text-on-primary transition-[filter] hover:brightness-110 disabled:opacity-50"
             >
               {submittingTemplate ? "Submitting…" : "Submit for approval"}
             </button>

@@ -143,7 +143,7 @@ export function AddToShortlistButton({
               <button
                 type="submit"
                 disabled={submitting}
-                className="rounded-lg bg-primary px-5 py-2.5 font-label-md text-on-primary transition-colors hover:bg-primary-container active:scale-[0.98] disabled:opacity-50"
+                className="rounded-lg bg-primary px-5 py-2.5 font-label-md text-on-primary transition-[filter] hover:brightness-110 active:scale-[0.98] disabled:opacity-50"
               >
                 {submitting ? "Creating & Adding..." : "Create & Add"}
               </button>
@@ -155,7 +155,7 @@ export function AddToShortlistButton({
             <button
               type="button"
               onClick={() => setShowCreate(true)}
-              className="rounded-lg bg-primary px-5 py-2.5 font-label-md text-on-primary transition-colors hover:bg-primary-container active:scale-[0.98]"
+              className="rounded-lg bg-primary px-5 py-2.5 font-label-md text-on-primary transition-[filter] hover:brightness-110 active:scale-[0.98]"
             >
               + Create New Shortlist
             </button>
@@ -195,7 +195,7 @@ export function AddToShortlistButton({
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="rounded-lg bg-primary px-5 py-2.5 font-label-md text-on-primary transition-colors hover:bg-primary-container active:scale-[0.98] disabled:opacity-50"
+                  className="rounded-lg bg-primary px-5 py-2.5 font-label-md text-on-primary transition-[filter] hover:brightness-110 active:scale-[0.98] disabled:opacity-50"
                 >
                   {submitting ? "Adding..." : "Add to Shortlist"}
                 </button>

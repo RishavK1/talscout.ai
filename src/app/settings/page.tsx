@@ -714,7 +714,7 @@ export default function SettingsPage() {
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary-container/10 text-primary-container">
               <span className="material-symbols-outlined text-[24px]">tune</span>
             </div>
-            <h1 className="font-headline-lg text-3xl sm:text-display-lg text-primary serif-text">
+            <h1 className="font-headline-lg text-headline-lg text-primary">
               Settings
             </h1>
           </div>

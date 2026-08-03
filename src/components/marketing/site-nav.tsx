@@ -45,7 +45,7 @@ export function SiteNav() {
           {user ? (
             <Link
               href="/dashboard"
-              className="rounded-lg bg-primary-container px-5 py-2.5 font-label-md text-label-md text-on-primary-container shadow-sm transition-colors hover:bg-primary active:scale-95"
+              className="rounded-lg bg-primary-container px-5 py-2.5 font-label-md text-label-md text-on-primary-container shadow-sm transition-[filter] hover:brightness-110 active:scale-95"
             >
               Dashboard
             </Link>
@@ -59,7 +59,7 @@ export function SiteNav() {
               </Link>
               <Link
                 href="/signup"
-                className="rounded-lg bg-primary-container px-5 py-2.5 font-label-md text-label-md text-on-primary-container shadow-sm transition-colors hover:bg-primary active:scale-95"
+                className="rounded-lg bg-primary-container px-5 py-2.5 font-label-md text-label-md text-on-primary-container shadow-sm transition-[filter] hover:brightness-110 active:scale-95"
               >
                 Get started
               </Link>

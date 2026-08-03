@@ -84,7 +84,7 @@ export function InviteMemberForm({
         <button
           type="button"
           onClick={onDone}
-          className="mt-5 rounded-lg bg-primary px-5 py-2.5 font-label-md text-on-primary transition-colors hover:bg-primary-container active:scale-[0.98]"
+          className="mt-5 rounded-lg bg-primary px-5 py-2.5 font-label-md text-on-primary transition-[filter] hover:brightness-110 active:scale-[0.98]"
         >
           Done
         </button>
@@ -129,7 +129,7 @@ export function InviteMemberForm({
           type="submit"
           disabled={inviting || remainingSeats <= 0}
           title={remainingSeats <= 0 ? "No seats available — upgrade your plan" : undefined}
-          className="rounded-lg bg-primary px-5 py-2.5 font-label-md text-on-primary transition-colors hover:bg-primary-container active:scale-[0.98] flex items-center gap-2 disabled:opacity-50"
+          className="rounded-lg bg-primary px-5 py-2.5 font-label-md text-on-primary transition-[filter] hover:brightness-110 active:scale-[0.98] flex items-center gap-2 disabled:opacity-50"
         >
           {inviting ? "Sending..." : "Send invitation"}
         </button>

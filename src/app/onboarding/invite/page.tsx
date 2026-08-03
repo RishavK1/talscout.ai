@@ -158,7 +158,7 @@ export default function InviteTeamOnboardingPage() {
           <div className="bg-bg-cream/50 px-4 py-2 rounded-full mb-12">
             <p className="font-label-md text-label-md text-secondary">
               You have{" "}
-              <span className="font-data-mono text-secondary-container bg-primary px-1.5 py-0.5 rounded text-white">
+              <span className="font-data-mono text-on-primary bg-primary px-1.5 py-0.5 rounded">
                 {Math.max(0, seats.total - seats.used - invites.filter(i => i.email).length)} of {seats.total}
               </span>{" "}
               seats remaining on your {seats.plan} plan.

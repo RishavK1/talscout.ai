@@ -406,7 +406,7 @@ export default function LandingPage() {
               <div className="mt-9 flex flex-col gap-3 sm:flex-row">
                 <Link
                   href={primaryHref}
-                  className="group inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-primary-container px-6 text-[14px] font-semibold text-on-primary-container shadow-[0_10px_28px_-12px_rgba(15,118,110,0.5)] transition-colors hover:bg-primary hover:text-on-primary"
+                  className="group inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-primary-container px-6 text-[14px] font-semibold text-on-primary-container shadow-[0_10px_28px_-12px_rgba(15,118,110,0.5)] transition-[filter] hover:brightness-110"
                 >
                   {user ? "Open your workspace" : "Get started free"}
                   <span className="material-symbols-outlined text-[17px] transition-transform group-hover:translate-x-0.5">arrow_forward</span>
@@ -840,9 +840,9 @@ export default function LandingPage() {
                     </ul>
                     <Link
                       href={user ? "/billing" : "/pricing"}
-                      className={`mt-8 flex h-11 items-center justify-center rounded-xl text-[13px] font-semibold transition-colors ${
+                      className={`mt-8 flex h-11 items-center justify-center rounded-xl text-[13px] font-semibold transition-all ${
                         plan.recommended
-                          ? "bg-surface-white text-on-surface hover:bg-primary-fixed dark:bg-primary-container dark:text-on-primary-container dark:hover:bg-primary"
+                          ? "bg-surface-white text-on-surface hover:bg-primary-fixed dark:bg-primary-container dark:text-on-primary-container dark:hover:brightness-110"
                           : "border border-outline-variant text-on-surface-variant hover:border-outline hover:bg-bg-cream"
                       }`}
                     >
@@ -885,7 +885,7 @@ export default function LandingPage() {
             </div>
             <Link
               href={primaryHref}
-              className="inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-xl bg-surface-white px-6 text-[14px] font-semibold text-on-surface transition-colors hover:bg-primary-fixed dark:bg-primary-container dark:text-on-primary-container dark:hover:bg-primary"
+              className="inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-xl bg-surface-white px-6 text-[14px] font-semibold text-on-surface transition-all hover:bg-primary-fixed dark:bg-primary-container dark:text-on-primary-container dark:hover:brightness-110"
             >
               {user ? "Open dashboard" : "Get started"}
               <span className="material-symbols-outlined text-[17px]">arrow_forward</span>

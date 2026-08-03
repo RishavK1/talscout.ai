@@ -903,7 +903,7 @@ export default function BulkFirePage() {
             <button
               type="submit"
               disabled={creatingCampaign || !newCampaignName.trim()}
-              className="rounded-lg bg-primary px-5 py-2.5 font-label-md text-on-primary transition-colors hover:bg-primary-container active:scale-[0.98] disabled:opacity-50"
+              className="rounded-lg bg-primary px-5 py-2.5 font-label-md text-on-primary transition-[filter] hover:brightness-110 active:scale-[0.98] disabled:opacity-50"
             >
               {creatingCampaign ? "Creating…" : "Create campaign"}
             </button>
@@ -1035,7 +1035,7 @@ export default function BulkFirePage() {
             <button
               type="submit"
               disabled={savingSmtp}
-              className="rounded-lg bg-primary px-5 py-2.5 font-label-md text-on-primary transition-colors hover:bg-primary-container active:scale-[0.98] disabled:opacity-50"
+              className="rounded-lg bg-primary px-5 py-2.5 font-label-md text-on-primary transition-[filter] hover:brightness-110 active:scale-[0.98] disabled:opacity-50"
             >
               {savingSmtp ? "Connecting…" : "Connect sender"}
             </button>
@@ -1159,7 +1159,7 @@ export default function BulkFirePage() {
             <button
               type="submit"
               disabled={savingWhatsapp}
-              className="rounded-lg bg-primary px-5 py-2.5 font-label-md text-on-primary transition-colors hover:bg-primary-container active:scale-[0.98] disabled:opacity-50"
+              className="rounded-lg bg-primary px-5 py-2.5 font-label-md text-on-primary transition-[filter] hover:brightness-110 active:scale-[0.98] disabled:opacity-50"
             >
               {savingWhatsapp ? "Connecting…" : "Connect number"}
             </button>

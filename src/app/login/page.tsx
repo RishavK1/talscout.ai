@@ -158,7 +158,7 @@ function LoginPageContent() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-3 px-4 bg-primary text-on-primary rounded-lg font-label-md text-label-md hover:bg-primary-container transition-colors shadow-sm flex items-center justify-center space-x-2 group disabled:opacity-50"
+                className="w-full py-3 px-4 bg-primary text-on-primary rounded-lg font-label-md text-label-md hover:brightness-110 transition-[filter] shadow-sm flex items-center justify-center space-x-2 group disabled:opacity-50"
               >
                 <span>{loading ? "Signing In..." : "Sign In"}</span>
                 <span className="material-symbols-outlined text-sm group-hover:translate-x-1 transition-transform">arrow_forward</span>
@@ -239,7 +239,7 @@ function LoginPageContent() {
             <button
               type="submit"
               disabled={sendingReset}
-              className="rounded-lg bg-primary px-5 py-2.5 font-label-md text-on-primary transition-colors hover:bg-primary-container active:scale-[0.98] disabled:opacity-50"
+              className="rounded-lg bg-primary px-5 py-2.5 font-label-md text-on-primary transition-[filter] hover:brightness-110 active:scale-[0.98] disabled:opacity-50"
             >
               {sendingReset ? "Sending..." : "Send reset link"}
             </button>

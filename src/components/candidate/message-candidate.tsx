@@ -99,7 +99,7 @@ export function MessageCandidate({
             <button
               type="button"
               onClick={close}
-              className="mt-5 rounded-lg bg-primary px-5 py-2.5 font-label-md text-on-primary transition-colors hover:bg-primary-container active:scale-[0.98]"
+              className="mt-5 rounded-lg bg-primary px-5 py-2.5 font-label-md text-on-primary transition-[filter] hover:brightness-110 active:scale-[0.98]"
             >
               Done
             </button>
@@ -147,7 +147,7 @@ export function MessageCandidate({
               <button
                 type="submit"
                 disabled={sending}
-                className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 font-label-md text-on-primary transition-colors hover:bg-primary-container active:scale-[0.98] disabled:opacity-50"
+                className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 font-label-md text-on-primary transition-[filter] hover:brightness-110 active:scale-[0.98] disabled:opacity-50"
               >
                 <span className="material-symbols-outlined text-[18px]">send</span>
                 {sending ? "Sending..." : "Send message"}

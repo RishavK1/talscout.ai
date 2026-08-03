@@ -93,7 +93,7 @@ export default function SignUpPage() {
           </p>
           <Link
             href="/login"
-            className="inline-flex w-full items-center justify-center rounded-lg bg-primary px-6 py-3 font-label-md text-label-md text-on-primary transition-colors hover:bg-primary-container"
+            className="inline-flex w-full items-center justify-center rounded-lg bg-primary px-6 py-3 font-label-md text-label-md text-on-primary transition-[filter] hover:brightness-110"
           >
             Back to log in
           </Link>

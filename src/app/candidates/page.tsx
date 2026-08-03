@@ -466,11 +466,11 @@ export default function CandidatesPage() {
                     >
                       <CardContent className="group">
                         <div className="mb-3 flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full flex items-center justify-center bg-primary-container text-on-primary font-headline-md shrink-0">
+                          <div className="w-10 h-10 rounded-full flex items-center justify-center bg-primary-container text-on-primary-container font-headline-md shrink-0">
                             {c.initials}
                           </div>
                           <div className="min-w-0">
-                            <div className="truncate font-label-md text-label-md font-semibold text-primary group-hover:text-tertiary-container transition-colors">{c.name}</div>
+                            <div className="truncate font-label-md text-label-md font-semibold text-primary group-hover:text-tertiary transition-colors">{c.name}</div>
                             <div className="truncate font-body-md text-[13px] text-on-surface-variant">{c.title}</div>
                           </div>
                         </div>
