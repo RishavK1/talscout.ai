@@ -200,6 +200,10 @@ async function pollSendBatch(
         }),
       );
       await withTenantTx({ tenantId }, (ctx) => automatedLeadRepo.setStatus(ctx, send.leadId, "replied"));
+      // Stop the rest of this lead's sequence NOW rather than waiting for
+      // each remaining step's own send-time self-check — see
+      // cancelScheduledForLeadAdmin's doc comment.
+      await automatedSendRepo.cancelScheduledForLeadAdmin(send.leadId, "lead_replied");
       processed++;
     } catch (err) {
       logger.warn({ err, sendId: send.id }, "automated_reply_poll_send_failed");

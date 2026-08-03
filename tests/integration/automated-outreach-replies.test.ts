@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { POST as createCampaignPOST } from "../../src/app/api/automated-campaigns/route";
 import { POST as resumeCampaignPOST } from "../../src/app/api/automated-campaigns/[id]/resume/route";
 import {
@@ -164,6 +164,44 @@ describe("pollAutomatedReplies — drafts replies for human review", () => {
 
     const drafts = await draftsForTenant();
     expect(drafts).toHaveLength(5); // not 10 — one draft per send (unique on sendId)
+  });
+
+  it("a reply cancels the lead's remaining scheduled follow-ups immediately", async () => {
+    // Production incident this covers: a lead replied "not interested" on
+    // the Day 3 follow-up, but its Day 7 kept showing "Scheduled" for days
+    // afterward — technically safe (sendAutomatedEmail's own send-time
+    // reply-check would have skipped it), but alarming and only defended by
+    // that one late check. This proves the follow-up is cancelled the
+    // moment the reply is detected, not left pending on a future self-check.
+    const { tenant, token } = await makeUser("recruiter");
+    const blueprint = await seedActiveBlueprint(tenant.id);
+    const sender = await seedGmailSender(tenant.id);
+    await createActiveReplyPollingCampaign(token, blueprint.id, sender.id);
+    // Activation already ran discover→enrich→generate→schedule once — send
+    // ONLY the Day 0 step (mirrors the real timeline: Day 3/Day 7 haven't
+    // reached their scheduled time yet), leaving steps 1 and 2 "scheduled".
+    const day0Sends = await withTenantTx({ tenantId: tenant.id }, (ctx) =>
+      ctx.tx
+        .select()
+        .from(automatedSends)
+        .where(and(eq(automatedSends.tenantId, tenant.id), eq(automatedSends.stepIndex, 0))),
+    );
+    for (const send of day0Sends) {
+      await sendAutomatedEmail({ tenantId: tenant.id, sendId: send.id }, getServices());
+    }
+
+    mockMailer().threadReplyState = "replied";
+    mockMailer().threadReplyContent = { subject: "Re: intro", body: "Not interested, thanks." };
+    await pollAutomatedReplies(getServices());
+
+    const allSends = await withTenantTx({ tenantId: tenant.id }, (ctx) =>
+      ctx.tx.select().from(automatedSends).where(eq(automatedSends.tenantId, tenant.id)),
+    );
+    const byStep = (i: number) => allSends.filter((s) => s.stepIndex === i);
+    expect(byStep(0).every((s) => s.status === "sent")).toBe(true); // untouched
+    expect(byStep(1).every((s) => s.status === "skipped")).toBe(true); // cancelled
+    expect(byStep(2).every((s) => s.status === "skipped")).toBe(true); // cancelled
+    expect(byStep(1).every((s) => s.errorReason === "lead_replied")).toBe(true);
   });
 });
 

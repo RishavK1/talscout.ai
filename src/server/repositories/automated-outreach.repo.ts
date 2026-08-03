@@ -532,6 +532,25 @@ export const automatedSendRepo = {
     return row ?? null;
   },
 
+  /** Cancels every still-`scheduled` follow-up for a lead — called the
+   *  moment a reply is detected (see poll-automated-replies.ts), not left to
+   *  each follow-up's own send-time self-check alone. That per-send check
+   *  (sendAutomatedEmail's "reply-stop") is real and does work, but it's a
+   *  LATE safety net: a Day 7 send sits showing "Scheduled" for days after a
+   *  lead has already declined, which reads as broken/alarming even though
+   *  it will self-cancel — and leaves an unnecessary window for it to go out
+   *  regardless if anything about that later check ever regresses. Cancelling
+   *  eagerly here means the UI is honest immediately and the send-time check
+   *  becomes pure defense in depth. Returns the number of rows cancelled. */
+  async cancelScheduledForLeadAdmin(leadId: string, reason: string): Promise<number> {
+    const rows = await adminDb()
+      .update(automatedSends)
+      .set({ status: "skipped", errorReason: reason })
+      .where(and(eq(automatedSends.leadId, leadId), eq(automatedSends.status, "scheduled")))
+      .returning({ id: automatedSends.id });
+    return rows.length;
+  },
+
   /** Used by the send job to find a follow-up's (stepIndex > 0) Day 0
    *  threading anchor — same idiom as outreachSendRepo.getByLeadAndStep. */
   async getByLeadAndStep(ctx: TenantContext, campaignId: string, leadId: string, stepIndex: number) {
