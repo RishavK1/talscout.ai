@@ -7,7 +7,6 @@ import { cn } from "@/lib/utils";
 import {
   Sidebar,
   SidebarContent,
-  SidebarFooter,
   SidebarGroup,
   SidebarGroupLabel,
   SidebarHeader,
@@ -17,6 +16,7 @@ import {
   SidebarMenuItem,
   SidebarProvider,
   SidebarRail,
+  SidebarSeparator,
   useSidebar,
 } from "@/components/ui/sidebar";
 import { useAuth } from "@/components/app/auth-provider";
@@ -69,9 +69,9 @@ function NavLink({
     return (
       <SidebarMenuButton
         asChild
-        size="lg"
+        size="default"
         tooltip={`${item.label} — upgrade to unlock`}
-        className="text-sidebar-foreground/50"
+        className="h-9 text-sidebar-foreground/50"
       >
         <Link href="/billing" aria-label={collapsed ? `${item.label} — upgrade to unlock` : undefined}>
           <span className="material-symbols-outlined shrink-0 text-[20px]" aria-hidden="true">
@@ -92,10 +92,10 @@ function NavLink({
   return (
     <SidebarMenuButton
       asChild
-      size="lg"
+      size="default"
       isActive={active}
       tooltip={item.label}
-      className="text-sidebar-foreground"
+      className="h-9 text-sidebar-foreground"
     >
       <Link href={item.href} aria-label={collapsed ? item.label : undefined}>
         <span
@@ -218,10 +218,14 @@ function AppSidebar() {
         <SidebarCollapseToggle />
       </SidebarHeader>
 
+      {/* MAIN and WORKSPACE share one scroll region instead of MAIN
+       *  scrolling independently under a footer pinned outside it — that
+       *  split made the nav read as a cramped, truncated box rather than
+       *  a normal list. */}
       <SidebarContent className="px-2 py-2">
         <SidebarGroup className="group-data-[collapsible=icon]:px-1">
-          <SidebarGroupLabel className="uppercase tracking-wider">Main</SidebarGroupLabel>
-          <SidebarMenu className="gap-1">
+          <SidebarGroupLabel className="uppercase">Main</SidebarGroupLabel>
+          <SidebarMenu className="gap-0.5">
             {mainNav.map((item) => (
               <SidebarMenuItem key={item.href}>
                 <NavLink item={item} active={isActive(item.href)} collapsed={collapsed} />
@@ -229,12 +233,12 @@ function AppSidebar() {
             ))}
           </SidebarMenu>
         </SidebarGroup>
-      </SidebarContent>
 
-      <SidebarFooter className="border-t border-border-low-alpha px-2 py-3">
-        <SidebarGroup className="p-0 group-data-[collapsible=icon]:px-1">
-          <SidebarGroupLabel className="uppercase tracking-wider">Workspace</SidebarGroupLabel>
-          <SidebarMenu className="gap-1">
+        <SidebarSeparator className="my-2" />
+
+        <SidebarGroup className="group-data-[collapsible=icon]:px-1">
+          <SidebarGroupLabel className="uppercase">Workspace</SidebarGroupLabel>
+          <SidebarMenu className="gap-0.5">
             {footerNav.map((item) => (
               <SidebarMenuItem key={item.href}>
                 <NavLink
@@ -247,7 +251,7 @@ function AppSidebar() {
             ))}
           </SidebarMenu>
         </SidebarGroup>
-      </SidebarFooter>
+      </SidebarContent>
       <SidebarRail />
     </Sidebar>
   );
