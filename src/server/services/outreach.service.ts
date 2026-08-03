@@ -16,6 +16,7 @@ import {
   replaceOutreachTemplatesBlock,
   type SequenceStepKey,
 } from "@/server/lib/spintax";
+import { checkDomainDeliverability } from "@/server/lib/dns-health";
 import type { SequenceStep } from "@/server/repositories/outreach.repo";
 import { encryptSecret, decryptSecret } from "@/server/lib/secret-box";
 import { signOAuthState, verifyOAuthState } from "@/server/lib/oauth-state";
@@ -1115,6 +1116,22 @@ export const outreachService = {
       targetType: "sender_account",
       targetId: senderId,
     });
+  },
+
+  /** On-demand SPF/DKIM/DMARC diagnostic for a sender's own domain — see
+   *  lib/dns-health.ts's doc comment. Purely a read: nothing here gates
+   *  sending or changes any stored state, so there's no reason to run it
+   *  eagerly for every sender on every page load — the route/UI call this
+   *  only when a user explicitly asks. Shared across Bulk Fire and
+   *  automated-outreach, since both send through the same connected
+   *  mailboxes and deliverability is a property of the SENDER, not the
+   *  campaign type. */
+  async checkSenderDeliverability(ctx: TenantContext, senderId: string) {
+    const sender = await senderAccountRepo.getById(ctx, senderId);
+    if (!sender || sender.deletedAt) throw new NotFound("Sender account not found");
+    const domain = sender.email.split("@")[1];
+    if (!domain) throw new BadRequest("This sender has no email domain to check");
+    return await checkDomainDeliverability(domain);
   },
 
   /** Authenticated "start" half of the Gmail connect flow — the frontend

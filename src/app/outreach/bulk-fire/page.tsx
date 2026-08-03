@@ -51,6 +51,21 @@ interface Sender {
   gmailHasReadScope?: boolean;
 }
 
+interface DnsRecordCheck {
+  status: "present" | "missing" | "unknown";
+  record?: string;
+}
+interface DkimCheck extends DnsRecordCheck {
+  selector?: string;
+}
+interface DeliverabilityReport {
+  domain: string;
+  isConsumerProvider: boolean;
+  spf?: DnsRecordCheck;
+  dmarc?: DnsRecordCheck;
+  dkim?: DkimCheck;
+}
+
 const SENDER_ICON: Record<Sender["type"], string> = {
   gmail: "mail",
   smtp: "dns",
@@ -69,6 +84,104 @@ const STATUS_TONE: Record<Campaign["status"], StatusBadgeProps["tone"]> = {
   completed: "active",
   error: "error",
 };
+
+const RECORD_META: Record<
+  DnsRecordCheck["status"],
+  { icon: string; className: string }
+> = {
+  present: { icon: "check_circle", className: "text-tertiary" },
+  missing: { icon: "cancel", className: "text-error" },
+  unknown: { icon: "help", className: "text-on-surface-variant" },
+};
+
+function DnsCheckRow({ label, check }: { label: string; check?: DnsRecordCheck }) {
+  if (!check) return null;
+  const meta = RECORD_META[check.status];
+  const detail =
+    check.status === "present"
+      ? "record found"
+      : check.status === "missing"
+        ? "not found"
+        : "couldn't check right now";
+  return (
+    <div className="flex items-start gap-2">
+      <span className={`material-symbols-outlined text-[16px] ${meta.className}`}>{meta.icon}</span>
+      <div className="min-w-0">
+        <span className="font-label-md text-[12px] font-semibold text-on-surface">{label}</span>
+        <span className="ml-1.5 font-body-md text-[12px] text-on-surface-variant">{detail}</span>
+      </div>
+    </div>
+  );
+}
+
+/** On-demand SPF/DKIM/DMARC diagnostic for one sender card — a plain button
+ *  that expands into a small results panel in place, no modal. Nothing here
+ *  is fetched until the user clicks it (see checkDeliverability). */
+function DeliverabilityCheck({
+  result,
+  onCheck,
+}: {
+  result: DeliverabilityReport | "loading" | "error" | undefined;
+  onCheck: () => void;
+}) {
+  if (!result) {
+    return (
+      <button
+        type="button"
+        onClick={onCheck}
+        className="flex items-center gap-1.5 self-start font-label-md text-[12px] text-primary hover:underline"
+      >
+        <span className="material-symbols-outlined text-[14px]">dns</span>
+        Check deliverability (SPF/DKIM/DMARC)
+      </button>
+    );
+  }
+  if (result === "loading") {
+    return (
+      <p className="flex items-center gap-1.5 font-label-md text-[12px] text-on-surface-variant">
+        <span className="material-symbols-outlined animate-spin text-[14px]">sync</span>
+        Checking DNS records...
+      </p>
+    );
+  }
+  if (result === "error") {
+    return (
+      <button
+        type="button"
+        onClick={onCheck}
+        className="flex items-center gap-1.5 self-start font-label-md text-[12px] text-error hover:underline"
+      >
+        <span className="material-symbols-outlined text-[14px]">refresh</span>
+        Check failed — try again
+      </button>
+    );
+  }
+  if (result.isConsumerProvider) {
+    return (
+      <p className="flex items-center gap-1.5 rounded-lg bg-surface-container-low px-2.5 py-1.5 font-body-md text-[12px] text-on-surface-variant">
+        <span className="material-symbols-outlined text-[14px]">info</span>
+        {result.domain} is a consumer email provider — SPF/DKIM/DMARC are managed by them, not something you configure.
+      </p>
+    );
+  }
+  return (
+    <div className="flex flex-col gap-1.5 rounded-lg border border-border-low-alpha bg-surface-container-low px-3 py-2.5">
+      <p className="font-label-md text-[11px] uppercase tracking-wide text-on-surface-variant">
+        {result.domain}
+      </p>
+      <DnsCheckRow label="SPF" check={result.spf} />
+      <DnsCheckRow label="DKIM" check={result.dkim} />
+      <DnsCheckRow label="DMARC" check={result.dmarc} />
+      <button
+        type="button"
+        onClick={onCheck}
+        className="mt-1 self-start font-label-md text-[11px] text-primary hover:underline"
+      >
+        Re-check
+      </button>
+    </div>
+  );
+}
 
 export default function BulkFirePage() {
   const router = useRouter();
@@ -104,6 +217,12 @@ export default function BulkFirePage() {
   const [savingSmtp, setSavingSmtp] = useState(false);
   const [connectingGmail, setConnectingGmail] = useState(false);
   const [senderBusyId, setSenderBusyId] = useState<string | null>(null);
+  /** On-demand SPF/DKIM/DMARC diagnostic per sender — fetched only when a
+   *  user clicks "Check deliverability" for that specific card, never
+   *  eagerly for every connected sender on page load. */
+  const [deliverability, setDeliverability] = useState<
+    Record<string, DeliverabilityReport | "loading" | "error">
+  >({});
 
   const [whatsappOpen, setWhatsappOpen] = useState(false);
   const [whatsapp, setWhatsapp] = useState({
@@ -308,6 +427,19 @@ export default function BulkFirePage() {
       toast.error(err.message || "Failed to disconnect sender");
     } finally {
       setSenderBusyId(null);
+    }
+  };
+
+  const checkDeliverability = async (sender: Sender) => {
+    setDeliverability((prev) => ({ ...prev, [sender.id]: "loading" }));
+    try {
+      const report = await api.get<DeliverabilityReport>(
+        `/api/outreach/senders/${sender.id}/dns-health`,
+      );
+      setDeliverability((prev) => ({ ...prev, [sender.id]: report }));
+    } catch (err: any) {
+      setDeliverability((prev) => ({ ...prev, [sender.id]: "error" }));
+      toast.error(err.message || "Failed to check deliverability");
     }
   };
 
@@ -621,6 +753,12 @@ export default function BulkFirePage() {
                       </span>
                       Reconnect to enable reply detection for follow-ups
                     </p>
+                  )}
+                  {s.type !== "whatsapp" && (
+                    <DeliverabilityCheck
+                      result={deliverability[s.id]}
+                      onCheck={() => checkDeliverability(s)}
+                    />
                   )}
                   <div className="grid grid-cols-1 gap-2 pt-1 sm:grid-cols-2">
                     <Button
