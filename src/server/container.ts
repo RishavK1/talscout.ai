@@ -42,6 +42,8 @@ import { GeoapifyLeadDiscovery } from "@/server/adapters/geoapify.lead-discovery
 import { GooglePlacesLeadDiscovery } from "@/server/adapters/google-places.lead-discovery";
 import { FallbackLeadDiscovery } from "@/server/adapters/fallback.lead-discovery";
 import { MockEmailFinder } from "@/server/adapters/mock.email-finder";
+import { MockEmailVerifier } from "@/server/adapters/mock.email-verifier";
+import { DnsEmailVerifier } from "@/server/adapters/dns.email-verifier";
 import { SiteScrapeEmailFinder } from "@/server/adapters/site-scrape.email-finder";
 import { FirecrawlEmailFinder } from "@/server/adapters/firecrawl.email-finder";
 import { HunterEmailFinder } from "@/server/adapters/hunter.email-finder";
@@ -146,6 +148,7 @@ export function getServices(): Services {
       marketResearcher: new MockMarketResearcher(),
       leadDiscovery: new MockLeadDiscovery(),
       emailFinder: new MockEmailFinder(),
+      emailVerifier: new MockEmailVerifier(),
       leadQualifier: new MockLeadQualifier(),
       outreachCopywriter: new MockOutreachCopywriter(),
       replyDrafter: new MockReplyDrafter(),
@@ -331,6 +334,10 @@ export function getServices(): Services {
       ].filter((f): f is NonNullable<typeof f> => f !== null),
     );
 
+    // Free, no-key, no-vendor domain-deliverability check — always on, same
+    // as the email finder above, just DNS instead of an API waterfall.
+    const emailVerifier = new DnsEmailVerifier();
+
     // Same Gemini-primary / OpenRouter-last-resort-fallback pattern as the
     // blueprint adapters above.
     const geminiOutreachCopywriter = env.GEMINI_API_KEY ? new GeminiOutreachCopywriter() : null;
@@ -383,6 +390,7 @@ export function getServices(): Services {
       marketResearcher,
       leadDiscovery,
       emailFinder,
+      emailVerifier,
       leadQualifier,
       outreachCopywriter,
       replyDrafter,

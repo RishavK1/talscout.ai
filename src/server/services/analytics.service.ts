@@ -42,7 +42,7 @@ export interface AnalyticsOverview {
   /** Automated-outreach campaign stats — read from separate tables, shown
    *  as its own section alongside the Bulk Fire numbers above. */
   automated: {
-    totals: AutomatedStatusTotals & { total: number; replied: number; opened: number };
+    totals: AutomatedStatusTotals & { total: number; replied: number; opened: number; bounced: number };
     byCampaign: AutomatedCampaignBreakdownRow[];
     daily: AutomatedDailyPoint[];
   };
@@ -86,6 +86,7 @@ export const analyticsService = {
       automatedTotals,
       automatedOpened,
       automatedReplied,
+      automatedBounced,
       automatedByCampaign,
       automatedDailyRaw,
     ] = await Promise.all([
@@ -98,6 +99,7 @@ export const analyticsService = {
       automatedAnalyticsRepo.statusTotals(ctx),
       automatedAnalyticsRepo.openedSendCount(ctx),
       automatedAnalyticsRepo.repliedLeadCount(ctx),
+      automatedAnalyticsRepo.bouncedLeadCount(ctx),
       automatedAnalyticsRepo.breakdownByCampaign(ctx),
       automatedAnalyticsRepo.dailySentSeries(ctx, days),
     ]);
@@ -122,7 +124,13 @@ export const analyticsService = {
         replied: true,
       },
       automated: {
-        totals: { ...automatedTotals, total: automatedTotal, replied: automatedReplied, opened: automatedOpened },
+        totals: {
+          ...automatedTotals,
+          total: automatedTotal,
+          replied: automatedReplied,
+          opened: automatedOpened,
+          bounced: automatedBounced,
+        },
         byCampaign: automatedByCampaign,
         daily: fillDailyGaps(automatedDailyRaw, days),
       },

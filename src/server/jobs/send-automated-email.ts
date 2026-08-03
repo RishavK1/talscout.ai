@@ -3,10 +3,12 @@ import {
   automatedCampaignRepo,
   automatedLeadRepo,
   automatedSendRepo,
+  suppressedEmailRepo,
 } from "@/server/repositories/automated-outreach.repo";
 import { senderAccountRepo } from "@/server/repositories/outreach.repo";
 import { toCredentials, generateMessageId } from "@/server/lib/automated-mail-credentials";
 import { buildOpenTrackingUrl } from "@/server/lib/tracking-pixel";
+import { buildUnsubscribeUrl } from "@/server/lib/unsubscribe-url";
 import { logger } from "@/server/observability/logger";
 import type {
   Services,
@@ -110,11 +112,30 @@ export async function sendAutomatedEmail(
     });
     return;
   }
+  // Narrowed once, used from here on — `lead.email` (a dotted property
+  // access) doesn't reliably stay narrowed across the closures below.
+  const leadEmail = lead.email;
 
   if (!sender || sender.deletedAt || !sender.isActive) {
     await withTenantTx({ tenantId }, (ctx) =>
       automatedSendRepo.markSkipped(ctx, sendId, "sender_unavailable"),
     );
+    return;
+  }
+
+  // Re-check suppression at the actual moment of sending, not just at
+  // schedule time — a Day 0 send and its Day 3/7 follow-ups can be days
+  // apart, and the lead may have clicked unsubscribe on Day 0's email in
+  // between. Same "recheck at send time" discipline as the campaign-active
+  // check above and the reply-stop check below.
+  const suppressed = await withTenantTx({ tenantId }, (ctx) =>
+    suppressedEmailRepo.isSuppressed(ctx, leadEmail),
+  );
+  if (suppressed) {
+    await withTenantTx({ tenantId }, async (ctx) => {
+      await automatedSendRepo.markSkipped(ctx, sendId, "suppressed_unsubscribed");
+      await automatedLeadRepo.setStatus(ctx, lead.id, "suppressed");
+    });
     return;
   }
 
@@ -172,7 +193,7 @@ export async function sendAutomatedEmail(
     sendResult = await sendWithRetry(services.outreachMailer, creds, {
       from: sender.email,
       fromName: sender.fromName ?? undefined,
-      to: lead.email,
+      to: leadEmail,
       subject,
       text: send.body,
       replyTo: sender.email,
@@ -180,6 +201,7 @@ export async function sendAutomatedEmail(
       inReplyTo: anchor?.rfc822MessageId ?? undefined,
       gmailThreadId: anchor?.gmailThreadId ?? undefined,
       trackingPixelUrl: buildOpenTrackingUrl("ao", sendId),
+      listUnsubscribeUrl: buildUnsubscribeUrl(lead.id),
     });
   } catch (e) {
     errorReason = e instanceof Error ? e.message : "send_failed";

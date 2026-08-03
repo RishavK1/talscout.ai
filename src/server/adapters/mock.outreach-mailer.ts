@@ -15,8 +15,11 @@ export class MockOutreachMailer implements OutreachMailer {
   threadReplyState: "replied" | "no_reply" | "unknown" = "no_reply";
   /** What `getThreadReplyContent` returns — tests set this to exercise the
    *  automated-outreach reply-drafting pipeline. Null by default (nothing to
-   *  draft), independent of `threadReplyState` so tests can drive them separately. */
-  threadReplyContent: { subject: string; body: string } | null = null;
+   *  draft), independent of `threadReplyState` so tests can drive them
+   *  separately. `from` is optional here (defaulted on read below) so
+   *  existing tests that only care about subject/body don't need updating —
+   *  set it explicitly to exercise bounce/auto-reply detection. */
+  threadReplyContent: { from?: string; subject: string; body: string } | null = null;
 
   async send(
     creds: SenderAccountCredentials,
@@ -34,7 +37,8 @@ export class MockOutreachMailer implements OutreachMailer {
     return this.threadReplyState;
   }
 
-  async getThreadReplyContent(): Promise<{ subject: string; body: string } | null> {
-    return this.threadReplyContent;
+  async getThreadReplyContent(): Promise<{ from: string; subject: string; body: string } | null> {
+    if (!this.threadReplyContent) return null;
+    return { from: "lead@example.com", ...this.threadReplyContent };
   }
 }

@@ -13,7 +13,13 @@ import { resetDb } from "../helpers/seed";
 import { makeUser } from "../helpers/auth-fixtures";
 import { call } from "../helpers/http";
 import { adminDb, closePools } from "../../src/server/db/client";
-import { blueprints, senderAccounts, automatedReplyDrafts, automatedSends } from "../../src/server/db/schema";
+import {
+  blueprints,
+  senderAccounts,
+  automatedReplyDrafts,
+  automatedSends,
+  automatedLeads,
+} from "../../src/server/db/schema";
 import { encryptSecret } from "../../src/server/lib/secret-box";
 import { withTenantTx } from "../../src/server/db/tx";
 import { sendAutomatedEmail } from "../../src/server/jobs/send-automated-email";
@@ -202,6 +208,116 @@ describe("pollAutomatedReplies — drafts replies for human review", () => {
     expect(byStep(1).every((s) => s.status === "skipped")).toBe(true); // cancelled
     expect(byStep(2).every((s) => s.status === "skipped")).toBe(true); // cancelled
     expect(byStep(1).every((s) => s.errorReason === "lead_replied")).toBe(true);
+  });
+
+  it("recognizes a bounce notification as a bounce, not a reply — no draft, lead marked bounced, sequence stopped", async () => {
+    const { tenant, token } = await makeUser("recruiter");
+    const blueprint = await seedActiveBlueprint(tenant.id);
+    const sender = await seedGmailSender(tenant.id);
+    await createActiveReplyPollingCampaign(token, blueprint.id, sender.id);
+    // Only send Day 0 — Day 3/7 stay "scheduled", mirroring the real
+    // timeline (see the "cancels the lead's remaining follow-ups" test
+    // above for why runCampaignAndCompleteSends isn't used here).
+    const day0Sends = await withTenantTx({ tenantId: tenant.id }, (ctx) =>
+      ctx.tx
+        .select()
+        .from(automatedSends)
+        .where(and(eq(automatedSends.tenantId, tenant.id), eq(automatedSends.stepIndex, 0))),
+    );
+    for (const send of day0Sends) {
+      await sendAutomatedEmail({ tenantId: tenant.id, sendId: send.id }, getServices());
+    }
+
+    mockMailer().threadReplyState = "replied"; // a bounce IS "someone other than us sent a message"
+    mockMailer().threadReplyContent = {
+      from: "Mail Delivery Subsystem <mailer-daemon@googlemail.com>",
+      subject: "Delivery Status Notification (Failure)",
+      body: "Address not found",
+    };
+
+    await pollAutomatedReplies(getServices());
+
+    // No draft — a bounce is never something to draft an AI reply to.
+    expect(await draftsForTenant()).toHaveLength(0);
+
+    const leads = await withTenantTx({ tenantId: tenant.id }, (ctx) =>
+      ctx.tx.select().from(automatedLeads).where(eq(automatedLeads.tenantId, tenant.id)),
+    );
+    expect(leads.every((l) => l.status === "bounced")).toBe(true);
+
+    // Same "stop the sequence now" treatment as a real reply.
+    const followUps = await withTenantTx({ tenantId: tenant.id }, (ctx) =>
+      ctx.tx
+        .select()
+        .from(automatedSends)
+        .where(and(eq(automatedSends.tenantId, tenant.id), eq(automatedSends.stepIndex, 1))),
+    );
+    expect(followUps.every((s) => s.status === "skipped" && s.errorReason === "bounced")).toBe(true);
+  });
+
+  it("recognizes an out-of-office auto-reply — no draft, but the sequence is NOT stopped", async () => {
+    const { tenant, token } = await makeUser("recruiter");
+    const blueprint = await seedActiveBlueprint(tenant.id);
+    const sender = await seedGmailSender(tenant.id);
+    await createActiveReplyPollingCampaign(token, blueprint.id, sender.id);
+    const day0Sends = await withTenantTx({ tenantId: tenant.id }, (ctx) =>
+      ctx.tx
+        .select()
+        .from(automatedSends)
+        .where(and(eq(automatedSends.tenantId, tenant.id), eq(automatedSends.stepIndex, 0))),
+    );
+    for (const send of day0Sends) {
+      await sendAutomatedEmail({ tenantId: tenant.id, sendId: send.id }, getServices());
+    }
+
+    mockMailer().threadReplyState = "replied";
+    mockMailer().threadReplyContent = {
+      from: "prospect@example.com",
+      subject: "Out of Office: Re: intro",
+      body: "I am currently out of the office, back Monday.",
+    };
+
+    await pollAutomatedReplies(getServices());
+
+    expect(await draftsForTenant()).toHaveLength(0);
+
+    // An auto-responder is not a human decision — the lead stays wherever it
+    // was (not "bounced", not "replied") and the Day 3/7 follow-ups stay
+    // scheduled, unlike the bounce/real-reply cases above.
+    const leads = await withTenantTx({ tenantId: tenant.id }, (ctx) =>
+      ctx.tx.select().from(automatedLeads).where(eq(automatedLeads.tenantId, tenant.id)),
+    );
+    expect(leads.every((l) => l.status !== "bounced" && l.status !== "replied")).toBe(true);
+    const followUps = await withTenantTx({ tenantId: tenant.id }, (ctx) =>
+      ctx.tx
+        .select()
+        .from(automatedSends)
+        .where(and(eq(automatedSends.tenantId, tenant.id), eq(automatedSends.stepIndex, 1))),
+    );
+    expect(followUps.every((s) => s.status === "scheduled")).toBe(true);
+  });
+
+  it("persists the AI-classified intent on a genuine reply's draft", async () => {
+    const { tenant, token } = await makeUser("recruiter");
+    const blueprint = await seedActiveBlueprint(tenant.id);
+    const sender = await seedGmailSender(tenant.id);
+    await createActiveReplyPollingCampaign(token, blueprint.id, sender.id);
+    await runCampaignAndCompleteSends(tenant.id);
+
+    mockMailer().threadReplyState = "replied";
+    mockMailer().threadReplyContent = {
+      from: "prospect@example.com",
+      subject: "Re: intro",
+      body: "Tell me more",
+    };
+
+    await pollAutomatedReplies(getServices());
+
+    const drafts = await draftsForTenant();
+    expect(drafts.length).toBeGreaterThan(0);
+    // MockReplyDrafter always returns intent: "interested" — see
+    // mock.reply-drafter.ts.
+    expect(drafts.every((d) => d.intent === "interested")).toBe(true);
   });
 });
 

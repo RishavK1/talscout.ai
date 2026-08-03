@@ -11,6 +11,7 @@ export class MockReplyDrafter implements ReplyDrafter {
       body: `Thanks for getting back to us! ${input.blueprint.differentiator} Happy to share more.`,
       reasoning: "Lead replied with interest; acknowledging and offering a next step.",
       confidence: 0.8,
+      intent: "interested",
     };
   }
 }

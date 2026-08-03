@@ -8,6 +8,7 @@ import {
 import { blueprintRepo } from "@/server/repositories/blueprint.repo";
 import { senderAccountRepo } from "@/server/repositories/outreach.repo";
 import { decryptSecret } from "@/server/lib/secret-box";
+import { isBounceNotification, isAutoReply } from "@/server/lib/bounce-detection";
 import { inlineStepRun, type StepRun } from "@/server/jobs/step-runner";
 import { logger } from "@/server/observability/logger";
 import type { Services, SenderAccountCredentials, BlueprintSections } from "@/server/ports";
@@ -173,13 +174,39 @@ async function pollSendBatch(
       const lead = await withTenantTx({ tenantId }, (ctx) => automatedLeadRepo.getById(ctx, send.leadId));
       if (!lead) continue;
 
+      // Two cheap, deterministic pre-filters BEFORE ever calling the AI
+      // drafter — both catch messages that read as "replied" (someone other
+      // than us sent it) but aren't a human decision worth drafting a reply
+      // to. See lib/bounce-detection.ts for why this is pattern-based, not
+      // AI-classified.
+      if (isBounceNotification(content)) {
+        // Terminal: this address can't receive mail. Same "stop the
+        // sequence now" treatment as a real reply — see
+        // cancelScheduledForLeadAdmin's doc comment — but no draft, and the
+        // lead is marked "bounced" rather than "replied" so this reads
+        // honestly everywhere it's shown instead of looking like engagement.
+        await withTenantTx({ tenantId }, (ctx) =>
+          automatedLeadRepo.setStatus(ctx, send.leadId, "bounced"),
+        );
+        await automatedSendRepo.cancelScheduledForLeadAdmin(send.leadId, "bounced");
+        processed++;
+        continue;
+      }
+      if (isAutoReply(content)) {
+        // NOT terminal — an out-of-office is not a human decision, so the
+        // sequence keeps running its course. Just nothing to draft yet;
+        // next tick re-checks the same thread fresh (no draft row is
+        // created here, so there's nothing to get stuck on).
+        continue;
+      }
+
       let draft;
       try {
         draft = await services.replyDrafter.draft({
           blueprint: sections,
           lead: { businessName: lead.businessName },
           originalSend: { subject: send.subject, body: send.body },
-          inboundMessage: content,
+          inboundMessage: { subject: content.subject, body: content.body },
           styleExamples,
         });
       } catch (err) {
@@ -197,6 +224,7 @@ async function pollSendBatch(
           draftBody: draft.body,
           reasoning: draft.reasoning,
           confidence: draft.confidence,
+          intent: draft.intent,
         }),
       );
       await withTenantTx({ tenantId }, (ctx) => automatedLeadRepo.setStatus(ctx, send.leadId, "replied"));

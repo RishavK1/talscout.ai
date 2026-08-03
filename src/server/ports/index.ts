@@ -217,6 +217,14 @@ export interface OutreachSendArgs {
    *  Omitted entirely means plain text, unchanged from before this field
    *  existed. */
   trackingPixelUrl?: string;
+  /** When set, the adapter stamps `List-Unsubscribe` + `List-Unsubscribe-
+   *  Post` headers (RFC 8058) pointing at this URL, so Gmail/Yahoo render
+   *  their native one-click unsubscribe button. Omitted entirely means no
+   *  headers, unchanged from before this field existed — bulk-fire doesn't
+   *  set it yet (automated-outreach is the first caller; see
+   *  run-automated-campaign.ts), but the plumbing is provider-agnostic so
+   *  bulk-fire can opt in later with no adapter changes. */
+  listUnsubscribeUrl?: string;
 }
 
 /** What a completed send hands back so follow-ups can thread onto it.
@@ -253,11 +261,16 @@ export interface OutreachMailer {
    *  actual reply CONTENT for AI drafting (threadHasReply only answers
    *  whether one exists). Same fail-quiet semantics as threadHasReply: null
    *  for SMTP, send-only tokens, no reply yet, or any transient error —
-   *  callers must treat null as "nothing to draft yet," never as a failure. */
+   *  callers must treat null as "nothing to draft yet," never as a failure.
+   *
+   *  `from` is the raw From header of that inbound message — needed by
+   *  lib/bounce-detection.ts to recognize a mailer-daemon/postmaster bounce
+   *  BEFORE it's ever treated as a real reply worth drafting an AI response
+   *  to (subject text alone is a weaker, spoofable signal). */
   getThreadReplyContent(
     creds: SenderAccountCredentials,
     args: { gmailThreadId: string; senderEmail: string },
-  ): Promise<{ subject: string; body: string } | null>;
+  ): Promise<{ from: string; subject: string; body: string } | null>;
 }
 
 /** A WhatsApp Business Cloud API send always goes through a pre-approved
@@ -510,6 +523,20 @@ export interface EmailFinder {
   find(args: { website?: string; businessName: string }): Promise<EmailFinderResult | null>;
 }
 
+/** Cheap domain-level deliverability check, run on every address a lead is
+ *  about to be marked "ready" with (see run-automated-campaign.ts's
+ *  discoverPhase and enrichBatch) — catches a nonexistent domain (a typo in
+ *  scraped/OSM-tagged contact data) before it ever reaches copy generation
+ *  or a send attempt. Behind a port (not called as a bare function) for the
+ *  same reason every other external check in this file is: swappable for a
+ *  deterministic mock in tests/APP_MODE=mock, no real DNS traffic from the
+ *  test suite. MUST fail open (return true) on anything short of definitive
+ *  proof the domain can't receive mail — see the real adapter's doc
+ *  comment for why. */
+export interface EmailVerifier {
+  isDeliverable(email: string): Promise<boolean>;
+}
+
 export interface LeadQualifierInput {
   blueprint: BlueprintSections;
   lead: { businessName: string; category?: string; website?: string };
@@ -576,6 +603,13 @@ export interface ReplyDraftResult {
   /** 0-1 self-reported confidence, surfaced in the review UI — never used
    *  to auto-approve. A human always makes the send decision. */
   confidence?: number;
+  /** Sentiment of the inbound reply this is a draft FOR — purely
+   *  informational (surfaced as a badge in the review UI), never used to
+   *  auto-approve/auto-reject or to decide whether to draft at all. Bounce
+   *  and out-of-office replies never reach this port in the first place
+   *  (filtered by lib/bounce-detection.ts before the drafter is ever
+   *  called), so this enum only needs to cover genuine human responses. */
+  intent?: "interested" | "not_interested" | "referral" | "unclear";
 }
 
 /** Drafts a reply for human review — this port has NO send capability by
@@ -615,6 +649,7 @@ export interface Services {
   marketResearcher: MarketResearcher;
   leadDiscovery: LeadDiscovery;
   emailFinder: EmailFinder;
+  emailVerifier: EmailVerifier;
   leadQualifier: LeadQualifier;
   outreachCopywriter: OutreachCopywriter;
   replyDrafter: ReplyDrafter;

@@ -3,9 +3,11 @@ import {
   automatedCampaignRepo,
   automatedLeadRepo,
   automatedSendRepo,
+  suppressedEmailRepo,
 } from "@/server/repositories/automated-outreach.repo";
 import { blueprintRepo } from "@/server/repositories/blueprint.repo";
 import { scheduleSends } from "@/server/lib/spintax";
+import { buildUnsubscribeUrl } from "@/server/lib/unsubscribe-url";
 import {
   lockTenantForAutomatedDailyCap,
   automatedDailySendCapFor,
@@ -320,6 +322,25 @@ async function discoverPhase(
   // enrichBatch entirely — qualify them here instead, before they're counted.
   let readyFound = 0;
   for (const lead of inserted.filter((l) => l.status === "ready")) {
+    if (!lead.email) continue; // defensive — "ready" implies an email was set
+    // Suppression + MX checks BEFORE qualification: both are cheap/free and
+    // both are terminal regardless of qualification, so there's no reason to
+    // spend an AI qualifier call first. Same two checks as enrichBatch below
+    // (see their doc comments there) — this is the OTHER path a lead can
+    // reach "ready" from (an OSM listing's own email tag), so it needs the
+    // exact same gates, not just the waterfall-enrichment path.
+    if (await withTenantTx({ tenantId }, (ctx) => suppressedEmailRepo.isSuppressed(ctx, lead.email!))) {
+      await withTenantTx({ tenantId }, (ctx) =>
+        automatedLeadRepo.setSuppressed(ctx, lead.id, "email previously unsubscribed"),
+      );
+      continue;
+    }
+    if (!(await services.emailVerifier.isDeliverable(lead.email))) {
+      await withTenantTx({ tenantId }, (ctx) =>
+        automatedLeadRepo.markNoEmail(ctx, lead.id, "email domain has no valid MX/A record"),
+      );
+      continue;
+    }
     const { qualified, reason } = await qualifyLead(services, sections, lead);
     if (qualified) {
       readyFound++;
@@ -358,6 +379,36 @@ async function enrichBatch(
       );
       continue;
     }
+    // MX check BEFORE suppression/qualification — cheap (free, cached per
+    // domain) and catches the highest-value class of bad address (a
+    // nonexistent domain from a typo'd/scraped contact page) before it ever
+    // reaches copy generation, where it would otherwise surface later as a
+    // silent bounce. See lib/email-verification.ts — fails OPEN on anything
+    // short of definitive proof the domain can't receive mail.
+    if (!(await services.emailVerifier.isDeliverable(result.email))) {
+      await withTenantTx({ tenantId }, (ctx) =>
+        automatedLeadRepo.markNoEmail(ctx, lead.id, "email domain has no valid MX/A record"),
+      );
+      continue;
+    }
+    // Suppression check: an address that already unsubscribed (from this
+    // campaign or any other in the tenant) must never be re-qualified or
+    // emailed again — see schema.ts's suppressedEmails doc comment. Checked
+    // here (not just at send time) so it's visible in the lead list AS
+    // suppressed, with the email preserved, rather than silently
+    // disappearing or looking like an ordinary qualification failure.
+    if (await withTenantTx({ tenantId }, (ctx) => suppressedEmailRepo.isSuppressed(ctx, result.email))) {
+      await withTenantTx({ tenantId }, (ctx) =>
+        automatedLeadRepo.markEnriched(ctx, lead.id, {
+          email: result.email,
+          emailSource: result.source,
+          emailConfidence: result.confidence,
+          status: "suppressed",
+          notes: "email previously unsubscribed",
+        }),
+      );
+      continue;
+    }
     const { qualified, reason } = await qualifyLead(services, sections, lead);
     if (qualified) readyDelta++;
     await withTenantTx({ tenantId }, (ctx) =>
@@ -373,10 +424,19 @@ async function enrichBatch(
   return { processed: pending.length, readyDelta };
 }
 
-function signEmail(campaign: Campaign, body: string): string {
+/** Appends the signature AND a plain-text unsubscribe line — the CAN-SPAM/
+ *  GDPR "functional opt-out mechanism" legal minimum, which the law
+ *  explicitly does not require in any specific format (see
+ *  buildUnsubscribeUrl's doc comment for the header-level, Gmail/Yahoo
+ *  one-click mechanism this pairs with, added separately at actual send
+ *  time in send-automated-email.ts). Keyed on the LEAD, not the send, so
+ *  the same link works identically across Day 0/3/7. */
+function signEmail(campaign: Campaign, body: string, leadId: string): string {
+  const unsubscribeUrl = buildUnsubscribeUrl(leadId);
   return (
     `${body}\n\n${campaign.signatureClosing}\n${campaign.signatureName}` +
-    (campaign.signatureTitle ? `\n${campaign.signatureTitle}` : "")
+    (campaign.signatureTitle ? `\n${campaign.signatureTitle}` : "") +
+    `\n\nDon't want to hear from us again? Unsubscribe: ${unsubscribeUrl}`
   );
 }
 
@@ -418,7 +478,7 @@ async function generateCopyBatch(
       email: lead.email,
       stepIndex: 0,
       subject: day0.subject,
-      body: signEmail(campaign, day0.body),
+      body: signEmail(campaign, day0.body, lead.id),
     });
 
     for (const stepIndex of [1, 2] as const) {
@@ -435,7 +495,7 @@ async function generateCopyBatch(
           email: lead.email,
           stepIndex,
           subject: followUp.subject,
-          body: signEmail(campaign, followUp.body),
+          body: signEmail(campaign, followUp.body, lead.id),
         });
       } catch (err) {
         logger.warn({ err, leadId: lead.id, stepIndex }, "automated_lead_followup_generation_failed");

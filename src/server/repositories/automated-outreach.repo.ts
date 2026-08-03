@@ -4,6 +4,7 @@ import {
   automatedLeads,
   automatedSends,
   automatedReplyDrafts,
+  suppressedEmails,
 } from "@/server/db/schema";
 import type { TenantContext } from "@/server/db/tx";
 import { adminDb } from "@/server/db/client";
@@ -27,7 +28,9 @@ export type AutomatedLeadStatus =
   | "sent"
   | "replied"
   | "failed"
-  | "skipped";
+  | "skipped"
+  | "bounced"
+  | "suppressed";
 
 export interface DiscoveryQuery {
   category: string;
@@ -296,7 +299,7 @@ export const automatedLeadRepo = {
       email: string;
       emailSource: EmailSourceType;
       emailConfidence?: number;
-      status: "ready" | "disqualified";
+      status: "ready" | "disqualified" | "suppressed";
       notes?: string;
     },
   ) {
@@ -320,6 +323,17 @@ export const automatedLeadRepo = {
     await ctx.tx
       .update(automatedLeads)
       .set({ status: "disqualified", notes: reason, enrichedAt: new Date() })
+      .where(and(eq(automatedLeads.id, id), eq(automatedLeads.tenantId, ctx.tenantId)));
+  },
+
+  /** Same "already-ready-at-discovery, overridden after a follow-up check"
+   *  shape as setDisqualified — used when an OSM-tagged email matches the
+   *  tenant's suppression list. Email/emailSource are already correct from
+   *  the initial insert, so only status+notes need updating. */
+  async setSuppressed(ctx: TenantContext, id: string, reason: string) {
+    await ctx.tx
+      .update(automatedLeads)
+      .set({ status: "suppressed", notes: reason, enrichedAt: new Date() })
       .where(and(eq(automatedLeads.id, id), eq(automatedLeads.tenantId, ctx.tenantId)));
   },
 
@@ -357,6 +371,14 @@ export const automatedLeadRepo = {
       .where(and(eq(automatedLeads.id, id), eq(automatedLeads.tenantId, ctx.tenantId)));
   },
 
+  /** Admin-scoped sibling of setStatus — for the public unsubscribe route
+   *  (see getByIdAdmin's doc comment for the trust model). Only ever called
+   *  with "suppressed" in practice; kept generic to match setStatus's shape
+   *  rather than hardcoding one status. */
+  async setStatusAdmin(id: string, status: AutomatedLeadStatus) {
+    await adminDb().update(automatedLeads).set({ status }).where(eq(automatedLeads.id, id));
+  },
+
   async setStatusMany(ctx: TenantContext, ids: string[], status: AutomatedLeadStatus) {
     if (ids.length === 0) return;
     await ctx.tx
@@ -374,6 +396,16 @@ export const automatedLeadRepo = {
     return row ?? null;
   },
 
+  /** Admin-scoped (no tenant to filter by) — for the public, unauthenticated
+   *  unsubscribe route, the one place a lead needs to be looked up by id
+   *  alone. `id` is an unguessable UUID acting as the capability token (same
+   *  trust model as the public tracking-pixel route), so this is safe
+   *  despite bypassing RLS. */
+  async getByIdAdmin(id: string) {
+    const [row] = await adminDb().select().from(automatedLeads).where(eq(automatedLeads.id, id)).limit(1);
+    return row ?? null;
+  },
+
   /** Backs the leads-table endpoint's filtering (by status/source).
    *  Inclusion list, not an exclusion list: only leads that have complete,
    *  qualified data (a findable email that passed the blueprint's
@@ -382,7 +414,16 @@ export const automatedLeadRepo = {
    *  but failed the fit check) are all internal pipeline bookkeeping, not
    *  something the product surfaces as a "lead." A future new status
    *  defaults to hidden rather than silently leaking in. */
-  LISTABLE_STATUSES: ["ready", "queued", "sent", "replied", "failed", "skipped"] as const,
+  LISTABLE_STATUSES: [
+    "ready",
+    "queued",
+    "sent",
+    "replied",
+    "failed",
+    "skipped",
+    "bounced",
+    "suppressed",
+  ] as const,
 
   async list(
     ctx: TenantContext,
@@ -615,6 +656,8 @@ export const automatedSendRepo = {
   },
 };
 
+export type AutomatedReplyIntent = "interested" | "not_interested" | "referral" | "unclear";
+
 export interface UpsertReplyDraftInput {
   campaignId: string;
   leadId: string;
@@ -624,6 +667,7 @@ export interface UpsertReplyDraftInput {
   draftBody: string;
   reasoning?: string;
   confidence?: number;
+  intent?: AutomatedReplyIntent;
 }
 
 export const automatedReplyDraftRepo = {
@@ -646,6 +690,7 @@ export const automatedReplyDraftRepo = {
         draftBody: input.draftBody,
         reasoning: input.reasoning ?? null,
         confidence: confidenceStr,
+        intent: input.intent ?? null,
         status: "pending",
       })
       .onConflictDoUpdate({
@@ -656,6 +701,7 @@ export const automatedReplyDraftRepo = {
           draftBody: input.draftBody,
           reasoning: input.reasoning ?? null,
           confidence: confidenceStr,
+          intent: input.intent ?? null,
           updatedAt: new Date(),
         },
         setWhere: eq(automatedReplyDrafts.status, "pending"),
@@ -731,5 +777,40 @@ export const automatedReplyDraftRepo = {
       .where(and(eq(automatedReplyDrafts.id, id), eq(automatedReplyDrafts.tenantId, ctx.tenantId)))
       .returning();
     return row ?? null;
+  },
+};
+
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
+/**
+ * Permanent per-tenant unsubscribe list — see schema.ts's doc comment on
+ * `suppressedEmails`. Two access patterns, same split as the rest of this
+ * file: tenant-scoped `ctx.tx` reads for the campaign-pipeline gate checks
+ * (discoverPhase/enrichBatch/send-automated-email.ts, all already inside a
+ * withTenantTx block), and an Admin-suffixed write for the public
+ * unsubscribe route, which has no authenticated session/tenant context to
+ * scope a normal `ctx` from.
+ */
+export const suppressedEmailRepo = {
+  async isSuppressed(ctx: TenantContext, email: string): Promise<boolean> {
+    const [row] = await ctx.tx
+      .select({ id: suppressedEmails.id })
+      .from(suppressedEmails)
+      .where(
+        and(eq(suppressedEmails.tenantId, ctx.tenantId), eq(suppressedEmails.email, normalizeEmail(email))),
+      )
+      .limit(1);
+    return !!row;
+  },
+
+  /** Idempotent — a repeated unsubscribe click (double-tap, retried
+   *  one-click POST) is a safe no-op via the tenant+email unique index. */
+  async addAdmin(tenantId: string, email: string, reason: string): Promise<void> {
+    await adminDb()
+      .insert(suppressedEmails)
+      .values({ tenantId, email: normalizeEmail(email), reason })
+      .onConflictDoNothing();
   },
 };

@@ -62,6 +62,18 @@ export const automatedAnalyticsRepo = {
     return row?.count ?? 0;
   },
 
+  /** Tenant-wide count of leads marked bounced — mirrors
+   *  analytics.repo.ts's bouncedLeadCount for bulk-fire. Populated by
+   *  poll-automated-replies.ts recognizing a mailer-daemon notification
+   *  (see lib/bounce-detection.ts). */
+  async bouncedLeadCount(ctx: TenantContext): Promise<number> {
+    const [row] = await ctx.tx
+      .select({ count: sql<number>`count(*)::int` })
+      .from(automatedLeads)
+      .where(and(eq(automatedLeads.tenantId, ctx.tenantId), eq(automatedLeads.status, "bounced")));
+    return row?.count ?? 0;
+  },
+
   /** Sends whose tracking pixel was fetched — automated outreach is
    *  email-only (no WhatsApp channel), so unlike analytics.repo.ts's
    *  openedSendCount there's no delivery-status signal to fold in. */

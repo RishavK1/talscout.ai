@@ -69,7 +69,7 @@ export class OutreachMailerAdapter implements OutreachMailer {
   async getThreadReplyContent(
     creds: SenderAccountCredentials,
     args: { gmailThreadId: string; senderEmail: string },
-  ): Promise<{ subject: string; body: string } | null> {
+  ): Promise<{ from: string; subject: string; body: string } | null> {
     // Same fail-quiet posture as threadHasReply above — SMTP/no-read-scope
     // tokens simply have nothing to fetch, any transient API error means
     // "nothing to draft yet," never a thrown failure.
@@ -95,7 +95,7 @@ export class OutreachMailerAdapter implements OutreachMailer {
           headers.find((h) => h.name?.toLowerCase() === "subject")?.value ?? "";
         const body = extractPlainTextBody(m.payload);
         if (!body) continue;
-        return { subject, body };
+        return { from, subject, body };
       }
       return null;
     } catch {
@@ -170,8 +170,20 @@ async function sendSmtp(
     messageId: message.messageId,
     inReplyTo: message.inReplyTo,
     references: message.inReplyTo,
+    ...(message.listUnsubscribeUrl ? { headers: listUnsubscribeHeaders(message.listUnsubscribeUrl) } : {}),
   });
   return {};
+}
+
+/** RFC 8058 one-click unsubscribe headers — both required together: the
+ *  mailto-less URL form plus `List-Unsubscribe-Post` is what makes Gmail/
+ *  Yahoo render their native one-click "Unsubscribe" button instead of
+ *  falling back to (or ignoring) a plain footer link. */
+function listUnsubscribeHeaders(url: string): { key: string; value: string }[] {
+  return [
+    { key: "List-Unsubscribe", value: `<${url}>` },
+    { key: "List-Unsubscribe-Post", value: "List-Unsubscribe=One-Click" },
+  ];
 }
 
 function gmailClient(refreshToken: string) {
@@ -223,6 +235,8 @@ export function buildRawMessage(message: OutreachSendArgs): string {
     message.inReplyTo ? `In-Reply-To: ${message.inReplyTo}` : null,
     message.inReplyTo ? `References: ${message.inReplyTo}` : null,
     message.replyTo ? `Reply-To: ${message.replyTo}` : null,
+    message.listUnsubscribeUrl ? `List-Unsubscribe: <${message.listUnsubscribeUrl}>` : null,
+    message.listUnsubscribeUrl ? "List-Unsubscribe-Post: List-Unsubscribe=One-Click" : null,
     "MIME-Version: 1.0",
   ].filter((h): h is string => h !== null);
 

@@ -6,7 +6,13 @@ import type { LeadDiscovery, LeadDiscoveryQuery, DiscoveredLead } from "@/server
  *  tests exercising the "no website" cheap path); `%%POLISHED%%` embeds a
  *  marker in the website URL that MockLeadQualifier reads as "this site
  *  already looks professional" (disqualified, for the "no_or_weak_site" +
- *  website-present path that needs a real qualifier call). */
+ *  website-present path that needs a real qualifier call); `%%OSMEMAIL%%`
+ *  gives the FIRST business an `email` field, simulating a real OSM listing
+ *  publishing its own contact email — the "born ready, no enrichment
+ *  needed" path (see discoverPhase in run-automated-campaign.ts). Embedded
+ *  in the email itself is whatever the caller wants checked against it
+ *  downstream (e.g. "%%OSMEMAIL%%-invalidmx" to also exercise the MX gate
+ *  on this path specifically). */
 /** How many distinct businesses the mock "area" contains in total, and how
  *  many it will hand back in any single call. A FINITE universe larger than
  *  one page is deliberate: it models the two behaviors that matter and used
@@ -23,6 +29,7 @@ export class MockLeadDiscovery implements LeadDiscovery {
     }
     const noWebsite = query.category.includes("%%NOWEBSITE%%");
     const polished = query.category.includes("%%POLISHED%%");
+    const osmEmail = query.category.includes("%%OSMEMAIL%%");
     const known = query.excludeSourcePlaceIds ?? new Set<string>();
 
     // Honor excludeSourcePlaceIds like a real provider paging past what the
@@ -42,6 +49,11 @@ export class MockLeadDiscovery implements LeadDiscovery {
         ...(noWebsite
           ? {}
           : { website: `https://mock-business-${i + 1}${polished ? "-%%POLISHED%%" : ""}.example.com` }),
+        // Only the first business in the page gets one — mirrors a real
+        // area where an OSM email tag is the exception, not the norm.
+        ...(osmEmail && i === 0
+          ? { email: `hello@osm-tagged-business${query.category.includes("%%INVALIDMX%%") ? "-invalidmx" : ""}.example.com` }
+          : {}),
         lat: 30.27 + i * 0.001,
         lon: -97.74 + i * 0.001,
       });

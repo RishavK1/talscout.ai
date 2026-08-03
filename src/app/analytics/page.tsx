@@ -68,6 +68,7 @@ interface AnalyticsOverview {
       total: number;
       replied: number;
       opened: number;
+      bounced: number;
     };
     byCampaign: AutomatedCampaignBreakdownRow[];
     daily: DailyPoint[];
@@ -817,7 +818,7 @@ export default function AnalyticsPage() {
               description="Blueprint-powered discovery + AI-written sends, separate from Bulk Fire."
             />
 
-            <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-6 mb-8">
+            <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 sm:gap-6 mb-8">
               <StatCard
                 icon="mark_email_read"
                 label="Sent"
@@ -851,6 +852,13 @@ export default function AnalyticsPage() {
                 value={auto?.totals.replied ?? 0}
                 loading={loading}
                 tone="positive"
+              />
+              <StatCard
+                icon="report"
+                label="Bounced"
+                value={auto?.totals.bounced ?? 0}
+                loading={loading}
+                tone="negative"
               />
             </section>
 

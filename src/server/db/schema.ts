@@ -131,6 +131,19 @@ export const automatedLeadStatus = pgEnum("automated_lead_status", [
   "replied",
   "failed",
   "skipped",
+  /** A sent email came back as an undeliverable-mail notification (detected
+   *  by poll-automated-replies.ts recognizing a mailer-daemon/postmaster
+   *  bounce in the same Gmail thread — see lib/bounce-detection.ts).
+   *  Terminal: remaining scheduled follow-ups for this lead are cancelled
+   *  the moment it's detected, same as "replied". Visible in the lead list
+   *  (LISTABLE_STATUSES) — a real, auditable outcome, not bookkeeping. */
+  "bounced",
+  /** This business's email matched an entry in `suppressed_emails` (an
+   *  earlier unsubscribe, from this campaign or any other in the tenant) at
+   *  discovery/enrichment time, so it was never qualified or emailed at all.
+   *  Visible in the lead list so "why wasn't this business contacted" has an
+   *  honest answer instead of it just silently never appearing. */
+  "suppressed",
 ]);
 export const automatedLeadEmailSource = pgEnum("automated_lead_email_source", [
   "site_scrape",
@@ -158,6 +171,17 @@ export const automatedReplyDraftStatus = pgEnum("automated_reply_draft_status", 
   "approved",
   "rejected",
   "sent",
+]);
+/** AI-classified sentiment of a genuine inbound reply (never a bounce or an
+ *  out-of-office auto-reply — those are filtered out before classification
+ *  even runs, see poll-automated-replies.ts). Purely informational — never
+ *  gates or auto-approves anything, a human still makes every send decision
+ *  (same discipline as `confidence` on this same table). */
+export const automatedReplyIntent = pgEnum("automated_reply_intent", [
+  "interested",
+  "not_interested",
+  "referral",
+  "unclear",
 ]);
 
 export const tenants = pgTable("tenants", {
@@ -838,6 +862,9 @@ export const automatedReplyDrafts = pgTable(
     draftBody: text("draft_body").notNull(),
     reasoning: text("reasoning"),
     confidence: numeric("confidence"),
+    /** AI-classified sentiment — see automatedReplyIntent's doc comment.
+     *  Null for drafts created before this existed. */
+    intent: automatedReplyIntent("intent"),
     status: automatedReplyDraftStatus("status").notNull().default("pending"),
     reviewedBy: uuid("reviewed_by"),
     reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
@@ -851,6 +878,43 @@ export const automatedReplyDrafts = pgTable(
     index("automated_reply_drafts_campaign_idx").on(t.campaignId),
     index("automated_reply_drafts_tenant_status_idx").on(t.tenantId, t.status),
     uniqueIndex("automated_reply_drafts_send_uq").on(t.sendId),
+  ],
+);
+
+/**
+ * Permanent per-tenant email suppression list — once an address is here, no
+ * future automated-outreach discovery/enrichment ever qualifies it again
+ * (checked in run-automated-campaign.ts) and no already-scheduled send to it
+ * fires (re-checked in send-automated-email.ts, same "recheck at send time"
+ * discipline as the reply-stop check). Populated by the public unsubscribe
+ * route (src/app/api/automated-outreach/unsubscribe/[leadId]/route.ts).
+ *
+ * Deliberately NOT scoped to a single campaign — CAN-SPAM/GDPR opt-outs are
+ * an organization-level obligation, not a per-campaign one: someone who
+ * unsubscribes from one campaign must never be re-contacted by a DIFFERENT
+ * campaign in the same tenant either. Named generically (not
+ * "automated_suppressed_emails") so bulk-fire can share this same table in
+ * a later pass instead of needing its own.
+ */
+export const suppressedEmails = pgTable(
+  "suppressed_emails",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    /** Always lowercased before insert/lookup (see suppressedEmailRepo) —
+     *  the local part is compared case-sensitively by spec but essentially
+     *  never in practice, and normalizing avoids a duplicate live row for
+     *  "Info@x.com" vs "info@x.com" silently failing to suppress the other
+     *  casing. */
+    email: text("email").notNull(),
+    reason: text("reason").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("suppressed_emails_tenant_email_uq").on(t.tenantId, t.email),
+    index("suppressed_emails_tenant_idx").on(t.tenantId),
   ],
 );
 
@@ -876,4 +940,5 @@ export const schema = {
   automatedLeads,
   automatedSends,
   automatedReplyDrafts,
+  suppressedEmails,
 };

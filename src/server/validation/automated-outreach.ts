@@ -60,7 +60,7 @@ export const listAutomatedLeadsQuerySchema = z.object({
   // automatedLeadRepo.LISTABLE_STATUSES, which also hard-excludes them
   // regardless of this filter).
   status: z
-    .enum(["ready", "queued", "sent", "replied", "failed", "skipped"])
+    .enum(["ready", "queued", "sent", "replied", "failed", "skipped", "bounced", "suppressed"])
     .optional()
     .catch(undefined),
   source: z

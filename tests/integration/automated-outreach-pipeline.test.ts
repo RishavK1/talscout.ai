@@ -13,8 +13,10 @@ import { withTenantTx } from "../../src/server/db/tx";
 import {
   automatedLeadRepo,
   automatedSendRepo,
+  suppressedEmailRepo,
 } from "../../src/server/repositories/automated-outreach.repo";
 import { runAutomatedCampaigns } from "../../src/server/jobs/run-automated-campaign";
+import { sendAutomatedEmail } from "../../src/server/jobs/send-automated-email";
 import { getServices } from "../../src/server/container";
 import type { BlueprintSections } from "../../src/server/ports";
 
@@ -515,5 +517,107 @@ describe("runAutomatedCampaigns — lead qualification gate", () => {
     const leads2 = await leadsForCampaign(campaignId2);
     expect(leads2).toHaveLength(5);
     expect(leads2.every((l) => l.status === "queued")).toBe(true);
+  });
+});
+
+describe("runAutomatedCampaigns — MX-check gate (email-verification sprint)", () => {
+  it("an address whose domain has no MX/A/AAAA record never reaches 'ready' — treated as no_email", async () => {
+    const { tenant, token } = await makeUser("recruiter");
+    const blueprint = await seedActiveBlueprint(tenant.id);
+    const sender = await seedGmailSender(tenant.id);
+    // MockEmailFinder derives the email from businessName's slug —
+    // MockEmailVerifier treats any address containing "invalidmx" as having
+    // no valid MX/A/AAAA (see mock.email-verifier.ts).
+    const campaignId = await createActiveCampaign(token, blueprint.id, sender.id, "plumber %%INVALIDMX%%");
+
+    // Terminal "no_email" is hidden bookkeeping (matches a genuine
+    // email-finder miss) — never surfaced as a visible lead.
+    const leads = await leadsForCampaign(campaignId);
+    expect(leads.every((l) => l.status === "no_email")).toBe(true);
+    expect(leads.every((l) => l.notes?.includes("MX"))).toBe(true);
+
+    const sends = await sendsForCampaign(campaignId);
+    expect(sends).toHaveLength(0);
+  });
+
+  it("an OSM listing's own tagged email is also MX-checked, not just waterfall-found ones", async () => {
+    const { tenant, token } = await makeUser("recruiter");
+    const blueprint = await seedActiveBlueprint(tenant.id);
+    const sender = await seedGmailSender(tenant.id);
+    // %%OSMEMAIL%% gives the first discovered business an email straight
+    // from "OSM" (born ready, bypassing enrichBatch — see
+    // mock.lead-discovery.ts), and %%INVALIDMX%% makes that email's domain
+    // fail the MX check specifically on THIS path.
+    const campaignId = await createActiveCampaign(
+      token,
+      blueprint.id,
+      sender.id,
+      "bakery %%OSMEMAIL%% %%INVALIDMX%%",
+    );
+
+    const leads = await leadsForCampaign(campaignId);
+    const osmLead = leads.find((l) => l.emailSource === "osm");
+    expect(osmLead).toBeTruthy();
+    // Overridden from its initial "ready" (set at insert time) by the same
+    // MX gate the waterfall path uses — proving discoverPhase's OWN loop
+    // (not just enrichBatch) applies it.
+    expect(osmLead?.status).toBe("no_email");
+  });
+});
+
+describe("runAutomatedCampaigns — suppression gate (unsubscribe sprint)", () => {
+  it("a suppressed email is never qualified or emailed — visible as 'suppressed', not silently dropped", async () => {
+    const { tenant, token } = await makeUser("recruiter");
+    const blueprint = await seedActiveBlueprint(tenant.id);
+    const sender = await seedGmailSender(tenant.id);
+    // Pre-suppress every address this run will find — MockEmailFinder's
+    // slug for category "florist" always resolves to the same domain, so
+    // suppressing that exact address up front reliably hits the gate.
+    await suppressedEmailRepo.addAdmin(tenant.id, "contact@florist-business-1.example.com", "test setup");
+
+    const campaignId = await createActiveCampaign(token, blueprint.id, sender.id, "florist");
+
+    const leads = await leadsForCampaign(campaignId);
+    const suppressed = leads.find((l) => l.email === "contact@florist-business-1.example.com");
+    expect(suppressed?.status).toBe("suppressed");
+    expect(suppressed?.notes).toContain("unsubscribed");
+    // The other 4 (not suppressed) still went through normally.
+    expect(leads.filter((l) => l.status === "queued")).toHaveLength(4);
+
+    // Only the 4 non-suppressed leads got a Day 0/3/7 sequence — the
+    // suppressed one was never scheduled at all.
+    const sends = await sendsForCampaign(campaignId);
+    expect(sends).toHaveLength(12); // 4 leads × 3 steps, not 5 × 3
+    expect(sends.some((s) => s.leadId === suppressed!.id)).toBe(false);
+  });
+
+  it("suppression is re-checked at SEND time — a later unsubscribe stops a follow-up already scheduled before it happened", async () => {
+    const { tenant, token } = await makeUser("recruiter");
+    const blueprint = await seedActiveBlueprint(tenant.id);
+    const sender = await seedGmailSender(tenant.id);
+    const campaignId = await createActiveCampaign(token, blueprint.id, sender.id, "vet");
+
+    // Day 0 goes out fine — nothing suppressed yet.
+    const day0 = (await sendsForCampaign(campaignId)).find((s) => s.stepIndex === 0)!;
+    await sendAutomatedEmail({ tenantId: tenant.id, sendId: day0.id }, getServices());
+    const sentDay0 = await withTenantTx({ tenantId: tenant.id }, (ctx) => automatedSendRepo.getById(ctx, day0.id));
+    expect(sentDay0?.status).toBe("sent");
+
+    // The recipient unsubscribes (e.g. clicked the link in that Day 0 email)
+    // sometime before Day 3 is due to fire.
+    const lead = await withTenantTx({ tenantId: tenant.id }, (ctx) => automatedLeadRepo.getById(ctx, day0.leadId));
+    await suppressedEmailRepo.addAdmin(tenant.id, lead!.email!, "unsubscribed via email link");
+
+    const day3 = (await sendsForCampaign(campaignId)).find((s) => s.stepIndex === 1)!;
+    await sendAutomatedEmail({ tenantId: tenant.id, sendId: day3.id }, getServices());
+
+    const sentDay3 = await withTenantTx({ tenantId: tenant.id }, (ctx) => automatedSendRepo.getById(ctx, day3.id));
+    expect(sentDay3?.status).toBe("skipped");
+    expect(sentDay3?.errorReason).toBe("suppressed_unsubscribed");
+
+    const updatedLead = await withTenantTx({ tenantId: tenant.id }, (ctx) =>
+      automatedLeadRepo.getById(ctx, day0.leadId),
+    );
+    expect(updatedLead?.status).toBe("suppressed");
   });
 });

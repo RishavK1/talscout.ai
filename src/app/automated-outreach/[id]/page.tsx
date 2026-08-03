@@ -66,7 +66,17 @@ interface AutomatedLead {
   addressText: string | null;
   email: string | null;
   emailSource: "site_scrape" | "hunter" | "apollo" | "google_places" | "osm" | "firecrawl" | "snov" | "none";
-  status: "discovered" | "disqualified" | "ready" | "queued" | "sent" | "replied" | "failed" | "skipped";
+  status:
+    | "discovered"
+    | "disqualified"
+    | "ready"
+    | "queued"
+    | "sent"
+    | "replied"
+    | "failed"
+    | "skipped"
+    | "bounced"
+    | "suppressed";
   notes: string | null;
   discoveredAt: string;
 }
@@ -95,6 +105,8 @@ const LEAD_STATUS_TONE: Record<Exclude<AutomatedLead["status"], "replied">, NonN
   sent: "active",
   failed: "error",
   skipped: "neutral",
+  bounced: "error",
+  suppressed: "neutral",
 };
 
 const LEAD_STATUS_LABEL: Record<AutomatedLead["status"], string> = {
@@ -106,6 +118,8 @@ const LEAD_STATUS_LABEL: Record<AutomatedLead["status"], string> = {
   replied: "Replied",
   failed: "Failed",
   skipped: "Skipped",
+  bounced: "Bounced",
+  suppressed: "Unsubscribed",
 };
 
 const SOURCE_META: Record<
@@ -521,6 +535,8 @@ export default function AutomatedCampaignDetailPage({
                   <option value="replied">Replied</option>
                   <option value="failed">Failed</option>
                   <option value="skipped">Skipped</option>
+                  <option value="bounced">Bounced</option>
+                  <option value="suppressed">Unsubscribed</option>
                 </select>
               </CardAction>
             </CardHeader>

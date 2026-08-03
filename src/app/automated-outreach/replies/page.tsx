@@ -20,12 +20,55 @@ interface ReplyDraft {
   draftBody: string;
   reasoning: string | null;
   confidence: string | null;
+  intent: "interested" | "not_interested" | "referral" | "unclear" | null;
   status: "pending" | "approved" | "rejected" | "sent";
   createdAt: string;
 }
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+const INTENT_META: Record<
+  NonNullable<ReplyDraft["intent"]>,
+  { label: string; icon: string; className: string }
+> = {
+  interested: {
+    label: "Interested",
+    icon: "thumb_up",
+    className: "bg-tertiary-fixed/20 text-tertiary-container",
+  },
+  not_interested: {
+    label: "Not interested",
+    icon: "thumb_down",
+    className: "bg-error-container text-on-error-container",
+  },
+  referral: {
+    label: "Referral",
+    icon: "forward",
+    className: "bg-primary-container/10 text-primary-container",
+  },
+  unclear: {
+    label: "Unclear",
+    icon: "help",
+    className: "bg-surface-container-high text-on-surface-variant",
+  },
+};
+
+function IntentBadge({ intent }: { intent: ReplyDraft["intent"] }) {
+  if (!intent) return null;
+  const meta = INTENT_META[intent];
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-label-md text-[11px] font-semibold",
+        meta.className,
+      )}
+    >
+      <span className="material-symbols-outlined text-[14px]">{meta.icon}</span>
+      {meta.label}
+    </span>
+  );
 }
 
 export default function AutomatedRepliesPage() {
@@ -190,6 +233,11 @@ export default function AutomatedRepliesPage() {
                       <p className="line-clamp-2 font-body-md text-[13px] text-text-muted">
                         {d.inboundBody}
                       </p>
+                      {d.intent && (
+                        <div className="mt-1.5">
+                          <IntentBadge intent={d.intent} />
+                        </div>
+                      )}
                     </div>
                   </button>
                 ))
@@ -226,13 +274,16 @@ export default function AutomatedRepliesPage() {
 
                 <Card className="[--card-spacing:--spacing(6)]">
                   <CardHeader>
-                    <div className="flex items-center gap-2.5">
-                      <div className="rounded-lg bg-surface-container-high p-1.5 text-on-surface-variant">
-                        <span className="material-symbols-outlined text-[18px]">move_to_inbox</span>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2.5">
+                        <div className="rounded-lg bg-surface-container-high p-1.5 text-on-surface-variant">
+                          <span className="material-symbols-outlined text-[18px]">move_to_inbox</span>
+                        </div>
+                        <CardTitle className="font-body-md text-[16px] font-semibold text-on-surface-variant">
+                          Incoming message
+                        </CardTitle>
                       </div>
-                      <CardTitle className="font-body-md text-[16px] font-semibold text-on-surface-variant">
-                        Incoming message
-                      </CardTitle>
+                      <IntentBadge intent={selected.intent} />
                     </div>
                   </CardHeader>
                   <CardContent>
