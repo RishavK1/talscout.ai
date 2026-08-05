@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, Suspense } from "react";
+import { useEffect, useRef, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { authCallbackUrl } from "@/lib/auth-redirect";
@@ -24,6 +24,17 @@ function LoginPageContent() {
     !rawRedirect.startsWith("//") &&
     !/:|javascript|data/i.test(rawRedirect)
   ) ? rawRedirect : "/dashboard";
+
+  // Landed here via the api.ts 401 interceptor's hard redirect — that flow
+  // already toasted once before reloading, but the reload can outrun it, so
+  // this is the message a user reliably sees.
+  const expiredToastShown = useRef(false);
+  useEffect(() => {
+    if (searchParams.get("expired") === "1" && !expiredToastShown.current) {
+      expiredToastShown.current = true;
+      toast.error("Your session expired — please sign in again.");
+    }
+  }, [searchParams]);
 
   const handleEmailSignIn = async (e: React.FormEvent) => {
     e.preventDefault();

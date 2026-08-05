@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { toast } from "sonner";
 
 export interface ApiResponse<T = any> {
   ok: boolean;
@@ -14,6 +15,14 @@ export class ApiError extends Error {
     this.status = status;
   }
 }
+
+// A token expiring mid-session previously degraded into whatever generic
+// message the failed call's own catch block happened to show (or nothing, on
+// silent catches) — the user's next save just silently failed with no
+// indication *why*. This makes a 401 always mean the same thing everywhere:
+// one clear toast, then a hard redirect to sign in again. Guarded so several
+// requests failing around the same moment only trigger it once.
+let sessionExpiredHandled = false;
 
 async function request<T = any>(
   path: string,
@@ -48,6 +57,21 @@ async function request<T = any>(
 
   if (response.status === 249) {
     // Retry or handling rate limit (from Retry-After)
+  }
+
+  // 3b. A 401 anywhere but /api/auth/session means a previously-valid bearer
+  // token was rejected — expired or revoked mid-session. (/api/auth/session
+  // itself legitimately 401s with "No account provisioned" for a brand-new
+  // user still going through onboarding — AuthProvider already handles that
+  // specific case and must keep owning it.)
+  if (response.status === 401 && !path.startsWith("/api/auth/session") && !sessionExpiredHandled) {
+    sessionExpiredHandled = true;
+    toast.error("Your session has expired — please sign in again.");
+    void supabase.auth.signOut().finally(() => {
+      setTimeout(() => {
+        window.location.href = "/login?expired=1";
+      }, 600);
+    });
   }
 
   // 4. Parse JSON body

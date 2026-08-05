@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { AppShell } from "@/components/app/app-shell";
 import { TopAppBar } from "@/components/app/top-app-bar";
 import { Modal } from "@/components/ui/modal";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { fadeUp, easeOut } from "@/lib/motion";
@@ -420,6 +421,12 @@ export default function BulkFireCampaignPage({
   const [whatsappSequence, setWhatsappSequence] = useState<
     WhatsAppSequenceStep[]
   >(DEFAULT_WHATSAPP_SEQUENCE);
+  // The 4s background poll (below) calls load() while a user may be
+  // mid-edit in the sequence textareas — without this, their unsaved copy
+  // was silently clobbered by the server's last-saved version every 4
+  // seconds. Set on every edit, cleared right before load() re-hydrates
+  // after a confirmed save.
+  const sequenceDirtyRef = useRef(false);
   const [savingSequence, setSavingSequence] = useState(false);
   const [sequenceOpen, setSequenceOpen] = useState(false);
   const [activeStep, setActiveStep] = useState(0);
@@ -446,6 +453,7 @@ export default function BulkFireCampaignPage({
 
   const [fireStep, setFireStep] = useState(0);
   const [firing, setFiring] = useState(false);
+  const [confirmFireOpen, setConfirmFireOpen] = useState(false);
   // Opt-in "also schedule Day 3 & Day 7" cascade for Day 0 fires — see
   // fireCampaignSchema.cascadeFollowups.
   const [cascadeFollowups, setCascadeFollowups] = useState(false);
@@ -477,14 +485,22 @@ export default function BulkFireCampaignPage({
       setCounts(res.counts);
       setLeadCount(res.leadCount);
       setStepSummary(res.stepSummary ?? []);
-      if (res.campaign.channel === "whatsapp") {
-        const s = res.campaign.sequence as WhatsAppSequenceStep[];
-        setWhatsappSequence(s.length === 3 ? s : DEFAULT_WHATSAPP_SEQUENCE);
-      } else {
-        const s = res.campaign.sequence as SequenceStep[];
-        setSequence(s.length === 3 ? s : DEFAULT_SEQUENCE);
+      // Skip re-hydrating fields the user may currently be editing — this
+      // runs on every 4s background poll (see the interval below), and
+      // overwriting a mid-edit textarea/checkbox with the server's
+      // last-saved copy every 4 seconds silently discarded unsaved work.
+      if (!sequenceDirtyRef.current) {
+        if (res.campaign.channel === "whatsapp") {
+          const s = res.campaign.sequence as WhatsAppSequenceStep[];
+          setWhatsappSequence(s.length === 3 ? s : DEFAULT_WHATSAPP_SEQUENCE);
+        } else {
+          const s = res.campaign.sequence as SequenceStep[];
+          setSequence(s.length === 3 ? s : DEFAULT_SEQUENCE);
+        }
       }
-      setSelectedSenderIds(new Set(res.campaign.senderAccountIds ?? []));
+      if (!sendersDirty) {
+        setSelectedSenderIds(new Set(res.campaign.senderAccountIds ?? []));
+      }
     } catch (err: any) {
       if (err.status === 404) {
         setNotFound(true);
@@ -568,6 +584,7 @@ export default function BulkFireCampaignPage({
         await api.put(`/api/outreach/campaigns/${id}/sequence`, { sequence });
       }
       toast.success("Sequence saved");
+      sequenceDirtyRef.current = false;
       load();
     } catch (err: any) {
       toast.error(err.message || "Failed to save sequence");
@@ -636,12 +653,14 @@ export default function BulkFireCampaignPage({
     index: number,
     patch: Partial<WhatsAppSequenceStep>,
   ) => {
+    sequenceDirtyRef.current = true;
     setWhatsappSequence((prev) =>
       prev.map((s, i) => (i === index ? { ...s, ...patch } : s)),
     );
   };
 
   const updateStep = (index: number, patch: Partial<SequenceStep>) => {
+    sequenceDirtyRef.current = true;
     setSequence((prev) =>
       prev.map((s, i) => (i === index ? { ...s, ...patch } : s)),
     );
@@ -836,6 +855,7 @@ export default function BulkFireCampaignPage({
       toast.error(err.message || "Failed to fire campaign");
     } finally {
       setFiring(false);
+      setConfirmFireOpen(false);
     }
   };
 
@@ -1822,7 +1842,7 @@ export default function BulkFireCampaignPage({
               </select>
               <button
                 type="button"
-                onClick={handleFire}
+                onClick={() => setConfirmFireOpen(true)}
                 disabled={firing || leadCount === 0}
                 className="rounded-lg bg-primary px-5 py-2.5 font-label-md text-label-md text-on-primary transition-all hover:shadow-lg active:scale-[0.98] disabled:opacity-50"
               >
@@ -1922,6 +1942,19 @@ export default function BulkFireCampaignPage({
         lead={leads.find((l) => l.id === emailsLeadId) ?? null}
         onClose={() => setEmailsLeadId(null)}
         onSaved={() => loadLeads(leadsPage)}
+      />
+
+      <ConfirmDialog
+        open={confirmFireOpen}
+        onClose={() => setConfirmFireOpen(false)}
+        onConfirm={handleFire}
+        title={`Fire ${STEP_LABELS[fireStep]}?`}
+        description={
+          selectedIds.size > 0
+            ? `This sends real ${campaign?.channel === "whatsapp" ? "WhatsApp messages" : "emails"} to the ${selectedIds.size} selected lead${selectedIds.size === 1 ? "" : "s"} right now. This can't be undone.`
+            : `This sends real ${campaign?.channel === "whatsapp" ? "WhatsApp messages" : "emails"} to every eligible lead in this campaign right now — up to ${leadCount} lead${leadCount === 1 ? "" : "s"}. This can't be undone.`
+        }
+        confirmLabel={firing ? "Sending…" : "Fire"}
       />
 
       <Modal

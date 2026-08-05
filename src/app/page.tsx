@@ -408,7 +408,7 @@ export default function LandingPage() {
                   href={primaryHref}
                   className="group inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-primary-container px-6 text-[14px] font-semibold text-on-primary-container shadow-[0_10px_28px_-12px_rgba(15,118,110,0.5)] transition-[filter] hover:brightness-110"
                 >
-                  {user ? "Open your workspace" : "Get started free"}
+                  {user ? "Open your workspace" : "Get started"}
                   <span className="material-symbols-outlined text-[17px] transition-transform group-hover:translate-x-0.5">arrow_forward</span>
                 </Link>
                 <Link
