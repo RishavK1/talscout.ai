@@ -65,10 +65,21 @@ function Button({
   variant = "default",
   size = "default",
   asChild = false,
+  loading = false,
+  disabled,
+  children,
   ...props
 }: React.ComponentProps<"button"> &
   VariantProps<typeof buttonVariants> & {
     asChild?: boolean
+    /** Sets `disabled` and swaps in a spinner — the single place a mutation
+     *  button needs to guard against a double-click firing the request
+     *  twice, instead of every call site hand-rolling its own `disabled={x}`
+     *  (or, in practice, often forgetting to). Ignored when `asChild` is
+     *  set, since Slot requires exactly one child and can't also render a
+     *  spinner alongside it — asChild buttons are link/navigation triggers,
+     *  not mutations, so this doesn't come up in practice. */
+    loading?: boolean
   }) {
   const Comp = asChild ? Slot.Root : "button"
 
@@ -77,9 +88,23 @@ function Button({
       data-slot="button"
       data-variant={variant}
       data-size={size}
+      data-loading={loading || undefined}
       className={cn(buttonVariants({ variant, size, className }))}
+      disabled={disabled || loading}
       {...props}
-    />
+    >
+      {loading && !asChild ? (
+        <>
+          <span
+            aria-hidden="true"
+            className="size-3.5 shrink-0 animate-spin rounded-full border-2 border-current border-t-transparent opacity-70"
+          />
+          {children}
+        </>
+      ) : (
+        children
+      )}
+    </Comp>
   )
 }
 

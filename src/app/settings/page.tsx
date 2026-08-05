@@ -25,6 +25,7 @@ function WorkspaceCard({ workspaceName, tenantId }: { workspaceName: string; ten
   const { profile, refreshProfile } = useAuth();
   const [logoUrl, setLogoUrl] = useState<string | null>(profile?.logo || null);
   const [name, setName] = useState(workspaceName);
+  const [saving, setSaving] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -60,12 +61,15 @@ function WorkspaceCard({ workspaceName, tenantId }: { workspaceName: string; ten
   };
 
   const handleSave = async () => {
+    setSaving(true);
     try {
       await api.patch("/api/settings", { workspaceName: name });
       await refreshProfile(true);
       toast.success("Workspace name updated successfully");
     } catch (err: any) {
       toast.error("Failed to update workspace name: " + err.message);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -117,8 +121,8 @@ function WorkspaceCard({ workspaceName, tenantId }: { workspaceName: string; ten
           </div>
         </div>
         <div className="mt-10 flex justify-end">
-          <Button type="button" variant="gradient" size="lg" onClick={handleSave}>
-            Save changes
+          <Button type="button" variant="gradient" size="lg" onClick={handleSave} loading={saving}>
+            {saving ? "Saving…" : "Save changes"}
           </Button>
         </div>
       </CardContent>
