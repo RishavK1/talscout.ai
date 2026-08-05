@@ -25,12 +25,27 @@ export default function AuthCallbackPage() {
   // Detect OAuth errors / password-recovery links once, on mount.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+    // Supabase puts expired/invalid magic-link errors in the URL FRAGMENT,
+    // not the query string (e.g. #error=access_denied&error_code=otp_expired)
+    // — reading only `search` meant this case was never seen at all, so the
+    // user just sat on this spinner for the full 25s failsafe before getting
+    // a generic "please try again" with no indication the link had expired.
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
 
     // No session means the second effect's `!user` guard already skips any
     // redirect race, so we don't need separate error state here.
-    const err = params.get("error_description") || params.get("error");
+    const errCode = params.get("error_code") || hashParams.get("error_code");
+    const err =
+      params.get("error_description") ||
+      params.get("error") ||
+      hashParams.get("error_description") ||
+      hashParams.get("error");
     if (err) {
-      toast.error(decodeURIComponent(err));
+      const friendly =
+        errCode === "otp_expired"
+          ? "This sign-in link has expired. Please request a new one."
+          : decodeURIComponent(err.replace(/\+/g, " "));
+      toast.error(friendly);
       router.replace("/login");
       return;
     }
@@ -104,7 +119,7 @@ export default function AuthCallbackPage() {
       }
       return;
     }
-    const isActive = ["active", "trialing"].includes(profile.subscriptionStatus);
+    const isActive = ["active", "trialing", "past_due"].includes(profile.subscriptionStatus);
     router.replace(isActive ? "/dashboard" : "/onboarding/plan");
   }, [isRecovery, loading, user, profile, needsOnboarding, router]);
 

@@ -306,12 +306,33 @@ export default function ChoosePlanPage() {
         </div>
         {/* Actions */}
         <div className="flex flex-col md:flex-row items-center justify-between mt-12 pt-8 border-t border-border-low-alpha gap-4">
-          <Button asChild variant="ghost">
-            <Link href="/onboarding/workspace">
-              <span className="material-symbols-outlined text-sm" data-icon="arrow_back">arrow_back</span>
-              <span>Back</span>
-            </Link>
-          </Button>
+          {/* A returning user (existing billing history — lapsed card, a
+           *  cancelled subscription) isn't "setting up a workspace" anymore,
+           *  so send them to billing/support instead of looping them back
+           *  into new-signup onboarding, which was this page's only exit. */}
+          {currentPlan ? (
+            <div className="flex items-center gap-4">
+              <Button asChild variant="ghost">
+                <Link href="/billing">
+                  <span className="material-symbols-outlined text-sm" data-icon="arrow_back">arrow_back</span>
+                  <span>Back to billing</span>
+                </Link>
+              </Button>
+              <a
+                href="mailto:support@talscout.ai"
+                className="font-label-md text-label-md text-text-muted transition-colors hover:text-primary"
+              >
+                Need something else? Contact support
+              </a>
+            </div>
+          ) : (
+            <Button asChild variant="ghost">
+              <Link href="/onboarding/workspace">
+                <span className="material-symbols-outlined text-sm" data-icon="arrow_back">arrow_back</span>
+                <span>Back</span>
+              </Link>
+            </Button>
+          )}
           <Button
             type="button"
             disabled={loading || !isUpgrade()}

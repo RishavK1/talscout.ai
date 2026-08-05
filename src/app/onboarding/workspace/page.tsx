@@ -13,8 +13,6 @@ export default function SetUpWorkspacePage() {
   const router = useRouter();
   const { refreshProfile } = useAuth();
   const [agencyName, setAgencyName] = useState("");
-  const [workspaceUrl, setWorkspaceUrl] = useState("");
-  const [industry, setIndustry] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -84,33 +82,6 @@ export default function SetUpWorkspacePage() {
                 onChange={(e) => setAgencyName(e.target.value)}
                 disabled={loading}
               />
-            </div>
-            {/* Workspace URL */}
-            <div>
-              <label className="block font-label-md text-label-md text-on-surface mb-2" htmlFor="workspace_url">Workspace URL</label>
-              <div className="flex">
-                <span className="inline-flex items-center px-4 rounded-l-lg border border-r-0 border-outline-variant bg-surface-container-low font-body-md text-body-md text-on-surface-variant">
-                  recruit-iq.com/
-                </span>
-                <input className="flex-1 min-w-0 block w-full px-4 py-3 rounded-none rounded-r-lg bg-surface-bright border border-outline-variant font-body-md text-body-md text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors placeholder:text-outline-variant/60" id="workspace_url" name="workspace_url" placeholder="acme" type="text" value={workspaceUrl} onChange={(e) => setWorkspaceUrl(e.target.value)} disabled={loading} />
-              </div>
-            </div>
-            {/* Industry */}
-            <div>
-              <label className="block font-label-md text-label-md text-on-surface mb-2" htmlFor="industry">Primary Industry</label>
-              <div className="relative">
-                <select className="w-full bg-surface-bright border border-outline-variant rounded-lg px-4 py-3 font-body-md text-body-md text-on-surface appearance-none focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors cursor-pointer" id="industry" name="industry" value={industry} onChange={(e) => setIndustry(e.target.value)} disabled={loading}>
-                  <option disabled value="">Select an industry</option>
-                  <option value="tech">Technology &amp; Software</option>
-                  <option value="finance">Finance &amp; Banking</option>
-                  <option value="healthcare">Healthcare &amp; Medical</option>
-                  <option value="retail">Retail &amp; E-commerce</option>
-                  <option value="other">Other</option>
-                </select>
-                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-on-surface-variant">
-                  <span className="material-symbols-outlined" style={{ fontSize: "20px" }}>expand_more</span>
-                </div>
-              </div>
             </div>
             {/* Actions */}
             <div className="pt-4">
