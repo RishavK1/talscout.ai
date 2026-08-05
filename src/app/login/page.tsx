@@ -189,28 +189,12 @@ function LoginPageContent() {
           <div className="absolute bottom-0 left-0 w-80 h-80 bg-secondary-container rounded-full blur-[120px] opacity-20 translate-y-1/3 -translate-x-1/4 z-0"></div>
           {/* Content Area */}
           <div className="relative z-10 mt-auto mb-auto w-full max-w-lg">
-            <span className="material-symbols-outlined text-5xl text-secondary-container mb-8" style={{ fontVariationSettings: "'FILL' 1" }}>format_quote</span>
-            <h2 className="font-headline-lg text-headline-lg text-on-primary leading-tight mb-8">
-              &quot;TalScout didn&apos;t just speed up our hiring process; it gave us an entirely new level of insight into candidate potential. We&apos;re building better teams, faster.&quot;
+            <h2 className="font-headline-lg text-headline-lg text-on-primary leading-tight mb-6">
+              Two AI engines, one workspace.
             </h2>
-            <div className="flex items-center space-x-4 border-l-2 border-secondary-container pl-4">
-              <div>
-                <p className="font-label-md text-label-md text-on-primary">Sarah Jenkins</p>
-                <p className="font-body-md text-body-md text-on-primary-fixed-dim text-sm">Head of Talent Acquisition, TechFlow</p>
-              </div>
-            </div>
-          </div>
-          {/* Footer Stats or Info */}
-          <div className="relative z-10 w-full flex justify-between items-center pt-8 border-t border-on-primary/10 mt-12">
-            <div className="flex items-center space-x-2">
-              <span className="material-symbols-outlined text-secondary-fixed">verified</span>
-              <span className="font-data-mono text-data-mono text-on-primary-fixed">SOC2 Type II Certified</span>
-            </div>
-            <div className="flex space-x-4 opacity-70">
-              <span className="w-2 h-2 rounded-full bg-on-primary"></span>
-              <span className="w-2 h-2 rounded-full bg-on-primary opacity-30"></span>
-              <span className="w-2 h-2 rounded-full bg-on-primary opacity-30"></span>
-            </div>
+            <p className="font-body-md text-body-md text-on-primary-fixed-variant">
+              Outreach discovers businesses that fit what you sell and writes each a personal email. Talent turns your résumé pile into a database you can search in plain English. Run one, or run both.
+            </p>
           </div>
         </div>
       </div>

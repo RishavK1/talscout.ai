@@ -373,7 +373,7 @@ export default function AuditLogPage() {
                     </div>
                     <div>
                       <h4 className="font-label-md text-secondary font-bold mb-1">Compliance &amp; Auditing</h4>
-                      <p className="text-[13px] text-on-surface-variant leading-relaxed">This log is tamper-evident and SOC2 Type II compliant. Every entry is cryptographically signed at the time of creation to ensure the highest integrity of your organization&apos;s data.</p>
+                      <p className="text-[13px] text-on-surface-variant leading-relaxed">Candidate record changes, billing and plan updates, team invites and removals, and outreach campaign actions are all recorded here with who did it and when, so you always have a record for internal review.</p>
                     </div>
                   </div>
                 </CardContent>

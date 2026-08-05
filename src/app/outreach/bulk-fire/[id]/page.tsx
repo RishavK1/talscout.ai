@@ -958,11 +958,11 @@ export default function BulkFireCampaignPage({
               <Skeleton className="h-9 w-20 rounded-lg" />
             </div>
           </section>
-          <div className="mb-8 rounded-[20px] border border-border-low-alpha bg-white p-6 space-y-3">
+          <div className="mb-8 rounded-2xl border border-border-low-alpha bg-surface-white p-6 space-y-3">
             <Skeleton className="h-4 w-40" />
             <Skeleton className="h-2 w-full rounded-full" />
           </div>
-          <div className="rounded-[20px] border border-border-low-alpha bg-white overflow-hidden">
+          <div className="rounded-2xl border border-border-low-alpha bg-surface-white overflow-hidden">
             <div className="border-b border-border-low-alpha p-6">
               <Skeleton className="h-5 w-28" />
             </div>
@@ -1014,7 +1014,7 @@ export default function BulkFireCampaignPage({
                 type="button"
                 disabled={controlBusy}
                 onClick={() => runControl("pause")}
-                className="rounded-lg border border-border-low-alpha bg-white px-4 py-2 font-label-md text-label-md text-on-surface transition-colors hover:bg-surface-container-low disabled:opacity-50"
+                className="rounded-lg border border-border-low-alpha bg-surface-white px-4 py-2 font-label-md text-label-md text-on-surface transition-colors hover:bg-surface-container-low disabled:opacity-50"
               >
                 Pause
               </button>
@@ -1024,7 +1024,7 @@ export default function BulkFireCampaignPage({
                 type="button"
                 disabled={controlBusy}
                 onClick={() => runControl("resume")}
-                className="rounded-lg border border-border-low-alpha bg-white px-4 py-2 font-label-md text-label-md text-on-surface transition-colors hover:bg-surface-container-low disabled:opacity-50"
+                className="rounded-lg border border-border-low-alpha bg-surface-white px-4 py-2 font-label-md text-label-md text-on-surface transition-colors hover:bg-surface-container-low disabled:opacity-50"
               >
                 Resume
               </button>
@@ -1035,7 +1035,7 @@ export default function BulkFireCampaignPage({
                 type="button"
                 disabled={controlBusy}
                 onClick={() => runControl("stop")}
-                className="rounded-lg border border-error/20 bg-white px-4 py-2 font-label-md text-label-md text-error transition-colors hover:bg-error/5 disabled:opacity-50"
+                className="rounded-lg border border-error/20 bg-surface-white px-4 py-2 font-label-md text-label-md text-error transition-colors hover:bg-error/5 disabled:opacity-50"
               >
                 Stop
               </button>
@@ -1077,7 +1077,7 @@ export default function BulkFireCampaignPage({
               initial="hidden"
               animate="show"
               exit={{ opacity: 0 }}
-              className="mb-10 rounded-[20px] border border-border-low-alpha bg-white p-6"
+              className="mb-10 rounded-2xl border border-border-low-alpha bg-surface-white p-6"
             >
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="font-headline-md text-[18px] text-on-surface">
@@ -1174,7 +1174,7 @@ export default function BulkFireCampaignPage({
                 handleFiles(Array.from(e.dataTransfer.files));
             }}
             onClick={triggerBrowse}
-            className={`mb-4 flex cursor-pointer flex-col items-center justify-center rounded-[20px] border-2 border-dashed p-8 text-center transition-all ${
+            className={`mb-4 flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed p-8 text-center transition-all ${
               dragging
                 ? "border-primary bg-primary/5 scale-[1.005]"
                 : "border-border-low-alpha hover:border-primary/50"
@@ -1204,7 +1204,7 @@ export default function BulkFireCampaignPage({
           )}
 
           {leads.length === 0 ? (
-            <div className="rounded-[20px] border border-border-low-alpha bg-white p-8 text-center font-body-md text-on-surface-variant">
+            <div className="rounded-2xl border border-border-low-alpha bg-surface-white p-8 text-center font-body-md text-on-surface-variant">
               No leads imported yet.
             </div>
           ) : (
@@ -1215,7 +1215,7 @@ export default function BulkFireCampaignPage({
                   return (
                     <div
                       key={lead.id}
-                      className={`rounded-[20px] border border-border-low-alpha bg-white p-4 ${
+                      className={`rounded-2xl border border-border-low-alpha bg-surface-white p-4 ${
                         isSelected ? "border-primary/40 bg-primary/5" : ""
                       }`}
                     >
@@ -1290,7 +1290,7 @@ export default function BulkFireCampaignPage({
                       <button
                         type="button"
                         onClick={() => setEmailsLeadId(lead.id)}
-                        className="mt-3 flex min-h-10 w-full items-center justify-center rounded-lg border border-border-low-alpha bg-white px-3 py-2 font-label-md text-[12px] text-on-surface transition-colors hover:bg-surface-container-low"
+                        className="mt-3 flex min-h-10 w-full items-center justify-center rounded-lg border border-border-low-alpha bg-surface-white px-3 py-2 font-label-md text-[12px] text-on-surface transition-colors hover:bg-surface-container-low"
                       >
                         View emails
                       </button>
@@ -1299,7 +1299,7 @@ export default function BulkFireCampaignPage({
                 })}
               </div>
 
-              <div className="hidden overflow-x-auto rounded-[20px] border border-border-low-alpha bg-white md:block">
+              <div className="hidden overflow-x-auto rounded-2xl border border-border-low-alpha bg-surface-white md:block">
                 <table className="w-full text-left">
                   <thead className="border-b border-border-low-alpha bg-surface-container-low">
                     <tr>
@@ -1376,7 +1376,7 @@ export default function BulkFireCampaignPage({
                           <button
                             type="button"
                             onClick={() => setEmailsLeadId(lead.id)}
-                            className="rounded-lg border border-border-low-alpha bg-white px-3 py-1.5 font-label-md text-[11px] text-on-surface transition-colors hover:bg-surface-container-low"
+                            className="rounded-lg border border-border-low-alpha bg-surface-white px-3 py-1.5 font-label-md text-[11px] text-on-surface transition-colors hover:bg-surface-container-low"
                           >
                             View emails
                           </button>
@@ -1481,7 +1481,7 @@ export default function BulkFireCampaignPage({
             here since this is where you'd want them while building a
             sequence. */}
         {campaign.channel === "whatsapp" && (
-          <section className="mb-10 rounded-[20px] border border-border-low-alpha bg-white p-5">
+          <section className="mb-10 rounded-2xl border border-border-low-alpha bg-surface-white p-5">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="font-headline-md text-[16px] text-on-surface">
@@ -1502,7 +1502,7 @@ export default function BulkFireCampaignPage({
                     ? "Connect a WhatsApp sender first"
                     : undefined
                 }
-                className="rounded-lg border border-border-low-alpha bg-white px-4 py-2 font-label-md text-[12px] text-on-surface transition-colors hover:bg-surface-container-low disabled:opacity-50"
+                className="rounded-lg border border-border-low-alpha bg-surface-white px-4 py-2 font-label-md text-[12px] text-on-surface transition-colors hover:bg-surface-container-low disabled:opacity-50"
               >
                 + Submit template
               </button>
@@ -1553,7 +1553,7 @@ export default function BulkFireCampaignPage({
             as a shared default for leads that don't. For WhatsApp campaigns,
             "fallback" isn't quite right (there's no per-lead custom copy
             path), but the section still holds the one sequence that fires. */}
-        <section className="mb-10 rounded-[20px] border border-border-low-alpha bg-white">
+        <section className="mb-10 rounded-2xl border border-border-low-alpha bg-surface-white">
           <button
             type="button"
             onClick={() => setSequenceOpen((o) => !o)}
@@ -1606,7 +1606,7 @@ export default function BulkFireCampaignPage({
                           onClick={() => setActiveStep(i)}
                           className={`rounded-md px-3 py-1.5 font-label-md text-[12px] transition-colors ${
                             activeStep === i
-                              ? "bg-white text-primary shadow-sm"
+                              ? "bg-surface-white text-primary shadow-sm"
                               : "text-on-surface-variant hover:text-on-surface"
                           }`}
                         >
@@ -1721,7 +1721,7 @@ export default function BulkFireCampaignPage({
           })()}
 
         {/* Fire controls */}
-        <section className="mb-10 rounded-[20px] border border-border-low-alpha bg-white p-6">
+        <section className="mb-10 rounded-2xl border border-border-low-alpha bg-surface-white p-6">
           <h2 className="mb-4 font-headline-md text-[18px] text-on-surface">
             Send from
           </h2>
@@ -1767,7 +1767,7 @@ export default function BulkFireCampaignPage({
           </button>
         </section>
 
-        <section className="mb-10 rounded-[20px] border border-border-low-alpha bg-white p-6">
+        <section className="mb-10 rounded-2xl border border-border-low-alpha bg-surface-white p-6">
           <h2 className="mb-4 font-headline-md text-[18px] text-on-surface">
             Fire
           </h2>
@@ -1800,7 +1800,7 @@ export default function BulkFireCampaignPage({
                 type="button"
                 onClick={handleCancelScheduledFire}
                 disabled={cancelingSchedule}
-                className="rounded-lg border border-border-low-alpha bg-white px-4 py-2 font-label-md text-[12px] text-on-surface transition-colors hover:bg-surface-container-low disabled:opacity-50"
+                className="rounded-lg border border-border-low-alpha bg-surface-white px-4 py-2 font-label-md text-[12px] text-on-surface transition-colors hover:bg-surface-container-low disabled:opacity-50"
               >
                 {cancelingSchedule ? "Canceling…" : "Cancel schedule"}
               </button>

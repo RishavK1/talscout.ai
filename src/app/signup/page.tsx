@@ -231,37 +231,14 @@ export default function SignUpPage() {
           <div className="w-full h-full" style={{ backgroundImage: "radial-gradient(circle at 2px 2px, #FAF7F3 1px, transparent 0)", backgroundSize: "48px 48px" }}></div>
         </div>
         <div className="relative z-10 max-w-lg">
-          {/* AI Insight Badge Visual */}
-          <div className="mb-12 animate-fade-in-up">
-            <div className="inline-flex items-center gap-4 bg-on-primary/10 backdrop-blur-md p-4 pr-8 rounded-2xl border border-on-primary/10">
-              <div className="w-14 h-14 bg-secondary-container rounded-xl flex items-center justify-center shadow-lg">
-                <span className="font-data-mono text-secondary font-bold text-lg">94%</span>
-              </div>
-              <div>
-                <p className="text-bg-cream font-label-md text-label-md mb-0.5">AI Match Score</p>
-                <p className="text-on-primary/60 text-[12px] font-body-md">Precision Candidate Analysis</p>
-              </div>
-            </div>
-          </div>
-          {/* Testimonial */}
-          <blockquote className="space-y-8">
+          {/* Value proposition */}
+          <div className="space-y-8">
             <p className="font-headline-lg text-display-lg text-bg-cream leading-tight">
-              &quot;TalScout didn&apos;t just speed up our hiring process; it gave us an entirely new level of insight into candidate potential.&quot;
+              Two AI engines, one workspace.
             </p>
-            <footer className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-full border-2 border-white/20 flex items-center justify-center bg-surface-container-high text-primary font-headline-md">SJ</div>
-              <div>
-                <cite className="not-italic font-label-md text-label-md text-on-primary block">Sarah Jenkins</cite>
-                <span className="text-bg-cream/60 text-body-md font-body-md">Head of Talent @ TechFlow</span>
-              </div>
-            </footer>
-          </blockquote>
-          {/* Logo Anchor bottom */}
-          <div className="absolute bottom-12 left-16">
-            <div className="flex items-center gap-2 text-on-primary/40">
-              <span className="material-symbols-outlined text-[18px]">verified_user</span>
-              <span className="text-[12px] font-body-md uppercase tracking-widest">Enterprise Secured Recruitment</span>
-            </div>
+            <p className="font-body-md text-body-md text-on-primary/70">
+              Outreach discovers businesses that fit what you sell and writes each a personal email. Talent turns your résumé pile into a database you can search in plain English. Run one, or run both.
+            </p>
           </div>
         </div>
       </section>

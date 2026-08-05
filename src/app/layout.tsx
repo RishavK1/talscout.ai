@@ -127,9 +127,9 @@ export default async function RootLayout({
           position="bottom-right"
           toastOptions={{
             style: {
-              background: "#fff",
-              color: "#221a19",
-              border: "1px solid rgba(44,35,34,0.10)",
+              background: "var(--color-surface-white)",
+              color: "var(--color-on-surface)",
+              border: "1px solid var(--color-border-low-alpha)",
               borderRadius: "12px",
               fontFamily: "var(--font-be-vietnam), system-ui, sans-serif",
             },

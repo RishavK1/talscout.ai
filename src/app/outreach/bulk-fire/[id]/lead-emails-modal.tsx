@@ -126,7 +126,7 @@ export default function LeadEmailsModal({
                 onChange={(e) =>
                   updateStep(step.stepIndex, { subject: e.target.value })
                 }
-                className="mb-3 w-full rounded-lg border border-border-low-alpha bg-white px-3 py-2 font-body-md text-[13px] focus:outline-none focus:ring-1 focus:ring-primary"
+                className="mb-3 w-full rounded-lg border border-border-low-alpha bg-surface-white px-3 py-2 font-body-md text-[13px] focus:outline-none focus:ring-1 focus:ring-primary"
               />
               <label className="mb-1 block font-label-md text-[11px] uppercase tracking-wide text-on-surface-variant">
                 Body
@@ -137,7 +137,7 @@ export default function LeadEmailsModal({
                   updateStep(step.stepIndex, { body: e.target.value })
                 }
                 rows={5}
-                className="w-full resize-none rounded-lg border border-border-low-alpha bg-white px-3 py-2 font-body-md text-[13px] focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full resize-none rounded-lg border border-border-low-alpha bg-surface-white px-3 py-2 font-body-md text-[13px] focus:outline-none focus:ring-1 focus:ring-primary"
               />
             </div>
           ))}
@@ -147,7 +147,7 @@ export default function LeadEmailsModal({
         <button
           type="button"
           onClick={onClose}
-          className="rounded-lg border border-border-low-alpha bg-white px-4 py-2 font-label-md text-[12px] text-on-surface transition-colors hover:bg-surface-container-low"
+          className="rounded-lg border border-border-low-alpha bg-surface-white px-4 py-2 font-label-md text-[12px] text-on-surface transition-colors hover:bg-surface-container-low"
         >
           Cancel
         </button>
