@@ -293,7 +293,7 @@ export default function CandidatesPage() {
           <CardContent>
             <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
               <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-container/10 text-primary-container shrink-0">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-container/10 text-primary shrink-0">
                   <span className="material-symbols-outlined text-[22px]">groups</span>
                 </div>
                 <div>

@@ -83,10 +83,10 @@ type StatTone = "default" | "positive" | "negative" | "neutral";
 // One flat treatment across every stat, regardless of tone — the `tone` prop
 // stays (call sites still pass it) but no longer maps to a rainbow of colors.
 const STAT_TONES: Record<StatTone, string> = {
-  default: "bg-primary-container/10 text-primary-container",
-  positive: "bg-primary-container/10 text-primary-container",
-  negative: "bg-primary-container/10 text-primary-container",
-  neutral: "bg-primary-container/10 text-primary-container",
+  default: "bg-primary-container/10 text-primary",
+  positive: "bg-primary-container/10 text-primary",
+  negative: "bg-primary-container/10 text-primary",
+  neutral: "bg-primary-container/10 text-primary",
 };
 
 // Kept local (rather than promoted to a shared component) since it carries
@@ -480,7 +480,7 @@ function ChannelSectionHeader({
 }) {
   return (
     <div className="mb-6 flex items-start gap-3">
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-container/10 text-primary-container">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-container/10 text-primary">
         <span className="material-symbols-outlined text-[18px]">{icon}</span>
       </div>
       <div className="min-w-0">
@@ -617,7 +617,7 @@ export default function AnalyticsPage() {
       key: "replied",
       header: "Replied",
       render: (row) => (
-        <span className="font-data-mono text-data-mono text-tertiary-container">{row.replied}</span>
+        <span className="font-data-mono text-data-mono text-tertiary">{row.replied}</span>
       ),
     },
   ];
@@ -640,7 +640,7 @@ export default function AnalyticsPage() {
                   <h1 className="font-headline-lg text-headline-lg text-primary">
                     Outreach Analytics
                   </h1>
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-primary-container/10 px-3 py-1 font-label-md text-[12px] text-primary-container">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-primary-container/10 px-3 py-1 font-label-md text-[12px] text-primary">
                     <span className="relative flex h-2 w-2">
                       <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary-container opacity-50" />
                       <span className="relative inline-flex h-2 w-2 rounded-full bg-primary-container" />
@@ -770,7 +770,7 @@ export default function AnalyticsPage() {
                         </div>
                         <div className="flex items-center justify-between">
                           <span className="font-body-md text-body-md text-on-surface-variant">Replied</span>
-                          <span className="font-data-mono text-body-md text-tertiary-container">
+                          <span className="font-data-mono text-body-md text-tertiary">
                             {(totals?.replied ?? 0).toLocaleString()}
                             <span className="ml-1 text-[12px] text-on-surface-variant">({bulkReplyRate}%)</span>
                           </span>

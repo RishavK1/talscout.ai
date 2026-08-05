@@ -5,7 +5,7 @@ export default function NotFound() {
   return (
     <div className="flex min-h-dvh items-center justify-center bg-bg-cream px-4">
       <div className="w-full max-w-md rounded-2xl border border-border-low-alpha bg-surface-white p-8 text-center shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
-        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-primary-container/10 text-primary-container">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-primary-container/10 text-primary">
           <span className="material-symbols-outlined text-[24px]">search_off</span>
         </div>
         <h1 className="mt-4 font-headline-md text-headline-md text-on-surface">

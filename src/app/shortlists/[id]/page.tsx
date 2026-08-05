@@ -244,7 +244,7 @@ export default function ShortlistDetailPage({ params }: { params: Promise<{ id: 
           <CardContent>
             <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
               <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-container/10 text-primary-container shrink-0">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-container/10 text-primary shrink-0">
                   <span className="material-symbols-outlined text-[22px]">bookmark</span>
                 </div>
                 <div>

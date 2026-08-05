@@ -58,7 +58,7 @@ export default function BlueprintsPage() {
       header: "Name",
       render: (b) => (
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-container/10 text-primary-container">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-container/10 text-primary">
             <span className="material-symbols-outlined text-[18px]">description</span>
           </div>
           <span className="font-body-md text-[14px] font-medium text-on-surface">{b.name}</span>

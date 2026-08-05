@@ -36,7 +36,7 @@ const INTENT_META: Record<
   interested: {
     label: "Interested",
     icon: "thumb_up",
-    className: "bg-tertiary-fixed/20 text-tertiary-container",
+    className: "bg-tertiary-fixed/20 text-tertiary",
   },
   not_interested: {
     label: "Not interested",
@@ -46,7 +46,7 @@ const INTENT_META: Record<
   referral: {
     label: "Referral",
     icon: "forward",
-    className: "bg-primary-container/10 text-primary-container",
+    className: "bg-primary-container/10 text-primary",
   },
   unclear: {
     label: "Unclear",
@@ -176,7 +176,7 @@ export default function AutomatedRepliesPage() {
           >
             <CardHeader className="shrink-0 border-b border-border-low-alpha px-4 py-4 sm:px-5 sm:py-5">
               <div className="flex items-center gap-2.5">
-                <div className="rounded-xl bg-primary-container/10 p-2 text-primary-container">
+                <div className="rounded-xl bg-primary-container/10 p-2 text-primary">
                   <span className="material-symbols-outlined text-[20px]">forum</span>
                 </div>
                 <div>
@@ -218,7 +218,7 @@ export default function AutomatedRepliesPage() {
                         : "hover:bg-tertiary-fixed/5",
                     )}
                   >
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-container/10 text-primary-container">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-container/10 text-primary">
                       <span className="material-symbols-outlined text-[18px]">mail</span>
                     </div>
                     <div className="min-w-0 flex-1">
@@ -300,7 +300,7 @@ export default function AutomatedRepliesPage() {
                   <CardHeader>
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="flex items-center gap-2.5">
-                        <div className="rounded-lg bg-primary-container/10 p-1.5 text-primary-container">
+                        <div className="rounded-lg bg-primary-container/10 p-1.5 text-primary">
                           <span className="material-symbols-outlined text-[18px]">auto_awesome</span>
                         </div>
                         <CardTitle className="font-body-md text-[16px] font-semibold text-primary">
@@ -312,7 +312,7 @@ export default function AutomatedRepliesPage() {
                           className={cn(
                             "inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-label-md text-[11px] font-semibold",
                             confidence >= 0.7
-                              ? "bg-tertiary-fixed/20 text-tertiary-container"
+                              ? "bg-tertiary-fixed/20 text-tertiary"
                               : "bg-surface-container-high text-on-surface-variant",
                           )}
                         >

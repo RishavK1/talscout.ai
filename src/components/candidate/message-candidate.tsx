@@ -87,7 +87,7 @@ export function MessageCandidate({
       >
         {sent ? (
           <div className="py-4 text-center">
-            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-tertiary-fixed/20 text-tertiary-container">
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-tertiary-fixed/20 text-tertiary">
               <span className="material-symbols-outlined">send</span>
             </div>
             <p className="font-headline-md text-[18px] text-primary serif-text">

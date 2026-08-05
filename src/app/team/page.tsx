@@ -218,7 +218,7 @@ export default function TeamSeatsPage() {
               Candidates/Billing, instead of a bare unwrapped div. */}
           <Card className="mb-8 border border-border-low-alpha bg-surface-white [--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
             <CardContent className="flex items-center gap-4">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary-container/10 text-primary-container">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary-container/10 text-primary">
                 <span className="material-symbols-outlined text-[24px]">groups</span>
               </div>
               <div>
@@ -333,7 +333,7 @@ export default function TeamSeatsPage() {
           {/* Additional Help/Links */}
           <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="rounded-xl border border-border-low-alpha bg-surface-white p-6">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-container/10 text-primary-container mb-4">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-container/10 text-primary mb-4">
                 <span className="material-symbols-outlined text-[20px]">security</span>
               </div>
               <h4 className="text-[18px] font-semibold text-primary mb-2">Role Permissions</h4>
@@ -341,7 +341,7 @@ export default function TeamSeatsPage() {
               <Link className="mt-4 inline-block font-label-md text-label-md text-secondary font-semibold hover:underline" href="/settings">Read documentation →</Link>
             </div>
             <div className="rounded-xl border border-border-low-alpha bg-surface-white p-6">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-container/10 text-primary-container mb-4">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-container/10 text-primary mb-4">
                 <span className="material-symbols-outlined text-[20px]">account_balance_wallet</span>
               </div>
               <h4 className="text-[18px] font-semibold text-primary mb-2">Billing &amp; Seats</h4>
@@ -349,7 +349,7 @@ export default function TeamSeatsPage() {
               <Link className="mt-4 inline-block font-label-md text-label-md text-secondary font-semibold hover:underline" href="/billing">Manage billing →</Link>
             </div>
             <div className="rounded-xl border border-border-low-alpha bg-surface-white p-6">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-container/10 text-primary-container mb-4">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-container/10 text-primary mb-4">
                 <span className="material-symbols-outlined text-[20px]">history_edu</span>
               </div>
               <h4 className="text-[18px] font-semibold text-primary mb-2">Activity Audit Log</h4>

@@ -120,11 +120,11 @@ export default function SignUpPage() {
       <section className="w-full lg:flex-[0.55] bg-bg-cream flex items-center justify-center p-4 sm:p-6 relative overflow-y-auto">
         {/* Auth Card */}
         <div className="w-full max-w-[480px] bg-surface-white rounded-xl p-10 shadow-[0_10px_40px_rgba(44,35,34,0.06)] border border-border-low-alpha">
-          {/* Logo Cluster */}
-          <Link href="/" className="flex items-center gap-2 mb-8">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-              <span className="material-symbols-outlined text-on-primary text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>psychology</span>
-            </div>
+          {/* Logo — same icon (travel_explore) and chip as the main site nav */}
+          <Link href="/" className="flex items-center gap-2.5 mb-8">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-container text-on-primary-container shadow-sm">
+              <span className="material-symbols-outlined text-[20px]">travel_explore</span>
+            </span>
             <span className="font-headline-md text-headline-md text-primary tracking-tight">TalScout</span>
           </Link>
           {/* Header */}
@@ -224,19 +224,24 @@ export default function SignUpPage() {
           </div>
         </div>
       </section>
-      {/* Right Panel (45%): Brand & Social Proof */}
-      <section className="lg:flex-[0.45] bg-primary relative hidden lg:flex items-center justify-center px-16">
+      {/* Right Panel (45%): Brand panel. Uses the SAME token pair as
+       *  /login's brand panel (`bg-primary-container` + `text-on-primary-container`)
+       *  — it previously used `bg-primary`, which is a light sage in dark
+       *  mode, so the two auth pages rendered visibly different panel
+       *  colors, and its `text-bg-cream` / `text-on-primary` foregrounds
+       *  didn't track the background in either mode. */}
+      <section className="lg:flex-[0.45] bg-primary-container text-on-primary-container relative hidden lg:flex items-center justify-center px-16">
         {/* Decorative background pattern */}
         <div className="absolute inset-0 opacity-10 pointer-events-none">
-          <div className="w-full h-full" style={{ backgroundImage: "radial-gradient(circle at 2px 2px, #FAF7F3 1px, transparent 0)", backgroundSize: "48px 48px" }}></div>
+          <div className="w-full h-full" style={{ backgroundImage: "radial-gradient(circle at 2px 2px, currentColor 1px, transparent 0)", backgroundSize: "48px 48px" }}></div>
         </div>
         <div className="relative z-10 max-w-lg">
           {/* Value proposition */}
           <div className="space-y-8">
-            <p className="font-headline-lg text-display-lg text-bg-cream leading-tight">
+            <p className="font-headline-lg text-headline-lg text-on-primary-container leading-tight">
               Two AI engines, one workspace.
             </p>
-            <p className="font-body-md text-body-md text-on-primary/70">
+            <p className="font-body-md text-body-md text-on-primary-container/75">
               Outreach discovers businesses that fit what you sell and writes each a personal email. Talent turns your résumé pile into a database you can search in plain English. Run one, or run both.
             </p>
           </div>

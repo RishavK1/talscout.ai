@@ -457,7 +457,7 @@ export default function BulkFirePage() {
       header: "Campaign",
       render: (c) => (
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-container/10 text-primary-container">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-container/10 text-primary">
             <span className="material-symbols-outlined text-[18px]">
               {c.channel === "whatsapp" ? "chat" : "mail"}
             </span>

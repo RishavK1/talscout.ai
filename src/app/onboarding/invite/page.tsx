@@ -65,13 +65,13 @@ export default function InviteTeamOnboardingPage() {
   };
   return (
     <div className="min-h-screen flex flex-col bg-bg-cream font-body-md text-body-md">
-      {/* Top Logo Section */}
+      {/* Top Logo Section — same icon (travel_explore) and chip as the main site nav */}
       <header className="w-full flex justify-center pt-12 pb-8">
-        <Link
-          href="/"
-          className="font-headline-lg text-headline-md text-primary tracking-tight"
-        >
-          TalScout
+        <Link href="/" className="flex items-center gap-2.5">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-container text-on-primary-container shadow-sm">
+            <span className="material-symbols-outlined text-[20px]">travel_explore</span>
+          </span>
+          <span className="font-headline-lg text-headline-md text-primary tracking-tight">TalScout</span>
         </Link>
       </header>
 

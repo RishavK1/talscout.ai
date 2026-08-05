@@ -80,7 +80,7 @@ function SectionCard({
     <Card className="border border-border-low-alpha bg-surface-white [--card-spacing:--spacing(6)]">
       <CardHeader>
         <CardTitle className="flex items-center gap-2.5 font-sans font-semibold text-[16px] text-primary">
-          <span className="flex items-center justify-center rounded-lg bg-primary-container/10 p-1.5 text-primary-container">
+          <span className="flex items-center justify-center rounded-lg bg-primary-container/10 p-1.5 text-primary">
             <span className="material-symbols-outlined text-[18px]">{icon}</span>
           </span>
           {title}
@@ -345,7 +345,7 @@ export default function BlueprintDetailPage({
                   <ul className="space-y-1">
                     {s.proof.map((p, i) => (
                       <li key={i} className="flex gap-2">
-                        <span className="material-symbols-outlined text-tertiary-container text-[16px] mt-0.5">
+                        <span className="material-symbols-outlined text-tertiary text-[16px] mt-0.5">
                           check_circle
                         </span>
                         <span>

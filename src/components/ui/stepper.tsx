@@ -20,7 +20,7 @@ export function Stepper({ steps, currentStep }: StepperProps) {
               className={cn(
                 "flex h-9 w-9 shrink-0 items-center justify-center rounded-full font-label-md text-label-md transition-colors",
                 i < currentStep
-                  ? "bg-primary-container/20 text-primary-container"
+                  ? "bg-primary-container/20 text-primary"
                   : i === currentStep
                     ? "bg-primary-container text-on-primary"
                     : "bg-surface-container text-on-surface-variant",

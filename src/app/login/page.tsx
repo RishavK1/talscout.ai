@@ -102,25 +102,31 @@ function LoginPageContent() {
         {/* Left Side: Login Form */}
         <div className="w-full lg:w-1/2 p-6 sm:p-12 lg:p-24 flex flex-col justify-center relative bg-surface-white z-10">
           <div className="max-w-md w-full mx-auto space-y-8">
-            {/* Logo */}
-            <Link href="/" className="flex items-center space-x-2 text-primary">
-              <span className="material-symbols-outlined text-3xl" style={{ fontVariationSettings: "'FILL' 1" }}>work</span>
-              <span className="font-headline-lg text-headline-lg font-bold tracking-tight">TalScout</span>
+            {/* Logo — same icon (travel_explore) and chip as the main site nav */}
+            <Link href="/" className="flex items-center gap-2.5">
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-container text-on-primary-container shadow-sm">
+                <span className="material-symbols-outlined text-[20px]">travel_explore</span>
+              </span>
+              <span className="font-headline-md text-headline-md text-primary tracking-tight">TalScout</span>
             </Link>
             {/* Headers */}
             <div className="space-y-2">
-              <h1 className="font-display-lg text-display-lg text-on-surface">Welcome back</h1>
-              <p className="font-body-lg text-body-lg text-on-surface-variant">Log in to continue transforming your recruitment process.</p>
+              <h1 className="font-headline-lg text-headline-lg text-on-surface">Welcome back</h1>
+              <p className="font-body-md text-body-md text-on-surface-variant">Log in to continue transforming your recruitment process.</p>
             </div>
             {/* Google Auth */}
             <button
               type="button"
               onClick={handleGoogleSignIn}
-              className="w-full flex items-center justify-center space-x-3 py-3 px-4 border border-outline-variant rounded-lg hover:bg-surface-container-lowest transition-colors text-on-surface font-label-md text-label-md group relative overflow-hidden"
+              className="w-full flex items-center justify-center gap-3 py-3 px-4 border border-outline-variant rounded-lg font-label-md text-label-md text-on-surface hover:bg-surface-container-low transition-colors"
             >
-              <span className="material-symbols-outlined text-xl z-10">login</span>
-              <span className="z-10">Continue with Google</span>
-              <div className="absolute inset-0 bg-surface-container opacity-0 group-hover:opacity-100 transition-opacity z-0"></div>
+              <svg height="18" viewBox="0 0 18 18" width="18" aria-hidden="true">
+                <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z" fill="#4285F4" />
+                <path d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853" />
+                <path d="M3.964 10.707c-.18-.54-.282-1.117-.282-1.707s.102-1.167.282-1.707V4.961H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.039l3.007-2.332z" fill="#FBBC05" />
+                <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.443 2.048.957 4.961l3.007 2.332C4.672 5.164 6.656 3.58 9 3.58z" fill="#EA4335" />
+              </svg>
+              Continue with Google
             </button>
             {/* Divider */}
             <div className="relative flex items-center py-4">
@@ -151,7 +157,7 @@ function LoginPageContent() {
                       setForgotEmail(email);
                       setForgotOpen(true);
                     }}
-                    className="font-label-md text-label-md text-primary hover:text-primary-container transition-colors"
+                    className="font-label-md text-label-md text-primary underline-offset-2 transition-[filter] hover:underline hover:brightness-110"
                   >
                     Forgot password?
                   </button>
@@ -180,19 +186,26 @@ function LoginPageContent() {
             </div>
           </div>
         </div>
-        {/* Right Side: Brand Panel */}
-        <div className="hidden lg:flex w-1/2 bg-primary-container text-on-primary relative overflow-hidden flex-col justify-between p-16 lg:p-24 items-start">
+        {/* Right Side: Brand Panel. Background and foreground MUST come from
+         *  the same token family — `bg-primary-container` pairs with
+         *  `text-on-primary-container`. Pairing it with `text-on-primary`
+         *  (near-black in dark mode) or `text-on-primary-fixed-variant`
+         *  (dark teal in light mode) put low-contrast text on a teal panel
+         *  in one mode or the other. Decorative glows use the foreground
+         *  token at low opacity so they stay subtle in both modes instead
+         *  of washing the panel out with a light-sage `bg-primary` blur. */}
+        <div className="hidden lg:flex w-1/2 bg-primary-container text-on-primary-container relative overflow-hidden flex-col justify-between p-16 lg:p-24 items-start">
           {/* Abstract Pattern Overlay */}
           <div className="absolute inset-0 bg-pattern opacity-20 z-0"></div>
           {/* Decorative Elements */}
-          <div className="absolute top-0 right-0 w-96 h-96 bg-primary rounded-full blur-[100px] opacity-50 -translate-y-1/2 translate-x-1/4 z-0"></div>
-          <div className="absolute bottom-0 left-0 w-80 h-80 bg-secondary-container rounded-full blur-[120px] opacity-20 translate-y-1/3 -translate-x-1/4 z-0"></div>
+          <div className="absolute top-0 right-0 w-96 h-96 bg-on-primary-container/10 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/4 z-0"></div>
+          <div className="absolute bottom-0 left-0 w-80 h-80 bg-on-primary-container/[0.07] rounded-full blur-[120px] translate-y-1/3 -translate-x-1/4 z-0"></div>
           {/* Content Area */}
           <div className="relative z-10 mt-auto mb-auto w-full max-w-lg">
-            <h2 className="font-headline-lg text-headline-lg text-on-primary leading-tight mb-6">
+            <h2 className="font-headline-lg text-headline-lg text-on-primary-container leading-tight mb-6">
               Two AI engines, one workspace.
             </h2>
-            <p className="font-body-md text-body-md text-on-primary-fixed-variant">
+            <p className="font-body-md text-body-md text-on-primary-container/75">
               Outreach discovers businesses that fit what you sell and writes each a personal email. Talent turns your résumé pile into a database you can search in plain English. Run one, or run both.
             </p>
           </div>

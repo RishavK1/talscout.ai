@@ -88,7 +88,7 @@ export default function ShortlistsPage() {
       header: "Name",
       render: (s) => (
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-container/10 text-primary-container">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-container/10 text-primary">
             <span className="material-symbols-outlined text-[18px]">bookmarks</span>
           </div>
           <span className="font-body-md text-[14px] font-medium text-on-surface">{s.name}</span>
@@ -164,7 +164,7 @@ export default function ShortlistsPage() {
               ].map((stat) => (
                 <Card key={stat.label} className="[--card-spacing:--spacing(5)]">
                   <CardContent className="flex items-center gap-3">
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary-container/10 text-primary-container">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary-container/10 text-primary">
                       <span className="material-symbols-outlined text-[20px]">{stat.icon}</span>
                     </div>
                     <div>

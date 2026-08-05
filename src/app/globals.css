@@ -275,6 +275,13 @@
   --color-outline: #777e7d;
   --color-outline-variant: #30373b;
   --color-border-low-alpha: rgba(236, 240, 237, 0.1);
+  /* Light mode's --color-error (#ba1a1a) and --color-on-error (#ffffff) had
+     no dark override — a medium-dark red designed for use as solid fill on
+     WHITE stayed unchanged in dark mode, so text-error/border-error read as
+     dark red on near-black (~2.8:1) everywhere: analytics' failed/bounced
+     columns, error banners, destructive text buttons. */
+  --color-error: #ffb4ab;
+  --color-on-error: #690005;
   --color-error-container: #451a1a;
   --color-on-error-container: #fecaca;
   --muted-action: #1c2227;

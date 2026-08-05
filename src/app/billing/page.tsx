@@ -227,7 +227,7 @@ export default function BillingPage() {
       <main className="pt-8 sm:pt-12 lg:pt-24 px-4 sm:px-6 lg:px-12 pb-12 sm:pb-16 lg:pb-24 max-w-[1440px] mx-auto w-full">
         {/* Header */}
         <header className="mb-10 flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary-container/10 text-primary-container">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary-container/10 text-primary">
             <span className="material-symbols-outlined text-[24px]">credit_card</span>
           </div>
           <div>
@@ -306,7 +306,7 @@ export default function BillingPage() {
               <Card className="overflow-hidden">
                 <div className="px-6 py-6 border-b border-border-low-alpha flex justify-between items-center gap-3">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-container/10 text-primary-container">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-container/10 text-primary">
                       <span className="material-symbols-outlined text-[18px]">receipt_long</span>
                     </div>
                     <h2 className="font-headline-md text-headline-md text-on-surface">Invoice History</h2>
@@ -334,7 +334,7 @@ export default function BillingPage() {
             2-card row sitting alone in a wide canvas. */}
         <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="rounded-xl border border-border-low-alpha bg-surface-white p-6">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-container/10 text-primary-container mb-4">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-container/10 text-primary mb-4">
               <span className="material-symbols-outlined text-[20px]">groups</span>
             </div>
             <h4 className="text-[18px] font-semibold text-primary mb-2">Team &amp; Seats</h4>
@@ -342,7 +342,7 @@ export default function BillingPage() {
             <Link className="mt-4 inline-block font-label-md text-label-md text-secondary font-semibold hover:underline" href="/team">Manage team →</Link>
           </div>
           <div className="rounded-xl border border-border-low-alpha bg-surface-white p-6">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-container/10 text-primary-container mb-4">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-container/10 text-primary mb-4">
               <span className="material-symbols-outlined text-[20px]">history_edu</span>
             </div>
             <h4 className="text-[18px] font-semibold text-primary mb-2">Billing Activity</h4>
@@ -350,7 +350,7 @@ export default function BillingPage() {
             <Link className="mt-4 inline-block font-label-md text-label-md text-secondary font-semibold hover:underline" href="/audit">View audit log →</Link>
           </div>
           <div className="rounded-xl border border-border-low-alpha bg-surface-white p-6">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-container/10 text-primary-container mb-4">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-container/10 text-primary mb-4">
               <span className="material-symbols-outlined text-[20px]">support_agent</span>
             </div>
             <h4 className="text-[18px] font-semibold text-primary mb-2">Questions about your plan?</h4>

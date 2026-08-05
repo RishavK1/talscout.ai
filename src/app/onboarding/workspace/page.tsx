@@ -39,9 +39,12 @@ export default function SetUpWorkspacePage() {
 
   return (
     <div className="bg-bg-cream min-h-screen flex items-center justify-center font-body-md text-on-surface antialiased p-4 sm:p-6 md:p-12">
-      {/* Top Left Brand */}
+      {/* Top Left Brand — same icon (travel_explore) and chip as the main site nav */}
       <div className="fixed top-6 left-6 lg:top-12 lg:left-12 hidden md:block">
-        <Link href="/">
+        <Link href="/" className="flex items-center gap-2.5">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-container text-on-primary-container shadow-sm">
+            <span className="material-symbols-outlined text-[20px]">travel_explore</span>
+          </span>
           <h1 className="font-headline-md text-headline-md text-primary tracking-tight">TalScout</h1>
         </Link>
       </div>

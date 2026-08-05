@@ -120,10 +120,13 @@ export default function ChoosePlanPage() {
 
   return (
     <main className="bg-bg-cream w-full max-w-[1000px] mx-auto min-h-screen flex flex-col items-center justify-center py-12 sm:py-16 lg:py-20 px-4 sm:px-6">
-      {/* Logo/Header */}
+      {/* Logo — same icon (travel_explore) and chip as the main site nav */}
       <div className="flex justify-center mb-12">
-        <Link href="/" className="font-headline-lg text-headline-lg text-primary tracking-tight">
-          TalScout
+        <Link href="/" className="flex items-center gap-2.5">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-container text-on-primary-container shadow-sm">
+            <span className="material-symbols-outlined text-[20px]">travel_explore</span>
+          </span>
+          <span className="font-headline-lg text-headline-lg text-primary tracking-tight">TalScout</span>
         </Link>
       </div>
       {/* Onboarding Step Indicator */}
@@ -218,7 +221,7 @@ export default function ChoosePlanPage() {
                   </div>
                 ) : isSelected ? (
                   <div className="absolute top-4 right-4 h-5 w-5 rounded-full bg-primary flex items-center justify-center">
-                    <div className="h-2 w-2 rounded-full bg-white"></div>
+                    <div className="h-2 w-2 rounded-full bg-on-primary"></div>
                   </div>
                 ) : (
                   <div className="absolute top-4 right-4 h-5 w-5 rounded-full border-2 border-outline group-hover:border-primary transition-colors flex items-center justify-center"></div>

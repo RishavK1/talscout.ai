@@ -234,7 +234,7 @@ export default function AuditLogPage() {
           <div className="space-y-8">
             {/* Header */}
             <section className="flex items-center gap-4">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary-container/10 text-primary-container">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary-container/10 text-primary">
                 <span className="material-symbols-outlined text-[24px]">history_edu</span>
               </div>
               <div>
@@ -355,7 +355,7 @@ export default function AuditLogPage() {
               <Card>
                 <CardContent>
                   <div className="flex items-start gap-4">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary-container/10 text-primary-container">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary-container/10 text-primary">
                       <span className="material-symbols-outlined text-[20px]">verified_user</span>
                     </div>
                     <div>
@@ -368,7 +368,7 @@ export default function AuditLogPage() {
               <Card>
                 <CardContent>
                   <div className="flex items-start gap-4">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary-container/10 text-primary-container">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary-container/10 text-primary">
                       <span className="material-symbols-outlined text-[20px]">security</span>
                     </div>
                     <div>

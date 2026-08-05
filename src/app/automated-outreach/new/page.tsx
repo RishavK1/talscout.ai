@@ -215,7 +215,7 @@ export default function NewAutomatedCampaignPage() {
                 <Card className="border border-border-low-alpha bg-surface-white [--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
                   <CardHeader>
                     <div className="flex items-center gap-3">
-                      <div className="rounded-xl bg-primary-container/10 p-2 text-primary-container">
+                      <div className="rounded-xl bg-primary-container/10 p-2 text-primary">
                         <span className="material-symbols-outlined text-[20px]">rocket_launch</span>
                       </div>
                       <CardTitle className="font-body-md text-headline-md font-semibold text-primary">
@@ -326,7 +326,7 @@ export default function NewAutomatedCampaignPage() {
                   <Card className="border border-border-low-alpha bg-surface-white [--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
                     <CardHeader>
                       <div className="flex items-center gap-3">
-                        <div className="rounded-xl bg-primary-container/10 p-2 text-primary-container">
+                        <div className="rounded-xl bg-primary-container/10 p-2 text-primary">
                           <span className="material-symbols-outlined text-[20px]">travel_explore</span>
                         </div>
                         <CardTitle className="font-body-md text-headline-md font-semibold text-primary">
@@ -401,7 +401,7 @@ export default function NewAutomatedCampaignPage() {
                   <Card className="border-2 border-primary-container/30 bg-primary-container/[0.03] [--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
                     <CardContent>
                       <div className="mb-3 flex items-center gap-2.5">
-                        <div className="rounded-lg bg-primary-container/10 p-1.5 text-primary-container">
+                        <div className="rounded-lg bg-primary-container/10 p-1.5 text-primary">
                           <span className="material-symbols-outlined text-[18px]">auto_awesome</span>
                         </div>
                         <h3 className="font-sans font-semibold text-[16px] text-on-surface">
@@ -492,7 +492,7 @@ export default function NewAutomatedCampaignPage() {
                   <Card className="[--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
                     <CardHeader>
                       <div className="flex items-center gap-3">
-                        <div className="rounded-xl bg-primary-container/10 p-2 text-primary-container">
+                        <div className="rounded-xl bg-primary-container/10 p-2 text-primary">
                           <span className="material-symbols-outlined text-[20px]">signature</span>
                         </div>
                         <CardTitle className="font-body-md text-headline-md font-semibold text-primary">
@@ -582,7 +582,7 @@ export default function NewAutomatedCampaignPage() {
                   <Card className="[--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
                     <CardHeader>
                       <div className="flex items-center gap-3">
-                        <div className="rounded-xl bg-primary-container/10 p-2 text-primary-container">
+                        <div className="rounded-xl bg-primary-container/10 p-2 text-primary">
                           <span className="material-symbols-outlined text-[20px]">fact_check</span>
                         </div>
                         <CardTitle className="font-body-md text-headline-md font-semibold text-primary">
@@ -615,7 +615,7 @@ export default function NewAutomatedCampaignPage() {
                       <div className="flex items-start justify-between gap-4">
                         <div>
                           <div className="mb-1 flex items-center gap-3">
-                            <div className="rounded-xl bg-primary-container/10 p-2 text-primary-container">
+                            <div className="rounded-xl bg-primary-container/10 p-2 text-primary">
                               <span className="material-symbols-outlined text-[20px]">forum</span>
                             </div>
                             <h2 className="font-body-md text-headline-md font-semibold text-primary">

@@ -27,7 +27,7 @@ export function PageHeaderCard({
     <Card className="mb-6 border border-border-low-alpha bg-surface-white [--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
       <CardContent className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between sm:gap-8">
         <div className="flex items-start gap-4">
-          <div className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary-container/10 text-primary-container sm:flex">
+          <div className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary-container/10 text-primary sm:flex">
             <span className="material-symbols-outlined">{icon}</span>
           </div>
           <div className="space-y-1.5">

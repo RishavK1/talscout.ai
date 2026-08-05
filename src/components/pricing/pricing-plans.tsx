@@ -152,7 +152,7 @@ export function PricingPlans() {
               {loadingPlan ? (
                 <button
                   disabled
-                  className="w-full py-3 rounded-lg bg-surface-container-high text-on-surface-variant/40 font-label-md text-label-md text-center cursor-not-allowed border border-border-low-alpha flex items-center justify-center gap-2"
+                  className="w-full py-3 rounded-lg bg-surface-container-high text-on-surface-variant font-label-md text-label-md text-center cursor-not-allowed border border-border-low-alpha flex items-center justify-center gap-2"
                 >
                   <span className="w-4 h-4 border-2 border-primary/20 border-t-primary rounded-full animate-spin"></span>
                   Checking status...
@@ -160,7 +160,7 @@ export function PricingPlans() {
               ) : isDisabled ? (
                 <button
                   disabled
-                  className="w-full py-3 rounded-lg bg-surface-container-high text-on-surface-variant/40 font-label-md text-label-md text-center cursor-not-allowed border border-border-low-alpha"
+                  className="w-full py-3 rounded-lg bg-surface-container-high text-on-surface-variant font-label-md text-label-md text-center cursor-not-allowed border border-border-low-alpha"
                 >
                   {buttonText}
                 </button>

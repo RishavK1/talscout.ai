@@ -112,7 +112,7 @@ function WorkspaceCard({ workspaceName, tenantId }: { workspaceName: string; ten
                   <span className="material-symbols-outlined text-outline text-[40px]">image</span>
                 )}
                 {/* Hover Overlay */}
-                <div className="absolute inset-0 bg-primary/60 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center text-white transition-opacity duration-200">
+                <div className="absolute inset-0 bg-primary-container/70 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center text-on-primary-container transition-opacity duration-200">
                   <span className="material-symbols-outlined text-[24px]">upload</span>
                   <span className="text-[10px] font-label-md uppercase tracking-wider mt-1">Upload</span>
                 </div>
@@ -203,7 +203,7 @@ function ProfileCard({ email, userId }: { email: string; userId: string }) {
                   initials
                 )}
                 {/* Hover Overlay */}
-                <div className="absolute inset-0 bg-primary/60 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center text-white transition-opacity duration-200">
+                <div className="absolute inset-0 bg-primary-container/70 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center text-on-primary-container transition-opacity duration-200">
                   <span className="material-symbols-outlined text-[20px]">add_a_photo</span>
                   <span className="text-[9px] font-label-md uppercase tracking-wider mt-1">Change</span>
                 </div>
@@ -313,7 +313,7 @@ function SecurityCard() {
               <div className="bg-bg-cream/40 rounded-xl p-4">
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-container/10 text-primary-container">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-container/10 text-primary">
                       <span className="material-symbols-outlined text-[18px]">devices</span>
                     </div>
                     <div>
@@ -567,7 +567,7 @@ function DeveloperCard({ plan }: { plan: string }) {
       <Card className="text-center [--card-spacing:--spacing(8)] sm:[--card-spacing:--spacing(12)]">
         <CardContent>
           <div className="max-w-md mx-auto py-8">
-            <div className="w-16 h-16 rounded-2xl bg-primary-container/10 text-primary-container flex items-center justify-center mx-auto mb-6">
+            <div className="w-16 h-16 rounded-2xl bg-primary-container/10 text-primary flex items-center justify-center mx-auto mb-6">
               <span className="material-symbols-outlined text-[32px]">lock</span>
             </div>
 
@@ -606,7 +606,7 @@ function DeveloperCard({ plan }: { plan: string }) {
       </CardHeader>
       <CardContent>
         <div className="flex items-start gap-4">
-          <div className="w-12 h-12 shrink-0 rounded-xl bg-primary-container/10 text-primary-container flex items-center justify-center">
+          <div className="w-12 h-12 shrink-0 rounded-xl bg-primary-container/10 text-primary flex items-center justify-center">
             <span className="material-symbols-outlined text-[24px]">construction</span>
           </div>
           <div>
@@ -715,7 +715,7 @@ export default function SettingsPage() {
         {/* Content Canvas */}
         <div className="flex-1 p-4 sm:p-6 lg:p-12 max-w-6xl mx-auto w-full">
           <div className="flex items-center gap-4 mb-8 lg:mb-12">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary-container/10 text-primary-container">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary-container/10 text-primary">
               <span className="material-symbols-outlined text-[24px]">tune</span>
             </div>
             <h1 className="font-headline-lg text-headline-lg text-primary">
