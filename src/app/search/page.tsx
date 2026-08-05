@@ -113,19 +113,27 @@ function SearchPageContent() {
 
     if (terms.length === 0) return text;
 
-    const regex = new RegExp(`\\b(${terms.join("|")})\\b`, "gi");
-    const parts = text.split(regex);
+    try {
+      // Terms come straight from user input — a query like "c++" or
+      // "react (remote)" contains live regex metacharacters that would
+      // otherwise throw "Invalid regular expression" and crash the page.
+      const escaped = terms.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+      const regex = new RegExp(`\\b(${escaped.join("|")})\\b`, "gi");
+      const parts = text.split(regex);
 
-    return parts.map((part, index) => {
-      const isMatch = terms.includes(part.toLowerCase());
-      return isMatch ? (
-        <span key={index} className="brass-highlight font-medium">
-          {part}
-        </span>
-      ) : (
-        part
-      );
-    });
+      return parts.map((part, index) => {
+        const isMatch = terms.includes(part.toLowerCase());
+        return isMatch ? (
+          <span key={index} className="brass-highlight font-medium">
+            {part}
+          </span>
+        ) : (
+          part
+        );
+      });
+    } catch {
+      return text;
+    }
   };
 
   return (

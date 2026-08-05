@@ -24,9 +24,6 @@ async function run(label, sqlText, { tolerant = true } = {}) {
   }
 }
 
-const SCOPED = ["users","candidates","resume_files","candidate_tags","shortlists","shortlist_items","subscriptions","audit_logs","usage_counters"];
-const TENANT_EXPR = "NULLIF(current_setting('app.tenant_id', true), '')::uuid";
-
 console.log("== Extension + role membership ==");
 await run("CREATE EXTENSION vector", "CREATE EXTENSION IF NOT EXISTS vector");
 await run("CREATE ROLE", `CREATE ROLE ${role} NOLOGIN`); // tolerant if exists
@@ -43,7 +40,22 @@ for (const f of readdirSync(dir).filter((x) => x.endsWith(".sql")).sort()) {
   }
 }
 
-console.log("== RLS policies (no DO blocks) ==");
+console.log("== RLS policies (no DO blocks — Supavisor drops sessions on those) ==");
+// The scoped-table list is PARSED out of src/server/db/rls.sql (the same file
+// the local/test bootstrap runs verbatim) instead of being hand-copied here.
+// That hand-copy previously drifted: this script's own list silently fell 11
+// tables behind rls.sql, leaving sender_accounts/outreach_*/blueprints/
+// automated_*/suppressed_emails with no RLS in production. rls.sql's DO block
+// itself still can't run directly against the pooler, so we keep executing
+// flat per-table statements here — just sourced from one place now.
+const rlsSqlPath = join(process.cwd(), "src/server/db/rls.sql");
+const rlsSqlText = readFileSync(rlsSqlPath, "utf8");
+const scopedArrayMatch = rlsSqlText.match(/scoped\s+text\[\]\s*:=\s*ARRAY\[([\s\S]*?)\]/);
+if (!scopedArrayMatch) throw new Error(`Could not find the 'scoped' table array in ${rlsSqlPath}`);
+const SCOPED = [...scopedArrayMatch[1].matchAll(/'([a-z_]+)'/g)].map((m) => m[1]);
+console.log(`  (${SCOPED.length} tenant-scoped tables parsed from rls.sql)`);
+const TENANT_EXPR = "NULLIF(current_setting('app.tenant_id', true), '')::uuid";
+
 // tenants keyed by id
 await run("ENABLE RLS tenants", "ALTER TABLE tenants ENABLE ROW LEVEL SECURITY");
 await run("policy tenants", `DROP POLICY IF EXISTS tenant_isolation ON tenants`);
