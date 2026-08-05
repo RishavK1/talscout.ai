@@ -8,6 +8,10 @@ export const PLAN_PRICES: Record<string, number> = {
   scale: 39900,
 };
 
+/** Matches the ×0.8 multiplier shown in onboarding/plan and the pricing page —
+ *  the single source of truth for what "annual" actually charges. */
+export const ANNUAL_DISCOUNT_MULTIPLIER = 0.8;
+
 export const checkoutSchema = z.object({
   plan: z.enum(["starter", "growth", "scale"]),
   seats: z.number().int().min(1).max(1000),

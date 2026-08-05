@@ -7,8 +7,15 @@ import type {
   WebhookEvent,
 } from "@/server/ports";
 
-function priceForPlan(plan: string): string | undefined {
+function priceForPlan(plan: string, cycle: "monthly" | "annual"): string | undefined {
   const env = getEnv();
+  if (cycle === "annual") {
+    return {
+      starter: env.STRIPE_PRICE_STARTER_ANNUAL,
+      growth: env.STRIPE_PRICE_GROWTH_ANNUAL,
+      scale: env.STRIPE_PRICE_SCALE_ANNUAL,
+    }[plan];
+  }
   return {
     starter: env.STRIPE_PRICE_STARTER,
     growth: env.STRIPE_PRICE_GROWTH,
@@ -30,10 +37,15 @@ export class StripePaymentProvider implements PaymentProvider {
     this.stripe = new Stripe(getEnv().STRIPE_SECRET_KEY ?? "");
   }
 
+  supportsBillingCycle(plan: string, cycle: "monthly" | "annual"): boolean {
+    return !!priceForPlan(plan, cycle);
+  }
+
   async createCheckoutSession(args: CheckoutArgs): Promise<CheckoutSession> {
     const env = getEnv();
-    const price = priceForPlan(args.plan);
-    if (!price) throw new Error(`No Stripe price configured for plan ${args.plan}`);
+    const cycle = args.billingCycle ?? "monthly";
+    const price = priceForPlan(args.plan, cycle);
+    if (!price) throw new Error(`No Stripe ${cycle} price configured for plan ${args.plan}`);
 
     // Redirect base: prefer the initiating request's origin — correct on the
     // deployed domain, preview deployments AND any local dev port — falling

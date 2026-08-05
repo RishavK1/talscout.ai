@@ -127,6 +127,7 @@ export interface CheckoutArgs {
   /** Origin of the initiating request (e.g. https://app.example.com). Used for
    *  success/cancel redirects so deployed checkouts never bounce to localhost. */
   appOrigin?: string;
+  billingCycle?: "monthly" | "annual";
 }
 export interface CheckoutSession {
   url: string;
@@ -149,6 +150,10 @@ export interface WebhookEvent {
 
 export interface PaymentProvider {
   createCheckoutSession(args: CheckoutArgs): Promise<CheckoutSession>;
+  /** Whether this provider can actually charge `plan` on `cycle`. The service
+   *  layer checks this BEFORE creating a session so an unconfigured annual
+   *  price fails with a clear message instead of a mid-checkout surprise. */
+  supportsBillingCycle(plan: string, cycle: "monthly" | "annual"): boolean;
   /** Verify the signature over the RAW body and return the parsed event.
    *  Throws on an invalid/forged signature. */
   verifyWebhook(rawBody: string, signature: string | null): WebhookEvent;

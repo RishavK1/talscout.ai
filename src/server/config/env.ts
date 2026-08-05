@@ -124,9 +124,32 @@ const EnvSchema = z
     STRIPE_PRICE_STARTER: z.string().optional(),
     STRIPE_PRICE_GROWTH: z.string().optional(),
     STRIPE_PRICE_SCALE: z.string().optional(),
+    /** Separate Stripe Price objects (interval: year) for the annual-billing
+     *  discount. Optional so monthly-only checkout keeps working if these
+     *  aren't set up yet — annual checkout is rejected with a clear error
+     *  instead of silently charging the monthly amount. */
+    STRIPE_PRICE_STARTER_ANNUAL: z.string().optional(),
+    STRIPE_PRICE_GROWTH_ANNUAL: z.string().optional(),
+    STRIPE_PRICE_SCALE_ANNUAL: z.string().optional(),
     APP_URL: z.string().default("http://localhost:3100"),
   })
   .superRefine((env, ctx) => {
+    // CFG-02: APP_MODE defaults to "mock" for a friction-free local dev
+    // bootstrap, but that same default would let a production deploy boot
+    // silently in mock mode if the env var were ever left unset — real
+    // Stripe/auth/AI calls skipped, and MockPaymentProvider's webhook secret
+    // is a hardcoded, source-visible constant, so anyone could forge a
+    // webhook granting a free plan. NODE_ENV=production is set automatically
+    // by every production Next.js runtime regardless of host, so this can't
+    // be bypassed by simply forgetting to set APP_MODE.
+    if (env.NODE_ENV === "production" && env.APP_MODE === "mock") {
+      ctx.addIssue({
+        code: "custom",
+        message:
+          "APP_MODE must be explicitly set to \"live\" in production — refusing to boot in mock mode (NODE_ENV=production).",
+        path: ["APP_MODE"],
+      });
+    }
     if (env.APP_MODE === "live") {
       // AI extractor: require EITHER Anthropic OR Gemini key (Gemini = free tier for building)
       if (!env.ANTHROPIC_API_KEY && !env.GEMINI_API_KEY) {

@@ -18,6 +18,12 @@ const MOCK_WEBHOOK_SECRET = "whsec_mock_secret";
 export class MockPaymentProvider implements PaymentProvider {
   private counter = 0;
 
+  /** No real Stripe price catalog behind the mock — every plan/cycle combo
+   *  is "available" since nothing is actually charged. */
+  supportsBillingCycle(): boolean {
+    return true;
+  }
+
   async createCheckoutSession(args: CheckoutArgs): Promise<CheckoutSession> {
     const sessionId = `cs_mock_${args.tenantId}_${this.counter++}`;
     const base =

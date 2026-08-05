@@ -5,7 +5,7 @@ import { webhookRepo } from "@/server/repositories/webhook.repo";
 import { tenantRepo } from "@/server/repositories/tenant.repo";
 import { userRepo } from "@/server/repositories/user.repo";
 import { auditRepo } from "@/server/repositories/audit.repo";
-import { PLAN_PRICES, type CheckoutBody } from "@/server/validation/billing";
+import { PLAN_PRICES, ANNUAL_DISCOUNT_MULTIPLIER, type CheckoutBody } from "@/server/validation/billing";
 import { BadRequest, PaymentRequired } from "@/server/http/errors";
 import { MockPaymentProvider } from "@/server/adapters/mock.payment";
 import {
@@ -16,7 +16,11 @@ import {
 } from "@/lib/plans";
 import type { TenantContext } from "@/server/db/tx";
 
-const ACTIVE_STATUSES = new Set(["trialing", "active"]);
+// "past_due" is Stripe's grace-period status while a failed card is being
+// retried — the subscription is not cancelled yet, so treating it as
+// inactive would lock a customer out of the app (and the billing page that
+// would let them fix their card) over a single declined charge.
+const ACTIVE_STATUSES = new Set(["trialing", "active", "past_due"]);
 
 export const billingService = {
   async createCheckout(ctx: TenantContext, body: CheckoutBody, appOrigin?: string) {
@@ -39,7 +43,19 @@ export const billingService = {
     }
 
     // Amount is computed from the server price book — never from the client.
-    const amount = PLAN_PRICES[body.plan] * body.seats;
+    const billingCycle = body.billingCycle ?? "monthly";
+    const amount = Math.round(
+      PLAN_PRICES[body.plan] * body.seats * (billingCycle === "annual" ? ANNUAL_DISCOUNT_MULTIPLIER : 1),
+    );
+
+    // Annual checkout requires a separate Stripe Price (interval: year) to be
+    // configured for the plan. Reject up front with a clear message instead
+    // of either crashing mid-checkout or silently charging the monthly price
+    // while the UI advertised a 20% discount.
+    if (billingCycle === "annual" && !getServices().payment.supportsBillingCycle(body.plan, "annual")) {
+      throw new BadRequest("Annual billing isn't available for this plan yet — please choose monthly billing.");
+    }
+
     const session = await getServices().payment.createCheckoutSession({
       tenantId: ctx.tenantId,
       plan: body.plan,
@@ -47,6 +63,7 @@ export const billingService = {
       amount,
       customerId: sub?.stripeCustomerId ?? undefined,
       appOrigin,
+      billingCycle,
     });
     
     // Subscription state is ONLY set by the Stripe webhook (handleWebhook) after
@@ -75,7 +92,7 @@ export const billingService = {
       await this.handleWebhook(raw, MockPaymentProvider.sign(raw));
     }
 
-    await auditRepo.log(ctx, { action: "billing.checkout", metadata: { plan: body.plan, seats: body.seats } });
+    await auditRepo.log(ctx, { action: "billing.checkout", metadata: { plan: body.plan, seats: body.seats, billingCycle } });
     return { url: session.url };
   },
 

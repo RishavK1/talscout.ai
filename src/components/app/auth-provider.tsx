@@ -81,7 +81,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // If we are on login, signup, or onboarding/workspace, redirect accordingly.
       if (!skipRedirect) {
-        const isActive = ["active", "trialing"].includes(data.subscriptionStatus ?? "incomplete");
+        const isActive = ["active", "trialing", "past_due"].includes(data.subscriptionStatus ?? "incomplete");
         if (pathname === "/onboarding/workspace" || pathname === "/login" || pathname === "/signup") {
           if (isActive) {
             router.push("/dashboard");
@@ -215,7 +215,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const isPublicPath = ["/", "/login", "/signup", "/pricing", "/privacy", "/terms"].includes(pathname);
     const isOnboardingPath = pathname.startsWith("/onboarding");
-    const hasSessionId = typeof window !== "undefined" && new URLSearchParams(window.location.search).has("session_id");
 
     if (!user) {
       if (!isPublicPath) {
@@ -223,10 +222,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     } else {
       if (profile) {
-        const isActive = ["active", "trialing"].includes(profile.subscriptionStatus);
+        const isActive = ["active", "trialing", "past_due"].includes(profile.subscriptionStatus);
         if (!isActive) {
-          // If subscription is incomplete, they MUST go through onboarding plan/checkout
-          if (!isOnboardingPath && !isPublicPath && !(pathname === "/billing" && hasSessionId)) {
+          // If subscription is incomplete/canceled, they MUST go through
+          // onboarding plan/checkout — but /billing is ALWAYS reachable
+          // (not just right after a fresh checkout redirect) so a locked-out
+          // customer has a way to fix their payment method or see what
+          // happened, instead of being bounced straight to the paywall with
+          // no escape hatch.
+          if (!isOnboardingPath && !isPublicPath && pathname !== "/billing") {
             router.push("/onboarding/plan");
           }
         } else {
