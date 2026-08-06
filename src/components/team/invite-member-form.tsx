@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 
 /**
  * The actual invite form — shared by the /team page's InviteMemberButton and
@@ -69,25 +70,22 @@ export function InviteMemberForm({
             : "We couldn't send the invitation email. Send them this link — they need to sign up with the invited email address."}
         </p>
         {!emailSent && result?.signupUrl && (
-          <button
+          <Button
             type="button"
+            variant="outline"
+            className="mx-auto mt-3"
             onClick={() => {
               navigator.clipboard.writeText(result.signupUrl);
               toast.success("Signup link copied");
             }}
-            className="mx-auto mt-3 flex items-center gap-2 rounded-lg border border-outline px-4 py-2 font-label-md text-primary transition-colors hover:bg-surface-container-low"
           >
             <span className="material-symbols-outlined text-[18px]">content_copy</span>
             Copy signup link
-          </button>
+          </Button>
         )}
-        <button
-          type="button"
-          onClick={onDone}
-          className="mt-5 rounded-lg bg-primary px-5 py-2.5 font-label-md text-on-primary transition-[filter] hover:brightness-110 active:scale-[0.98]"
-        >
+        <Button type="button" variant="gradient" className="mt-5" onClick={onDone}>
           Done
-        </button>
+        </Button>
       </div>
     );
   }
@@ -117,22 +115,18 @@ export function InviteMemberForm({
         You have {remainingSeats} {remainingSeats === 1 ? "seat" : "seats"} remaining on your {plan} plan.
       </p>
       <div className="flex justify-end gap-3 pt-2">
-        <button
-          type="button"
-          onClick={onDone}
-          disabled={inviting}
-          className="rounded-lg border border-outline px-5 py-2.5 font-label-md text-primary transition-colors hover:bg-surface-container-low"
-        >
+        <Button type="button" variant="outline" onClick={onDone} disabled={inviting}>
           Cancel
-        </button>
-        <button
+        </Button>
+        <Button
           type="submit"
-          disabled={inviting || remainingSeats <= 0}
+          variant="gradient"
+          loading={inviting}
+          disabled={remainingSeats <= 0}
           title={remainingSeats <= 0 ? "No seats available — upgrade your plan" : undefined}
-          className="rounded-lg bg-primary px-5 py-2.5 font-label-md text-on-primary transition-[filter] hover:brightness-110 active:scale-[0.98] flex items-center gap-2 disabled:opacity-50"
         >
-          {inviting ? "Sending..." : "Send invitation"}
-        </button>
+          {inviting ? "Sending…" : "Send invitation"}
+        </Button>
       </div>
     </form>
   );

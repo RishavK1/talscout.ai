@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Modal } from "@/components/ui/modal";
+import { Button } from "@/components/ui/button";
 import { InviteMemberForm } from "./invite-member-form";
 
 export function InviteMemberButton({
@@ -18,14 +19,10 @@ export function InviteMemberButton({
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="px-8 py-4 bg-primary text-on-primary rounded-lg font-headline-md text-[16px] font-semibold hover:shadow-lg transition-all active:scale-95 flex items-center gap-2"
-      >
-        <span className="material-symbols-outlined">person_add</span>
+      <Button type="button" variant="gradient" size="lg" onClick={() => setOpen(true)}>
+        <span className="material-symbols-outlined text-[18px]">person_add</span>
         Invite member
-      </button>
+      </Button>
 
       <Modal
         open={open}

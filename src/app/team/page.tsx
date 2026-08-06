@@ -337,8 +337,11 @@ export default function TeamSeatsPage() {
                 <span className="material-symbols-outlined text-[20px]">security</span>
               </div>
               <h4 className="text-[18px] font-semibold text-primary mb-2">Role Permissions</h4>
-              <p className="font-body-md text-on-surface-variant text-[14px]">Understand the different access levels for Admin, Recruiter, and Viewer roles.</p>
-              <Link className="mt-4 inline-block font-label-md text-label-md text-secondary font-semibold hover:underline" href="/settings">Read documentation →</Link>
+              <p className="font-body-md text-on-surface-variant text-[14px]">
+                <strong className="text-on-surface">Admin</strong> manages billing, team, and settings.{" "}
+                <strong className="text-on-surface">Recruiter</strong> can create and manage candidates and outreach campaigns.{" "}
+                <strong className="text-on-surface">Viewer</strong> can view but not edit.
+              </p>
             </div>
             <div className="rounded-xl border border-border-low-alpha bg-surface-white p-6">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-container/10 text-primary mb-4">
