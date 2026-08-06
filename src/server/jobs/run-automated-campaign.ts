@@ -7,7 +7,6 @@ import {
 } from "@/server/repositories/automated-outreach.repo";
 import { blueprintRepo } from "@/server/repositories/blueprint.repo";
 import { scheduleSends } from "@/server/lib/spintax";
-import { buildUnsubscribeUrl } from "@/server/lib/unsubscribe-url";
 import {
   lockTenantForAutomatedDailyCap,
   automatedDailySendCapFor,
@@ -474,19 +473,22 @@ async function enrichBatch(
   return { processed: pending.length, readyDelta };
 }
 
-/** Appends the signature AND a plain-text unsubscribe line — the CAN-SPAM/
- *  GDPR "functional opt-out mechanism" legal minimum, which the law
- *  explicitly does not require in any specific format (see
- *  buildUnsubscribeUrl's doc comment for the header-level, Gmail/Yahoo
- *  one-click mechanism this pairs with, added separately at actual send
- *  time in send-automated-email.ts). Keyed on the LEAD, not the send, so
- *  the same link works identically across Day 0/3/7. */
-function signEmail(campaign: Campaign, body: string, leadId: string): string {
-  const unsubscribeUrl = buildUnsubscribeUrl(leadId);
+/** Appends ONLY the human signature — deliberately no visible unsubscribe
+ *  line in the body. The real opt-out mechanism is the RFC 8058
+ *  List-Unsubscribe / List-Unsubscribe-Post HEADERS stamped at actual send
+ *  time (send-automated-email.ts passes buildUnsubscribeUrl(lead.id) as
+ *  listUnsubscribeUrl -> outreach.mailer.ts), which every major client
+ *  (Gmail, Outlook, Yahoo) surfaces as ITS OWN native "Unsubscribe" chip
+ *  next to the sender name — same legal function (CAN-SPAM/GDPR opt-out),
+ *  invisible in the message itself. A raw API URL sitting in the body of an
+ *  email meant to read as a real, personal outreach was the single biggest
+ *  tell that it was automated — a real production complaint. The human
+ *  signature is the ONLY thing that belongs at the bottom of a message
+ *  meant to sound like it came from a person. */
+function signEmail(campaign: Campaign, body: string): string {
   return (
     `${body}\n\n${campaign.signatureClosing}\n${campaign.signatureName}` +
-    (campaign.signatureTitle ? `\n${campaign.signatureTitle}` : "") +
-    `\n\nDon't want to hear from us again? Unsubscribe: ${unsubscribeUrl}`
+    (campaign.signatureTitle ? `\n${campaign.signatureTitle}` : "")
   );
 }
 
@@ -528,7 +530,7 @@ async function generateCopyBatch(
       email: lead.email,
       stepIndex: 0,
       subject: day0.subject,
-      body: signEmail(campaign, day0.body, lead.id),
+      body: signEmail(campaign, day0.body),
     });
     // Day 3/Day 7 copy is deliberately NOT written here — see
     // followUpPhase below. Writing all three up front tripled every tick's
@@ -592,7 +594,7 @@ async function followUpPhase(
               senderAccountId: campaign.senderAccountId,
               stepIndex,
               subject: followUp.subject,
-              body: signEmail(campaign, followUp.body, lead.id),
+              body: signEmail(campaign, followUp.body),
               scheduledAt,
             },
           ]),
