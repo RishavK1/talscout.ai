@@ -561,6 +561,36 @@ describe("runAutomatedCampaigns — MX-check gate (email-verification sprint)", 
   });
 });
 
+describe("runAutomatedCampaigns — email-identity gate (wrong-person incident fix)", () => {
+  it("an email whose domain has no relation to the business is rejected, not sent, even though every other gate would pass it", async () => {
+    const { tenant, token } = await makeUser("recruiter");
+    const blueprint = await seedActiveBlueprint(tenant.id);
+    const sender = await seedGmailSender(tenant.id);
+
+    // Real production shape: a plausible, deliverable, non-suppressed email
+    // that simply belongs to someone else entirely (the web agency's
+    // address, scraped off the client's site footer).
+    const findSpy = vi
+      .spyOn(getServices().emailFinder, "find")
+      .mockResolvedValueOnce({ email: "contact@totallyunrelatedvendor.com", source: "site_scrape" });
+
+    const campaignId = await createActiveCampaign(token, blueprint.id, sender.id, "dentist");
+
+    const leads = await leadsForCampaign(campaignId);
+    const bad = leads.find((l) => l.email === "contact@totallyunrelatedvendor.com");
+    expect(bad).toBeUndefined(); // never persisted as a live email at all
+
+    const rejected = leads.find((l) => l.status === "no_email" && l.notes?.includes("Email domain"));
+    expect(rejected).toBeTruthy();
+
+    // Never reached the send pipeline.
+    const sends = await sendsForCampaign(campaignId);
+    expect(sends.some((s) => s.leadId === rejected!.id)).toBe(false);
+
+    findSpy.mockRestore();
+  });
+});
+
 describe("runAutomatedCampaigns — suppression gate (unsubscribe sprint)", () => {
   it("a suppressed email is never qualified or emailed — visible as 'suppressed', not silently dropped", async () => {
     const { tenant, token } = await makeUser("recruiter");

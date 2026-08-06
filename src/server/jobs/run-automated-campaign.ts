@@ -16,6 +16,7 @@ import { SEND_AUTOMATED_EMAIL_JOB } from "@/server/jobs/send-automated-email";
 import { inlineStepRun, type StepRun } from "@/server/jobs/step-runner";
 import { logger } from "@/server/observability/logger";
 import { normalizeLeadQualification } from "@/server/lib/lead-qualification";
+import { assessContact } from "@/server/lib/email-identity";
 import type { Services, BlueprintSections, BlueprintLeadQualification } from "@/server/ports";
 import type { automatedCampaigns, automatedLeads } from "@/server/db/schema";
 
@@ -362,6 +363,16 @@ async function discoverPhase(
       );
       continue;
     }
+    // Identity check: does this address actually belong to THIS business?
+    // Free/deterministic (no AI call), so it runs before qualification same
+    // as MX above — this is the OTHER path a lead can arrive with an email
+    // (an OSM listing's own tag), so it needs the identical gate enrichBatch
+    // applies to waterfall-found addresses.
+    const contact = assessContact({ email: lead.email, businessName: lead.businessName, website: lead.website });
+    if (contact.tier === "reject") {
+      await withTenantTx({ tenantId }, (ctx) => automatedLeadRepo.markNoEmail(ctx, lead.id, contact.reason));
+      continue;
+    }
     const { qualified, reason } = await qualifyLead(services, sections, lead);
     if (qualified) {
       readyFound++;
@@ -411,6 +422,23 @@ async function enrichBatch(
       await withTenantTx({ tenantId }, (ctx) =>
         automatedLeadRepo.markNoEmail(ctx, lead.id, "email domain has no valid MX/A record"),
       );
+      continue;
+    }
+    // Identity check: does this address actually belong to THIS business?
+    // Added after real production incidents where recipients replied "you
+    // sent this to the wrong person" — a web agency's address scraped off a
+    // client site, an unfilled template placeholder, a same-named
+    // institution's address from the wrong country, a private individual's
+    // personal inbox. All four are real leads this pipeline actually
+    // produced and would have emailed. Free/deterministic, no AI call, so it
+    // runs before the qualifier the same way the MX check does.
+    const contact = assessContact({
+      email: result.email,
+      businessName: lead.businessName,
+      website: lead.website,
+    });
+    if (contact.tier === "reject") {
+      await withTenantTx({ tenantId }, (ctx) => automatedLeadRepo.markNoEmail(ctx, lead.id, contact.reason));
       continue;
     }
     // Suppression check: an address that already unsubscribed (from this
