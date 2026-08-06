@@ -51,6 +51,14 @@ export default function BillingPage() {
   const PLAN_RANK: Record<string, number> = { starter: 0, growth: 1, scale: 2 };
   const planRank = (p?: string) => (p ? PLAN_RANK[p.toLowerCase()] ?? 0 : 0);
 
+  // The modal seeds selectedPlan/selectedSeats to the CURRENT plan/seats when
+  // it opens, so isUpgrade() is false before the user has touched anything —
+  // don't show the "must be an upgrade" error until they've actually changed
+  // something away from those seeded values.
+  const isDirty = billingInfo
+    ? selectedPlan !== billingInfo.plan || selectedSeats !== billingInfo.seats
+    : false;
+
   const isUpgrade = () => {
     if (!billingInfo) return false;
     const currentRank = planRank(billingInfo.plan);
@@ -401,7 +409,7 @@ export default function BillingPage() {
             </p>
           </div>
 
-          {!isUpgrade() && (
+          {isDirty && !isUpgrade() && (
             <div className="p-3 bg-error/10 text-error rounded-lg font-label-md text-[13px] border border-error/20">
               Selected plan/seat count must be an upgrade from your current {billingInfo?.plan.toUpperCase()} plan ({billingInfo?.seats} seats).
             </div>

@@ -46,6 +46,10 @@ export default function NewBlueprintPage() {
   const [additionalContext, setAdditionalContext] = useState("");
   /** True once research pre-filled the box, so the UI can say so and offer a reset. */
   const [contextWasDrafted, setContextWasDrafted] = useState(false);
+  /** name/websiteUrl the last successful research call used — lets Back →
+   *  Continue (with nothing changed) return to step 2 without re-running
+   *  research and silently wiping the answers the user already picked. */
+  const [researchedFor, setResearchedFor] = useState<{ name: string; websiteUrl: string } | null>(null);
 
   // Step 3
   const [generating, setGenerating] = useState(false);
@@ -88,14 +92,31 @@ export default function NewBlueprintPage() {
 
   const handleResearch = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !websiteUrl.trim()) return;
+    const trimmedName = name.trim();
+    const trimmedUrl = websiteUrl.trim();
+    if (!trimmedName || !trimmedUrl) return;
+
+    // Nothing changed since the last successful research — just go back to
+    // step 2 instead of re-fetching and overwriting the answers already
+    // picked there. A real name/URL edit still re-researches as normal.
+    if (
+      suggestions &&
+      researchedFor &&
+      researchedFor.name === trimmedName &&
+      researchedFor.websiteUrl === trimmedUrl
+    ) {
+      setStep(1);
+      return;
+    }
+
     setResearching(true);
     try {
       const res = await api.post<Suggestions>("/api/blueprints/suggest", {
-        name: name.trim(),
-        websiteUrl: websiteUrl.trim(),
+        name: trimmedName,
+        websiteUrl: trimmedUrl,
       });
       setSuggestions(res);
+      setResearchedFor({ name: trimmedName, websiteUrl: trimmedUrl });
       // Pre-select the first option for single-select fields so the wizard
       // starts pre-filled — the user edits/overrides rather than starting blank.
       setAnswers(
