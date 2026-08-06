@@ -41,6 +41,7 @@ const CATEGORY_MAP: Record<string, string> = {
   plumber: "commercial.craft",
   electrician: "commercial.craft",
   auto_repair: "service.vehicle",
+  education: "education",
 };
 
 function categoryFor(category: string): string {

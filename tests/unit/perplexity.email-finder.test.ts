@@ -86,7 +86,24 @@ describe("PerplexityEmailFinder", () => {
     const finder = new PerplexityEmailFinder(limiter);
     fetchMock.mockResolvedValueOnce(chatResponse({ email: "hello@acme.example.com", confidence: 0.9 }));
     const result = await finder.find({ businessName: "Acme Dental" });
-    expect(result).toEqual({ email: "hello@acme.example.com", source: "perplexity", confidence: 0.9 });
+    expect(result).toEqual({ email: "hello@acme.example.com", source: "perplexity", confidence: 90 });
+  });
+
+  it("rescales the model's 0-1 confidence to the DB's 0-100 integer scale — regression for a real production bug (0.96 sent straight to an integer column crashed the whole campaign)", async () => {
+    const limiter = fakeLimiter();
+    const finder = new PerplexityEmailFinder(limiter);
+    fetchMock.mockResolvedValueOnce(chatResponse({ email: "hello@acme.example.com", confidence: 0.96 }));
+    const result = await finder.find({ businessName: "Acme Dental" });
+    expect(result?.confidence).toBe(96);
+    expect(Number.isInteger(result?.confidence)).toBe(true);
+  });
+
+  it("clamps an out-of-range confidence to [0, 100] instead of producing an invalid value", async () => {
+    const limiter = fakeLimiter();
+    const finder = new PerplexityEmailFinder(limiter);
+    fetchMock.mockResolvedValueOnce(chatResponse({ email: "hello@acme.example.com", confidence: 1.5 }));
+    const result = await finder.find({ businessName: "Acme Dental" });
+    expect(result?.confidence).toBe(100);
   });
 
   it("rejects an implausible email (e.g. an image filename) even if the model returns it", async () => {

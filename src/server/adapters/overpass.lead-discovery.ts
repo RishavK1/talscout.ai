@@ -71,6 +71,16 @@ const CATEGORY_TAGS: Record<string, { key: string; value: string }[]> = {
   auto_repair: [{ key: "shop", value: "car_repair" }],
   veterinary: [{ key: "amenity", value: "veterinary" }],
   spa: [{ key: "leisure", value: "spa" }],
+  // OSM has no single "education" tag — the unmapped fallback below
+  // (shop=education / amenity=education) matches nothing real, which is
+  // exactly what silently zeroed out a real campaign in production.
+  education: [
+    { key: "amenity", value: "school" },
+    { key: "amenity", value: "college" },
+    { key: "amenity", value: "university" },
+    { key: "amenity", value: "language_school" },
+    { key: "office", value: "educational_institution" },
+  ],
 };
 
 function tagsForCategory(category: string): { key: string; value: string }[] {

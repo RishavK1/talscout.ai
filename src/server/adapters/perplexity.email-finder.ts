@@ -99,7 +99,17 @@ export class PerplexityEmailFinder implements EmailFinder {
       const email = parsed.email.trim();
       if (!isPlausibleEmail(email)) return null;
 
-      const confidence = typeof parsed.confidence === "number" ? parsed.confidence : undefined;
+      // emailConfidence is an integer column, 0-100 scale (matching Hunter's
+      // convention — see automated_leads.email_confidence) — the model is
+      // prompted for a 0-1 score, so it must be rescaled here. Passing the
+      // raw 0-1 float through was a real production bug: the INSERT/UPDATE
+      // failed outright ("invalid input syntax for type integer"), which
+      // flipped the whole campaign to "error" on its very first enriched
+      // lead.
+      const confidence =
+        typeof parsed.confidence === "number"
+          ? Math.max(0, Math.min(100, Math.round(parsed.confidence * 100)))
+          : undefined;
       return { email, source: "perplexity", confidence };
     } catch (err) {
       logger.warn({ err }, "perplexity_email_finder_failed");
