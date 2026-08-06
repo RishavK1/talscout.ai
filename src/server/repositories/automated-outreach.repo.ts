@@ -1,4 +1,4 @@
-import { and, eq, inArray, sql, gte, isNull, or, lt } from "drizzle-orm";
+import { and, eq, inArray, notInArray, sql, gte, isNull, or, lt } from "drizzle-orm";
 import {
   automatedCampaigns,
   automatedLeads,
@@ -654,6 +654,42 @@ export const automatedSendRepo = {
       )
       .limit(1);
     return row ?? null;
+  },
+
+  /** Day 0 sends that have actually GONE OUT but have no follow-up rows yet.
+   *
+   *  Backs deferred follow-up generation: copy for Day 3/Day 7 used to be
+   *  written up front alongside Day 0, tripling every tick's AI calls (53
+   *  leads => 159 generations) and reliably exhausting free-tier quotas
+   *  before a single email could be committed. Follow-ups are now written
+   *  only once Day 0 has genuinely sent — which is also the only case where
+   *  they can ever be used, since send-automated-email.ts refuses to send a
+   *  follow-up whose Day 0 didn't send, and skips it outright if the lead
+   *  replied. */
+  async listDay0SentNeedingFollowups(ctx: TenantContext, campaignId: string, limit: number) {
+    const followups = ctx.tx
+      .select({ leadId: automatedSends.leadId })
+      .from(automatedSends)
+      .where(
+        and(
+          eq(automatedSends.tenantId, ctx.tenantId),
+          eq(automatedSends.campaignId, campaignId),
+          gte(automatedSends.stepIndex, 1),
+        ),
+      );
+    return await ctx.tx
+      .select()
+      .from(automatedSends)
+      .where(
+        and(
+          eq(automatedSends.tenantId, ctx.tenantId),
+          eq(automatedSends.campaignId, campaignId),
+          eq(automatedSends.stepIndex, 0),
+          eq(automatedSends.status, "sent"),
+          notInArray(automatedSends.leadId, followups),
+        ),
+      )
+      .limit(limit);
   },
 
   /** All steps for one lead, ordered — backs the "View emails" modal. */

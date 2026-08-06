@@ -146,27 +146,16 @@ describe("runAutomatedCampaigns — discover → enrich → generate → schedul
     expect(leads.every((l) => l.status === "queued")).toBe(true);
     expect(leads.every((l) => l.email)).toBe(true);
 
-    // Day 0/3/7 sequencing — 3 sends per lead (5 leads × 3 steps).
+    // ONLY Day 0 is written up front — one send per lead. Day 3/7 copy is
+    // deferred until Day 0 has actually sent (see followUpPhase): writing all
+    // three immediately tripled every tick's AI calls for follow-ups that
+    // frequently never send, which exhausted free-tier quotas before even
+    // Day 0 could be committed.
     const sends = await sendsForCampaign(campaignId);
-    expect(sends).toHaveLength(15);
+    expect(sends).toHaveLength(5);
     expect(sends.every((s) => s.status === "scheduled")).toBe(true);
     expect(sends.every((s) => s.body.includes("Jane Doe"))).toBe(true); // signature appended
-    expect(sends.filter((s) => s.stepIndex === 0)).toHaveLength(5);
-    expect(sends.filter((s) => s.stepIndex === 1)).toHaveLength(5);
-    expect(sends.filter((s) => s.stepIndex === 2)).toHaveLength(5);
-
-    // Day 3/7 land ~3/~7 days after their own lead's Day 0 — same sender,
-    // for Gmail thread continuity.
-    for (const day0 of sends.filter((s) => s.stepIndex === 0)) {
-      const day3 = sends.find((s) => s.leadId === day0.leadId && s.stepIndex === 1);
-      const day7 = sends.find((s) => s.leadId === day0.leadId && s.stepIndex === 2);
-      expect(day3!.senderAccountId).toBe(day0.senderAccountId);
-      expect(day7!.senderAccountId).toBe(day0.senderAccountId);
-      const day3OffsetMs = day3!.scheduledAt.getTime() - day0.scheduledAt.getTime();
-      const day7OffsetMs = day7!.scheduledAt.getTime() - day0.scheduledAt.getTime();
-      expect(day3OffsetMs).toBe(3 * 24 * 60 * 60 * 1000);
-      expect(day7OffsetMs).toBe(7 * 24 * 60 * 60 * 1000);
-    }
+    expect(sends.every((s) => s.stepIndex === 0)).toBe(true);
 
     // The whole point of this change: Day 0 sends must NOT all land in the
     // same minute (the exact bug that got 12 emails fired back-to-back and
@@ -303,13 +292,14 @@ describe("runAutomatedCampaigns — discover → enrich → generate → schedul
     await runAutomatedCampaigns(getServices());
     expect(await leadsForCampaign(campaignId)).toHaveLength(12);
 
-    // Every business still gets its full Day 0/3/7 sequence exactly once —
-    // the original dedup guarantee this test used to cover, still true.
+    // Every business still gets its Day 0 exactly once — the original dedup
+    // guarantee this test covers, still true. (Day 3/7 are written later, by
+    // followUpPhase, only once Day 0 has actually sent.)
     const sends = await sendsForCampaign(campaignId);
     const byLead = new Map<string, number>();
     for (const s of sends) byLead.set(s.leadId, (byLead.get(s.leadId) ?? 0) + 1);
     expect(byLead.size).toBe(12);
-    for (const count of byLead.values()) expect(count).toBe(3);
+    for (const count of byLead.values()) expect(count).toBe(1);
   });
 
   it("enforces the plan's independent daily cap — truncates the batch and leaves the rest for tomorrow", async () => {
@@ -369,11 +359,10 @@ describe("runAutomatedCampaigns — discover → enrich → generate → schedul
     const campaignId = await createActiveCampaign(token, blueprint.id, sender.id, "gym");
 
     // The cap gates how many LEADS start a new sequence today (the 2
-    // remaining slots of the plan's 25), not raw row count — each surviving lead still
-    // gets its full Day 0/3/7 sequence, mirroring Bulk Fire's own
-    // cascadeFollowups precedent (see scheduleAndEnqueue's doc comment).
+    // remaining slots of the plan's 25). Each gets its Day 0 now; follow-ups
+    // are written later by followUpPhase once Day 0 has sent.
     const sends = await sendsForCampaign(campaignId);
-    expect(sends).toHaveLength(6); // 2 leads × 3 steps
+    expect(sends).toHaveLength(2); // 2 leads × Day 0 only
 
     const leads = await leadsForCampaign(campaignId);
     const queuedLeads = leads.filter((l) => l.status === "queued");
@@ -416,7 +405,7 @@ describe("runAutomatedCampaigns — regenerating a blueprint mid-campaign never 
     const campaignId = await createActiveCampaign(token, blueprint.id, sender.id, "vet");
 
     const sendsBefore = await sendsForCampaign(campaignId);
-    expect(sendsBefore).toHaveLength(15); // 5 leads x 3 steps
+    expect(sendsBefore).toHaveLength(5); // 5 leads x Day 0 (follow-ups deferred)
     // The mock copywriter embeds whatWeOffer/differentiator verbatim, so this
     // confirms the original copy really does reflect the ORIGINAL sections.
     expect(sendsBefore.every((s) => s.body.includes("A scheduling tool"))).toBe(true);
@@ -438,7 +427,7 @@ describe("runAutomatedCampaigns — regenerating a blueprint mid-campaign never 
     // pipeline snapshots subject/body into automated_sends at generation
     // time and never re-reads the blueprint for a row that already has copy.
     const sendsAfter = await sendsForCampaign(campaignId);
-    expect(sendsAfter).toHaveLength(15);
+    expect(sendsAfter).toHaveLength(5);
     for (const before of sendsBefore) {
       const after = sendsAfter.find((s) => s.id === before.id);
       expect(after?.subject).toBe(before.subject);
@@ -594,7 +583,7 @@ describe("runAutomatedCampaigns — suppression gate (unsubscribe sprint)", () =
     // Only the 4 non-suppressed leads got a Day 0/3/7 sequence — the
     // suppressed one was never scheduled at all.
     const sends = await sendsForCampaign(campaignId);
-    expect(sends).toHaveLength(12); // 4 leads × 3 steps, not 5 × 3
+    expect(sends).toHaveLength(4); // 4 leads × Day 0, not 5 — the suppressed one never scheduled
     expect(sends.some((s) => s.leadId === suppressed!.id)).toBe(false);
   });
 
@@ -610,12 +599,20 @@ describe("runAutomatedCampaigns — suppression gate (unsubscribe sprint)", () =
     const sentDay0 = await withTenantTx({ tenantId: tenant.id }, (ctx) => automatedSendRepo.getById(ctx, day0.id));
     expect(sentDay0?.status).toBe("sent");
 
+    // Day 3/7 copy is written by a LATER tick, once Day 0 has actually sent
+    // (see followUpPhase) — not up front alongside Day 0.
+    await runAutomatedCampaigns(getServices());
+    const followUps = (await sendsForCampaign(campaignId)).filter(
+      (s) => s.leadId === day0.leadId && s.stepIndex > 0,
+    );
+    expect(followUps).toHaveLength(2);
+
     // The recipient unsubscribes (e.g. clicked the link in that Day 0 email)
     // sometime before Day 3 is due to fire.
     const lead = await withTenantTx({ tenantId: tenant.id }, (ctx) => automatedLeadRepo.getById(ctx, day0.leadId));
     await suppressedEmailRepo.addAdmin(tenant.id, lead!.email!, "unsubscribed via email link");
 
-    const day3 = (await sendsForCampaign(campaignId)).find((s) => s.stepIndex === 1)!;
+    const day3 = followUps.find((s) => s.stepIndex === 1)!;
     await sendAutomatedEmail({ tenantId: tenant.id, sendId: day3.id }, getServices());
 
     const sentDay3 = await withTenantTx({ tenantId: tenant.id }, (ctx) => automatedSendRepo.getById(ctx, day3.id));
@@ -626,6 +623,53 @@ describe("runAutomatedCampaigns — suppression gate (unsubscribe sprint)", () =
       automatedLeadRepo.getById(ctx, day0.leadId),
     );
     expect(updatedLead?.status).toBe("suppressed");
+  });
+});
+
+describe("runAutomatedCampaigns — deferred follow-up generation", () => {
+  it("writes NO follow-up copy until Day 0 has actually sent, then writes both offset from the real send time", async () => {
+    // Regression for a real production stall: generating Day 0/3/7 up front
+    // meant 53 ready leads cost 159 AI generations in one tick, which
+    // exhausted every free-tier writer (Gemini quota + OpenRouter 429s) before
+    // a single email could be committed — the campaign wrote ZERO emails for
+    // hours while appearing healthy.
+    const { tenant, token } = await makeUser("recruiter");
+    const blueprint = await seedActiveBlueprint(tenant.id);
+    const sender = await seedGmailSender(tenant.id);
+    const campaignId = await createActiveCampaign(token, blueprint.id, sender.id, "gym");
+
+    // Day 0 only, even after a second full tick — an unsent Day 0 must never
+    // trigger follow-up generation.
+    await runAutomatedCampaigns(getServices());
+    let sends = await sendsForCampaign(campaignId);
+    expect(sends.every((s) => s.stepIndex === 0)).toBe(true);
+
+    const day0 = sends.find((s) => s.stepIndex === 0)!;
+    await sendAutomatedEmail({ tenantId: tenant.id, sendId: day0.id }, getServices());
+
+    // Now that Day 0 genuinely sent, the next tick writes its follow-ups.
+    await runAutomatedCampaigns(getServices());
+    sends = await sendsForCampaign(campaignId);
+    const mine = sends.filter((s) => s.leadId === day0.leadId);
+    const day3 = mine.find((s) => s.stepIndex === 1)!;
+    const day7 = mine.find((s) => s.stepIndex === 2)!;
+    expect(day3).toBeTruthy();
+    expect(day7).toBeTruthy();
+
+    // Offsets are measured from the ACTUAL send time, not the original
+    // schedule — same sender, for Gmail thread continuity.
+    const sentAt = (
+      await withTenantTx({ tenantId: tenant.id }, (ctx) => automatedSendRepo.getById(ctx, day0.id))
+    )!.sentAt!;
+    expect(day3.scheduledAt.getTime() - sentAt.getTime()).toBe(3 * 24 * 60 * 60 * 1000);
+    expect(day7.scheduledAt.getTime() - sentAt.getTime()).toBe(7 * 24 * 60 * 60 * 1000);
+    expect(day3.senderAccountId).toBe(day0.senderAccountId);
+    expect(day7.senderAccountId).toBe(day0.senderAccountId);
+
+    // Idempotent: a further tick must not write duplicate follow-ups.
+    await runAutomatedCampaigns(getServices());
+    const after = (await sendsForCampaign(campaignId)).filter((s) => s.leadId === day0.leadId);
+    expect(after).toHaveLength(3);
   });
 });
 
@@ -664,7 +708,7 @@ describe("runAutomatedCampaigns — AI-driven discovery gate (aiDiscoveryEnabled
 
     const sends = await sendsForCampaign(campaignId);
     for (const aiLead of aiLeads) {
-      expect(sends.filter((s) => s.leadId === aiLead.id)).toHaveLength(3);
+      expect(sends.filter((s) => s.leadId === aiLead.id)).toHaveLength(1);
     }
   });
 

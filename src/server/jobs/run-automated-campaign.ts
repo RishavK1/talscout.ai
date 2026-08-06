@@ -47,6 +47,12 @@ const GENERATE_BATCH_SIZE = 10;
  *  Bulk Fire's cascadeFollowups (outreach.service.ts's fireCampaign). */
 const FOLLOW_UP_DAY_OFFSETS: Record<1 | 2, number> = { 1: 3, 2: 7 };
 
+/** How many leads get follow-up copy written per tick. Bounded for the same
+ *  reason Day 0 generation is batched — each entry costs 2 real AI calls, and
+ *  a tick must never spend its whole quota on follow-ups for already-contacted
+ *  leads at the expense of reaching new ones. */
+const FOLLOW_UP_GENERATE_PER_TICK = 10;
+
 type Campaign = typeof automatedCampaigns.$inferSelect;
 type Lead = typeof automatedLeads.$inferSelect;
 interface GeneratedCopy {
@@ -184,6 +190,15 @@ async function runOneCampaign(
   }
 
   // ---- Phase 3: generate copy, gated by the plan's daily cap ----
+
+  // ---- Phase 2b: write follow-up copy for already-SENT Day 0 emails ----
+  // Deliberately BEFORE Phase 3's early returns: a campaign that has no new
+  // ready leads (or has hit today's send cap) must still be able to write
+  // follow-ups for leads it already contacted, or a sequence would stall at
+  // Day 0 forever.
+  await stepRun(`followups-${cid}`, () =>
+    followUpPhase(campaign, services, tenantId, sections, styleExamples),
+  );
 
   // Budget is an ESTIMATE used to bound how many (potentially slow) AI calls
   // we attempt — the AUTHORITATIVE cap check happens later, in a short
@@ -487,6 +502,49 @@ async function generateCopyBatch(
       subject: day0.subject,
       body: signEmail(campaign, day0.body, lead.id),
     });
+    // Day 3/Day 7 copy is deliberately NOT written here — see
+    // followUpPhase below. Writing all three up front tripled every tick's
+    // AI calls for follow-ups that frequently never send (a reply cancels
+    // them), which exhausted free-tier quotas before even Day 0 could be
+    // committed.
+  }
+  return out;
+}
+
+/** Writes Day 3/Day 7 copy for leads whose Day 0 has actually SENT, then
+ *  schedules it relative to that real send time. Runs every tick; the 6-hour
+ *  cron cadence leaves days of margin before the Day 3 offset comes due.
+ *  Follow-ups whose lead has since replied are skipped at send time by
+ *  send-automated-email.ts, so a reply between generation and send is still
+ *  handled correctly. */
+async function followUpPhase(
+  campaign: Campaign,
+  services: Services,
+  tenantId: string,
+  sections: BlueprintSections,
+  styleExamples: string[] | undefined,
+): Promise<void> {
+  const day0Sends = await withTenantTx({ tenantId }, (ctx) =>
+    automatedSendRepo.listDay0SentNeedingFollowups(ctx, campaign.id, FOLLOW_UP_GENERATE_PER_TICK),
+  );
+  if (day0Sends.length === 0) return;
+
+  const dayMs = 24 * 60 * 60 * 1000;
+  for (const day0 of day0Sends) {
+    const lead = await withTenantTx({ tenantId }, (ctx) =>
+      automatedLeadRepo.getById(ctx, day0.leadId),
+    );
+    if (!lead?.email) continue;
+    // A lead that already replied (or unsubscribed/bounced) needs no
+    // follow-up copy at all — skip before spending an AI call on it.
+    if (lead.status !== "sent" && lead.status !== "queued") continue;
+
+    const leadArg = {
+      businessName: lead.businessName,
+      category: lead.category ?? undefined,
+      location: lead.addressText ?? undefined,
+    };
+    const sentAt = day0.sentAt ?? day0.scheduledAt;
 
     for (const stepIndex of [1, 2] as const) {
       try {
@@ -497,19 +555,34 @@ async function generateCopyBatch(
           followUp: { stepIndex, previousSubject: day0.subject },
           marketResearch: campaign.marketResearch ?? undefined,
         });
-        out.push({
-          leadId: lead.id,
-          email: lead.email,
-          stepIndex,
-          subject: followUp.subject,
-          body: signEmail(campaign, followUp.body, lead.id),
-        });
+        const scheduledAt = new Date(sentAt.getTime() + FOLLOW_UP_DAY_OFFSETS[stepIndex] * dayMs);
+        const inserted = await withTenantTx({ tenantId }, (ctx) =>
+          automatedSendRepo.bulkInsert(ctx, [
+            {
+              campaignId: campaign.id,
+              leadId: lead.id,
+              senderAccountId: campaign.senderAccountId,
+              stepIndex,
+              subject: followUp.subject,
+              body: signEmail(campaign, followUp.body, lead.id),
+              scheduledAt,
+            },
+          ]),
+        );
+        if (inserted.length === 0) continue; // already existed — idempotent
+        await services.queue.enqueueBatch(
+          SEND_AUTOMATED_EMAIL_JOB,
+          inserted.map((s) => ({
+            tenantId,
+            sendId: s.id,
+            targetSendAt: s.scheduledAt.toISOString(),
+          })),
+        );
       } catch (err) {
         logger.warn({ err, leadId: lead.id, stepIndex }, "automated_lead_followup_generation_failed");
       }
     }
   }
-  return out;
 }
 
 async function scheduleAndEnqueue(

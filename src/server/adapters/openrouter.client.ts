@@ -91,15 +91,33 @@ export interface OpenRouterCallArgs<T> {
   parse: (raw: string) => T;
 }
 
+/** Hard cap on how many free models a single call may try before giving up.
+ *
+ *  The live catalog is fetched from OpenRouter and routinely contains dozens
+ *  of `:free` models. Walking ALL of them per call was a real production
+ *  outage: when OpenRouter's free tier was broadly rate-limited, every copy
+ *  generation ground through the entire list (1,794 consecutive HTTP 429s
+ *  observed in one window) at ~30s timeout each, so the whole campaign job
+ *  timed out before committing a single email — the campaign silently wrote
+ *  nothing, for hours, while looking healthy.
+ *
+ *  A short list fails FAST to the next provider tier (Perplexity), which is
+ *  the entire point of having one. Free-tier throttling is near-universal
+ *  across OpenRouter's free models at any given moment, so trying the 30th
+ *  model after 29 rejections is essentially never the thing that saves a
+ *  call — it just burns the job's time budget. */
+const MAX_MODEL_ATTEMPTS = 4;
+
 /** Calls OpenRouter's OpenAI-compatible chat-completions endpoint, walking
  *  the live (or static-fallback) free-model list in order until one
- *  produces a response that passes `parse`. Throws only once every model in
- *  the list has failed. */
+ *  produces a response that passes `parse`. Throws once every attempted
+ *  model has failed (bounded by MAX_MODEL_ATTEMPTS), so the caller's next
+ *  provider tier is reached promptly rather than after a long stall. */
 export async function callOpenRouterWithFallback<T>(args: OpenRouterCallArgs<T>): Promise<T> {
   const apiKey = getEnv().OPENROUTER_API_KEY;
   if (!apiKey) throw new Error("OPENROUTER_API_KEY is required for OpenRouter adapters");
 
-  const models = await getFreeModels(apiKey);
+  const models = (await getFreeModels(apiKey)).slice(0, MAX_MODEL_ATTEMPTS);
   let lastErr: unknown;
   for (const model of models) {
     try {
