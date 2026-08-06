@@ -8,6 +8,8 @@ import { AppShell } from "@/components/app/app-shell";
 import { TopAppBar } from "@/components/app/top-app-bar";
 import { Modal } from "@/components/ui/modal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Button } from "@/components/ui/button";
+import { StatusBadge, type StatusBadgeProps } from "@/components/ui/status-badge";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { fadeUp, easeOut } from "@/lib/motion";
@@ -85,11 +87,11 @@ interface WhatsAppTemplate {
   rejectionReason: string | null;
 }
 
-const TEMPLATE_STATUS_STYLE: Record<WhatsAppTemplate["status"], string> = {
-  pending: "bg-secondary-container/30 text-secondary",
-  approved: "bg-tertiary/10 text-tertiary",
-  rejected: "bg-error/10 text-error",
-  disabled: "bg-surface-container-high text-on-surface-variant",
+const TEMPLATE_STATUS_TONE: Record<WhatsAppTemplate["status"], StatusBadgeProps["tone"]> = {
+  pending: "invited",
+  approved: "active",
+  rejected: "error",
+  disabled: "draft",
 };
 
 interface Counts {
@@ -239,23 +241,23 @@ function ScheduleCountdown({ scheduledFireAt }: { scheduledFireAt: string }) {
 const STEP_LABELS = ["Day 0", "Day 3", "Day 7"];
 const LEADS_PAGE_SIZE = 10;
 
-const STATUS_STYLE: Record<CampaignStatus, string> = {
-  draft: "bg-surface-container-high text-on-surface-variant",
-  importing: "bg-secondary-container/30 text-secondary",
-  ready: "bg-tertiary-fixed/30 text-on-tertiary-fixed-variant",
-  running: "bg-primary/10 text-primary",
-  paused: "bg-surface-container-high text-on-surface-variant",
-  completed: "bg-tertiary/10 text-tertiary",
-  error: "bg-error/10 text-error",
+const STATUS_TONE: Record<CampaignStatus, StatusBadgeProps["tone"]> = {
+  draft: "draft",
+  importing: "invited",
+  ready: "active",
+  running: "active",
+  paused: "neutral",
+  completed: "active",
+  error: "error",
 };
 
-const LEAD_STATUS_STYLE: Record<Lead["status"], string> = {
-  pending: "bg-surface-container-high text-on-surface-variant",
-  scheduled: "bg-secondary-container/30 text-secondary",
-  sent: "bg-tertiary/10 text-tertiary",
-  bounced: "bg-error/10 text-error",
-  failed: "bg-error/10 text-error",
-  skipped: "bg-surface-container-high text-on-surface-variant",
+const LEAD_STATUS_TONE: Record<Lead["status"], StatusBadgeProps["tone"]> = {
+  pending: "draft",
+  scheduled: "invited",
+  sent: "active",
+  bounced: "error",
+  failed: "error",
+  skipped: "draft",
 };
 
 const ERROR_REASON_LABELS: Record<string, string> = {
@@ -1010,35 +1012,20 @@ export default function BulkFireCampaignPage({
         rightContent={
           <div className="flex items-center gap-2">
             {campaign.status === "running" && (
-              <button
-                type="button"
-                disabled={controlBusy}
-                onClick={() => runControl("pause")}
-                className="rounded-lg border border-border-low-alpha bg-surface-white px-4 py-2 font-label-md text-label-md text-on-surface transition-colors hover:bg-surface-container-low disabled:opacity-50"
-              >
+              <Button type="button" variant="outline" loading={controlBusy} onClick={() => runControl("pause")}>
                 Pause
-              </button>
+              </Button>
             )}
             {campaign.status === "paused" && (
-              <button
-                type="button"
-                disabled={controlBusy}
-                onClick={() => runControl("resume")}
-                className="rounded-lg border border-border-low-alpha bg-surface-white px-4 py-2 font-label-md text-label-md text-on-surface transition-colors hover:bg-surface-container-low disabled:opacity-50"
-              >
+              <Button type="button" variant="outline" loading={controlBusy} onClick={() => runControl("resume")}>
                 Resume
-              </button>
+              </Button>
             )}
             {(campaign.status === "running" ||
               campaign.status === "paused") && (
-              <button
-                type="button"
-                disabled={controlBusy}
-                onClick={() => runControl("stop")}
-                className="rounded-lg border border-error/20 bg-surface-white px-4 py-2 font-label-md text-label-md text-error transition-colors hover:bg-error/5 disabled:opacity-50"
-              >
+              <Button type="button" variant="destructive" loading={controlBusy} onClick={() => runControl("stop")}>
                 Stop
-              </button>
+              </Button>
             )}
           </div>
         }
@@ -1051,11 +1038,9 @@ export default function BulkFireCampaignPage({
               {campaign.name}
             </h1>
             <div className="flex items-center gap-2">
-              <span
-                className={`rounded-full px-2.5 py-0.5 font-label-md text-[11px] capitalize ${STATUS_STYLE[campaign.status]}`}
-              >
+              <StatusBadge tone={STATUS_TONE[campaign.status]} className="capitalize">
                 {campaign.status}
-              </span>
+              </StatusBadge>
               <span className="font-data-mono text-[12px] text-text-muted">
                 {leadCount} leads
               </span>
@@ -1151,13 +1136,9 @@ export default function BulkFireCampaignPage({
                 <span className="font-label-md text-[12px] text-primary">
                   {selectedIds.size} selected
                 </span>
-                <button
-                  type="button"
-                  onClick={clearSelection}
-                  className="font-label-md text-[12px] text-on-surface-variant underline underline-offset-2 transition-colors hover:text-on-surface"
-                >
+                <Button type="button" variant="link" size="xs" onClick={clearSelection} className="h-auto p-0 text-[12px] text-on-surface-variant hover:text-on-surface">
                   Clear selection
-                </button>
+                </Button>
               </div>
             )}
           </div>
@@ -1247,11 +1228,9 @@ export default function BulkFireCampaignPage({
                             </span>
                           </span>
                         </label>
-                        <span
-                          className={`shrink-0 rounded-full px-2 py-0.5 font-label-md text-[11px] capitalize ${LEAD_STATUS_STYLE[lead.status]}`}
-                        >
+                        <StatusBadge tone={LEAD_STATUS_TONE[lead.status]} className="shrink-0 capitalize">
                           {lead.status}
-                        </span>
+                        </StatusBadge>
                       </div>
 
                       <div className="grid gap-3 rounded-xl bg-surface-container-low/50 p-3">
@@ -1271,14 +1250,16 @@ export default function BulkFireCampaignPage({
                             Sent on
                           </span>
                           {lead.day0SentAt ? (
-                            <button
+                            <Button
                               type="button"
+                              variant="ghost"
+                              size="xs"
                               onClick={() => selectSameSendDay(lead.day0SentAt)}
                               title="Click to also select everyone sent on this day"
-                              className="min-h-9 rounded-lg px-2 font-data-mono text-[12px] text-on-surface-variant transition-colors hover:bg-primary/5 hover:text-primary"
+                              className="h-auto min-h-9 px-2 font-data-mono text-[12px] text-on-surface-variant hover:text-primary"
                             >
                               {formatSentAt(lead.day0SentAt)}
-                            </button>
+                            </Button>
                           ) : (
                             <span className="font-data-mono text-[12px] text-on-surface-variant">
                               —
@@ -1287,13 +1268,14 @@ export default function BulkFireCampaignPage({
                         </div>
                       </div>
 
-                      <button
+                      <Button
                         type="button"
+                        variant="outline"
                         onClick={() => setEmailsLeadId(lead.id)}
-                        className="mt-3 flex min-h-10 w-full items-center justify-center rounded-lg border border-border-low-alpha bg-surface-white px-3 py-2 font-label-md text-[12px] text-on-surface transition-colors hover:bg-surface-container-low"
+                        className="mt-3 min-h-10 w-full justify-center text-[12px]"
                       >
                         View emails
-                      </button>
+                      </Button>
                     </div>
                   );
                 })}
@@ -1373,27 +1355,30 @@ export default function BulkFireCampaignPage({
                           className="px-4 py-3"
                           onClick={(e) => e.stopPropagation()}
                         >
-                          <button
+                          <Button
                             type="button"
+                            variant="outline"
+                            size="sm"
                             onClick={() => setEmailsLeadId(lead.id)}
-                            className="rounded-lg border border-border-low-alpha bg-surface-white px-3 py-1.5 font-label-md text-[11px] text-on-surface transition-colors hover:bg-surface-container-low"
                           >
                             View emails
-                          </button>
+                          </Button>
                         </td>
                         <td
                           className="px-4 py-3 whitespace-nowrap"
                           onClick={(e) => e.stopPropagation()}
                         >
                           {lead.day0SentAt ? (
-                            <button
+                            <Button
                               type="button"
+                              variant="ghost"
+                              size="xs"
                               onClick={() => selectSameSendDay(lead.day0SentAt)}
                               title="Click to also select everyone sent on this day"
-                              className="rounded-lg px-2 py-1 font-data-mono text-[12px] text-on-surface-variant transition-colors hover:bg-primary/5 hover:text-primary"
+                              className="h-auto px-2 py-1 font-data-mono text-[12px] text-on-surface-variant hover:text-primary"
                             >
                               {formatSentAt(lead.day0SentAt)}
-                            </button>
+                            </Button>
                           ) : (
                             <span className="px-2 font-data-mono text-[12px] text-on-surface-variant">
                               —
@@ -1404,11 +1389,9 @@ export default function BulkFireCampaignPage({
                           {lead.email || "—"}
                         </td>
                         <td className="px-4 py-3">
-                          <span
-                            className={`rounded-full px-2 py-0.5 font-label-md text-[11px] capitalize ${LEAD_STATUS_STYLE[lead.status]}`}
-                          >
+                          <StatusBadge tone={LEAD_STATUS_TONE[lead.status]} className="capitalize">
                             {lead.status}
-                          </span>
+                          </StatusBadge>
                         </td>
                       </tr>
                     ))}
@@ -1424,17 +1407,18 @@ export default function BulkFireCampaignPage({
                   {leadCount}
                 </span>
                 <div className="flex flex-wrap items-center justify-center gap-1.5">
-                  <button
+                  <Button
                     type="button"
+                    variant="outline"
+                    size="icon"
                     onClick={() => goToLeadsPage(leadsPage - 1)}
                     disabled={leadsPage <= 1}
                     aria-label="Previous page"
-                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-border-low-alpha text-on-surface-variant transition-colors hover:bg-surface-container-low disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <span className="material-symbols-outlined text-[18px]">
                       chevron_left
                     </span>
-                  </button>
+                  </Button>
                   {paginationRange(leadsPage, totalLeadsPages).map((p, i) =>
                     p === "…" ? (
                       <span
@@ -1444,32 +1428,30 @@ export default function BulkFireCampaignPage({
                         …
                       </span>
                     ) : (
-                      <button
+                      <Button
                         key={p}
                         type="button"
+                        variant={p === leadsPage ? "default" : "outline"}
+                        size="icon"
                         onClick={() => goToLeadsPage(p)}
                         aria-current={p === leadsPage ? "page" : undefined}
-                        className={`flex h-8 w-8 items-center justify-center rounded-lg font-label-md text-[12px] transition-colors ${
-                          p === leadsPage
-                            ? "bg-primary text-on-primary"
-                            : "border border-border-low-alpha text-on-surface-variant hover:bg-surface-container-low"
-                        }`}
                       >
                         {p}
-                      </button>
+                      </Button>
                     ),
                   )}
-                  <button
+                  <Button
                     type="button"
+                    variant="outline"
+                    size="icon"
                     onClick={() => goToLeadsPage(leadsPage + 1)}
                     disabled={leadsPage >= totalLeadsPages}
                     aria-label="Next page"
-                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-border-low-alpha text-on-surface-variant transition-colors hover:bg-surface-container-low disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <span className="material-symbols-outlined text-[18px]">
                       chevron_right
                     </span>
-                  </button>
+                  </Button>
                 </div>
               </div>
             </>
@@ -1493,8 +1475,10 @@ export default function BulkFireCampaignPage({
                   within minutes to a day.
                 </p>
               </div>
-              <button
+              <Button
                 type="button"
+                variant="outline"
+                size="sm"
                 onClick={() => setNewTemplateOpen(true)}
                 disabled={senders.filter((s) => s.type === "whatsapp").length === 0}
                 title={
@@ -1502,10 +1486,9 @@ export default function BulkFireCampaignPage({
                     ? "Connect a WhatsApp sender first"
                     : undefined
                 }
-                className="rounded-lg border border-border-low-alpha bg-surface-white px-4 py-2 font-label-md text-[12px] text-on-surface transition-colors hover:bg-surface-container-low disabled:opacity-50"
               >
                 + Submit template
-              </button>
+              </Button>
             </div>
             {templates.length === 0 ? (
               <p className="rounded-lg bg-bg-cream/40 p-4 font-body-md text-[13px] text-on-surface-variant">
@@ -1536,11 +1519,9 @@ export default function BulkFireCampaignPage({
                         </p>
                       )}
                     </div>
-                    <span
-                      className={`shrink-0 rounded-full px-2.5 py-0.5 font-label-md text-[11px] capitalize ${TEMPLATE_STATUS_STYLE[t.status]}`}
-                    >
+                    <StatusBadge tone={TEMPLATE_STATUS_TONE[t.status]} className="shrink-0 capitalize">
                       {t.status}
-                    </span>
+                    </StatusBadge>
                   </div>
                 ))}
               </div>
@@ -1558,7 +1539,7 @@ export default function BulkFireCampaignPage({
             type="button"
             onClick={() => setSequenceOpen((o) => !o)}
             aria-expanded={sequenceOpen}
-            className="flex w-full items-center justify-between gap-4 p-5 text-left"
+            className="flex w-full items-center justify-between gap-4 p-5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-inset"
           >
             <div>
               <h2 className="font-headline-md text-[16px] text-on-surface">
@@ -1604,7 +1585,7 @@ export default function BulkFireCampaignPage({
                           key={label}
                           type="button"
                           onClick={() => setActiveStep(i)}
-                          className={`rounded-md px-3 py-1.5 font-label-md text-[12px] transition-colors ${
+                          className={`rounded-md px-3 py-1.5 font-label-md text-[12px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-1 ${
                             activeStep === i
                               ? "bg-surface-white text-primary shadow-sm"
                               : "text-on-surface-variant hover:text-on-surface"
@@ -1621,14 +1602,9 @@ export default function BulkFireCampaignPage({
                         </button>
                       ))}
                     </div>
-                    <button
-                      type="button"
-                      onClick={handleSaveSequence}
-                      disabled={savingSequence}
-                      className="rounded-lg bg-primary px-4 py-2 font-label-md text-[12px] text-on-primary transition-[filter] hover:brightness-110 disabled:opacity-50"
-                    >
+                    <Button type="button" variant="gradient" size="sm" loading={savingSequence} onClick={handleSaveSequence}>
                       {savingSequence ? "Saving…" : "Save sequence"}
-                    </button>
+                    </Button>
                   </div>
 
                   {campaign.channel === "whatsapp" ? (
@@ -1757,14 +1733,16 @@ export default function BulkFireCampaignPage({
               ))}
             </div>
           )}
-          <button
+          <Button
             type="button"
+            variant="outline"
+            className="border-primary text-primary hover:bg-primary/5 hover:text-primary"
             onClick={handleSaveSenders}
-            disabled={savingSenders || !sendersDirty}
-            className="rounded-lg border border-primary px-5 py-2.5 font-label-md text-label-md text-primary transition-all hover:bg-primary/5 active:scale-[0.98] disabled:opacity-50"
+            loading={savingSenders}
+            disabled={!sendersDirty}
           >
             {savingSenders ? "Saving…" : "Save senders"}
-          </button>
+          </Button>
         </section>
 
         <section className="mb-10 rounded-2xl border border-border-low-alpha bg-surface-white p-6">
@@ -1796,14 +1774,9 @@ export default function BulkFireCampaignPage({
                   ? ` — ${campaign.scheduledFireLeadIds.length} selected lead${campaign.scheduledFireLeadIds.length === 1 ? "" : "s"}`
                   : " — all eligible leads"}
               </p>
-              <button
-                type="button"
-                onClick={handleCancelScheduledFire}
-                disabled={cancelingSchedule}
-                className="rounded-lg border border-border-low-alpha bg-surface-white px-4 py-2 font-label-md text-[12px] text-on-surface transition-colors hover:bg-surface-container-low disabled:opacity-50"
-              >
+              <Button type="button" variant="outline" size="sm" loading={cancelingSchedule} onClick={handleCancelScheduledFire}>
                 {cancelingSchedule ? "Canceling…" : "Cancel schedule"}
-              </button>
+              </Button>
             </div>
           ) : (
             <>
@@ -1840,18 +1813,19 @@ export default function BulkFireCampaignPage({
                   </option>
                 ))}
               </select>
-              <button
+              <Button
                 type="button"
+                variant="gradient"
+                loading={firing}
+                disabled={leadCount === 0}
                 onClick={() => setConfirmFireOpen(true)}
-                disabled={firing || leadCount === 0}
-                className="rounded-lg bg-primary px-5 py-2.5 font-label-md text-label-md text-on-primary transition-all hover:shadow-lg active:scale-[0.98] disabled:opacity-50"
               >
                 {firing
                   ? "Scheduling…"
                   : selectedIds.size > 0
                     ? `Fire ${STEP_LABELS[fireStep]} to ${selectedIds.size} selected`
                     : `Fire ${STEP_LABELS[fireStep]} to all eligible`}
-              </button>
+              </Button>
               <span className="font-body-md text-[13px] text-on-surface-variant">
                 or
               </span>
@@ -1864,14 +1838,16 @@ export default function BulkFireCampaignPage({
                     onChange={(e) => setScheduledAtInput(e.target.value)}
                     className="rounded-lg border border-border-low-alpha bg-bg-cream/30 px-3 py-2 font-body-md text-[13px] focus:outline-none focus:ring-1 focus:ring-primary"
                   />
-                  <button
+                  <Button
                     type="button"
+                    variant="outline"
+                    className="border-primary text-primary hover:bg-primary/5 hover:text-primary"
+                    loading={scheduling}
+                    disabled={leadCount === 0 || !scheduledAtInput}
                     onClick={handleScheduleFire}
-                    disabled={scheduling || leadCount === 0 || !scheduledAtInput}
-                    className="rounded-lg border border-primary px-5 py-2.5 font-label-md text-label-md text-primary transition-all hover:bg-primary/5 active:scale-[0.98] disabled:opacity-50"
                   >
                     {scheduling ? "Scheduling…" : "Schedule fire"}
-                  </button>
+                  </Button>
                 </>
               ) : (
                 <Link
@@ -2065,20 +2041,12 @@ export default function BulkFireCampaignPage({
             </p>
           </div>
           <div className="flex justify-end gap-2 pt-2">
-            <button
-              type="button"
-              onClick={() => setNewTemplateOpen(false)}
-              className="rounded-lg px-4 py-2 font-label-md text-[12px] text-on-surface-variant hover:bg-surface-container-low"
-            >
+            <Button type="button" variant="ghost" size="sm" onClick={() => setNewTemplateOpen(false)}>
               Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={submittingTemplate}
-              className="rounded-lg bg-primary px-4 py-2 font-label-md text-[12px] text-on-primary transition-[filter] hover:brightness-110 disabled:opacity-50"
-            >
+            </Button>
+            <Button type="submit" variant="gradient" size="sm" loading={submittingTemplate}>
               {submittingTemplate ? "Submitting…" : "Submit for approval"}
-            </button>
+            </Button>
           </div>
         </form>
       </Modal>

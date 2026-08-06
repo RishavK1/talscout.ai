@@ -166,7 +166,10 @@ export default function AutomatedRepliesPage() {
             viewport-height container and scroll independently; on mobile it
             collapses to a single pane — list first, detail (with a back
             button) once a draft is selected. */}
-        <main className="flex flex-1 lg:h-[calc(100dvh-73px)] lg:overflow-hidden">
+        {/* AppShell's SidebarInset already renders a <main> around this page
+         *  — a second <main> here breaks the screen-reader landmark, so this
+         *  is a plain div even though it plays the same layout role. */}
+        <div className="flex flex-1 lg:h-[calc(100dvh-73px)] lg:overflow-hidden">
           {/* Left pane: pending list */}
           <Card
             className={cn(
@@ -263,14 +266,24 @@ export default function AutomatedRepliesPage() {
               </div>
             ) : (
               <div className="mx-auto max-w-[720px] space-y-5 p-4 sm:p-6 lg:p-8">
-                <button
-                  type="button"
-                  onClick={() => setSelectedId(null)}
-                  className="inline-flex items-center gap-1 font-label-md text-label-md text-primary hover:underline lg:hidden"
-                >
-                  <span className="material-symbols-outlined text-[18px]">arrow_back</span>
-                  Back to inbox
-                </button>
+                {/* TopAppBar (carrying the page title) is hidden below lg, and
+                 *  this pane's own title (the "Pending replies" CardHeader)
+                 *  is hidden once a draft is selected — without this, the
+                 *  detail screen has no page-identity heading on mobile at
+                 *  all beyond a small back link. min-h-10 also brings the
+                 *  back link itself up to the app's usual touch-target size
+                 *  (it had none before, ~20px tall). */}
+                <div className="flex items-center justify-between gap-2 lg:hidden">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedId(null)}
+                    className="-ml-2 inline-flex min-h-10 items-center gap-1 rounded-lg px-2 font-label-md text-label-md text-primary hover:underline"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+                    Back to inbox
+                  </button>
+                  <span className="font-label-md text-[12px] text-text-muted">Reply detail</span>
+                </div>
 
                 <Card className="[--card-spacing:--spacing(6)]">
                   <CardHeader>
@@ -327,7 +340,7 @@ export default function AutomatedRepliesPage() {
                       value={editBody}
                       onChange={(e) => setEditBody(e.target.value)}
                       rows={8}
-                      className="w-full rounded-xl border border-border-low-alpha bg-white px-4 py-3 font-body-md text-on-surface placeholder-outline-variant focus:outline-none focus:ring-1 focus:ring-primary"
+                      className="w-full rounded-xl border border-border-low-alpha bg-surface-white px-4 py-3 font-body-md text-on-surface placeholder-outline-variant focus:outline-none focus:ring-1 focus:ring-primary"
                     />
                     {selected.reasoning && (
                       <p className="mt-3 rounded-xl border border-border-low-alpha bg-surface-container-low p-3 font-body-md text-[13px] text-on-surface-variant">
@@ -339,13 +352,13 @@ export default function AutomatedRepliesPage() {
 
                 {selected.status === "pending" && (
                   <div className="flex flex-col-reverse gap-3 sm:flex-row sm:flex-wrap sm:justify-end">
-                    <Button type="button" variant="destructive" size="lg" onClick={reject} disabled={busy}>
+                    <Button type="button" variant="destructive" size="lg" onClick={reject} disabled={busy} className="w-full sm:w-auto">
                       Reject
                     </Button>
-                    <Button type="button" variant="outline" size="lg" onClick={regenerate} disabled={busy}>
+                    <Button type="button" variant="outline" size="lg" onClick={regenerate} disabled={busy} className="w-full sm:w-auto">
                       Regenerate
                     </Button>
-                    <Button type="button" variant="gradient" size="lg" onClick={approve} disabled={busy}>
+                    <Button type="button" variant="gradient" size="lg" onClick={approve} disabled={busy} className="w-full sm:w-auto">
                       <span className={cn("material-symbols-outlined text-[18px]", busy && "animate-spin")}>
                         {busy ? "sync" : "send"}
                       </span>
@@ -356,7 +369,7 @@ export default function AutomatedRepliesPage() {
               </div>
             )}
           </div>
-        </main>
+        </div>
       </div>
     </AppShell>
   );
