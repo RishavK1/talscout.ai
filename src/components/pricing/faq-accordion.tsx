@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { FAQS } from "@/components/marketing/faq-data";
 
 export function FaqAccordion() {
@@ -29,12 +30,19 @@ export function FaqAccordion() {
                 expand_more
               </span>
             </button>
-            <div
-              className="overflow-hidden transition-all duration-300 ease-out"
-              style={{ maxHeight: isActive ? "200px" : "0px" }}
-            >
-              <div className="p-6 pt-0 font-body-md text-on-surface-variant">{faq.a}</div>
-            </div>
+            <AnimatePresence initial={false}>
+              {isActive && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.28, ease: [0.23, 1, 0.32, 1] }}
+                  className="overflow-hidden"
+                >
+                  <div className="p-6 pt-0 font-body-md text-on-surface-variant">{faq.a}</div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         );
       })}
