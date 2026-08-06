@@ -55,6 +55,7 @@ import { WaterfallEmailFinder } from "@/server/adapters/waterfall.email-finder";
 import { MockOutreachCopywriter } from "@/server/adapters/mock.outreach-copywriter";
 import { GeminiOutreachCopywriter } from "@/server/adapters/gemini.outreach-copywriter";
 import { OpenRouterOutreachCopywriter } from "@/server/adapters/openrouter.outreach-copywriter";
+import { PerplexityOutreachCopywriter } from "@/server/adapters/perplexity.outreach-copywriter";
 import { MockLeadQualifier } from "@/server/adapters/mock.lead-qualifier";
 import { GeminiLeadQualifier } from "@/server/adapters/gemini.lead-qualifier";
 import { OpenRouterLeadQualifier } from "@/server/adapters/openrouter.lead-qualifier";
@@ -365,16 +366,29 @@ export function getServices(): Services {
     // as the email finder above, just DNS instead of an API waterfall.
     const emailVerifier = new DnsEmailVerifier();
 
-    // Same Gemini-primary / OpenRouter-last-resort-fallback pattern as the
-    // blueprint adapters above.
+    // Same Gemini-primary / OpenRouter-fallback pattern as the blueprint
+    // adapters above, PLUS a third tier: Perplexity (PERPLEXITY_API_KEY_PRIMARY),
+    // tried only once BOTH Gemini and OpenRouter fail. Added after a real
+    // production incident where Gemini's free-tier daily quota and
+    // OpenRouter's free models were both rate-limited at the same time,
+    // silently stalling copy generation for every campaign for the rest of
+    // the day — Perplexity's separate, independently-metered budget gives a
+    // genuine third chance rather than the whole write step going dark.
     const geminiOutreachCopywriter = env.GEMINI_API_KEY ? new GeminiOutreachCopywriter() : null;
     const openRouterOutreachCopywriter = env.OPENROUTER_API_KEY
       ? new OpenRouterOutreachCopywriter()
       : null;
-    const outreachCopywriter =
+    const perplexityOutreachCopywriter = env.PERPLEXITY_API_KEY_PRIMARY
+      ? new PerplexityOutreachCopywriter()
+      : null;
+    const geminiThenOpenRouterCopywriter =
       geminiOutreachCopywriter && openRouterOutreachCopywriter
         ? new FallbackOutreachCopywriter(geminiOutreachCopywriter, openRouterOutreachCopywriter)
-        : (geminiOutreachCopywriter ?? openRouterOutreachCopywriter ?? new MockOutreachCopywriter());
+        : (geminiOutreachCopywriter ?? openRouterOutreachCopywriter);
+    const outreachCopywriter =
+      geminiThenOpenRouterCopywriter && perplexityOutreachCopywriter
+        ? new FallbackOutreachCopywriter(geminiThenOpenRouterCopywriter, perplexityOutreachCopywriter)
+        : (geminiThenOpenRouterCopywriter ?? perplexityOutreachCopywriter ?? new MockOutreachCopywriter());
 
     // Perplexity-primary (PERPLEXITY_API_KEY_PRIMARY) → Gemini →
     // OpenRouter-last-resort-fallback — only ever called for the one case
