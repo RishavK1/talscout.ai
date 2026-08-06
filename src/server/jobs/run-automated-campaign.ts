@@ -303,6 +303,12 @@ async function discoverPhase(
       location: discoveryQuery.location,
       limit: Math.min(campaign.maxLeadsPerRun * DISCOVERY_POOL_MULTIPLIER, DISCOVERY_POOL_CAP),
       excludeSourcePlaceIds: known,
+      aiDiscoveryEnabled: campaign.aiDiscoveryEnabled,
+      fitContext: {
+        whatWeOffer: sections.whatWeOffer,
+        whoItsFor: sections.whoItsFor,
+        leadQualification: normalizeLeadQualification(sections.leadQualification),
+      },
     });
   } catch (err) {
     // A transient discovery-provider outage must never permanently halt the
@@ -368,6 +374,7 @@ async function enrichBatch(
       result = await services.emailFinder.find({
         website: lead.website ?? undefined,
         businessName: lead.businessName,
+        budgetScopeId: campaign.id,
       });
     } catch (err) {
       logger.warn({ err, leadId: lead.id }, "automated_lead_enrich_failed");

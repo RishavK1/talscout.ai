@@ -478,11 +478,26 @@ export interface LeadDiscoveryQuery {
    *  the known set is what lets a provider page/expand PAST the exhausted
    *  frontier into genuinely new businesses. */
   excludeSourcePlaceIds?: ReadonlySet<string>;
+  /** Per-campaign opt-in for AI-driven discovery sources (Perplexity Sonar
+   *  live web search) — see PerplexityLeadDiscovery / FallbackLeadDiscovery's
+   *  `augmenters`. Geometry-based sources (Overpass/Geoapify/Google Places)
+   *  ignore this field entirely. Absent/false MUST result in zero AI-search
+   *  calls — the structural guarantee that existing campaigns never change
+   *  behavior or spend when this ships. */
+  aiDiscoveryEnabled?: boolean;
+  /** Positioning context only an AI-reasoning source can use — every
+   *  geometry-based source ignores it. */
+  fitContext?: {
+    whatWeOffer: string;
+    whoItsFor: string;
+    leadQualification?: BlueprintLeadQualification;
+  };
 }
 
 export interface DiscoveredLead {
-  /** External id (e.g. "osm:node/123", "google:ChIJ...") — the discovery
-   *  dedup key so a re-run never inserts the same business twice. */
+  /** External id (e.g. "osm:node/123", "google:ChIJ...", "ai:<sha256
+   *  prefix>" for Perplexity-sourced candidates) — the discovery dedup key
+   *  so a re-run never inserts the same business twice. */
   sourcePlaceId: string;
   name: string;
   category?: string;
@@ -511,7 +526,8 @@ export type EmailSourceType =
   | "google_places"
   | "osm"
   | "firecrawl"
-  | "snov";
+  | "snov"
+  | "perplexity";
 
 export interface EmailFinderResult {
   email: string;
@@ -525,7 +541,14 @@ export interface EmailFinderResult {
  *  service maps directly to lead status "no_email" — a strict rule that a
  *  lead with no findable email must never enter the send pipeline. */
 export interface EmailFinder {
-  find(args: { website?: string; businessName: string }): Promise<EmailFinderResult | null>;
+  find(args: {
+    website?: string;
+    businessName: string;
+    /** Caller-supplied scoping key (the campaign id) so a per-caller AI rung
+     *  can apply a per-campaign budget on top of a process-wide one — see
+     *  PerplexityEmailFinder. Free/dataset sub-finders ignore it. */
+    budgetScopeId?: string;
+  }): Promise<EmailFinderResult | null>;
 }
 
 /** Cheap domain-level deliverability check, run on every address a lead is

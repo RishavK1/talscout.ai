@@ -12,6 +12,11 @@ import type { LeadDiscovery, LeadDiscoveryQuery, DiscoveredLead } from "@/server
  * (see fallback.lead-discovery.ts / container.ts).
  */
 const GEOAPIFY_PLACES_ENDPOINT = "https://api.geoapify.com/v2/places";
+/** Geoapify's documented per-request `limit` ceiling. Bounds the inflated
+ *  fetch used to page past already-known businesses (same purpose as
+ *  Overpass's OVERPASS_MAX_ELEMENTS) so a long-running campaign can't grow
+ *  its query without limit. */
+const GEOAPIFY_MAX_RESULTS = 500;
 
 /** category → Geoapify Places category. Best-effort map; unknown categories
  *  fall back to the broad "commercial" category so something plausible still
@@ -84,13 +89,50 @@ export class GeoapifyLeadDiscovery implements LeadDiscovery {
   async discover(query: LeadDiscoveryQuery): Promise<DiscoveredLead[]> {
     const center = await this.resolveCenter(query.location);
     if (!center) return [];
-    const radius = "radiusMeters" in query.location ? query.location.radiusMeters : 10_000;
 
+    // Same known-aware radius escalation as OverpassLeadDiscovery — without
+    // this, a saturated 10km page returned nothing new on every repeat run
+    // (dedup happened centrally in FallbackLeadDiscovery, which drops known
+    // dupes without ever asking Geoapify for a wider/deeper page instead).
+    const radii =
+      "radiusMeters" in query.location
+        ? [query.location.radiusMeters]
+        : [10_000, 25_000, 50_000];
+
+    const known = query.excludeSourcePlaceIds ?? new Set<string>();
+    const byId = new Map<string, DiscoveredLead>();
+    for (const radius of radii) {
+      if (byId.size >= query.limit) break;
+      // Over-fetch by the already-known count, same reasoning as Overpass:
+      // Geoapify returns a stable-ordered page capped by `limit`, so asking
+      // for exactly `query.limit` on a repeat run returns only businesses
+      // already known, no matter how wide the radius.
+      const fetchLimit = Math.min(query.limit + known.size, GEOAPIFY_MAX_RESULTS);
+      const features = await this.fetchAtRadius(query.category, center, radius, fetchLimit);
+      for (const f of features) {
+        const lead = featureToLead(f);
+        if (!lead || byId.has(lead.sourcePlaceId)) continue;
+        // Already discovered on an earlier run: skip WITHOUT counting toward
+        // the limit, so a saturated inner radius can't block escalation.
+        if (known.has(lead.sourcePlaceId)) continue;
+        byId.set(lead.sourcePlaceId, lead);
+        if (byId.size >= query.limit) break;
+      }
+    }
+    return [...byId.values()];
+  }
+
+  private async fetchAtRadius(
+    category: string,
+    center: { lat: number; lon: number },
+    radius: number,
+    limit: number,
+  ): Promise<GeoapifyFeature[]> {
     const params = new URLSearchParams({
-      categories: categoryFor(query.category),
+      categories: categoryFor(category),
       filter: `circle:${center.lon},${center.lat},${radius}`,
       bias: `proximity:${center.lon},${center.lat}`,
-      limit: String(query.limit),
+      limit: String(limit),
       apiKey: this.apiKey,
     });
 
@@ -106,12 +148,7 @@ export class GeoapifyLeadDiscovery implements LeadDiscovery {
         return [];
       }
       const data = (await res.json()) as { features?: GeoapifyFeature[] };
-      const leads: DiscoveredLead[] = [];
-      for (const f of data.features ?? []) {
-        const lead = featureToLead(f);
-        if (lead) leads.push(lead);
-      }
-      return leads;
+      return data.features ?? [];
     } catch (err) {
       logger.warn({ err }, "geoapify_discover_failed");
       return [];

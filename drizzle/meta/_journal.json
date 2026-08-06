@@ -127,6 +127,13 @@
       "when": 1785733067972,
       "tag": "0017_demonic_ken_ellis",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1785996224614,
+      "tag": "0018_crazy_clint_barton",
+      "breakpoints": true
     }
   ]
 }

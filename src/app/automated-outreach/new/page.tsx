@@ -76,6 +76,7 @@ export default function NewAutomatedCampaignPage() {
 
   // Step 4 — Review & launch
   const [replyPollingEnabled, setReplyPollingEnabled] = useState(true);
+  const [aiDiscoveryEnabled, setAiDiscoveryEnabled] = useState(true);
   const [creating, setCreating] = useState(false);
 
   // Warn on tab close/refresh once the user has moved past the first step —
@@ -173,6 +174,7 @@ export default function NewAutomatedCampaignPage() {
         signatureClosing: signatureClosing.trim() || undefined,
         styleExamples: styleExamples.map((s) => s.trim()).filter(Boolean),
         replyPollingEnabled,
+        aiDiscoveryEnabled,
         marketResearch: marketResearch.trim() || undefined,
       });
       toast.success("Campaign created");
@@ -672,6 +674,45 @@ export default function NewAutomatedCampaignPage() {
                               // it into the track).
                               "absolute top-1 h-5 w-5 rounded-full bg-[#ffffff] shadow-sm transition-transform",
                               replyPollingEnabled ? "translate-x-6" : "translate-x-1",
+                            )}
+                          />
+                        </button>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="[--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
+                    <CardContent>
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <div className="mb-1 flex items-center gap-3">
+                            <div className="rounded-xl bg-primary-container/10 p-2 text-primary">
+                              <span className="material-symbols-outlined text-[20px]">travel_explore</span>
+                            </div>
+                            <h2 className="font-body-md text-headline-md font-semibold text-primary">
+                              AI-powered lead search
+                            </h2>
+                          </div>
+                          <p className="font-body-md text-body-md text-text-muted">
+                            Alongside our directory-based search, AI does a
+                            live web search for real, currently-operating
+                            businesses matching your targeting — and helps
+                            track down an email when the usual sources come
+                            up empty.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setAiDiscoveryEnabled((v) => !v)}
+                          className={cn(
+                            "shrink-0 w-12 h-7 rounded-full transition-colors relative",
+                            aiDiscoveryEnabled ? "bg-tertiary-fixed" : "bg-surface-container-high",
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              "absolute top-1 h-5 w-5 rounded-full bg-[#ffffff] shadow-sm transition-transform",
+                              aiDiscoveryEnabled ? "translate-x-6" : "translate-x-1",
                             )}
                           />
                         </button>

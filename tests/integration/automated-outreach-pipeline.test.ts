@@ -7,7 +7,14 @@ import { resetDb } from "../helpers/seed";
 import { makeUser } from "../helpers/auth-fixtures";
 import { call } from "../helpers/http";
 import { adminDb, closePools } from "../../src/server/db/client";
-import { blueprints, senderAccounts, automatedLeads, automatedSends, automatedCampaigns, tenants } from "../../src/server/db/schema";
+import {
+  blueprints,
+  senderAccounts,
+  automatedLeads,
+  automatedSends,
+  automatedCampaigns,
+  tenants,
+} from "../../src/server/db/schema";
 import { encryptSecret } from "../../src/server/lib/secret-box";
 import { withTenantTx } from "../../src/server/db/tx";
 import {
@@ -619,5 +626,151 @@ describe("runAutomatedCampaigns — suppression gate (unsubscribe sprint)", () =
       automatedLeadRepo.getById(ctx, day0.leadId),
     );
     expect(updatedLead?.status).toBe("suppressed");
+  });
+});
+
+describe("runAutomatedCampaigns — AI-driven discovery gate (aiDiscoveryEnabled)", () => {
+  it("aiDiscoveryEnabled absent (the DB default) → zero ai:-prefixed leads, even though the mock sentinel path is available", async () => {
+    const { tenant, token } = await makeUser("recruiter");
+    const blueprint = await seedActiveBlueprint(tenant.id);
+    const sender = await seedGmailSender(tenant.id);
+    // No aiDiscoveryEnabled override — createActiveCampaign's default body
+    // omits it, so the repo's `?? false` default applies, same as every
+    // pre-existing campaign row.
+    const campaignId = await createActiveCampaign(token, blueprint.id, sender.id, "spa");
+
+    const leads = await leadsForCampaign(campaignId);
+    expect(leads.length).toBeGreaterThan(0);
+    expect(leads.some((l) => l.sourcePlaceId.startsWith("ai:"))).toBe(false);
+  });
+
+  it("aiDiscoveryEnabled: true → AI-sourced candidates appear and flow through the SAME qualify/enrich/verify gates as everything else", async () => {
+    const { tenant, token } = await makeUser("recruiter");
+    const blueprint = await seedActiveBlueprint(tenant.id);
+    const sender = await seedGmailSender(tenant.id);
+    const campaignId = await createActiveCampaign(token, blueprint.id, sender.id, "spa", {
+      aiDiscoveryEnabled: true,
+    });
+
+    const leads = await leadsForCampaign(campaignId);
+    const aiLeads = leads.filter((l) => l.sourcePlaceId.startsWith("ai:mock:"));
+    expect(aiLeads.length).toBeGreaterThan(0);
+
+    // No shortcut around the normal pipeline: AI-sourced leads get enriched
+    // (an email found), qualified, and scheduled exactly like an ordinary
+    // discovered lead — reaching "queued" with a real Day 0/3/7 sequence.
+    expect(aiLeads.every((l) => l.status === "queued")).toBe(true);
+    expect(aiLeads.every((l) => l.email)).toBe(true);
+
+    const sends = await sendsForCampaign(campaignId);
+    for (const aiLead of aiLeads) {
+      expect(sends.filter((s) => s.leadId === aiLead.id)).toHaveLength(3);
+    }
+  });
+
+  it("aiDiscoveryEnabled: false explicitly set behaves identically to absent — no ai:-prefixed leads", async () => {
+    const { tenant, token } = await makeUser("recruiter");
+    const blueprint = await seedActiveBlueprint(tenant.id);
+    const sender = await seedGmailSender(tenant.id);
+    const campaignId = await createActiveCampaign(token, blueprint.id, sender.id, "spa", {
+      aiDiscoveryEnabled: false,
+    });
+
+    const leads = await leadsForCampaign(campaignId);
+    expect(leads.some((l) => l.sourcePlaceId.startsWith("ai:"))).toBe(false);
+  });
+});
+
+describe("runAutomatedCampaigns — no_email retry boundary conditions", () => {
+  it("retries a no_email lead only once attempts < 3 AND the 24h cooldown has passed; leaves attempts>=3 or too-recent leads excluded", async () => {
+    const { tenant } = await makeUser("recruiter");
+    const blueprint = await seedActiveBlueprint(tenant.id);
+    const sender = await seedGmailSender(tenant.id);
+
+    // A campaign row is needed as the FK target, but we drive
+    // listPendingEnrichment directly rather than through the full job, so
+    // boundary conditions can be set with exact precision.
+    const [campaign] = await adminDb()
+      .insert(automatedCampaigns)
+      .values({
+        tenantId: tenant.id,
+        blueprintId: blueprint.id,
+        senderAccountId: sender.id,
+        name: "Boundary Test",
+        discoveryQuery: { category: "gym", location: { text: "Austin, TX" } },
+        signatureName: "Jane Doe",
+        status: "active",
+      })
+      .returning();
+
+    const inserted = await withTenantTx({ tenantId: tenant.id }, (ctx) =>
+      automatedLeadRepo.upsertDiscovered(ctx, campaign.id, [
+        { sourcePlaceId: "b:still-discovered", name: "Still Discovered" },
+        { sourcePlaceId: "b:eligible", name: "Eligible Retry" },
+        { sourcePlaceId: "b:maxed-out", name: "Maxed Out" },
+        { sourcePlaceId: "b:too-recent", name: "Too Recent" },
+      ]),
+    );
+    const byPlaceId = new Map(inserted.map((l) => [l.sourcePlaceId, l]));
+
+    const hoursAgo = (h: number) => new Date(Date.now() - h * 60 * 60 * 1000);
+
+    // "b:still-discovered" stays status "discovered" — always eligible,
+    // untouched below.
+
+    // Eligible: 2 attempts (< 3), last attempt 25h ago (> 24h cooldown).
+    await adminDb()
+      .update(automatedLeads)
+      .set({ status: "no_email", enrichmentAttempts: 2, enrichedAt: hoursAgo(25) })
+      .where(eq(automatedLeads.id, byPlaceId.get("b:eligible")!.id));
+
+    // Maxed out: 3 attempts (== NO_EMAIL_MAX_RETRY_ATTEMPTS), even though the
+    // cooldown has long passed — attempt count alone must exclude it.
+    await adminDb()
+      .update(automatedLeads)
+      .set({ status: "no_email", enrichmentAttempts: 3, enrichedAt: hoursAgo(100) })
+      .where(eq(automatedLeads.id, byPlaceId.get("b:maxed-out")!.id));
+
+    // Too recent: 1 attempt (well under the cap), but only 1h since the last
+    // attempt — the SAME tick's later batch must not immediately re-try it.
+    await adminDb()
+      .update(automatedLeads)
+      .set({ status: "no_email", enrichmentAttempts: 1, enrichedAt: hoursAgo(1) })
+      .where(eq(automatedLeads.id, byPlaceId.get("b:too-recent")!.id));
+
+    const pending = await withTenantTx({ tenantId: tenant.id }, (ctx) =>
+      automatedLeadRepo.listPendingEnrichment(ctx, campaign.id, 50),
+    );
+    const pendingPlaceIds = new Set(pending.map((l) => l.sourcePlaceId));
+    expect(pendingPlaceIds).toEqual(new Set(["b:still-discovered", "b:eligible"]));
+  });
+
+  it("markNoEmail increments enrichmentAttempts each time it's called", async () => {
+    const { tenant } = await makeUser("recruiter");
+    const blueprint = await seedActiveBlueprint(tenant.id);
+    const sender = await seedGmailSender(tenant.id);
+    const [campaign] = await adminDb()
+      .insert(automatedCampaigns)
+      .values({
+        tenantId: tenant.id,
+        blueprintId: blueprint.id,
+        senderAccountId: sender.id,
+        name: "Attempt Counter Test",
+        discoveryQuery: { category: "gym", location: { text: "Austin, TX" } },
+        signatureName: "Jane Doe",
+        status: "active",
+      })
+      .returning();
+    const [lead] = await withTenantTx({ tenantId: tenant.id }, (ctx) =>
+      automatedLeadRepo.upsertDiscovered(ctx, campaign.id, [
+        { sourcePlaceId: "c:retry-me", name: "Retry Me" },
+      ]),
+    );
+
+    await withTenantTx({ tenantId: tenant.id }, (ctx) => automatedLeadRepo.markNoEmail(ctx, lead.id));
+    await withTenantTx({ tenantId: tenant.id }, (ctx) => automatedLeadRepo.markNoEmail(ctx, lead.id));
+
+    const [row] = await adminDb().select().from(automatedLeads).where(eq(automatedLeads.id, lead.id));
+    expect(row.enrichmentAttempts).toBe(2);
   });
 });

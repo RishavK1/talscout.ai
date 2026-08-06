@@ -1,4 +1,4 @@
-import { and, eq, inArray, sql, gte, isNull } from "drizzle-orm";
+import { and, eq, inArray, sql, gte, isNull, or, lt } from "drizzle-orm";
 import {
   automatedCampaigns,
   automatedLeads,
@@ -37,6 +37,17 @@ export interface DiscoveryQuery {
   location: { lat: number; lon: number; radiusMeters: number } | { text: string };
 }
 
+/** A "no_email" lead is retried by listPendingEnrichment up to this many
+ *  times before it's excluded for good — bounds the retry so a genuinely
+ *  email-less business can't loop forever. */
+export const NO_EMAIL_MAX_RETRY_ATTEMPTS = 3;
+/** Minimum gap since the last enrichment attempt before a "no_email" lead
+ *  becomes eligible again. Without this, a lead that fails in enrichment
+ *  batch 1 of a tick would immediately re-qualify for batch 2 of the SAME
+ *  tick (enrichedAt was just set to "now"), burning the tick's whole budget
+ *  re-trying the same losing lead instead of reaching new candidates. */
+export const NO_EMAIL_RETRY_COOLDOWN_HOURS = 24;
+
 export interface AutomatedCampaignCreateInput {
   blueprintId: string;
   senderAccountId: string;
@@ -48,6 +59,14 @@ export interface AutomatedCampaignCreateInput {
   signatureClosing?: string;
   styleExamples?: string[];
   replyPollingEnabled?: boolean;
+  /** Per-campaign opt-in for AI-driven discovery (Perplexity Sonar) — see
+   *  ports/index.ts's LeadDiscoveryQuery.aiDiscoveryEnabled doc comment.
+   *  Deliberately NOT defaulted to true here (unlike replyPollingEnabled):
+   *  the DB column defaults to false so every existing/programmatic create
+   *  that omits this field stays behavior-unchanged; "on by default for new
+   *  campaigns" is implemented as the campaign creation form's checkbox
+   *  defaulting checked, not a repo-level default. */
+  aiDiscoveryEnabled?: boolean;
   marketResearch?: string;
 }
 
@@ -60,6 +79,7 @@ export interface AutomatedCampaignUpdateInput {
   signatureClosing?: string;
   styleExamples?: string[];
   replyPollingEnabled?: boolean;
+  aiDiscoveryEnabled?: boolean;
   marketResearch?: string;
   status?: AutomatedCampaignStatus;
 }
@@ -98,6 +118,7 @@ export const automatedCampaignRepo = {
         signatureClosing: input.signatureClosing ?? "Best regards",
         styleExamples: input.styleExamples ?? null,
         replyPollingEnabled: input.replyPollingEnabled ?? true,
+        aiDiscoveryEnabled: input.aiDiscoveryEnabled ?? false,
         marketResearch: input.marketResearch ?? null,
         status: "draft",
       })
@@ -116,6 +137,9 @@ export const automatedCampaignRepo = {
     if (input.styleExamples !== undefined) patch.styleExamples = input.styleExamples;
     if (input.replyPollingEnabled !== undefined) {
       patch.replyPollingEnabled = input.replyPollingEnabled;
+    }
+    if (input.aiDiscoveryEnabled !== undefined) {
+      patch.aiDiscoveryEnabled = input.aiDiscoveryEnabled;
     }
     if (input.marketResearch !== undefined) patch.marketResearch = input.marketResearch;
     if (input.status !== undefined) patch.status = input.status;
@@ -273,6 +297,11 @@ export const automatedLeadRepo = {
       .returning();
   },
 
+  /** "Pending" = never enriched yet, OR previously failed (`no_email`) but
+   *  still within its retry budget and past the cooldown since its last
+   *  attempt — see NO_EMAIL_MAX_RETRY_ATTEMPTS/NO_EMAIL_RETRY_COOLDOWN_HOURS.
+   *  A lead that exhausts its retries (or hasn't cooled down yet) stays
+   *  excluded, same as the old permanent-exclusion behavior. */
   async listPendingEnrichment(ctx: TenantContext, campaignId: string, limit: number) {
     return await ctx.tx
       .select()
@@ -281,7 +310,17 @@ export const automatedLeadRepo = {
         and(
           eq(automatedLeads.tenantId, ctx.tenantId),
           eq(automatedLeads.campaignId, campaignId),
-          eq(automatedLeads.status, "discovered"),
+          or(
+            eq(automatedLeads.status, "discovered"),
+            and(
+              eq(automatedLeads.status, "no_email"),
+              lt(automatedLeads.enrichmentAttempts, NO_EMAIL_MAX_RETRY_ATTEMPTS),
+              lt(
+                automatedLeads.enrichedAt,
+                sql`now() - interval '${sql.raw(String(NO_EMAIL_RETRY_COOLDOWN_HOURS))} hours'`,
+              ),
+            ),
+          ),
         ),
       )
       .limit(limit);
@@ -337,16 +376,23 @@ export const automatedLeadRepo = {
       .where(and(eq(automatedLeads.id, id), eq(automatedLeads.tenantId, ctx.tenantId)));
   },
 
-  /** Terminal: a lead with no findable email is never revisited by later
-   *  steps or later cron ticks — the strict "email required to send" rule.
-   *  This row is dedup bookkeeping only (stops us re-fetching/re-enriching
-   *  the same always-failing business every tick) — `list()` below
-   *  unconditionally excludes `no_email` rows, so this business is never
-   *  shown to the user as a "lead" anywhere in the product. */
+  /** A lead with no findable email this attempt is retried on a later tick
+   *  (see listPendingEnrichment) up to NO_EMAIL_MAX_RETRY_ATTEMPTS times —
+   *  the strict "email required to send" rule still holds, this just gives
+   *  a business whose site was briefly down, or whose free-tier finders
+   *  temporarily missed, more than one shot before permanent exclusion.
+   *  `list()` below unconditionally excludes `no_email` rows regardless of
+   *  attempt count, so this business is never shown to the user as a "lead"
+   *  anywhere in the product while in this state. */
   async markNoEmail(ctx: TenantContext, id: string, notes?: string) {
     await ctx.tx
       .update(automatedLeads)
-      .set({ status: "no_email", notes: notes ?? null, enrichedAt: new Date() })
+      .set({
+        status: "no_email",
+        notes: notes ?? null,
+        enrichedAt: new Date(),
+        enrichmentAttempts: sql`${automatedLeads.enrichmentAttempts} + 1`,
+      })
       .where(and(eq(automatedLeads.id, id), eq(automatedLeads.tenantId, ctx.tenantId)));
   },
 

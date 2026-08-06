@@ -21,6 +21,13 @@ import type { LeadDiscovery, LeadDiscoveryQuery, DiscoveredLead } from "@/server
  *  always more. */
 const MOCK_UNIVERSE_SIZE = 12;
 const MOCK_PAGE_SIZE = 5;
+/** How many `ai:mock:...` sentinel leads discover() mixes in when
+ *  `query.aiDiscoveryEnabled` is true — mirrors the real
+ *  PerplexityLeadDiscovery's reserved-slot slice (see
+ *  fallback.lead-discovery.ts's `augmenters`) without needing a separate
+ *  mock class or FallbackLeadDiscovery wiring in APP_MODE=mock, where this
+ *  class is used directly as `leadDiscovery` (see container.ts). */
+const MOCK_AI_SLOTS = 3;
 
 export class MockLeadDiscovery implements LeadDiscovery {
   async discover(query: LeadDiscoveryQuery): Promise<DiscoveredLead[]> {
@@ -58,6 +65,26 @@ export class MockLeadDiscovery implements LeadDiscovery {
         lon: -97.74 + i * 0.001,
       });
     }
+
+    // Absent/false MUST add zero AI-sourced leads — the same structural
+    // guarantee the real PerplexityLeadDiscovery gives (see its doc comment
+    // and ports/index.ts's LeadDiscoveryQuery.aiDiscoveryEnabled).
+    if (query.aiDiscoveryEnabled) {
+      for (let i = 0; i < MOCK_AI_SLOTS && out.length < query.limit; i++) {
+        const sourcePlaceId = `ai:mock:${query.category}:${i}`;
+        if (known.has(sourcePlaceId)) continue;
+        out.push({
+          sourcePlaceId,
+          name: `${query.category} AI-Found Business ${i + 1}`,
+          category: query.category,
+          address: "456 Mock Ave",
+          website: `https://mock-ai-business-${i + 1}.example.com`,
+          lat: 30.28 + i * 0.001,
+          lon: -97.75 + i * 0.001,
+        });
+      }
+    }
+
     return out;
   }
 }

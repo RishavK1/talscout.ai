@@ -19,6 +19,16 @@ import type { LeadDiscovery, LeadDiscoveryQuery, DiscoveredLead } from "@/server
  */
 
 const NEARBY_SEARCH_ENDPOINT = "https://maps.googleapis.com/maps/api/place/nearbysearch/json";
+/** Nearby Search returns ≤20 results/page. A second (billed) page is worth
+ *  it to page past already-known businesses on a repeat run — without this,
+ *  a saturated first page returned nothing new every tick, same class of bug
+ *  fixed for Overpass/Geoapify. Capped at 2 pages (≤40 results) since this
+ *  is the paid, opt-in, last-resort tier — bounding the added latency/cost
+ *  matters more here than for the free sources. */
+const MAX_PAGES = 2;
+/** Google requires a short propagation delay before `next_page_token` is
+ *  usable — a request with a too-fresh token 400s with INVALID_REQUEST. */
+const NEXT_PAGE_TOKEN_DELAY_MS = 2_000;
 
 interface GooglePlaceResult {
   place_id: string;
@@ -56,12 +66,44 @@ export class GooglePlacesLeadDiscovery implements LeadDiscovery {
       // handled by the primary OSM+Nominatim source before this ever runs.
       return [];
     }
-    const params = new URLSearchParams({
-      location: `${query.location.lat},${query.location.lon}`,
-      radius: String(query.location.radiusMeters),
-      keyword: query.category,
-      key: this.apiKey,
-    });
+    const known = query.excludeSourcePlaceIds ?? new Set<string>();
+    const byId = new Map<string, DiscoveredLead>();
+
+    let pageToken: string | undefined;
+    for (let page = 0; page < MAX_PAGES; page++) {
+      if (byId.size >= query.limit) break;
+      const result = await this.fetchPage(query, pageToken);
+      if (!result) break;
+      for (const r of result.results) {
+        const lead = resultToLead(r);
+        if (byId.has(lead.sourcePlaceId)) continue;
+        // Already discovered on an earlier run: skip WITHOUT counting toward
+        // the limit, so a saturated first page can't block paging to the
+        // second, same known-aware discipline as Overpass/Geoapify.
+        if (known.has(lead.sourcePlaceId)) continue;
+        byId.set(lead.sourcePlaceId, lead);
+        if (byId.size >= query.limit) break;
+      }
+      if (!result.nextPageToken) break;
+      pageToken = result.nextPageToken;
+      await new Promise((resolve) => setTimeout(resolve, NEXT_PAGE_TOKEN_DELAY_MS));
+    }
+    return [...byId.values()];
+  }
+
+  private async fetchPage(
+    query: LeadDiscoveryQuery,
+    pageToken: string | undefined,
+  ): Promise<{ results: GooglePlaceResult[]; nextPageToken?: string } | null> {
+    if (!("lat" in query.location)) return null;
+    const params = pageToken
+      ? new URLSearchParams({ pagetoken: pageToken, key: this.apiKey })
+      : new URLSearchParams({
+          location: `${query.location.lat},${query.location.lon}`,
+          radius: String(query.location.radiusMeters),
+          keyword: query.category,
+          key: this.apiKey,
+        });
     try {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 10_000);
@@ -71,17 +113,21 @@ export class GooglePlacesLeadDiscovery implements LeadDiscovery {
       clearTimeout(timer);
       if (!res.ok) {
         logger.warn({ status: res.status }, "google_places_discover_non_ok");
-        return [];
+        return null;
       }
-      const data = (await res.json()) as { status: string; results?: GooglePlaceResult[] };
+      const data = (await res.json()) as {
+        status: string;
+        results?: GooglePlaceResult[];
+        next_page_token?: string;
+      };
       if (data.status !== "OK" && data.status !== "ZERO_RESULTS") {
         logger.warn({ status: data.status }, "google_places_discover_error_status");
-        return [];
+        return null;
       }
-      return (data.results ?? []).slice(0, query.limit).map(resultToLead);
+      return { results: data.results ?? [], nextPageToken: data.next_page_token };
     } catch (err) {
       logger.warn({ err }, "google_places_discover_failed");
-      return [];
+      return null;
     }
   }
 }

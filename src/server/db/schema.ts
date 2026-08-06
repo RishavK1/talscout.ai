@@ -158,6 +158,9 @@ export const automatedLeadEmailSource = pgEnum("automated_lead_email_source", [
   "firecrawl",
   /** Snov.io free-tier domain search. */
   "snov",
+  /** Perplexity Sonar web search — last-resort rung, tried after every
+   *  free/dataset finder above misses. See PerplexityEmailFinder. */
+  "perplexity",
   "none",
 ]);
 export const automatedSendStatus = pgEnum("automated_send_status", [
@@ -716,6 +719,14 @@ export const automatedCampaigns = pgTable(
     /** Requires the sender to be Gmail with read scope (enforced at create
      *  time in the service) — SMTP/no-read-scope senders force this false. */
     replyPollingEnabled: boolean("reply_polling_enabled").notNull().default(true),
+    /** Opt-in: also consult Perplexity Sonar (live web search) as a discovery
+     *  source and as a last-resort email-finder rung, on top of the free
+     *  OSM/Geoapify/Google Places + site-scrape/Hunter/Snov/Apollo chains.
+     *  Defaults false so no EXISTING campaign's behavior or spend changes
+     *  when this ships — the campaign-creation form defaults new campaigns
+     *  to true. No-ops entirely (falls through to the free chains) whenever
+     *  PERPLEXITY_API_KEY isn't configured, regardless of this flag. */
+    aiDiscoveryEnabled: boolean("ai_discovery_enabled").notNull().default(false),
     lastDiscoveryRunAt: timestamp("last_discovery_run_at", { withTimezone: true }),
     lastReplyPollAt: timestamp("last_reply_poll_at", { withTimezone: true }),
     errorReason: text("error_reason"),
@@ -730,8 +741,9 @@ export const automatedCampaigns = pgTable(
 
 /**
  * Businesses discovered for a campaign. `sourcePlaceId` (e.g. "osm:node/123",
- * "google:ChIJ...") is the discovery-dedup key — a re-run of the discovery
- * step never inserts the same business twice for the same campaign.
+ * "google:ChIJ...", "ai:<sha256 prefix>" for Perplexity-sourced candidates)
+ * is the discovery-dedup key — a re-run of the discovery step never inserts
+ * the same business twice for the same campaign.
  */
 export const automatedLeads = pgTable(
   "automated_leads",
@@ -752,12 +764,18 @@ export const automatedLeads = pgTable(
     lat: numeric("lat"),
     lon: numeric("lon"),
     status: automatedLeadStatus("status").notNull().default("discovered"),
-    /** Null until the email-finder waterfall succeeds. A lead that never
-     *  gets an email (status "no_email") is terminal — it stays visible for
-     *  transparency but is never eligible for AI copy generation or sending. */
+    /** Null until the email-finder waterfall succeeds. A lead that fails
+     *  (status "no_email") is retried on a later tick — see
+     *  `enrichmentAttempts` — and only becomes permanently excluded from
+     *  further enrichment once it exhausts its retry budget. */
     email: text("email"),
     emailSource: automatedLeadEmailSource("email_source").notNull().default("none"),
     emailConfidence: integer("email_confidence"),
+    /** Times the email-finder waterfall has been run for this lead and come
+     *  up empty. `listPendingEnrichment` retries a "no_email" lead only while
+     *  this is below NO_EMAIL_MAX_RETRY_ATTEMPTS and enough cooldown has
+     *  passed since `enrichedAt` — see automated-outreach.repo.ts. */
+    enrichmentAttempts: integer("enrichment_attempts").notNull().default(0),
     notes: text("notes"),
     discoveredAt: timestamp("discovered_at", { withTimezone: true }).notNull().defaultNow(),
     enrichedAt: timestamp("enriched_at", { withTimezone: true }),

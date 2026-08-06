@@ -40,6 +40,7 @@ import { MockLeadDiscovery } from "@/server/adapters/mock.lead-discovery";
 import { OverpassLeadDiscovery } from "@/server/adapters/overpass.lead-discovery";
 import { GeoapifyLeadDiscovery } from "@/server/adapters/geoapify.lead-discovery";
 import { GooglePlacesLeadDiscovery } from "@/server/adapters/google-places.lead-discovery";
+import { PerplexityLeadDiscovery } from "@/server/adapters/perplexity.lead-discovery";
 import { FallbackLeadDiscovery } from "@/server/adapters/fallback.lead-discovery";
 import { MockEmailFinder } from "@/server/adapters/mock.email-finder";
 import { MockEmailVerifier } from "@/server/adapters/mock.email-verifier";
@@ -49,6 +50,7 @@ import { FirecrawlEmailFinder } from "@/server/adapters/firecrawl.email-finder";
 import { HunterEmailFinder } from "@/server/adapters/hunter.email-finder";
 import { SnovEmailFinder } from "@/server/adapters/snov.email-finder";
 import { ApolloEmailFinder } from "@/server/adapters/apollo.email-finder";
+import { PerplexityEmailFinder } from "@/server/adapters/perplexity.email-finder";
 import { WaterfallEmailFinder } from "@/server/adapters/waterfall.email-finder";
 import { MockOutreachCopywriter } from "@/server/adapters/mock.outreach-copywriter";
 import { GeminiOutreachCopywriter } from "@/server/adapters/gemini.outreach-copywriter";
@@ -121,6 +123,12 @@ import {
 } from "@/server/jobs/send-automated-email";
 
 let services: Services | null = null;
+
+/** Reserved slice of each discovery tick's pool handed to AI-driven
+ *  discovery (see fallback.lead-discovery.ts's `augmenters`) — kept small
+ *  during the initial rollout (test on one campaign first, then expand)
+ *  per the founder's own answer on pacing. */
+const AI_DISCOVERY_RESERVED_SLOTS = 10;
 
 /** Build (once) and return the wired service container. APP_MODE selects mock
  *  vs live adapters. Live adapters are added in B7 (go-real). */
@@ -315,9 +323,24 @@ export function getServices(): Services {
       env.GEOAPIFY_API_KEY ? new GeoapifyLeadDiscovery() : null,
       env.GOOGLE_PLACES_API_KEY ? new GooglePlacesLeadDiscovery() : null,
     ].filter((f): f is NonNullable<typeof f> => f !== null);
-    const leadDiscovery = discoveryFallbacks.length
-      ? new FallbackLeadDiscovery(overpassDiscovery, discoveryFallbacks)
-      : overpassDiscovery;
+    // AI-driven discovery (Perplexity Sonar live web search) — an
+    // always-consulted augmenter with a reserved slice of the pool, not a
+    // fallback that only fires when the free chain is short (see
+    // fallback.lead-discovery.ts's doc comment). Per-campaign gated via
+    // LeadDiscoveryQuery.aiDiscoveryEnabled; PerplexityLeadDiscovery itself
+    // is a no-op whenever that's false, so this is behavior-neutral for
+    // every campaign until both PERPLEXITY_API_KEY is set AND the campaign
+    // opts in.
+    const perplexityLeadDiscovery = env.PERPLEXITY_API_KEY
+      ? new PerplexityLeadDiscovery(limiter)
+      : null;
+    const discoveryAugmenters = perplexityLeadDiscovery
+      ? [{ source: perplexityLeadDiscovery, reservedSlots: AI_DISCOVERY_RESERVED_SLOTS }]
+      : [];
+    const leadDiscovery =
+      discoveryFallbacks.length || discoveryAugmenters.length
+        ? new FallbackLeadDiscovery(overpassDiscovery, discoveryFallbacks, discoveryAugmenters)
+        : overpassDiscovery;
 
     // Email finding: free website-scrape first (plus Firecrawl's JS-rendering
     // scrape as a same-tier fallback for client-rendered sites), then
@@ -331,6 +354,10 @@ export function getServices(): Services {
         env.HUNTER_API_KEY ? new HunterEmailFinder() : null,
         env.SNOV_CLIENT_ID && env.SNOV_CLIENT_SECRET ? new SnovEmailFinder() : null,
         env.APOLLO_API_KEY ? new ApolloEmailFinder() : null,
+        // Last-resort AI rung — the only one able to search beyond the
+        // business's own website. Appended LAST so it only ever runs after
+        // every free rung above has already missed.
+        env.PERPLEXITY_API_KEY ? new PerplexityEmailFinder(limiter) : null,
       ].filter((f): f is NonNullable<typeof f> => f !== null),
     );
 

@@ -26,6 +26,9 @@ export const createAutomatedCampaignSchema = z.object({
   /** Up to 2 example emails — few-shot style guidance for AI-generated copy. */
   styleExamples: z.array(z.string().min(1).max(5_000)).max(2).optional(),
   replyPollingEnabled: z.boolean().optional(),
+  /** Per-campaign opt-in for AI-driven discovery (Perplexity Sonar live web
+   *  search) — see LeadDiscoveryQuery.aiDiscoveryEnabled's doc comment. */
+  aiDiscoveryEnabled: z.boolean().optional(),
   /** Optional result of the wizard's Research step (see /research route) —
    *  persisted verbatim and threaded into every generated email. */
   marketResearch: z.string().max(4_000).optional(),
@@ -49,6 +52,7 @@ export const updateAutomatedCampaignSchema = z
     signatureClosing: z.string().max(100).optional(),
     styleExamples: z.array(z.string().min(1).max(5_000)).max(2).optional(),
     replyPollingEnabled: z.boolean().optional(),
+    aiDiscoveryEnabled: z.boolean().optional(),
     marketResearch: z.string().max(4_000).optional(),
   })
   .refine((v) => Object.keys(v).length > 0, { message: "At least one field is required" });
@@ -64,7 +68,7 @@ export const listAutomatedLeadsQuerySchema = z.object({
     .optional()
     .catch(undefined),
   source: z
-    .enum(["site_scrape", "hunter", "apollo", "google_places", "osm"])
+    .enum(["site_scrape", "hunter", "apollo", "google_places", "osm", "perplexity"])
     .optional()
     .catch(undefined),
   limit: z.coerce.number().int().optional().catch(undefined),
