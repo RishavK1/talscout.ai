@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Stepper } from "@/components/ui/stepper";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { BUSINESS_CATEGORIES, LOCATION_OPTIONS } from "./discovery-options";
 
 interface BlueprintOption {
   id: string;
@@ -369,7 +370,16 @@ export default function NewAutomatedCampaignPage() {
                             onChange={(e) => setCategory(e.target.value)}
                             placeholder="e.g. restaurant, dentist, gym"
                             className={inputClass}
+                            list="business-category-options"
                           />
+                          <datalist id="business-category-options">
+                            {BUSINESS_CATEGORIES.map((c) => (
+                              <option key={c} value={c} />
+                            ))}
+                          </datalist>
+                          <p className="mt-2 font-body-md text-[13px] text-text-muted">
+                            Pick a suggestion for a guaranteed match, or type your own.
+                          </p>
                         </div>
                         <div>
                           <label className={labelClass}>Location</label>
@@ -378,7 +388,13 @@ export default function NewAutomatedCampaignPage() {
                             onChange={(e) => setLocationText(e.target.value)}
                             placeholder="e.g. Austin, TX or Mumbai"
                             className={inputClass}
+                            list="location-options"
                           />
+                          <datalist id="location-options">
+                            {LOCATION_OPTIONS.map((l) => (
+                              <option key={l} value={l} />
+                            ))}
+                          </datalist>
                           <p className="mt-2 font-body-md text-[13px] text-text-muted">
                             Use a city, not a country — discovery searches ~10km around
                             the location&apos;s center.
