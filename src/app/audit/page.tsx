@@ -381,27 +381,6 @@ export default function AuditLogPage() {
             </div>
           </div>
         </main>
-        {/* Global Footer */}
-        <footer className="mt-auto w-full py-12 px-4 sm:px-6 lg:px-12 border-t border-border-low-alpha bg-bg-cream">
-          <div className="max-w-[1440px] mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
-            <div>
-              <h3 className="font-headline-md text-primary text-[24px]">TalScout</h3>
-              <p className="font-label-md text-text-muted mt-2">© {new Date().getFullYear()} TalScout AI. All rights reserved.</p>
-            </div>
-            <div className="flex flex-wrap justify-center gap-8 sm:gap-12">
-              <div className="flex flex-col gap-3">
-                <span className="font-label-md font-bold text-primary">Product</span>
-                <Link className="text-label-md text-on-surface-variant hover:text-secondary transition-colors" href="/audit">Audit logs</Link>
-                <Link className="text-label-md text-on-surface-variant hover:text-secondary transition-colors" href="/#pricing">API Access</Link>
-              </div>
-              <div className="flex flex-col gap-3">
-                <span className="font-label-md font-bold text-primary">Legal</span>
-                <Link className="text-label-md text-on-surface-variant hover:text-secondary transition-colors" href="/privacy">Privacy Policy</Link>
-                <Link className="text-label-md text-on-surface-variant hover:text-secondary transition-colors" href="/terms">Terms of Service</Link>
-              </div>
-            </div>
-          </div>
-        </footer>
       </div>
     </AppShell>
   );

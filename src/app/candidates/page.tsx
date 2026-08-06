@@ -201,18 +201,6 @@ export default function CandidatesPage() {
 
   const columns: DataTableColumn<Candidate>[] = [
     {
-      key: "select",
-      header: (
-        <input className="w-4 h-4 rounded border-outline-variant text-primary focus:ring-primary/20 bg-surface-white" type="checkbox" />
-      ),
-      headerClassName: "w-12",
-      render: () => (
-        <div onClick={(e) => e.stopPropagation()}>
-          <input className="w-4 h-4 rounded border-outline-variant text-primary focus:ring-primary/20 bg-surface-white" type="checkbox" />
-        </div>
-      ),
-    },
-    {
       key: "candidate",
       header: "Candidate",
       render: (c) => (
@@ -309,16 +297,6 @@ export default function CandidatesPage() {
         <Card className="overflow-hidden">
           <CardHeader className="flex flex-col items-stretch gap-3 border-b border-border-low-alpha sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-4">
             <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-              <div className="relative w-full shrink-0 sm:w-64">
-                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant/60 text-[20px]">filter_list</span>
-                <input
-                  className="w-full pl-9 pr-4 py-2 bg-bg-cream border border-border-low-alpha rounded-lg focus:ring-1 focus:ring-primary/20 focus:border-primary outline-none font-body-md text-[14px] text-on-surface placeholder:text-on-surface-variant/60"
-                  placeholder="Filter list..."
-                  type="text"
-                  value={q}
-                  onChange={(e) => setQ(e.target.value)}
-                />
-              </div>
               <div className="flex min-w-0 flex-wrap gap-2">
                 {roleFilter !== "" && (
                   <button

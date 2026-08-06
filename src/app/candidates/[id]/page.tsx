@@ -223,10 +223,24 @@ export default function CandidateProfilePage() {
                 <span className="material-symbols-outlined" data-icon="arrow_back">arrow_back</span>
               </Link>
               <div className="h-4 w-px bg-border-low-alpha mx-4"></div>
-              <div className="relative flex items-center flex-1 sm:flex-none">
+              <form
+                className="relative flex items-center flex-1 sm:flex-none"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const q = new FormData(e.currentTarget).get("q");
+                  if (typeof q === "string" && q.trim()) {
+                    router.push(`/search?q=${encodeURIComponent(q.trim())}`);
+                  }
+                }}
+              >
                 <span className="material-symbols-outlined absolute left-3 text-on-surface-variant">search</span>
-                <input className="pl-10 pr-4 py-2 rounded-full bg-surface-white border border-border-low-alpha focus:outline-none focus:ring-1 focus:ring-primary w-full sm:w-64 font-body-md text-body-md text-on-surface placeholder:text-on-surface-variant/60 shadow-sm transition-all sm:focus:w-80" placeholder="Search profiles..." type="text" />
-              </div>
+                <input
+                  name="q"
+                  className="pl-10 pr-4 py-2 rounded-full bg-surface-white border border-border-low-alpha focus:outline-none focus:ring-1 focus:ring-primary w-full sm:w-64 font-body-md text-body-md text-on-surface placeholder:text-on-surface-variant/60 shadow-sm transition-all sm:focus:w-80"
+                  placeholder="Search profiles..."
+                  type="text"
+                />
+              </form>
             </div>
           }
           rightContent={

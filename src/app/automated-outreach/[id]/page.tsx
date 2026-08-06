@@ -193,7 +193,6 @@ export default function AutomatedCampaignDetailPage({
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [emailsLead, setEmailsLead] = useState<AutomatedLead | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -255,15 +254,6 @@ export default function AutomatedCampaignDetailPage({
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : "Failed to delete campaign");
     }
-  };
-
-  const toggleSelect = (leadId: string) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(leadId)) next.delete(leadId);
-      else next.add(leadId);
-      return next;
-    });
   };
 
   if (loading && !campaign) {
@@ -329,28 +319,6 @@ export default function AutomatedCampaignDetailPage({
   const cellCls = "px-4 py-3";
 
   const leadColumns: DataTableColumn<AutomatedLead>[] = [
-    {
-      key: "select",
-      header: (
-        <input
-          type="checkbox"
-          checked={leads.length > 0 && selected.size === leads.length}
-          onChange={() =>
-            setSelected(selected.size === leads.length ? new Set() : new Set(leads.map((l) => l.id)))
-          }
-        />
-      ),
-      headerClassName: cn(headCls, "w-10"),
-      cellClassName: cn(cellCls, "w-10"),
-      render: (lead) => (
-        <input
-          type="checkbox"
-          checked={selected.has(lead.id)}
-          onChange={() => toggleSelect(lead.id)}
-          className="h-4 w-4 rounded border-outline-variant text-primary focus:ring-primary/20"
-        />
-      ),
-    },
     {
       key: "business",
       header: "Business",
@@ -551,23 +519,14 @@ export default function AutomatedCampaignDetailPage({
                   mobileCard={(lead) => (
                     <div className="space-y-4 p-4">
                       <div className="flex items-start justify-between gap-3">
-                        <label className="flex min-w-0 flex-1 items-start gap-3">
-                          <input
-                            type="checkbox"
-                            checked={selected.has(lead.id)}
-                            onChange={() => toggleSelect(lead.id)}
-                            className="mt-1 h-4 w-4 rounded border-outline-variant text-primary focus:ring-primary/20"
-                            aria-label={`Select ${lead.businessName}`}
-                          />
-                          <span className="min-w-0">
-                            <span className="block font-body-md text-[14px] font-semibold leading-snug text-on-surface">
-                              {lead.businessName}
-                            </span>
-                            <span className="mt-1 block truncate font-data-mono text-[12px] text-on-surface-variant">
-                              {lead.email ?? "No email found"}
-                            </span>
+                        <span className="min-w-0">
+                          <span className="block font-body-md text-[14px] font-semibold leading-snug text-on-surface">
+                            {lead.businessName}
                           </span>
-                        </label>
+                          <span className="mt-1 block truncate font-data-mono text-[12px] text-on-surface-variant">
+                            {lead.email ?? "No email found"}
+                          </span>
+                        </span>
                         <LeadStatusPill status={lead.status} />
                       </div>
                       <div className="grid gap-2 rounded-lg bg-surface-container-low/50 p-3 font-body-md text-[13px] text-on-surface-variant">
