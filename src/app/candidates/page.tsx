@@ -348,7 +348,7 @@ export default function CandidatesPage() {
                   aria-label="List view"
                   aria-pressed={view === "list"}
                   className={
-                    "flex h-8 w-8 items-center justify-center rounded-md transition-colors " +
+                    "flex h-8 w-8 items-center justify-center rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-1 " +
                     (view === "list"
                       ? "bg-surface-white text-primary shadow-sm"
                       : "text-on-surface-variant hover:text-primary")
@@ -362,7 +362,7 @@ export default function CandidatesPage() {
                   aria-label="Grid view"
                   aria-pressed={view === "grid"}
                   className={
-                    "flex h-8 w-8 items-center justify-center rounded-md transition-colors " +
+                    "flex h-8 w-8 items-center justify-center rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-1 " +
                     (view === "grid"
                       ? "bg-surface-white text-primary shadow-sm"
                       : "text-on-surface-variant hover:text-primary")
@@ -498,7 +498,7 @@ export default function CandidatesPage() {
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
                     disabled={currentPage <= 1}
                     aria-label="Previous page"
-                    className="w-8 h-8 rounded border border-border-low-alpha flex items-center justify-center text-on-surface-variant hover:bg-bg-cream disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-8 h-8 rounded border border-border-low-alpha flex items-center justify-center text-on-surface-variant hover:bg-bg-cream disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-1"
                   >
                     <span className="material-symbols-outlined text-[18px]">chevron_left</span>
                   </button>
@@ -516,7 +516,7 @@ export default function CandidatesPage() {
                       onClick={() => setPage(p)}
                       aria-current={p === currentPage ? "page" : undefined}
                       className={
-                        "w-8 h-8 rounded font-label-md text-[13px] flex items-center justify-center transition-colors " +
+                        "w-8 h-8 rounded font-label-md text-[13px] flex items-center justify-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-1 " +
                         (p === currentPage
                           ? "bg-primary-container text-on-primary-container"
                           : "border border-border-low-alpha text-on-surface-variant hover:bg-bg-cream")
@@ -530,7 +530,7 @@ export default function CandidatesPage() {
                     onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                     disabled={currentPage >= totalPages}
                     aria-label="Next page"
-                    className="w-8 h-8 rounded border border-border-low-alpha flex items-center justify-center text-on-surface-variant hover:bg-bg-cream disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-8 h-8 rounded border border-border-low-alpha flex items-center justify-center text-on-surface-variant hover:bg-bg-cream disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-1"
                   >
                     <span className="material-symbols-outlined text-[18px]">chevron_right</span>
                   </button>

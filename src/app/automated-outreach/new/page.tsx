@@ -78,6 +78,19 @@ export default function NewAutomatedCampaignPage() {
   const [replyPollingEnabled, setReplyPollingEnabled] = useState(true);
   const [creating, setCreating] = useState(false);
 
+  // Warn on tab close/refresh once the user has moved past the first step —
+  // real unsaved work (targeting, voice/signature, sequence copy) that a
+  // reload would silently discard.
+  useEffect(() => {
+    if (step === 0) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [step]);
+
   useEffect(() => {
     (async () => {
       try {
@@ -181,7 +194,15 @@ export default function NewAutomatedCampaignPage() {
         <TopAppBar
           leftContent={
             <div className="flex items-center gap-2 text-text-muted font-label-md">
-              <Link href="/automated-outreach" className="hover:text-on-surface transition-colors">
+              <Link
+                href="/automated-outreach"
+                className="hover:text-on-surface transition-colors"
+                onClick={(e) => {
+                  if (step > 0 && !window.confirm("Leave without finishing? Your progress on this campaign will be lost.")) {
+                    e.preventDefault();
+                  }
+                }}
+              >
                 Automated Outreach
               </Link>
               <span className="material-symbols-outlined text-sm">chevron_right</span>

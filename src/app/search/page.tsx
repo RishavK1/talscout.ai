@@ -185,12 +185,12 @@ function SearchPageContent() {
               <div className="flex flex-wrap items-center gap-3 mt-6">
                 <span className="font-label-md text-label-md text-on-surface-variant mr-2">Filters:</span>
                 {locationFilter !== null && (
-                  <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-border-low-alpha rounded-full font-label-md text-[13px] text-on-surface shadow-ambient cursor-pointer hover:bg-surface-container-low transition-colors">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-surface-white border border-border-low-alpha rounded-full font-label-md text-[13px] text-on-surface shadow-ambient cursor-pointer hover:bg-surface-container-low transition-colors">
                     <span className="material-symbols-outlined text-[16px] text-primary">location_on</span>
                     Location:
                     <input
                       type="text"
-                      className="bg-transparent border-none outline-none font-label-md text-[13px] text-on-surface w-16 focus:ring-0 p-0 ml-1"
+                      className="bg-transparent border-none outline-none font-label-md text-[13px] text-on-surface w-28 min-w-0 focus:ring-0 p-0 ml-1"
                       value={locationFilter}
                       onChange={(e) => setLocationFilter(e.target.value)}
                     />
@@ -198,12 +198,12 @@ function SearchPageContent() {
                   </div>
                 )}
                 {experienceFilter !== null && (
-                  <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-border-low-alpha rounded-full font-label-md text-[13px] text-on-surface shadow-ambient cursor-pointer hover:bg-surface-container-low transition-colors">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-surface-white border border-border-low-alpha rounded-full font-label-md text-[13px] text-on-surface shadow-ambient cursor-pointer hover:bg-surface-container-low transition-colors">
                     <span className="material-symbols-outlined text-[16px] text-primary">work</span>
                     Min Experience:
                     <input
                       type="number"
-                      className="bg-transparent border-none outline-none font-label-md text-[13px] text-on-surface w-8 focus:ring-0 p-0 ml-1"
+                      className="bg-transparent border-none outline-none font-label-md text-[13px] text-on-surface w-12 min-w-0 focus:ring-0 p-0 ml-1"
                       value={experienceFilter}
                       onChange={(e) => setExperienceFilter(e.target.value)}
                     />
@@ -212,12 +212,12 @@ function SearchPageContent() {
                   </div>
                 )}
                 {skillFilter !== null && (
-                  <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-border-low-alpha rounded-full font-label-md text-[13px] text-on-surface shadow-ambient cursor-pointer hover:bg-surface-container-low transition-colors">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-surface-white border border-border-low-alpha rounded-full font-label-md text-[13px] text-on-surface shadow-ambient cursor-pointer hover:bg-surface-container-low transition-colors">
                     <span className="material-symbols-outlined text-[16px] text-primary">tag</span>
                     Skill:
                     <input
                       type="text"
-                      className="bg-transparent border-none outline-none font-label-md text-[13px] text-on-surface w-16 focus:ring-0 p-0 ml-1"
+                      className="bg-transparent border-none outline-none font-label-md text-[13px] text-on-surface w-24 min-w-0 focus:ring-0 p-0 ml-1"
                       value={skillFilter}
                       onChange={(e) => setSkillFilter(e.target.value)}
                     />
@@ -299,10 +299,11 @@ function SearchPageContent() {
                   type="button"
                   onClick={() => setView("list")}
                   aria-pressed={view === "list"}
+                  aria-label="List view"
                   title="List view"
-                  className={`p-2 rounded-md transition-all ${
+                  className={`p-2 rounded-md transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-1 ${
                     view === "list"
-                      ? "bg-white shadow-ambient text-primary"
+                      ? "bg-surface-white shadow-ambient text-primary"
                       : "text-outline hover:text-on-surface"
                   }`}
                 >
@@ -312,10 +313,11 @@ function SearchPageContent() {
                   type="button"
                   onClick={() => setView("grid")}
                   aria-pressed={view === "grid"}
+                  aria-label="Grid view"
                   title="Grid view"
-                  className={`p-2 rounded-md transition-all ${
+                  className={`p-2 rounded-md transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-1 ${
                     view === "grid"
-                      ? "bg-white shadow-ambient text-primary"
+                      ? "bg-surface-white shadow-ambient text-primary"
                       : "text-outline hover:text-on-surface"
                   }`}
                 >

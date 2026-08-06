@@ -210,11 +210,11 @@ export default function ShortlistDetailPage({ params }: { params: Promise<{ id: 
             type="button"
             disabled={removingId === c.id}
             onClick={() => setPendingRemove({ id: c.id, name: c.name })}
-            className="rounded-lg p-2 text-on-surface-variant transition-colors hover:bg-error/10 hover:text-error disabled:opacity-50"
+            className="rounded-lg p-2 text-on-surface-variant transition-colors hover:bg-error/10 hover:text-error disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-1"
             aria-label={`Remove ${c.name} from shortlist`}
             title="Remove from shortlist"
           >
-            <span className="material-symbols-outlined text-[20px]">
+            <span className={`material-symbols-outlined text-[20px] ${removingId === c.id ? "animate-spin" : ""}`}>
               {removingId === c.id ? "sync" : "close"}
             </span>
           </button>

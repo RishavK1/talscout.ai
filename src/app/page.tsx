@@ -446,7 +446,7 @@ export default function LandingPage() {
             ].map(([title, body]) => (
               <div key={title} className="px-4 py-7 first:pl-0 sm:px-6">
                 <p className="text-[12px] font-semibold text-on-surface">{title}</p>
-                <p className="mt-1 hidden text-[11px] text-text-muted sm:block">{body}</p>
+                <p className="mt-1 text-[11px] text-text-muted">{body}</p>
               </div>
             ))}
           </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { AppShell } from "@/components/app/app-shell";
@@ -57,6 +57,18 @@ export default function NewBlueprintPage() {
   // call never causes a second /api/blueprints POST with the same name
   // (which would 409 "already exists" and mask the real error).
   const [draftBlueprintId, setDraftBlueprintId] = useState<string | null>(null);
+
+  // Warn on tab close/refresh once research has run — that's real, unsaved
+  // work (answers picked, custom context typed) that a reload would discard.
+  useEffect(() => {
+    if (step === 0) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [step]);
 
   const toggleOption = (field: SuggestedField, option: string) => {
     setAnswers((prev) => {
