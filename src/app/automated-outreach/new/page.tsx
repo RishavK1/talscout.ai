@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Stepper } from "@/components/ui/stepper";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 interface BlueprintOption {
   id: string;
@@ -78,6 +79,7 @@ export default function NewAutomatedCampaignPage() {
   const [replyPollingEnabled, setReplyPollingEnabled] = useState(true);
   const [aiDiscoveryEnabled, setAiDiscoveryEnabled] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
 
   // Warn on tab close/refresh once the user has moved past the first step —
   // real unsaved work (targeting, voice/signature, sequence copy) that a
@@ -200,8 +202,9 @@ export default function NewAutomatedCampaignPage() {
                 href="/automated-outreach"
                 className="hover:text-on-surface transition-colors"
                 onClick={(e) => {
-                  if (step > 0 && !window.confirm("Leave without finishing? Your progress on this campaign will be lost.")) {
+                  if (step > 0) {
                     e.preventDefault();
+                    setShowLeaveConfirm(true);
                   }
                 }}
               >
@@ -751,6 +754,18 @@ export default function NewAutomatedCampaignPage() {
           )}
         </main>
       </div>
+      <ConfirmDialog
+        open={showLeaveConfirm}
+        onClose={() => setShowLeaveConfirm(false)}
+        onConfirm={() => {
+          setShowLeaveConfirm(false);
+          router.push("/automated-outreach");
+        }}
+        title="Leave without finishing?"
+        description="Your progress on this campaign will be lost."
+        confirmLabel="Leave"
+        destructive
+      />
     </AppShell>
   );
 }
