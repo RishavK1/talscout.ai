@@ -520,7 +520,7 @@ export default function AutomatedCampaignDetailPage({
                     <div className="space-y-4 p-4">
                       <div className="flex items-start justify-between gap-3">
                         <span className="min-w-0">
-                          <span className="block font-body-md text-[14px] font-semibold leading-snug text-on-surface">
+                          <span className="block truncate font-body-md text-[14px] font-semibold leading-snug text-on-surface">
                             {lead.businessName}
                           </span>
                           <span className="mt-1 block truncate font-data-mono text-[12px] text-on-surface-variant">

@@ -88,7 +88,13 @@ export function DataTable<T>({
   if (mobileCard) {
     return (
       <>
-        <div className="divide-y divide-border-low-alpha md:hidden">
+        {/* overflow-x-hidden as a safety net: a card list has no scroll
+         *  affordance of its own (unlike the table below, which wraps in
+         *  overflow-x-auto), so if a consumer's mobileCard ever renders
+         *  unconstrained-width content (e.g. forgets `truncate` on a long
+         *  field), this clips it instead of pushing the WHOLE PAGE into
+         *  horizontal scroll. */}
+        <div className="divide-y divide-border-low-alpha overflow-x-hidden md:hidden">
           {rows.map((row) => {
             const key = getRowKey(row);
             const isClickable = Boolean(onRowClick);

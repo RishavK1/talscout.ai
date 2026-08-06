@@ -1190,98 +1190,15 @@ export default function BulkFireCampaignPage({
             </div>
           ) : (
             <>
-              <div className="grid gap-3 md:hidden">
-                {leads.map((lead) => {
-                  const isSelected = selectedIds.has(lead.id);
-                  return (
-                    <div
-                      key={lead.id}
-                      className={`rounded-2xl border border-border-low-alpha bg-surface-white p-4 ${
-                        isSelected ? "border-primary/40 bg-primary/5" : ""
-                      }`}
-                    >
-                      <div className="mb-4 flex items-start justify-between gap-3">
-                        <label
-                          className={`flex min-w-0 flex-1 items-start gap-3 ${
-                            lead.email ? "cursor-pointer" : "cursor-not-allowed opacity-70"
-                          }`}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={() => toggleLead(lead.id)}
-                            disabled={!lead.email}
-                            aria-label={`Select ${lead.name}`}
-                            title={
-                              lead.email
-                                ? undefined
-                                : "No email on file — can't be sent to"
-                            }
-                            className="mt-1 h-4 w-4 rounded border-outline-variant text-primary focus:ring-primary/20 disabled:opacity-40"
-                          />
-                          <span className="min-w-0">
-                            <span className="block truncate font-body-md text-[14px] font-semibold text-on-surface">
-                              {lead.name}
-                            </span>
-                            <span className="mt-0.5 block truncate font-data-mono text-[12px] text-on-surface-variant">
-                              {lead.email || "No email on file"}
-                            </span>
-                          </span>
-                        </label>
-                        <StatusBadge tone={LEAD_STATUS_TONE[lead.status]} className="shrink-0 capitalize">
-                          {lead.status}
-                        </StatusBadge>
-                      </div>
-
-                      <div className="grid gap-3 rounded-xl bg-surface-container-low/50 p-3">
-                        <div className="flex items-center justify-between gap-3">
-                          <span className="font-label-md text-[11px] uppercase tracking-wider text-on-surface-variant">
-                            Next send
-                          </span>
-                          <span className="text-right font-data-mono text-[12px]">
-                            <SendCountdown
-                              nextSendAt={lead.nextSendAt}
-                              paused={campaign?.status === "paused"}
-                            />
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between gap-3">
-                          <span className="font-label-md text-[11px] uppercase tracking-wider text-on-surface-variant">
-                            Sent on
-                          </span>
-                          {lead.day0SentAt ? (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="xs"
-                              onClick={() => selectSameSendDay(lead.day0SentAt)}
-                              title="Click to also select everyone sent on this day"
-                              className="h-auto min-h-9 px-2 font-data-mono text-[12px] text-on-surface-variant hover:text-primary"
-                            >
-                              {formatSentAt(lead.day0SentAt)}
-                            </Button>
-                          ) : (
-                            <span className="font-data-mono text-[12px] text-on-surface-variant">
-                              —
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => setEmailsLeadId(lead.id)}
-                        className="mt-3 min-h-10 w-full justify-center text-[12px]"
-                      >
-                        View emails
-                      </Button>
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div className="hidden overflow-x-auto rounded-2xl border border-border-low-alpha bg-surface-white md:block">
+              {/* Always a real table, even on mobile — checkbox multi-select
+               *  is the primary workflow here (Fire targets whichever leads
+               *  are checked), and a hand-rolled mobile card list previously
+               *  had no width containment of its own, so any slightly-long
+               *  business name pushed the WHOLE PAGE into horizontal scroll
+               *  instead of just this table. The table's overflow-x-auto
+               *  wrapper below scopes scrolling to itself, same pattern the
+               *  shared Table/DataTable primitives use everywhere else. */}
+              <div className="overflow-x-auto rounded-2xl border border-border-low-alpha bg-surface-white">
                 <table className="w-full text-left">
                   <thead className="border-b border-border-low-alpha bg-surface-container-low">
                     <tr>
