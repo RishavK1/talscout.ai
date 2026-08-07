@@ -4,16 +4,27 @@ import Link from "next/link";
 import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import {
+  FileText,
+  ChevronRight,
+  RefreshCw,
+  CircleCheck,
+  Target,
+  Mic,
+  Gavel,
+  ClipboardCheck,
+  type LucideIcon,
+} from "lucide-react";
 import { AppShell } from "@/components/app/app-shell";
 import { TopAppBar } from "@/components/app/top-app-bar";
 import { api, ApiError } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { StatusBadge, type StatusBadgeProps } from "@/components/ui/status-badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CardBodySkeleton } from "@/components/ui/skeletons";
+import { Reveal } from "@/components/motion/reveal";
 
 interface BlueprintProofPoint {
   label: string;
@@ -64,40 +75,50 @@ const STATUS_TONE: Record<Blueprint["status"], NonNullable<StatusBadgeProps["ton
   archived: "error",
 };
 
-/** One card per topic (not one per field) — replaces the earlier 12-card
- *  layout where most cards held a single sentence. `Field` rows inside are
- *  dense: a small uppercase label, thin divider, next field. */
-function SectionCard({
+/** One flowing document instead of a grid of separate boxes — the earlier
+ *  layout put each topic in its own bordered card, which at four cards read
+ *  as a scattered wall of boxes rather than one coherent business profile.
+ *  Sections are now visually distinguished by an icon + heading and a
+ *  divider, not a box each — a single continuous read, closer to a Notion/
+ *  Linear-style profile document than a stats dashboard. */
+const TOC: { id: string; label: string; icon: LucideIcon }[] = [
+  { id: "positioning", label: "Positioning", icon: Target },
+  { id: "voice", label: "Voice & proof", icon: Mic },
+  { id: "objections", label: "Objections & rules", icon: Gavel },
+  { id: "qualification", label: "Lead qualification", icon: ClipboardCheck },
+];
+
+function SectionBlock({
+  id,
   title,
-  icon,
+  icon: Icon,
   children,
 }: {
+  id: string;
   title: string;
-  icon: string;
+  icon: LucideIcon;
   children: React.ReactNode;
 }) {
   return (
-    <Card className="border border-border-low-alpha bg-surface-white [--card-spacing:--spacing(6)]">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2.5 font-sans font-semibold text-[16px] text-primary">
-          <span className="flex items-center justify-center rounded-lg bg-primary-container/10 p-1.5 text-primary">
-            <span className="material-symbols-outlined text-[18px]">{icon}</span>
-          </span>
-          {title}
-        </CardTitle>
-      </CardHeader>
-      <CardContent>{children}</CardContent>
-    </Card>
+    <section id={id} className="scroll-mt-28">
+      <div className="mb-5 flex items-center gap-2.5">
+        <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary-container/10 text-primary">
+          <Icon className="size-[16px]" />
+        </span>
+        <h2 className="font-sans text-[16px] font-semibold text-on-surface">{title}</h2>
+      </div>
+      <div className="space-y-5 pl-[42px]">{children}</div>
+    </section>
   );
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="border-b border-border-low-alpha py-3 first:pt-0 last:border-0 last:pb-0">
-      <p className="mb-1 font-label-md text-[11px] uppercase tracking-wide text-on-surface-variant">
+    <div>
+      <p className="mb-1.5 font-label-md text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant">
         {label}
       </p>
-      <div className="font-body-md text-body-md text-on-surface">{children}</div>
+      <div className="font-body-md text-body-md leading-relaxed text-on-surface">{children}</div>
     </div>
   );
 }
@@ -184,7 +205,7 @@ export default function BlueprintDetailPage({
             }
           />
           <main className="flex-1 p-4 sm:p-6 lg:p-12 max-w-[1000px] mx-auto w-full">
-            <Card className="mb-8 border border-border-low-alpha bg-surface-white [--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
+            <Card className="mb-10 border border-border-low-alpha bg-surface-white [--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
               <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div className="space-y-2">
                   <Skeleton className="h-7 w-56" />
@@ -197,20 +218,27 @@ export default function BlueprintDetailPage({
                 </div>
               </CardContent>
             </Card>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {Array.from({ length: 4 }, (_, i) => (
-                <Card key={i} className="border border-border-low-alpha bg-surface-white [--card-spacing:--spacing(6)]">
-                  <CardHeader>
-                    <div className="flex items-center gap-2.5">
+            <div className="lg:grid lg:grid-cols-[180px_1fr] lg:gap-12">
+              <div className="hidden lg:block space-y-2">
+                {Array.from({ length: 4 }, (_, i) => (
+                  <Skeleton key={i} className="h-7 w-full rounded-lg" />
+                ))}
+              </div>
+              <div className="max-w-2xl space-y-10">
+                {Array.from({ length: 4 }, (_, i) => (
+                  <div key={i}>
+                    <div className="mb-5 flex items-center gap-2.5">
                       <Skeleton className="h-8 w-8 rounded-lg" />
-                      <Skeleton className="h-5 w-32" />
+                      <Skeleton className="h-5 w-40" />
                     </div>
-                  </CardHeader>
-                  <CardContent>
-                    <CardBodySkeleton lines={4} />
-                  </CardContent>
-                </Card>
-              ))}
+                    <div className="space-y-3 pl-[42px]">
+                      <Skeleton className="h-3.5 w-full" />
+                      <Skeleton className="h-3.5 w-5/6" />
+                      <Skeleton className="h-3.5 w-2/3" />
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </main>
         </div>
@@ -242,7 +270,7 @@ export default function BlueprintDetailPage({
               <Link href="/blueprints" className="hover:text-primary transition-colors">
                 Blueprints
               </Link>
-              <span className="material-symbols-outlined text-sm">chevron_right</span>
+              <ChevronRight className="size-[14px]" />
               <span className="text-on-surface font-medium truncate max-w-[200px]">
                 {blueprint.name}
               </span>
@@ -250,7 +278,8 @@ export default function BlueprintDetailPage({
           }
         />
         <main className="flex-1 p-4 sm:p-6 lg:p-12 max-w-[1000px] mx-auto w-full">
-          <Card className="mb-8 border border-border-low-alpha bg-surface-white [--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
+          <Reveal>
+          <Card className="mb-10 border border-border-low-alpha bg-surface-white [--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
             <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <div className="flex items-center gap-3 mb-2">
@@ -279,14 +308,7 @@ export default function BlueprintDetailPage({
                   disabled={regenerating}
                   className="text-primary"
                 >
-                  <span
-                    className={cn(
-                      "material-symbols-outlined text-[18px]",
-                      regenerating && "animate-spin",
-                    )}
-                  >
-                    sync
-                  </span>
+                  <RefreshCw className={cn("size-[18px]", regenerating && "animate-spin")} />
                   {regenerating ? "Regenerating..." : "Regenerate"}
                 </Button>
                 <Button
@@ -309,11 +331,13 @@ export default function BlueprintDetailPage({
               </div>
             </CardContent>
           </Card>
+          </Reveal>
 
           {!s ? (
+            <Reveal delay={0.05}>
             <Card className="border border-border-low-alpha bg-surface-white text-center [--card-spacing:--spacing(8)]">
               <CardContent>
-                <span className="material-symbols-outlined text-outline text-[32px]">description</span>
+                <FileText className="mx-auto size-[32px] text-outline" />
                 <p className="mt-3 font-body-md text-body-md text-text-muted">
                   No sections generated yet.
                 </p>
@@ -328,80 +352,108 @@ export default function BlueprintDetailPage({
                 </Button>
               </CardContent>
             </Card>
+            </Reveal>
           ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <SectionCard title="Positioning" icon="badge">
-                <Field label="Who we are">{s.whoWeAre}</Field>
-                <Field label="What we offer">{s.whatWeOffer}</Field>
-                <Field label="Who it's for">{s.whoItsFor}</Field>
-                <Field label="Differentiator">{s.differentiator}</Field>
-                {s.statusQuo && <Field label="Status quo">{s.statusQuo}</Field>}
-                <Field label="Pain we solve">{s.painWeSolve}</Field>
-              </SectionCard>
+            <Reveal delay={0.05} className="lg:grid lg:grid-cols-[180px_1fr] lg:gap-12">
+              {/* In-page nav — desktop only. Plain anchor links (no scroll-spy
+                  JS) into `scroll-smooth` sections below; keeps four topics
+                  reachable at a glance instead of scrolling past walls of text. */}
+              <nav className="hidden lg:block">
+                <div className="sticky top-24 space-y-0.5">
+                  <p className="mb-2 font-label-md text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant">
+                    On this page
+                  </p>
+                  {TOC.map((t) => (
+                    <a
+                      key={t.id}
+                      href={`#${t.id}`}
+                      className="flex items-center gap-2 rounded-lg px-2.5 py-1.5 font-body-md text-[13px] text-on-surface-variant transition-colors hover:bg-surface-container-low hover:text-on-surface"
+                    >
+                      <t.icon className="size-[14px] shrink-0" />
+                      {t.label}
+                    </a>
+                  ))}
+                </div>
+              </nav>
 
-              <SectionCard title="Voice & proof" icon="record_voice_over">
-                <Field label="Voice">{s.voice}</Field>
-                <Field label="Proof points">
-                  <ul className="space-y-1">
-                    {s.proof.map((p, i) => (
-                      <li key={i} className="flex gap-2">
-                        <span className="material-symbols-outlined text-tertiary text-[16px] mt-0.5">
-                          check_circle
-                        </span>
-                        <span>
-                          {p.label}
-                          {p.detail && <span className="text-text-muted"> — {p.detail}</span>}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </Field>
-                <Field label="Personas">
-                  <ul className="space-y-1">
-                    {s.personas.map((p, i) => (
-                      <li key={i}>
-                        <span className="font-semibold">{p.name}</span>
-                        {p.description && <span className="text-text-muted"> — {p.description}</span>}
-                      </li>
-                    ))}
-                  </ul>
-                </Field>
-              </SectionCard>
+              <div className="min-w-0 max-w-2xl space-y-10">
+                <SectionBlock id="positioning" title="Positioning" icon={Target}>
+                  <Field label="Who we are">{s.whoWeAre}</Field>
+                  <Field label="What we offer">{s.whatWeOffer}</Field>
+                  <Field label="Who it's for">{s.whoItsFor}</Field>
+                  <Field label="Differentiator">{s.differentiator}</Field>
+                  {s.statusQuo && <Field label="Status quo">{s.statusQuo}</Field>}
+                  <Field label="Pain we solve">{s.painWeSolve}</Field>
+                </SectionBlock>
 
-              <SectionCard title="Objections & rules" icon="gavel">
-                <Field label="Objections to preempt">
-                  <ul className="list-disc list-inside space-y-1">
-                    {s.objections.map((o, i) => (
-                      <li key={i}>{o}</li>
-                    ))}
-                  </ul>
-                </Field>
-                <Field label="Rules for outreach copy">
-                  <ul className="list-disc list-inside space-y-1">
-                    {s.rules.map((r, i) => (
-                      <li key={i}>{r}</li>
-                    ))}
-                  </ul>
-                </Field>
-              </SectionCard>
+                <div className="border-t border-border-low-alpha" />
 
-              <SectionCard title="Lead qualification" icon="fact_check">
-                <p className="font-body-md text-body-md text-on-surface">
-                  {WEBSITE_REQUIREMENT_LABEL[s.leadQualification?.websiteRequirement ?? "any"]}
-                </p>
-                {!!s.leadQualification?.criteria.length && (
-                  <ul className="mt-2 list-disc list-inside space-y-1 font-body-md text-body-md text-on-surface">
-                    {s.leadQualification.criteria.map((c, i) => (
-                      <li key={i}>{c}</li>
-                    ))}
-                  </ul>
-                )}
-                <p className="mt-3 font-label-md text-label-md text-on-surface-variant">
-                  Campaigns using this blueprint skip leads that don&apos;t match this profile — see a
-                  disqualified lead&apos;s reason on its campaign&apos;s lead list.
-                </p>
-              </SectionCard>
-            </div>
+                <SectionBlock id="voice" title="Voice & proof" icon={Mic}>
+                  <Field label="Voice">{s.voice}</Field>
+                  <Field label="Proof points">
+                    <ul className="space-y-1">
+                      {s.proof.map((p, i) => (
+                        <li key={i} className="flex gap-2">
+                          <CircleCheck className="mt-0.5 size-[16px] shrink-0 text-tertiary" />
+                          <span>
+                            {p.label}
+                            {p.detail && <span className="text-text-muted"> — {p.detail}</span>}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </Field>
+                  <Field label="Personas">
+                    <ul className="space-y-1">
+                      {s.personas.map((p, i) => (
+                        <li key={i}>
+                          <span className="font-semibold">{p.name}</span>
+                          {p.description && <span className="text-text-muted"> — {p.description}</span>}
+                        </li>
+                      ))}
+                    </ul>
+                  </Field>
+                </SectionBlock>
+
+                <div className="border-t border-border-low-alpha" />
+
+                <SectionBlock id="objections" title="Objections & rules" icon={Gavel}>
+                  <Field label="Objections to preempt">
+                    <ul className="list-disc list-inside space-y-1">
+                      {s.objections.map((o, i) => (
+                        <li key={i}>{o}</li>
+                      ))}
+                    </ul>
+                  </Field>
+                  <Field label="Rules for outreach copy">
+                    <ul className="list-disc list-inside space-y-1">
+                      {s.rules.map((r, i) => (
+                        <li key={i}>{r}</li>
+                      ))}
+                    </ul>
+                  </Field>
+                </SectionBlock>
+
+                <div className="border-t border-border-low-alpha" />
+
+                <SectionBlock id="qualification" title="Lead qualification" icon={ClipboardCheck}>
+                  <p className="font-body-md text-body-md leading-relaxed text-on-surface">
+                    {WEBSITE_REQUIREMENT_LABEL[s.leadQualification?.websiteRequirement ?? "any"]}
+                  </p>
+                  {!!s.leadQualification?.criteria.length && (
+                    <ul className="mt-2 list-disc list-inside space-y-1 font-body-md text-body-md text-on-surface">
+                      {s.leadQualification.criteria.map((c, i) => (
+                        <li key={i}>{c}</li>
+                      ))}
+                    </ul>
+                  )}
+                  <p className="mt-3 font-label-md text-label-md text-on-surface-variant">
+                    Campaigns using this blueprint skip leads that don&apos;t match this profile — see a
+                    disqualified lead&apos;s reason on its campaign&apos;s lead list.
+                  </p>
+                </SectionBlock>
+              </div>
+            </Reveal>
           )}
         </main>
       </div>

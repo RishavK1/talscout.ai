@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { FileText, Globe, CirclePlus } from "lucide-react";
 import { AppShell } from "@/components/app/app-shell";
 import { TopAppBar } from "@/components/app/top-app-bar";
 import { api } from "@/lib/api";
@@ -13,6 +14,7 @@ import { PageHeaderCard } from "@/components/app/page-header-card";
 import { StatusBadge, type StatusBadgeProps } from "@/components/ui/status-badge";
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 import { TableSkeleton } from "@/components/ui/skeletons";
+import { Reveal } from "@/components/motion/reveal";
 
 interface BlueprintSummary {
   id: string;
@@ -59,7 +61,7 @@ export default function BlueprintsPage() {
       render: (b) => (
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-container/10 text-primary">
-            <span className="material-symbols-outlined text-[18px]">description</span>
+            <FileText className="size-[18px]" />
           </div>
           <span className="font-body-md text-[14px] font-medium text-on-surface">{b.name}</span>
         </div>
@@ -71,7 +73,7 @@ export default function BlueprintsPage() {
       render: (b) =>
         b.websiteUrl ? (
           <span className="flex items-center gap-1.5 font-body-md text-[13px] text-on-surface-variant">
-            <span className="material-symbols-outlined text-[15px] shrink-0">language</span>
+            <Globe className="size-[15px] shrink-0" />
             <span className="truncate max-w-[220px]">{b.websiteUrl.replace(/^https?:\/\//, "")}</span>
           </span>
         ) : (
@@ -108,6 +110,7 @@ export default function BlueprintsPage() {
           }
         />
         <main className="flex-1 p-4 sm:p-6 lg:p-12 max-w-[1440px] mx-auto w-full">
+          <Reveal>
           <PageHeaderCard
             icon="description"
             title="Blueprints"
@@ -115,13 +118,15 @@ export default function BlueprintsPage() {
             action={
               <Button asChild variant="gradient" size="lg" className="w-full justify-center sm:w-auto">
                 <Link href="/blueprints/new">
-                  <span className="material-symbols-outlined text-[20px]">add_circle</span>
+                  <CirclePlus className="size-[20px]" />
                   New blueprint
                 </Link>
               </Button>
             }
           />
+          </Reveal>
 
+          <Reveal delay={0.05}>
           <Card className="overflow-hidden">
             <CardContent className="p-0">
               {loading ? (
@@ -134,7 +139,7 @@ export default function BlueprintsPage() {
                   onRowClick={(b) => router.push(`/blueprints/${b.id}`)}
                   emptyState={
                     <div className="flex flex-col items-center gap-3">
-                      <span className="material-symbols-outlined text-outline text-[32px]">description</span>
+                      <FileText className="size-[32px] text-outline" />
                       <p className="font-body-md text-body-md text-on-surface-variant">
                         No blueprints yet. Enter a website and let AI draft the context.
                       </p>
@@ -147,6 +152,7 @@ export default function BlueprintsPage() {
               )}
             </CardContent>
           </Card>
+          </Reveal>
         </main>
       </div>
     </AppShell>
