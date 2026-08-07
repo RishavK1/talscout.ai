@@ -1,3 +1,7 @@
+"use client";
+
+import { motion } from "framer-motion";
+import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
@@ -26,11 +30,7 @@ export function Stepper({ steps, currentStep }: StepperProps) {
                     : "bg-surface-container text-on-surface-variant",
               )}
             >
-              {i < currentStep ? (
-                <span className="material-symbols-outlined text-[18px]">check</span>
-              ) : (
-                i + 1
-              )}
+              {i < currentStep ? <Check className="size-[18px]" /> : i + 1}
             </div>
             <span
               className={cn(
@@ -42,12 +42,14 @@ export function Stepper({ steps, currentStep }: StepperProps) {
             </span>
           </div>
           {i < steps.length - 1 && (
-            <div
-              className={cn(
-                "mx-3 h-px flex-1 rounded-full sm:mx-4 transition-colors",
-                i < currentStep ? "bg-primary-container" : "bg-border-low-alpha",
-              )}
-            />
+            <div className="relative mx-3 h-px flex-1 overflow-hidden rounded-full bg-border-low-alpha sm:mx-4">
+              <motion.div
+                className="absolute inset-y-0 left-0 bg-primary-container"
+                initial={false}
+                animate={{ width: i < currentStep ? "100%" : "0%" }}
+                transition={{ duration: 0.35, ease: [0.23, 1, 0.32, 1] }}
+              />
+            </div>
           )}
         </div>
       ))}

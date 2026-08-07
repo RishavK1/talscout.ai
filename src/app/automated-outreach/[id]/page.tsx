@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { use, useEffect, useState } from "react";
 import { toast } from "sonner";
+import { ChevronRight, ChevronLeft, Info, Mail, Pause, Play } from "lucide-react";
 import { AppShell } from "@/components/app/app-shell";
 import { TopAppBar } from "@/components/app/top-app-bar";
 import { useAuth } from "@/components/app/auth-provider";
@@ -419,7 +420,7 @@ export default function AutomatedCampaignDetailPage({
           }}
           className="h-8 gap-1.5 px-2 text-primary hover:bg-primary/5"
         >
-          <span className="material-symbols-outlined text-[16px]">mail</span>
+          <Mail className="size-[16px]" />
           Emails
         </Button>
       ),
@@ -435,7 +436,7 @@ export default function AutomatedCampaignDetailPage({
               <Link href="/automated-outreach" className="hover:text-primary transition-colors">
                 Automated Outreach
               </Link>
-              <span className="material-symbols-outlined text-sm">chevron_right</span>
+              <ChevronRight className="size-[14px]" />
               <span className="text-on-surface font-medium truncate max-w-[200px]">
                 {campaign.name}
               </span>
@@ -479,7 +480,7 @@ export default function AutomatedCampaignDetailPage({
                   total > 0 &&
                   total < campaign.maxLeadsPerRun && (
                     <p className="mt-3 flex items-start gap-1.5 font-body-md text-[13px] text-text-muted">
-                      <span className="material-symbols-outlined text-[16px] shrink-0">info</span>
+                      <Info className="size-[16px] shrink-0" />
                       Found {total} of {campaign.maxLeadsPerRun} target leads so far — free discovery
                       sources don&apos;t have contact info for every business in{" "}
                       {campaign.discoveryQuery.category} / {locationLabel}. New leads get added
@@ -495,12 +496,15 @@ export default function AutomatedCampaignDetailPage({
                     variant="outline"
                     size="lg"
                     onClick={toggleCampaign}
-                    disabled={busy}
+                    loading={busy}
                     className="w-full justify-center lg:w-auto"
                   >
-                    <span className="material-symbols-outlined text-[18px]">
-                      {busy ? "sync" : campaign.status === "active" ? "pause" : "play_arrow"}
-                    </span>
+                    {!busy &&
+                      (campaign.status === "active" ? (
+                        <Pause className="size-[18px]" />
+                      ) : (
+                        <Play className="size-[18px]" />
+                      ))}
                     {campaign.status === "active" ? "Pause campaign" : "Activate campaign"}
                   </Button>
                 )}
@@ -588,7 +592,7 @@ export default function AutomatedCampaignDetailPage({
                         onClick={() => setEmailsLead(lead)}
                         className="min-h-10 w-full justify-center"
                       >
-                        <span className="material-symbols-outlined text-[16px]">mail</span>
+                        <Mail className="size-[16px]" />
                         View emails
                       </Button>
                     </div>
@@ -615,7 +619,7 @@ export default function AutomatedCampaignDetailPage({
                     aria-label="Previous page"
                     className="flex h-8 w-8 items-center justify-center rounded-lg border border-border-low-alpha text-on-surface-variant transition-colors hover:bg-surface-container-low disabled:cursor-not-allowed disabled:opacity-40"
                   >
-                    <span className="material-symbols-outlined text-[18px]">chevron_left</span>
+                    <ChevronLeft className="size-[18px]" />
                   </button>
                   {paginationRange(page, totalPages).map((p, i) =>
                     p === "…" ? (
@@ -646,7 +650,7 @@ export default function AutomatedCampaignDetailPage({
                     aria-label="Next page"
                     className="flex h-8 w-8 items-center justify-center rounded-lg border border-border-low-alpha text-on-surface-variant transition-colors hover:bg-surface-container-low disabled:cursor-not-allowed disabled:opacity-40"
                   >
-                    <span className="material-symbols-outlined text-[18px]">chevron_right</span>
+                    <ChevronRight className="size-[18px]" />
                   </button>
                 </div>
               </div>

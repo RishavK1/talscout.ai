@@ -4,10 +4,25 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  ChevronRight,
+  Loader2,
+  FileText,
+  Rocket,
+  ArrowRight,
+  Globe,
+  ClipboardCheck,
+  Sparkles,
+  RefreshCw,
+  Signature,
+  MessageSquare,
+} from "lucide-react";
 import { AppShell } from "@/components/app/app-shell";
 import { TopAppBar } from "@/components/app/top-app-bar";
 import { api, ApiError } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { easeOut } from "@/lib/motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Stepper } from "@/components/ui/stepper";
@@ -211,7 +226,7 @@ export default function NewAutomatedCampaignPage() {
               >
                 Automated Outreach
               </Link>
-              <span className="material-symbols-outlined text-sm">chevron_right</span>
+              <ChevronRight className="size-[14px]" />
               <span className="text-on-surface font-medium">New campaign</span>
             </div>
           }
@@ -219,12 +234,12 @@ export default function NewAutomatedCampaignPage() {
         <main className="flex-1 p-4 sm:p-6 lg:p-12 max-w-[1100px] mx-auto w-full">
           {loadingOptions ? (
             <div className="flex items-center justify-center min-h-[300px]">
-              <span className="material-symbols-outlined animate-spin text-primary text-[32px]">sync</span>
+              <Loader2 className="size-[32px] animate-spin text-primary" />
             </div>
           ) : blueprints.length === 0 ? (
             <Card className="overflow-hidden text-center [--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
               <CardContent>
-                <span className="material-symbols-outlined text-outline text-[32px]">description</span>
+                <FileText className="mx-auto size-[32px] text-outline" />
                 <p className="mt-3 font-body-md text-body-md text-text-muted">
                   You need at least one generated Blueprint before creating an
                   automated campaign.
@@ -238,12 +253,21 @@ export default function NewAutomatedCampaignPage() {
             <>
               <Stepper steps={STEPS} currentStep={step} />
 
+              <AnimatePresence mode="wait">
               {step === 0 && (
+                <motion.div
+                  key="step-0"
+                  initial={{ opacity: 0, x: 16 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -16 }}
+                  transition={{ duration: 0.25, ease: easeOut }}
+                >
+
                 <Card className="border border-border-low-alpha bg-surface-white [--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
                   <CardHeader>
                     <div className="flex items-center gap-3">
                       <div className="rounded-xl bg-primary-container/10 p-2 text-primary">
-                        <span className="material-symbols-outlined text-[20px]">rocket_launch</span>
+                        <Rocket className="size-[20px]" />
                       </div>
                       <CardTitle className="font-body-md text-headline-md font-semibold text-primary">
                         Start a new campaign
@@ -307,7 +331,7 @@ export default function NewAutomatedCampaignPage() {
                     {selectedBlueprint?.sections && (
                       <div className="rounded-xl border border-border-low-alpha bg-bg-cream/30 p-4 space-y-2.5">
                         <p className="flex items-center gap-1.5 font-label-md text-label-md text-primary">
-                          <span className="material-symbols-outlined text-[16px]">description</span>
+                          <FileText className="size-[16px]" />
                           What this campaign already knows
                         </p>
                         {selectedBlueprint.sections.whoWeAre && (
@@ -338,23 +362,31 @@ export default function NewAutomatedCampaignPage() {
                         size="lg"
                         disabled={!canLeaveStart}
                         onClick={() => setStep(1)}
-                        className="w-full justify-center sm:w-auto"
+                        className="group w-full justify-center sm:w-auto"
                       >
                         Continue
-                        <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                        <ArrowRight className="size-[18px] transition-transform group-hover:translate-x-0.5" />
                       </Button>
                     </div>
                   </CardContent>
                 </Card>
+                </motion.div>
               )}
 
               {step === 1 && (
+                <motion.div
+                  key="step-1"
+                  initial={{ opacity: 0, x: 16 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -16 }}
+                  transition={{ duration: 0.25, ease: easeOut }}
+                >
                 <div className="space-y-6">
                   <Card className="border border-border-low-alpha bg-surface-white [--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
                     <CardHeader>
                       <div className="flex items-center gap-3">
                         <div className="rounded-xl bg-primary-container/10 p-2 text-primary">
-                          <span className="material-symbols-outlined text-[20px]">travel_explore</span>
+                          <Globe className="size-[20px]" />
                         </div>
                         <CardTitle className="font-body-md text-headline-md font-semibold text-primary">
                           Who to find
@@ -404,7 +436,7 @@ export default function NewAutomatedCampaignPage() {
                       {selectedBlueprint?.sections && (
                         <div className="rounded-xl border border-border-low-alpha bg-bg-cream/30 p-4">
                           <p className="flex items-center gap-1.5 font-label-md text-label-md text-primary mb-1.5">
-                            <span className="material-symbols-outlined text-[16px]">fact_check</span>
+                            <ClipboardCheck className="size-[16px]" />
                             This campaign will target
                           </p>
                           <p className="font-body-md text-[13px] text-on-surface">
@@ -444,7 +476,7 @@ export default function NewAutomatedCampaignPage() {
                     <CardContent>
                       <div className="mb-3 flex items-center gap-2.5">
                         <div className="rounded-lg bg-primary-container/10 p-1.5 text-primary">
-                          <span className="material-symbols-outlined text-[18px]">auto_awesome</span>
+                          <Sparkles className="size-[18px]" />
                         </div>
                         <h3 className="font-sans font-semibold text-[16px] text-on-surface">
                           Research this market
@@ -466,17 +498,17 @@ export default function NewAutomatedCampaignPage() {
                       >
                         {researching ? (
                           <>
-                            <span className="material-symbols-outlined animate-spin text-[18px]">sync</span>
+                            <Loader2 className="size-[18px] animate-spin" />
                             Researching {category || "this market"}...
                           </>
                         ) : marketResearch ? (
                           <>
-                            <span className="material-symbols-outlined text-[18px]">refresh</span>
+                            <RefreshCw className="size-[18px]" />
                             Research again
                           </>
                         ) : (
                           <>
-                            <span className="material-symbols-outlined text-[18px]">auto_awesome</span>
+                            <Sparkles className="size-[18px]" />
                             Research with AI
                           </>
                         )}
@@ -485,7 +517,7 @@ export default function NewAutomatedCampaignPage() {
                       {marketResearch ? (
                         <div className="mt-4">
                           <label className="flex items-center gap-1.5 font-label-md text-[11px] text-primary mb-1.5">
-                            <span className="material-symbols-outlined text-[14px]">auto_awesome</span>
+                            <Sparkles className="size-[14px]" />
                             Edit or replace anything below — this is sent to the AI as context, not copied verbatim.
                           </label>
                           <textarea
@@ -520,22 +552,30 @@ export default function NewAutomatedCampaignPage() {
                       size="lg"
                       disabled={!canLeaveResearch}
                       onClick={() => setStep(2)}
-                      className="w-full justify-center sm:w-auto"
+                      className="group w-full justify-center sm:w-auto"
                     >
                       Continue
-                      <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                      <ArrowRight className="size-[18px] transition-transform group-hover:translate-x-0.5" />
                     </Button>
                   </div>
                 </div>
+                </motion.div>
               )}
 
               {step === 2 && (
+                <motion.div
+                  key="step-2"
+                  initial={{ opacity: 0, x: 16 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -16 }}
+                  transition={{ duration: 0.25, ease: easeOut }}
+                >
                 <div className="space-y-6">
                   <Card className="[--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
                     <CardHeader>
                       <div className="flex items-center gap-3">
                         <div className="rounded-xl bg-primary-container/10 p-2 text-primary">
-                          <span className="material-symbols-outlined text-[20px]">signature</span>
+                          <Signature className="size-[20px]" />
                         </div>
                         <CardTitle className="font-body-md text-headline-md font-semibold text-primary">
                           Signature &amp; voice
@@ -610,22 +650,30 @@ export default function NewAutomatedCampaignPage() {
                       size="lg"
                       disabled={!canLeaveVoice}
                       onClick={() => setStep(3)}
-                      className="w-full justify-center sm:w-auto"
+                      className="group w-full justify-center sm:w-auto"
                     >
                       Continue
-                      <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                      <ArrowRight className="size-[18px] transition-transform group-hover:translate-x-0.5" />
                     </Button>
                   </div>
                 </div>
+                </motion.div>
               )}
 
               {step === 3 && (
+                <motion.div
+                  key="step-3"
+                  initial={{ opacity: 0, x: 16 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -16 }}
+                  transition={{ duration: 0.25, ease: easeOut }}
+                >
                 <div className="space-y-6">
                   <Card className="[--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
                     <CardHeader>
                       <div className="flex items-center gap-3">
                         <div className="rounded-xl bg-primary-container/10 p-2 text-primary">
-                          <span className="material-symbols-outlined text-[20px]">fact_check</span>
+                          <ClipboardCheck className="size-[20px]" />
                         </div>
                         <CardTitle className="font-body-md text-headline-md font-semibold text-primary">
                           Review
@@ -652,19 +700,28 @@ export default function NewAutomatedCampaignPage() {
                     </CardContent>
                   </Card>
 
+                  {/* One card, two toggle rows — these used to be two separate
+                      cards holding one switch each, which just added box
+                      count without adding meaning; both are automation
+                      settings for this same campaign. */}
                   <Card className="[--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
-                    <CardContent>
-                      <div className="flex items-start justify-between gap-4">
+                    <CardHeader>
+                      <CardTitle className="font-sans text-[15px] font-semibold text-on-surface">
+                        Automation settings
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="divide-y divide-border-low-alpha">
+                      <div className="flex items-start justify-between gap-4 pb-5 first:pt-0">
                         <div>
-                          <div className="mb-1 flex items-center gap-3">
-                            <div className="rounded-xl bg-primary-container/10 p-2 text-primary">
-                              <span className="material-symbols-outlined text-[20px]">forum</span>
+                          <div className="mb-1 flex items-center gap-2.5">
+                            <div className="rounded-lg bg-primary-container/10 p-1.5 text-primary">
+                              <MessageSquare className="size-[16px]" />
                             </div>
-                            <h2 className="font-body-md text-headline-md font-semibold text-primary">
+                            <h3 className="font-body-md text-[14px] font-semibold text-on-surface">
                               Reply polling
-                            </h2>
+                            </h3>
                           </div>
-                          <p className="font-body-md text-body-md text-text-muted">
+                          <p className="font-body-md text-[13px] text-text-muted">
                             When a lead replies, AI drafts a response — you always
                             review and approve before anything sends.
                           </p>
@@ -690,29 +747,31 @@ export default function NewAutomatedCampaignPage() {
                               // Explicit literal white, not `bg-white`: this is a switch
                               // knob, the one place that must stay light in dark mode
                               // (the global `.dark .bg-white` surface remap would sink
-                              // it into the track).
-                              "absolute top-1 h-5 w-5 rounded-full bg-[#ffffff] shadow-sm transition-transform",
-                              replyPollingEnabled ? "translate-x-6" : "translate-x-1",
+                              // it into the track). `left-1` is load-bearing, not
+                              // decorative — an absolutely-positioned knob with no
+                              // explicit `left` falls back to the browser's "static
+                              // position" resolution, which is ambiguous once this
+                              // button sits inside a flex row and rendered the knob
+                              // pinned to the track's far edge instead of sliding
+                              // between two 4px-inset resting positions.
+                              "absolute left-1 top-1 h-5 w-5 rounded-full bg-[#ffffff] shadow-sm transition-transform",
+                              replyPollingEnabled ? "translate-x-5" : "translate-x-0",
                             )}
                           />
                         </button>
                       </div>
-                    </CardContent>
-                  </Card>
 
-                  <Card className="[--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
-                    <CardContent>
-                      <div className="flex items-start justify-between gap-4">
+                      <div className="flex items-start justify-between gap-4 pt-5 last:pb-0">
                         <div>
-                          <div className="mb-1 flex items-center gap-3">
-                            <div className="rounded-xl bg-primary-container/10 p-2 text-primary">
-                              <span className="material-symbols-outlined text-[20px]">travel_explore</span>
+                          <div className="mb-1 flex items-center gap-2.5">
+                            <div className="rounded-lg bg-primary-container/10 p-1.5 text-primary">
+                              <Globe className="size-[16px]" />
                             </div>
-                            <h2 className="font-body-md text-headline-md font-semibold text-primary">
+                            <h3 className="font-body-md text-[14px] font-semibold text-on-surface">
                               AI-powered lead search
-                            </h2>
+                            </h3>
                           </div>
-                          <p className="font-body-md text-body-md text-text-muted">
+                          <p className="font-body-md text-[13px] text-text-muted">
                             Alongside our directory-based search, AI does a
                             live web search for real, currently-operating
                             businesses matching your targeting — and helps
@@ -730,8 +789,8 @@ export default function NewAutomatedCampaignPage() {
                         >
                           <span
                             className={cn(
-                              "absolute top-1 h-5 w-5 rounded-full bg-[#ffffff] shadow-sm transition-transform",
-                              aiDiscoveryEnabled ? "translate-x-6" : "translate-x-1",
+                              "absolute left-1 top-1 h-5 w-5 rounded-full bg-[#ffffff] shadow-sm transition-transform",
+                              aiDiscoveryEnabled ? "translate-x-5" : "translate-x-0",
                             )}
                           />
                         </button>
@@ -753,19 +812,21 @@ export default function NewAutomatedCampaignPage() {
                     >
                       {creating ? (
                         <>
-                          <span className="material-symbols-outlined animate-spin text-[18px]">sync</span>
+                          <Loader2 className="size-[18px] animate-spin" />
                           Creating...
                         </>
                       ) : (
                         <>
                           Create campaign
-                          <span className="material-symbols-outlined text-[18px]">rocket_launch</span>
+                          <Rocket className="size-[18px]" />
                         </>
                       )}
                     </Button>
                   </div>
                 </div>
+                </motion.div>
               )}
+              </AnimatePresence>
             </>
           )}
         </main>

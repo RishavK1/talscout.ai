@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { CirclePlus, Loader2, Pause, Play, Megaphone } from "lucide-react";
 import { AppShell } from "@/components/app/app-shell";
 import { TopAppBar } from "@/components/app/top-app-bar";
 import { api } from "@/lib/api";
@@ -12,6 +13,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { StatusBadge, type StatusBadgeProps } from "@/components/ui/status-badge";
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 import { TableSkeleton } from "@/components/ui/skeletons";
+import { Reveal } from "@/components/motion/reveal";
 
 interface AutomatedCampaign {
   id: string;
@@ -153,9 +155,13 @@ export default function AutomatedOutreachPage() {
             }}
             disabled={busyId === c.id}
           >
-            <span className="material-symbols-outlined text-[16px]">
-              {busyId === c.id ? "sync" : c.status === "active" ? "pause" : "play_arrow"}
-            </span>
+            {busyId === c.id ? (
+              <Loader2 className="size-[16px] animate-spin" />
+            ) : c.status === "active" ? (
+              <Pause className="size-[16px]" />
+            ) : (
+              <Play className="size-[16px]" />
+            )}
             {c.status === "active" ? "Pause" : "Activate"}
           </Button>
         ) : null,
@@ -173,6 +179,7 @@ export default function AutomatedOutreachPage() {
           }
         />
         <main className="mx-auto flex w-full max-w-[1200px] flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-12">
+          <Reveal>
           <section className="rounded-xl border border-border-low-alpha bg-surface-white p-4 sm:p-6">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
               <div className="min-w-0">
@@ -188,13 +195,15 @@ export default function AutomatedOutreachPage() {
               </div>
               <Button asChild variant="gradient" size="lg" className="w-full justify-center sm:w-auto">
                 <Link href="/automated-outreach/new">
-                  <span className="material-symbols-outlined text-[20px]">add_circle</span>
+                  <CirclePlus className="size-[20px]" />
                   New campaign
                 </Link>
               </Button>
             </div>
           </section>
+          </Reveal>
 
+          <Reveal delay={0.05}>
           <Card className="overflow-hidden rounded-xl border-border-low-alpha bg-surface-white py-0">
             <CardContent className="p-0">
               {loading ? (
@@ -241,7 +250,7 @@ export default function AutomatedOutreachPage() {
                   )}
                   emptyState={
                     <div className="flex flex-col items-center gap-3">
-                      <span className="material-symbols-outlined text-outline text-[32px]">campaign</span>
+                      <Megaphone className="size-[32px] text-outline" />
                       <p className="font-body-md text-body-md text-on-surface-variant">
                         No campaigns yet. Pick a Blueprint and a discovery target to get started.
                       </p>
@@ -254,6 +263,7 @@ export default function AutomatedOutreachPage() {
               )}
             </CardContent>
           </Card>
+          </Reveal>
         </main>
       </div>
     </AppShell>

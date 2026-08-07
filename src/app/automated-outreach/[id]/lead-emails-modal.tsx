@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Loader2 } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { StatusBadge, type StatusBadgeProps } from "@/components/ui/status-badge";
 import { api, ApiError } from "@/lib/api";
@@ -73,7 +74,7 @@ export default function LeadEmailsModal({
     >
       {loading ? (
         <div className="flex items-center justify-center py-10 font-body-md text-on-surface-variant">
-          <span className="material-symbols-outlined mr-2 animate-spin">sync</span>
+          <Loader2 className="mr-2 size-[18px] animate-spin" />
           Loading…
         </div>
       ) : sends.length === 0 ? (
