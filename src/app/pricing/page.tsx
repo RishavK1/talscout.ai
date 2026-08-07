@@ -14,6 +14,15 @@ type Row = { label: string; render: (planId: PlanIdT) => string };
 const num = (n: number) => (Number.isFinite(n) ? n.toLocaleString() : "Unlimited");
 const yesNo = (id: PlanIdT, cap: Parameters<typeof planHasCapability>[1]) =>
   planHasCapability(id, cap) ? "Included" : "—";
+/** api_access and sso are on the Scale capability list (so the rest of the
+ *  app can gate on them once built), but the backend for both doesn't exist
+ *  yet — see settings/page.tsx's DeveloperCard, which already says "In
+ *  development" rather than showing a fake console. This mirrors that same
+ *  honesty on the page a prospective customer actually decides from, instead
+ *  of promising "Included" for something not yet shippable. */
+const NOT_YET_SHIPPED = new Set(["api_access", "sso"]);
+const yesNoOrComingSoon = (id: PlanIdT, cap: Parameters<typeof planHasCapability>[1]) =>
+  NOT_YET_SHIPPED.has(cap) ? (planHasCapability(id, cap) ? "Coming soon" : "—") : yesNo(id, cap);
 
 /** Grouped so the two engines read as equally complete offerings rather than
  *  one long undifferentiated list. */
@@ -68,8 +77,8 @@ const COMPARISON_GROUPS: { heading: string; rows: Row[] }[] = [
   {
     heading: "Platform",
     rows: [
-      { label: CAPABILITY_LABEL.api_access, render: (id) => yesNo(id, "api_access") },
-      { label: CAPABILITY_LABEL.sso, render: (id) => yesNo(id, "sso") },
+      { label: CAPABILITY_LABEL.api_access, render: (id) => yesNoOrComingSoon(id, "api_access") },
+      { label: CAPABILITY_LABEL.sso, render: (id) => yesNoOrComingSoon(id, "sso") },
       { label: CAPABILITY_LABEL.audit_log, render: (id) => yesNo(id, "audit_log") },
     ],
   },

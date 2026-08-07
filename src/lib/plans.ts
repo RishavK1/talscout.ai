@@ -148,7 +148,8 @@ export const PLANS: Record<PlanId, Plan> = {
       "Automated Outreach (500 emails/day, 10 senders)",
       "Unlimited Bulk Fire sends & scheduling",
       "WhatsApp Business outreach channel",
-      "API access, SSO & audit log",
+      "Audit log",
+      "API access & SSO (coming soon)",
     ],
   },
 };

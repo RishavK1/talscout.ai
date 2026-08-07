@@ -55,10 +55,6 @@ async function request<T = any>(
     headers,
   });
 
-  if (response.status === 249) {
-    // Retry or handling rate limit (from Retry-After)
-  }
-
   // 3b. A 401 anywhere but /api/auth/session means a previously-valid bearer
   // token was rejected — expired or revoked mid-session. (/api/auth/session
   // itself legitimately 401s with "No account provisioned" for a brand-new
