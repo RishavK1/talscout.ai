@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
 import { AppShell } from "@/components/app/app-shell";
 import { useAuth } from "@/components/app/auth-provider";
 import { api } from "@/lib/api";
@@ -13,6 +14,11 @@ import { Card, CardHeader, CardTitle, CardAction, CardContent } from "@/componen
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { TableSkeleton } from "@/components/ui/skeletons";
+import { Reveal } from "@/components/motion/reveal";
+import { BorderBeam } from "@/components/ui/border-beam";
+import { SpotlightCard } from "@/components/ui/spotlight-card";
+import { NumberTicker } from "@/components/ui/number-ticker";
+import { easeOut } from "@/lib/motion";
 
 interface SimpleCandidate {
   id: string;
@@ -32,6 +38,68 @@ interface CampaignSummary {
 
 interface BlueprintSummary {
   id: string;
+}
+
+/** Animated ring chart replacing the old static conic-gradient — same data,
+ *  same visual proportions, just drawn as SVG so each segment can animate
+ *  in on load instead of appearing instantly. */
+function PipelineDonut({ readyPercent, processingPercent }: { readyPercent: number; processingPercent: number }) {
+  const size = 160;
+  const strokeWidth = 22;
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const readyLen = (circumference * readyPercent) / 100;
+  const processingLen = (circumference * processingPercent) / 100;
+
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox={`0 0 ${size} ${size}`}
+      className="absolute inset-0 -rotate-90"
+      aria-hidden
+    >
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={radius}
+        fill="none"
+        stroke="var(--color-surface-container-high)"
+        strokeWidth={strokeWidth}
+      />
+      {readyLen > 0 && (
+        <motion.circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke="var(--color-primary-container)"
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+          strokeDasharray={`${readyLen} ${circumference - readyLen}`}
+          initial={{ pathLength: 0 }}
+          animate={{ pathLength: 1 }}
+          transition={{ duration: 0.8, ease: easeOut }}
+        />
+      )}
+      {processingLen > 0 && (
+        <motion.circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke="var(--color-primary-fixed-dim)"
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+          strokeDasharray={`${processingLen} ${circumference - processingLen}`}
+          strokeDashoffset={-readyLen}
+          initial={{ pathLength: 0 }}
+          animate={{ pathLength: 1 }}
+          transition={{ duration: 0.8, ease: easeOut, delay: 0.15 }}
+        />
+      )}
+    </svg>
+  );
 }
 
 export default function DashboardPage() {
@@ -63,14 +131,6 @@ export default function DashboardPage() {
   const processingPercent = totalCandidates > 0
     ? Math.min(100 - readyPercent, (processingCandidates / totalCandidates) * 100)
     : 0;
-  const pipelineChart = totalCandidates > 0
-    ? `conic-gradient(
-        var(--color-primary-container) 0 ${readyPercent}%,
-        var(--color-primary-fixed-dim) ${readyPercent}% ${readyPercent + processingPercent}%,
-        var(--color-surface-container-high) ${readyPercent + processingPercent}% 100%
-      )`
-    : "conic-gradient(var(--color-surface-container-high) 0 100%)";
-
   // Time-of-day greeting (local time). Avoids hydration mismatch by computing
   // after mount rather than during the initial server render.
   const [greeting, setGreeting] = useState("Hello");
@@ -247,7 +307,7 @@ export default function DashboardPage() {
         <main className="mx-auto w-full max-w-[1380px] flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
           {/* Greeting Section */}
           <section className="mb-7 flex min-h-[78px] items-center">
-            <div>
+            <Reveal>
               <p className="mb-1 font-label-md text-[12px] font-semibold uppercase tracking-[0.12em] text-primary">
                 Recruitment overview
               </p>
@@ -263,12 +323,14 @@ export default function DashboardPage() {
                   Waking things up — this can take a moment on the first visit of the day.
                 </p>
               )}
-            </div>
+            </Reveal>
           </section>
           {/* Semantic Search Bar (Central) */}
           <section className="mb-6">
+            <Reveal delay={0.05}>
             <form onSubmit={handleSemanticSearchSubmit}>
-              <Card className="flex flex-col items-stretch gap-2 border-primary/15 p-2 shadow-[0_8px_28px_-18px_rgba(15,118,110,0.5)] focus-within:border-primary/45 sm:flex-row sm:items-center sm:gap-0">
+              <Card className="relative flex flex-col items-stretch gap-2 border-primary/15 p-2 shadow-[0_8px_28px_-18px_rgba(15,118,110,0.5)] focus-within:border-primary/45 sm:flex-row sm:items-center sm:gap-0">
+                <BorderBeam size={70} duration={10} />
                 <div className="ml-1 hidden h-10 w-10 items-center justify-center rounded-xl bg-primary-fixed text-on-primary-fixed sm:flex">
                   <span className="material-symbols-outlined text-[21px]">travel_explore</span>
                 </div>
@@ -284,9 +346,11 @@ export default function DashboardPage() {
                 </Button>
               </Card>
             </form>
+            </Reveal>
           </section>
           {/* Consolidated overview */}
-          <section className="mb-6 grid grid-cols-1 gap-4 xl:grid-cols-[1.35fr_0.65fr]">
+          <section className="mb-6">
+          <Reveal delay={0.1} className="grid grid-cols-1 gap-4 xl:grid-cols-[1.35fr_0.65fr]">
             <Card className="flex flex-col overflow-hidden">
               <CardHeader className="border-b border-border-low-alpha">
                 <div>
@@ -319,13 +383,13 @@ export default function DashboardPage() {
                   <div className="grid items-center gap-8 sm:grid-cols-[180px_1fr]">
                     <div
                       className="relative mx-auto flex size-40 items-center justify-center rounded-full"
-                      style={{ background: pipelineChart }}
                       role="img"
                       aria-label={`${totalCandidates} total candidates: ${processedCandidates} ready, ${processingCandidates} processing`}
                     >
-                      <div className="flex size-[116px] flex-col items-center justify-center rounded-full border border-border-low-alpha bg-surface-white shadow-ambient">
+                      <PipelineDonut readyPercent={readyPercent} processingPercent={processingPercent} />
+                      <div className="relative z-10 flex size-[116px] flex-col items-center justify-center rounded-full border border-border-low-alpha bg-surface-white shadow-ambient">
                         <span className="text-[38px] font-semibold leading-none tracking-[-0.04em] text-on-surface">
-                          {totalCandidates.toLocaleString()}
+                          <NumberTicker value={totalCandidates} />
                         </span>
                         <span className="mt-2 text-[11px] font-medium uppercase tracking-[0.1em] text-text-muted">
                           Candidates
@@ -356,7 +420,7 @@ export default function DashboardPage() {
                             <span className={`size-2.5 rounded-full ${item.color}`} />
                             <span className="flex-1 text-[14px] text-on-surface-variant">{item.label}</span>
                             <span className="text-[17px] font-semibold tabular-nums text-on-surface">
-                              {item.value.toLocaleString()}
+                              <NumberTicker value={item.value} />
                             </span>
                           </div>
                         ))}
@@ -403,13 +467,13 @@ export default function DashboardPage() {
                     <Link href="/automated-outreach" className="group flex items-center gap-4 py-4 first:pt-0">
                       <span className="material-symbols-outlined text-[21px] text-primary">auto_awesome</span>
                       <span className="flex-1 text-[14px] text-on-surface-variant">Active campaigns</span>
-                      <span className="text-[22px] font-semibold tabular-nums text-on-surface">{activeCampaignsCount}</span>
+                      <span className="text-[22px] font-semibold tabular-nums text-on-surface"><NumberTicker value={activeCampaignsCount} /></span>
                       <span className="material-symbols-outlined text-[17px] text-outline transition-transform group-hover:translate-x-0.5">chevron_right</span>
                     </Link>
                     <Link href="/blueprints" className="group flex items-center gap-4 py-4 last:pb-0">
                       <span className="material-symbols-outlined text-[21px] text-primary">description</span>
                       <span className="flex-1 text-[14px] text-on-surface-variant">Blueprints</span>
-                      <span className="text-[22px] font-semibold tabular-nums text-on-surface">{blueprintsCount}</span>
+                      <span className="text-[22px] font-semibold tabular-nums text-on-surface"><NumberTicker value={blueprintsCount} /></span>
                       <span className="material-symbols-outlined text-[17px] text-outline transition-transform group-hover:translate-x-0.5">chevron_right</span>
                     </Link>
                   </div>
@@ -453,9 +517,11 @@ export default function DashboardPage() {
                 )}
               </CardContent>
             </Card>
+          </Reveal>
           </section>
           {!loading && !hasWorkspaceActivity && (
             <section className="mb-6">
+              <Reveal>
               <Card className="overflow-hidden bg-surface-container-low/45">
                 <CardContent className="grid gap-7 p-6 sm:p-7 lg:grid-cols-[0.72fr_1.28fr] lg:items-center">
                   <div>
@@ -476,31 +542,35 @@ export default function DashboardPage() {
                       ["manage_search", "Discover", "Search and shortlist"],
                       ["send", "Reach out", "Start a conversation"],
                     ].map(([icon, title, detail], index) => (
-                      <li key={title} className="relative">
-                        <div className="flex items-center gap-3 sm:block">
-                          <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary-fixed text-on-primary-fixed">
-                            <span className="material-symbols-outlined text-[19px]">{icon}</span>
-                          </span>
-                          <div className="sm:mt-3">
-                            <p className="text-[13px] font-semibold text-on-surface">
-                              <span className="mr-1 text-text-muted">{index + 1}.</span>
-                              {title}
-                            </p>
-                            <p className="mt-1 text-[11px] leading-5 text-text-muted">{detail}</p>
+                      <li key={title}>
+                        <SpotlightCard className="relative rounded-xl p-2 transition-transform duration-300 hover:-translate-y-0.5">
+                          <div className="flex items-center gap-3 sm:block">
+                            <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary-fixed text-on-primary-fixed">
+                              <span className="material-symbols-outlined text-[19px]">{icon}</span>
+                            </span>
+                            <div className="sm:mt-3">
+                              <p className="text-[13px] font-semibold text-on-surface">
+                                <span className="mr-1 text-text-muted">{index + 1}.</span>
+                                {title}
+                              </p>
+                              <p className="mt-1 text-[11px] leading-5 text-text-muted">{detail}</p>
+                            </div>
                           </div>
-                        </div>
+                        </SpotlightCard>
                       </li>
                     ))}
                   </ol>
                 </CardContent>
               </Card>
+              </Reveal>
             </section>
           )}
           {/* Tables Section (Asymmetric Split) */}
           {(loading || hasWorkspaceActivity) && (
           <section className="grid grid-cols-1 gap-4 xl:grid-cols-3">
             {/* Recent Uploads (Takes up 2 columns) */}
-            <Card className="h-full flex flex-col overflow-hidden xl:col-span-2">
+            <Reveal delay={0.15} className="xl:col-span-2">
+            <Card className="h-full flex flex-col overflow-hidden">
               <CardHeader className="border-b border-border-low-alpha">
                 <CardTitle className="font-body-md text-[15px] font-semibold text-on-surface">Recent candidates</CardTitle>
                 <CardAction>
@@ -525,8 +595,10 @@ export default function DashboardPage() {
                 )}
               </CardContent>
             </Card>
+            </Reveal>
             {/* Recent Searches (Takes 1 column) */}
-            <Card className="h-full flex flex-col overflow-hidden xl:col-span-1">
+            <Reveal delay={0.2} className="xl:col-span-1">
+            <Card className="h-full flex flex-col overflow-hidden">
               <CardHeader className="border-b border-border-low-alpha">
                 <CardTitle className="font-body-md text-[15px] font-semibold text-on-surface">Recent searches</CardTitle>
               </CardHeader>
@@ -536,13 +608,13 @@ export default function DashboardPage() {
                     <button
                       key={index}
                       onClick={() => router.push(`/search?q=${encodeURIComponent(searchQuery)}`)}
-                      className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-surface-container-low transition-colors text-left"
+                      className="group w-full flex items-center gap-3 p-3 rounded-xl hover:bg-surface-container-low transition-colors text-left"
                     >
                       <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-fixed text-on-primary-fixed">
                         <span className="material-symbols-outlined text-[18px]">history</span>
                       </div>
                       <span className="font-body-md text-on-surface truncate flex-1">{searchQuery}</span>
-                      <span className="material-symbols-outlined text-outline-variant text-[16px]">chevron_right</span>
+                      <span className="material-symbols-outlined text-outline-variant text-[16px] transition-transform group-hover:translate-x-0.5">chevron_right</span>
                     </button>
                   ))
                 ) : (
@@ -552,6 +624,7 @@ export default function DashboardPage() {
                 )}
               </CardContent>
             </Card>
+            </Reveal>
           </section>
           )}
         </main>

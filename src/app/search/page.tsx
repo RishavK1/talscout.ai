@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
 import { addRecentSearch } from "@/lib/recent-searches";
 import { toast } from "sonner";
 import { AppShell } from "@/components/app/app-shell";
@@ -14,6 +15,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { Reveal } from "@/components/motion/reveal";
+import { BorderBeam } from "@/components/ui/border-beam";
+import { NumberTicker } from "@/components/ui/number-ticker";
+import { easeOut, scaleIn } from "@/lib/motion";
 
 
 type ViewMode = "list" | "grid";
@@ -153,11 +158,12 @@ function SearchPageContent() {
         <main className="flex-1 p-4 sm:p-6 lg:p-8">
           <div className="max-w-[1000px] mx-auto">
             {/* Hero Search Area */}
-            <div className="mb-12">
+            <Reveal className="mb-12">
               <h1 className="font-headline-lg text-headline-lg text-primary mb-6">Semantic Search</h1>
               {/* Large Search Input */}
               <form onSubmit={handleSearchSubmit}>
-                <Card className="flex flex-col sm:flex-row items-stretch sm:items-center w-full p-2 gap-2 focus-within:border-primary transition-colors">
+                <Card className="relative flex flex-col sm:flex-row items-stretch sm:items-center w-full p-2 gap-2 focus-within:border-primary transition-colors">
+                  <BorderBeam size={70} duration={10} />
                   <div className="flex flex-grow items-center min-w-0">
                     <span className="material-symbols-outlined text-outline ml-4 mr-2" style={{ fontVariationSettings: "'FILL' 0" }}>search</span>
                     <input
@@ -184,8 +190,16 @@ function SearchPageContent() {
               {/* Filter Chips */}
               <div className="flex flex-wrap items-center gap-3 mt-6">
                 <span className="font-label-md text-label-md text-on-surface-variant mr-2">Filters:</span>
+                <AnimatePresence initial={false}>
                 {locationFilter !== null && (
-                  <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-surface-white border border-border-low-alpha rounded-full font-label-md text-[13px] text-on-surface shadow-ambient cursor-pointer hover:bg-surface-container-low transition-colors">
+                  <motion.div
+                    key="location-filter"
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.9 }}
+                    transition={{ duration: 0.15 }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-surface-white border border-border-low-alpha rounded-full font-label-md text-[13px] text-on-surface shadow-ambient cursor-pointer hover:bg-surface-container-low transition-colors"
+                  >
                     <span className="material-symbols-outlined text-[16px] text-primary">location_on</span>
                     Location:
                     <input
@@ -195,10 +209,17 @@ function SearchPageContent() {
                       onChange={(e) => setLocationFilter(e.target.value)}
                     />
                     <button type="button" onClick={() => setLocationFilter(null)} aria-label="Remove location filter" className="material-symbols-outlined text-[16px] text-outline hover:text-on-surface ml-1">close</button>
-                  </div>
+                  </motion.div>
                 )}
                 {experienceFilter !== null && (
-                  <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-surface-white border border-border-low-alpha rounded-full font-label-md text-[13px] text-on-surface shadow-ambient cursor-pointer hover:bg-surface-container-low transition-colors">
+                  <motion.div
+                    key="experience-filter"
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.9 }}
+                    transition={{ duration: 0.15 }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-surface-white border border-border-low-alpha rounded-full font-label-md text-[13px] text-on-surface shadow-ambient cursor-pointer hover:bg-surface-container-low transition-colors"
+                  >
                     <span className="material-symbols-outlined text-[16px] text-primary">work</span>
                     Min Experience:
                     <input
@@ -209,10 +230,17 @@ function SearchPageContent() {
                     />
                     yrs
                     <button type="button" onClick={() => setExperienceFilter(null)} aria-label="Remove experience filter" className="material-symbols-outlined text-[16px] text-outline hover:text-on-surface ml-1">close</button>
-                  </div>
+                  </motion.div>
                 )}
                 {skillFilter !== null && (
-                  <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-surface-white border border-border-low-alpha rounded-full font-label-md text-[13px] text-on-surface shadow-ambient cursor-pointer hover:bg-surface-container-low transition-colors">
+                  <motion.div
+                    key="skill-filter"
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.9 }}
+                    transition={{ duration: 0.15 }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-surface-white border border-border-low-alpha rounded-full font-label-md text-[13px] text-on-surface shadow-ambient cursor-pointer hover:bg-surface-container-low transition-colors"
+                  >
                     <span className="material-symbols-outlined text-[16px] text-primary">tag</span>
                     Skill:
                     <input
@@ -222,8 +250,9 @@ function SearchPageContent() {
                       onChange={(e) => setSkillFilter(e.target.value)}
                     />
                     <button type="button" onClick={() => setSkillFilter(null)} aria-label="Remove skill filter" className="material-symbols-outlined text-[16px] text-outline hover:text-on-surface ml-1">close</button>
-                  </div>
+                  </motion.div>
                 )}
+                </AnimatePresence>
                 <div className="relative ml-2">
                   {authLoading ? (
                     <div className="inline-flex items-center gap-1.5 px-3 py-1.5 font-label-md text-[13px] text-transparent select-none">
@@ -249,10 +278,18 @@ function SearchPageContent() {
                     Add Filter
                   </button>
                   )}
+                  <AnimatePresence>
                   {advancedFilters && addOpen && (
                     <>
                       <div className="fixed inset-0 z-10" onClick={() => setAddOpen(false)} />
-                      <div className="absolute left-0 top-full z-20 mt-2 w-52 rounded-xl border border-border-low-alpha bg-white p-1 shadow-ambient">
+                      <motion.div
+                        variants={scaleIn}
+                        initial="hidden"
+                        animate="show"
+                        exit="hidden"
+                        style={{ transformOrigin: "top left" }}
+                        className="absolute left-0 top-full z-20 mt-2 w-52 rounded-xl border border-border-low-alpha bg-white p-1 shadow-ambient"
+                      >
                         {addable.length === 0 ? (
                           <p className="px-3 py-2 font-body-md text-[13px] text-outline">
                             All filters added
@@ -275,12 +312,13 @@ function SearchPageContent() {
                             </button>
                           ))
                         )}
-                      </div>
+                      </motion.div>
                     </>
                   )}
+                  </AnimatePresence>
                 </div>
               </div>
-            </div>
+            </Reveal>
 
             {/* Results Section */}
             <div className="mb-8 flex justify-between items-end">
@@ -289,7 +327,7 @@ function SearchPageContent() {
                   <Skeleton className="h-6 w-40" />
                 ) : (
                   <h2 className="font-body-md font-semibold text-headline-md text-on-surface">
-                    {`${results.length} Results Found`}
+                    <NumberTicker value={results.length} /> Results Found
                   </h2>
                 )}
                 <p className="font-body-md text-body-md text-on-surface-variant mt-1">Sorted by AI Match Score</p>
@@ -301,13 +339,18 @@ function SearchPageContent() {
                   aria-pressed={view === "list"}
                   aria-label="List view"
                   title="List view"
-                  className={`p-2 rounded-md transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-1 ${
-                    view === "list"
-                      ? "bg-surface-white shadow-ambient text-primary"
-                      : "text-outline hover:text-on-surface"
+                  className={`relative p-2 rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-1 ${
+                    view === "list" ? "text-primary" : "text-outline hover:text-on-surface"
                   }`}
                 >
-                  <span className="material-symbols-outlined" style={{ fontVariationSettings: view === "list" ? "'FILL' 1" : "'FILL' 0" }}>view_agenda</span>
+                  {view === "list" && (
+                    <motion.span
+                      layoutId="search-view-toggle-pill"
+                      className="absolute inset-0 rounded-md bg-surface-white shadow-ambient"
+                      transition={{ type: "spring", stiffness: 500, damping: 35 }}
+                    />
+                  )}
+                  <span className="material-symbols-outlined relative" style={{ fontVariationSettings: view === "list" ? "'FILL' 1" : "'FILL' 0" }}>view_agenda</span>
                 </button>
                 <button
                   type="button"
@@ -315,13 +358,18 @@ function SearchPageContent() {
                   aria-pressed={view === "grid"}
                   aria-label="Grid view"
                   title="Grid view"
-                  className={`p-2 rounded-md transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-1 ${
-                    view === "grid"
-                      ? "bg-surface-white shadow-ambient text-primary"
-                      : "text-outline hover:text-on-surface"
+                  className={`relative p-2 rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-1 ${
+                    view === "grid" ? "text-primary" : "text-outline hover:text-on-surface"
                   }`}
                 >
-                  <span className="material-symbols-outlined" style={{ fontVariationSettings: view === "grid" ? "'FILL' 1" : "'FILL' 0" }}>grid_view</span>
+                  {view === "grid" && (
+                    <motion.span
+                      layoutId="search-view-toggle-pill"
+                      className="absolute inset-0 rounded-md bg-surface-white shadow-ambient"
+                      transition={{ type: "spring", stiffness: 500, damping: 35 }}
+                    />
+                  )}
+                  <span className="material-symbols-outlined relative" style={{ fontVariationSettings: view === "grid" ? "'FILL' 1" : "'FILL' 0" }}>grid_view</span>
                 </button>
               </div>
             </div>
@@ -354,7 +402,7 @@ function SearchPageContent() {
               </Card>
             ) : view === "grid" ? (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {results.map((c) => {
+                {results.map((c, index) => {
                   const name = c.fullName || "Unnamed Candidate";
                   const initials = name
                     .split(" ")
@@ -365,7 +413,13 @@ function SearchPageContent() {
                   const displayScore = c.score ? Math.round(c.score * 100) : null;
 
                   return (
-                    <Card key={c.id} className="group relative flex flex-col hover:border-primary/30 transition-colors [--card-spacing:--spacing(5)]">
+                    <motion.div
+                      key={c.id}
+                      initial={{ opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.3, delay: Math.min(index * 0.04, 0.4), ease: easeOut }}
+                    >
+                    <Card className="group relative flex flex-col hover:border-primary/30 hover:-translate-y-0.5 transition-[transform,border-color,box-shadow] [--card-spacing:--spacing(5)]">
                       <CardContent className="flex flex-1 flex-col">
                         {/* Top Row: Profile & Score */}
                         <div className="flex justify-between items-start mb-3 gap-3">
@@ -389,7 +443,7 @@ function SearchPageContent() {
                               className="flex-shrink-0 gap-1.5 px-3 py-1.5 text-label-md font-semibold bg-secondary-fixed/30 text-on-secondary-fixed"
                             >
                               <span className="material-symbols-outlined text-[16px]">auto_awesome</span>
-                              {displayScore}%
+                              <NumberTicker value={displayScore} suffix="%" />
                             </StatusBadge>
                           )}
                         </div>
@@ -407,12 +461,13 @@ function SearchPageContent() {
                         </div>
                       </CardContent>
                     </Card>
+                    </motion.div>
                   );
                 })}
               </div>
             ) : (
               <div className="space-y-6">
-                {results.map((c) => {
+                {results.map((c, index) => {
                   const name = c.fullName || "Unnamed Candidate";
                   const initials = name
                     .split(" ")
@@ -423,7 +478,13 @@ function SearchPageContent() {
                   const displayScore = c.score ? Math.round(c.score * 100) : null;
 
                   return (
-                    <Card key={c.id} className="group relative hover:border-primary/30 transition-colors">
+                    <motion.div
+                      key={c.id}
+                      initial={{ opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.3, delay: Math.min(index * 0.04, 0.4), ease: easeOut }}
+                    >
+                    <Card className="group relative hover:border-primary/30 hover:-translate-y-0.5 transition-[transform,border-color,box-shadow]">
                       <CardContent>
                         {/* Top Row: Profile & Score */}
                         <div className="flex justify-between items-start mb-4">
@@ -448,7 +509,7 @@ function SearchPageContent() {
                                 className="gap-2 px-4 py-2 text-label-md font-semibold bg-secondary-fixed/30 text-on-secondary-fixed"
                               >
                                 <span className="material-symbols-outlined text-[18px]">auto_awesome</span>
-                                {displayScore}% Match
+                                <NumberTicker value={displayScore} suffix="% Match" />
                               </StatusBadge>
                             </div>
                           )}
@@ -498,6 +559,7 @@ function SearchPageContent() {
                         </div>
                       </CardContent>
                     </Card>
+                    </motion.div>
                   );
                 })}
               </div>
