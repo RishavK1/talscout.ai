@@ -4,6 +4,20 @@ import { useEffect, useRef, useState, use } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
+import {
+  Pause,
+  Loader2,
+  SearchX,
+  ChevronRight,
+  ChevronLeft,
+  CloudUpload,
+  ChevronDown,
+  TriangleAlert,
+  Clock,
+  Clock3,
+  CircleCheck,
+  Lock,
+} from "lucide-react";
 import { AppShell } from "@/components/app/app-shell";
 import { TopAppBar } from "@/components/app/top-app-bar";
 import { Modal } from "@/components/ui/modal";
@@ -16,6 +30,8 @@ import { fadeUp, easeOut } from "@/lib/motion";
 import { useAuth } from "@/components/app/auth-provider";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TableSkeleton } from "@/components/ui/skeletons";
+import { Reveal } from "@/components/motion/reveal";
+import { NumberTicker } from "@/components/ui/number-ticker";
 
 /** Only needed once a user opens a lead's email history — kept out of the
  *  initial bundle for this already-large page. */
@@ -172,7 +188,7 @@ function SendCountdown({
   if (paused) {
     return (
       <span className="inline-flex items-center gap-1 text-on-surface-variant">
-        <span className="material-symbols-outlined text-[14px]">pause</span>
+        <Pause className="size-[14px]" />
         Paused
       </span>
     );
@@ -182,9 +198,7 @@ function SendCountdown({
   if (remainingMs <= 0) {
     return (
       <span className="inline-flex items-center gap-1 text-primary">
-        <span className="material-symbols-outlined animate-spin text-[14px]">
-          sync
-        </span>
+        <Loader2 className="size-[14px] animate-spin" />
         Sending…
       </span>
     );
@@ -214,9 +228,7 @@ function ScheduleCountdown({ scheduledFireAt }: { scheduledFireAt: string }) {
   if (remainingMs <= 0) {
     return (
       <span className="inline-flex items-center gap-1 text-primary">
-        <span className="material-symbols-outlined animate-spin text-[14px]">
-          sync
-        </span>
+        <Loader2 className="size-[14px] animate-spin" />
         Firing…
       </span>
     );
@@ -923,9 +935,7 @@ export default function BulkFireCampaignPage({
     return (
       <AppShell>
         <main className="flex min-h-screen flex-col items-center justify-center gap-4 p-12 text-center">
-          <span className="material-symbols-outlined text-[48px] text-on-surface-variant">
-            search_off
-          </span>
+          <SearchX className="size-[48px] text-on-surface-variant" />
           <h1 className="font-headline-lg text-headline-lg text-primary">
             Campaign not found
           </h1>
@@ -1001,9 +1011,7 @@ export default function BulkFireCampaignPage({
             >
               Bulk Fire
             </Link>
-            <span className="material-symbols-outlined text-sm">
-              chevron_right
-            </span>
+            <ChevronRight className="size-[14px]" />
             <span className="text-on-surface font-medium truncate max-w-[220px]">
               {campaign.name}
             </span>
@@ -1033,6 +1041,7 @@ export default function BulkFireCampaignPage({
 
       <main className="mx-auto max-w-[1440px] w-full p-4 sm:p-6 lg:p-12 min-h-screen">
         <section className="mb-8 flex flex-wrap items-center justify-between gap-4">
+          <Reveal>
           <div>
             <h1 className="font-headline-lg text-headline-lg text-primary mb-2">
               {campaign.name}
@@ -1052,6 +1061,7 @@ export default function BulkFireCampaignPage({
               </p>
             )}
           </div>
+          </Reveal>
         </section>
 
         {/* Progress panel — animated, polled while running */}
@@ -1069,7 +1079,7 @@ export default function BulkFireCampaignPage({
                   Send progress
                 </h2>
                 <span className="font-data-mono text-[13px] text-text-muted">
-                  {totalSent} / {totalTracked} sent
+                  <NumberTicker value={totalSent} /> / <NumberTicker value={totalTracked} /> sent
                 </span>
               </div>
               <div className="mb-5 h-2 w-full overflow-hidden rounded-full bg-surface-container-highest">
@@ -1105,7 +1115,7 @@ export default function BulkFireCampaignPage({
                     <div
                       className={`font-data-mono text-[22px] font-semibold ${c.color}`}
                     >
-                      {c.value}
+                      <NumberTicker value={c.value} />
                     </div>
                     <div className="font-label-md text-[11px] uppercase tracking-wide text-text-muted">
                       {c.label}
@@ -1115,9 +1125,7 @@ export default function BulkFireCampaignPage({
               </div>
               {campaign.status === "running" && (
                 <div className="mt-4 flex items-center gap-2 font-label-md text-[12px] text-on-surface-variant">
-                  <span className="material-symbols-outlined animate-spin text-[16px]">
-                    sync
-                  </span>
+                  <Loader2 className="size-[16px] animate-spin" />
                   Sending durably in the background — safe to close this tab.
                 </div>
               )}
@@ -1161,9 +1169,7 @@ export default function BulkFireCampaignPage({
                 : "border-border-low-alpha hover:border-primary/50"
             }`}
           >
-            <span className="material-symbols-outlined mb-2 text-[32px] text-primary">
-              cloud_upload
-            </span>
+            <CloudUpload className="mb-2 size-[32px] text-primary" />
             <p className="font-body-md text-on-surface">
               Drag &amp; drop a leads playbook (.docx), or{" "}
               <span className="font-semibold text-primary underline underline-offset-4">
@@ -1332,9 +1338,7 @@ export default function BulkFireCampaignPage({
                     disabled={leadsPage <= 1}
                     aria-label="Previous page"
                   >
-                    <span className="material-symbols-outlined text-[18px]">
-                      chevron_left
-                    </span>
+                    <ChevronLeft className="size-[18px]" />
                   </Button>
                   {paginationRange(leadsPage, totalLeadsPages).map((p, i) =>
                     p === "…" ? (
@@ -1365,9 +1369,7 @@ export default function BulkFireCampaignPage({
                     disabled={leadsPage >= totalLeadsPages}
                     aria-label="Next page"
                   >
-                    <span className="material-symbols-outlined text-[18px]">
-                      chevron_right
-                    </span>
+                    <ChevronRight className="size-[18px]" />
                   </Button>
                 </div>
               </div>
@@ -1475,13 +1477,11 @@ export default function BulkFireCampaignPage({
                   : "Only used for leads that don't carry their own custom email copy from the imported playbook."}
               </p>
             </div>
-            <span
-              className={`material-symbols-outlined shrink-0 text-on-surface-variant transition-transform duration-200 ${
+            <ChevronDown
+              className={`size-[20px] shrink-0 text-on-surface-variant transition-transform duration-200 ${
                 sequenceOpen ? "rotate-180" : ""
               }`}
-            >
-              expand_more
-            </span>
+            />
           </button>
 
           <AnimatePresence initial={false}>
@@ -1598,9 +1598,7 @@ export default function BulkFireCampaignPage({
             if (usLeadCount === 0) return null;
             return (
               <div className="mb-6 flex items-start gap-3 rounded-[16px] border border-tertiary/30 bg-tertiary/5 p-4">
-                <span className="material-symbols-outlined text-[18px] text-tertiary">
-                  warning
-                </span>
+                <TriangleAlert className="size-[18px] shrink-0 text-tertiary" />
                 <p className="font-body-md text-[13px] text-on-surface">
                   {STEP_LABELS[fireStep]} uses a marketing-category template.
                   Meta currently blocks marketing templates to US (+1) phone
@@ -1674,9 +1672,7 @@ export default function BulkFireCampaignPage({
           {campaign.scheduledFireAt ? (
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-secondary/30 bg-secondary-container/10 px-4 py-3">
               <p className="font-body-md text-[13px] text-on-surface">
-                <span className="material-symbols-outlined align-middle text-[16px] text-secondary">
-                  schedule
-                </span>{" "}
+                <Clock className="inline size-[16px] align-middle text-secondary" />{" "}
                 Scheduled to fire{" "}
                 <strong>
                   {STEP_LABELS[campaign.scheduledFireStepIndex ?? 0]}
@@ -1772,9 +1768,7 @@ export default function BulkFireCampaignPage({
                   title="Scheduled sends are a Scale plan feature — upgrade to unlock"
                   className="flex items-center gap-1.5 rounded-lg border border-primary px-4 py-2.5 font-label-md text-[12px] text-primary transition-colors hover:bg-primary/5"
                 >
-                  <span className="material-symbols-outlined text-[16px]">
-                    lock
-                  </span>
+                  <Lock className="size-[16px]" />
                   Scheduled sends are a Scale plan feature — upgrade to unlock
                 </Link>
               )}
@@ -1795,11 +1789,11 @@ export default function BulkFireCampaignPage({
                     className="rounded-lg border border-border-low-alpha bg-bg-cream/30 px-4 py-3"
                   >
                     <p className="flex items-center gap-1.5 font-label-md text-[12px] text-on-surface">
-                      <span
-                        className={`material-symbols-outlined text-[16px] ${pending ? "text-secondary" : "text-tertiary"}`}
-                      >
-                        {pending ? "schedule_send" : "check_circle"}
-                      </span>
+                      {pending ? (
+                        <Clock3 className="size-[16px] shrink-0 text-secondary" />
+                      ) : (
+                        <CircleCheck className="size-[16px] shrink-0 text-tertiary" />
+                      )}
                       {label}
                       {s.stepIndex > 0 && (
                         <span className="rounded bg-secondary-container/30 px-1.5 py-0.5 font-label-md text-[10px] uppercase tracking-wide text-secondary">

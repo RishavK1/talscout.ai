@@ -3,17 +3,31 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
+import {
+  Search,
+  Users,
+  X,
+  List,
+  LayoutGrid,
+  Briefcase,
+  MapPin,
+  ChevronLeft,
+  ChevronRight,
+  UserSearch,
+  Loader2,
+} from "lucide-react";
 import { AppShell } from "@/components/app/app-shell";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { TopAppBar } from "@/components/app/top-app-bar";
-import { SpotlightCard } from "@/components/marketing/spotlight-card";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { TableSkeleton } from "@/components/ui/skeletons";
+import { Reveal } from "@/components/motion/reveal";
 
 
 interface ApiCandidate {
@@ -81,7 +95,7 @@ function CandidateStatusBadge({ status }: { status: Candidate["status"] }) {
   if (status === "Processing") {
     return (
       <StatusBadge tone="invited" dot={false} className="gap-1.5">
-        <span className="material-symbols-outlined text-[14px] animate-spin">sync</span>
+        <Loader2 className="size-[14px] animate-spin" />
         AI Processing
       </StatusBadge>
     );
@@ -258,7 +272,7 @@ export default function CandidatesPage() {
       <TopAppBar
         leftContent={
           <div className="relative w-full">
-            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
+            <Search className="absolute left-3 top-1/2 size-[18px] -translate-y-1/2 text-on-surface-variant" />
             <input
               className="w-full pl-10 pr-4 py-2 bg-surface-white border border-border-low-alpha rounded-full font-body-md text-body-md text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
               placeholder="Search across candidates, roles..."
@@ -277,12 +291,13 @@ export default function CandidatesPage() {
 
       {/* Main Content Canvas */}
       <main className="p-4 sm:p-6 lg:p-12 max-w-[1440px] mx-auto w-full min-h-screen">
+        <Reveal>
         <Card className="mb-8 [--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
           <CardContent>
             <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
               <div className="flex items-center gap-3">
                 <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-container/10 text-primary shrink-0">
-                  <span className="material-symbols-outlined text-[22px]">groups</span>
+                  <Users className="size-[22px]" />
                 </div>
                 <div>
                   <h1 className="font-headline-lg text-headline-lg text-primary mb-1">Candidates</h1>
@@ -292,8 +307,10 @@ export default function CandidatesPage() {
             </div>
           </CardContent>
         </Card>
+        </Reveal>
 
         {/* Toolbar + Data Canvas */}
+        <Reveal delay={0.05}>
         <Card className="overflow-hidden">
           <CardHeader className="flex flex-col items-stretch gap-3 border-b border-border-low-alpha sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-4">
             <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
@@ -305,7 +322,7 @@ export default function CandidatesPage() {
                     className="flex max-w-full items-center gap-1 rounded-full border border-secondary px-3 py-1.5 font-label-md text-[13px] text-secondary transition-colors hover:bg-secondary/5"
                   >
                     <span className="truncate">Role: {roleFilter}</span>
-                    <span className="material-symbols-outlined shrink-0 text-[16px]">close</span>
+                    <X className="size-[16px] shrink-0" />
                   </button>
                 )}
                 <label className="flex min-w-0 flex-1 basis-[calc(50%-0.25rem)] cursor-pointer items-center gap-1 rounded-full border border-border-low-alpha px-3 py-1.5 font-label-md text-[13px] text-on-surface-variant transition-colors hover:bg-bg-cream sm:basis-auto sm:flex-none">
@@ -348,13 +365,18 @@ export default function CandidatesPage() {
                   aria-label="List view"
                   aria-pressed={view === "list"}
                   className={
-                    "flex h-8 w-8 items-center justify-center rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-1 " +
-                    (view === "list"
-                      ? "bg-surface-white text-primary shadow-sm"
-                      : "text-on-surface-variant hover:text-primary")
+                    "relative flex h-8 w-8 items-center justify-center rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-1 " +
+                    (view === "list" ? "text-primary" : "text-on-surface-variant hover:text-primary")
                   }
                 >
-                  <span className="material-symbols-outlined text-[20px]">view_list</span>
+                  {view === "list" && (
+                    <motion.span
+                      layoutId="candidates-view-toggle-pill"
+                      className="absolute inset-0 rounded-md bg-surface-white shadow-sm"
+                      transition={{ type: "spring", stiffness: 500, damping: 35 }}
+                    />
+                  )}
+                  <List className="relative size-[18px]" />
                 </button>
                 <button
                   type="button"
@@ -362,13 +384,18 @@ export default function CandidatesPage() {
                   aria-label="Grid view"
                   aria-pressed={view === "grid"}
                   className={
-                    "flex h-8 w-8 items-center justify-center rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-1 " +
-                    (view === "grid"
-                      ? "bg-surface-white text-primary shadow-sm"
-                      : "text-on-surface-variant hover:text-primary")
+                    "relative flex h-8 w-8 items-center justify-center rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-1 " +
+                    (view === "grid" ? "text-primary" : "text-on-surface-variant hover:text-primary")
                   }
                 >
-                  <span className="material-symbols-outlined text-[20px]">grid_view</span>
+                  {view === "grid" && (
+                    <motion.span
+                      layoutId="candidates-view-toggle-pill"
+                      className="absolute inset-0 rounded-md bg-surface-white shadow-sm"
+                      transition={{ type: "spring", stiffness: 500, damping: 35 }}
+                    />
+                  )}
+                  <LayoutGrid className="relative size-[18px]" />
                 </button>
               </div>
             </div>
@@ -403,14 +430,12 @@ export default function CandidatesPage() {
                     </div>
                     <div className="space-y-2 rounded-lg bg-surface-container-low/50 p-3">
                       <div className="flex items-start gap-2 font-body-md text-[13px] text-on-surface">
-                        <span className="material-symbols-outlined mt-0.5 text-[16px] text-on-surface-variant">
-                          work
-                        </span>
+                        <Briefcase className="mt-0.5 size-[16px] shrink-0 text-on-surface-variant" />
                         <span className="min-w-0 flex-1">{c.title}</span>
                       </div>
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 font-body-md text-[13px] text-on-surface-variant">
                         <span className="inline-flex min-w-0 items-center gap-1">
-                          <span className="material-symbols-outlined text-[16px]">location_on</span>
+                          <MapPin className="size-[16px] shrink-0" />
                           <span className="truncate">{c.location}</span>
                         </span>
                         <span className="font-data-mono text-data-mono">{c.expLabel} yrs</span>
@@ -437,8 +462,8 @@ export default function CandidatesPage() {
             ) : (
               <div className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 xl:grid-cols-3">
                 {paged.map((c) => (
-                  <SpotlightCard key={c.id} className="overflow-hidden">
                     <Card
+                      key={c.id}
                       className="cursor-pointer [--card-spacing:--spacing(5)]"
                       onClick={() => router.push(`/candidates/${c.id}`)}
                     >
@@ -454,7 +479,7 @@ export default function CandidatesPage() {
                         </div>
                         <div className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1 font-body-md text-[13px] text-on-surface-variant">
                           <span className="inline-flex items-center gap-1">
-                            <span className="material-symbols-outlined text-[16px]">location_on</span>
+                            <MapPin className="size-[16px]" />
                             {c.location}
                           </span>
                           <span>·</span>
@@ -473,14 +498,13 @@ export default function CandidatesPage() {
                         <CandidateStatusBadge status={c.status} />
                       </CardContent>
                     </Card>
-                  </SpotlightCard>
                 ))}
               </div>
             )}
 
             {!loading && view === "grid" && paged.length === 0 && (
               <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
-                <span className="material-symbols-outlined text-[40px] text-on-surface-variant/40 mb-3">person_search</span>
+                <UserSearch className="size-[40px] text-on-surface-variant/40 mb-3" strokeWidth={1.75} />
                 <p className="font-body-md text-body-md text-on-surface-variant">No candidates match your filters.</p>
               </div>
             )}
@@ -500,7 +524,7 @@ export default function CandidatesPage() {
                     aria-label="Previous page"
                     className="w-8 h-8 rounded border border-border-low-alpha flex items-center justify-center text-on-surface-variant hover:bg-bg-cream disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-1"
                   >
-                    <span className="material-symbols-outlined text-[18px]">chevron_left</span>
+                    <ChevronLeft className="size-[18px]" />
                   </button>
                   {(() => {
                     const windowSize = 5;
@@ -532,13 +556,14 @@ export default function CandidatesPage() {
                     aria-label="Next page"
                     className="w-8 h-8 rounded border border-border-low-alpha flex items-center justify-center text-on-surface-variant hover:bg-bg-cream disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-1"
                   >
-                    <span className="material-symbols-outlined text-[18px]">chevron_right</span>
+                    <ChevronRight className="size-[18px]" />
                   </button>
                 </div>
               </div>
             )}
           </CardContent>
         </Card>
+        </Reveal>
       </main>
     </AppShell>
   );

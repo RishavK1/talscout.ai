@@ -4,6 +4,23 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
+import {
+  Mail,
+  Server,
+  MessageCircle,
+  CircleCheck,
+  CircleX,
+  CircleHelp,
+  Loader2,
+  RefreshCw,
+  Info,
+  ChevronRight,
+  CirclePlus,
+  Lock,
+  Send,
+  Trash2,
+  type LucideIcon,
+} from "lucide-react";
 import { AppShell } from "@/components/app/app-shell";
 import { TopAppBar } from "@/components/app/top-app-bar";
 import { Modal } from "@/components/ui/modal";
@@ -20,6 +37,8 @@ import { PageHeaderCard } from "@/components/app/page-header-card";
 import { StatusBadge, type StatusBadgeProps } from "@/components/ui/status-badge";
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 import { TableSkeleton } from "@/components/ui/skeletons";
+import { Reveal } from "@/components/motion/reveal";
+import { SpotlightCard } from "@/components/ui/spotlight-card";
 
 interface Campaign {
   id: string;
@@ -66,10 +85,10 @@ interface DeliverabilityReport {
   dkim?: DkimCheck;
 }
 
-const SENDER_ICON: Record<Sender["type"], string> = {
-  gmail: "mail",
-  smtp: "dns",
-  whatsapp: "chat",
+const SENDER_ICON: Record<Sender["type"], LucideIcon> = {
+  gmail: Mail,
+  smtp: Server,
+  whatsapp: MessageCircle,
 };
 
 /** Campaign status → shared StatusBadge tone. Replaces a hand-rolled map of
@@ -87,16 +106,17 @@ const STATUS_TONE: Record<Campaign["status"], StatusBadgeProps["tone"]> = {
 
 const RECORD_META: Record<
   DnsRecordCheck["status"],
-  { icon: string; className: string }
+  { icon: LucideIcon; className: string }
 > = {
-  present: { icon: "check_circle", className: "text-tertiary" },
-  missing: { icon: "cancel", className: "text-error" },
-  unknown: { icon: "help", className: "text-on-surface-variant" },
+  present: { icon: CircleCheck, className: "text-tertiary" },
+  missing: { icon: CircleX, className: "text-error" },
+  unknown: { icon: CircleHelp, className: "text-on-surface-variant" },
 };
 
 function DnsCheckRow({ label, check }: { label: string; check?: DnsRecordCheck }) {
   if (!check) return null;
   const meta = RECORD_META[check.status];
+  const Icon = meta.icon;
   const detail =
     check.status === "present"
       ? "record found"
@@ -105,7 +125,7 @@ function DnsCheckRow({ label, check }: { label: string; check?: DnsRecordCheck }
         : "couldn't check right now";
   return (
     <div className="flex items-start gap-2">
-      <span className={`material-symbols-outlined text-[16px] ${meta.className}`}>{meta.icon}</span>
+      <Icon className={`size-[16px] shrink-0 ${meta.className}`} />
       <div className="min-w-0">
         <span className="font-label-md text-[12px] font-semibold text-on-surface">{label}</span>
         <span className="ml-1.5 font-body-md text-[12px] text-on-surface-variant">{detail}</span>
@@ -131,7 +151,7 @@ function DeliverabilityCheck({
         onClick={onCheck}
         className="flex items-center gap-1.5 self-start font-label-md text-[12px] text-primary hover:underline"
       >
-        <span className="material-symbols-outlined text-[14px]">dns</span>
+        <Server className="size-[14px]" />
         Check deliverability (SPF/DKIM/DMARC)
       </button>
     );
@@ -139,7 +159,7 @@ function DeliverabilityCheck({
   if (result === "loading") {
     return (
       <p className="flex items-center gap-1.5 font-label-md text-[12px] text-on-surface-variant">
-        <span className="material-symbols-outlined animate-spin text-[14px]">sync</span>
+        <Loader2 className="size-[14px] animate-spin" />
         Checking DNS records...
       </p>
     );
@@ -151,7 +171,7 @@ function DeliverabilityCheck({
         onClick={onCheck}
         className="flex items-center gap-1.5 self-start font-label-md text-[12px] text-error hover:underline"
       >
-        <span className="material-symbols-outlined text-[14px]">refresh</span>
+        <RefreshCw className="size-[14px]" />
         Check failed — try again
       </button>
     );
@@ -159,7 +179,7 @@ function DeliverabilityCheck({
   if (result.isConsumerProvider) {
     return (
       <p className="flex items-center gap-1.5 rounded-lg bg-surface-container-low px-2.5 py-1.5 font-body-md text-[12px] text-on-surface-variant">
-        <span className="material-symbols-outlined text-[14px]">info</span>
+        <Info className="size-[14px] shrink-0" />
         {result.domain} is a consumer email provider — SPF/DKIM/DMARC are managed by them, not something you configure.
       </p>
     );
@@ -458,9 +478,7 @@ export default function BulkFirePage() {
       render: (c) => (
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-container/10 text-primary">
-            <span className="material-symbols-outlined text-[18px]">
-              {c.channel === "whatsapp" ? "chat" : "mail"}
-            </span>
+            {c.channel === "whatsapp" ? <MessageCircle className="size-[18px]" /> : <Mail className="size-[18px]" />}
           </div>
           <span className="font-body-md text-[14px] font-medium text-on-surface">{c.name}</span>
         </div>
@@ -518,7 +536,7 @@ export default function BulkFirePage() {
           title="Delete campaign"
           className="flex h-8 w-8 items-center justify-center rounded-lg text-on-surface-variant/60 transition-colors hover:bg-error/10 hover:text-error"
         >
-          <span className="material-symbols-outlined text-[18px]">delete</span>
+          <Trash2 className="size-[18px]" />
         </button>
       ),
     },
@@ -530,16 +548,14 @@ export default function BulkFirePage() {
         leftContent={
           <div className="flex items-center gap-2 text-text-muted font-label-md">
             <span>Outreach</span>
-            <span className="material-symbols-outlined text-sm">
-              chevron_right
-            </span>
+            <ChevronRight className="size-[14px]" />
             <span className="text-on-surface font-medium">Bulk Fire</span>
           </div>
         }
         rightContent={
           canOutreach ? (
             <Button type="button" variant="gradient" onClick={() => setNewCampaignOpen(true)} className="whitespace-nowrap">
-              <span className="material-symbols-outlined text-[18px]">add_circle</span>
+              <CirclePlus className="size-[18px]" />
               New campaign
             </Button>
           ) : (
@@ -548,15 +564,14 @@ export default function BulkFirePage() {
               title="Upgrade to Growth to unlock Bulk Fire outreach"
               className="flex items-center gap-2 rounded-xl border border-primary px-5 py-2.5 font-label-md text-label-md text-primary transition-colors hover:bg-primary/5 whitespace-nowrap"
             >
-              <span className="material-symbols-outlined text-[16px]">
-                lock
-              </span>
+              <Lock className="size-[16px]" />
               Upgrade to unlock
             </Link>
           )
         }
       />
       <main className="mx-auto max-w-[1440px] w-full p-4 sm:p-6 lg:p-12 min-h-screen">
+        <Reveal>
         <PageHeaderCard
           icon="send"
           title="Bulk Fire"
@@ -570,19 +585,18 @@ export default function BulkFirePage() {
                 onClick={() => setNewCampaignOpen(true)}
                 className="w-full justify-center sm:w-auto"
               >
-                <span className="material-symbols-outlined text-[20px]">add_circle</span>
+                <CirclePlus className="size-[20px]" />
                 New campaign
               </Button>
             ) : undefined
           }
         />
+        </Reveal>
 
         {!canOutreach ? (
           <section className="rounded-xl border border-dashed border-border-low-alpha p-10 text-center">
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-bg-cream text-on-surface-variant/50">
-              <span className="material-symbols-outlined text-[28px]">
-                lock
-              </span>
+              <Lock className="size-[28px]" />
             </div>
             <h2 className="font-headline-md text-headline-md text-on-surface mb-2">
               Bulk-fire outreach is a Growth &amp; Scale feature
@@ -596,9 +610,7 @@ export default function BulkFirePage() {
               href="/billing"
               className="inline-flex items-center gap-2 rounded-lg border border-primary px-6 py-2.5 font-label-md text-label-md text-primary transition-colors hover:bg-primary/5"
             >
-              <span className="material-symbols-outlined text-[16px]">
-                lock
-              </span>
+              <Lock className="size-[16px]" />
               Upgrade to unlock
             </Link>
           </section>
@@ -623,9 +635,7 @@ export default function BulkFirePage() {
                   title="Upgrade to connect more sender accounts"
                   className="flex min-h-10 items-center justify-center gap-1.5 rounded-lg border border-primary px-4 py-2 text-center font-label-md text-label-md text-primary transition-colors hover:bg-primary/5 sm:flex-initial"
                 >
-                  <span className="material-symbols-outlined text-[16px]">
-                    lock
-                  </span>
+                  <Lock className="size-[16px]" />
                   Sender limit reached — upgrade
                 </Link>
               ) : (
@@ -662,9 +672,7 @@ export default function BulkFirePage() {
                       title="WhatsApp outreach is a Scale plan feature — upgrade to unlock"
                       className="flex min-h-10 items-center justify-center gap-1.5 rounded-lg border border-border-low-alpha bg-white px-4 py-2 text-center font-label-md text-label-md text-on-surface-variant/70 transition-colors hover:bg-surface-container-low sm:flex-initial"
                     >
-                      <span className="material-symbols-outlined text-[14px]">
-                        lock
-                      </span>
+                      <Lock className="size-[14px]" />
                       + Connect WhatsApp
                     </Link>
                   )}
@@ -700,17 +708,14 @@ export default function BulkFirePage() {
               animate="show"
               className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3"
             >
-              {senders.map((s) => (
-                <motion.div
-                  key={s.id}
-                  variants={itemVariants}
-                  className="flex flex-col gap-3 rounded-xl border border-border-low-alpha bg-surface-white p-5"
-                >
+              {senders.map((s) => {
+                const SenderIcon = SENDER_ICON[s.type];
+                return (
+                <motion.div key={s.id} variants={itemVariants}>
+                  <SpotlightCard className="flex flex-col gap-3 rounded-xl border border-border-low-alpha bg-surface-white p-5">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-2">
-                      <span className="material-symbols-outlined text-primary text-[20px]">
-                        {SENDER_ICON[s.type]}
-                      </span>
+                      <SenderIcon className="size-[20px] text-primary" />
                       <div>
                         <div className="font-label-md text-label-md font-semibold text-on-surface">
                           {s.label}
@@ -748,9 +753,7 @@ export default function BulkFirePage() {
                       title="Follow-ups can't auto-skip leads who already replied until this mailbox is reconnected with read access. Sending is unaffected."
                       className="flex items-center gap-1.5 rounded-lg bg-secondary-container/20 px-2.5 py-1.5 font-body-md text-[12px] text-secondary"
                     >
-                      <span className="material-symbols-outlined text-[14px]">
-                        info
-                      </span>
+                      <Info className="size-[14px] shrink-0" />
                       Reconnect to enable reply detection for follow-ups
                     </p>
                   )}
@@ -782,14 +785,17 @@ export default function BulkFirePage() {
                       Disconnect
                     </Button>
                   </div>
+                  </SpotlightCard>
                 </motion.div>
-              ))}
+                );
+              })}
             </motion.div>
           )}
         </section>
 
         {/* Campaigns */}
         <section>
+          <Reveal>
           <h2 className="mb-4 font-headline-md text-headline-md text-on-surface">
             Campaigns
           </h2>
@@ -805,7 +811,7 @@ export default function BulkFirePage() {
                   onRowClick={(c) => router.push(`/outreach/bulk-fire/${c.id}`)}
                   emptyState={
                     <div className="flex flex-col items-center gap-3">
-                      <span className="material-symbols-outlined text-outline text-[32px]">send</span>
+                      <Send className="size-[32px] text-outline" />
                       <p className="font-body-md text-body-md text-on-surface-variant">
                         No campaigns yet. Create one, import your leads, and build the sequence.
                       </p>
@@ -818,6 +824,7 @@ export default function BulkFirePage() {
               )}
             </CardContent>
           </Card>
+          </Reveal>
         </section>
           </>
         )}
@@ -864,9 +871,7 @@ export default function BulkFirePage() {
                     : "border-border-low-alpha text-on-surface-variant"
                 }`}
               >
-                <span className="material-symbols-outlined mr-1.5 align-middle text-[16px]">
-                  mail
-                </span>
+                <Mail className="mr-1.5 inline size-[16px] align-middle" />
                 Email
               </button>
               <button
@@ -884,9 +889,11 @@ export default function BulkFirePage() {
                     : "border-border-low-alpha text-on-surface-variant"
                 }`}
               >
-                <span className="material-symbols-outlined mr-1.5 align-middle text-[16px]">
-                  {canWhatsApp ? "chat" : "lock"}
-                </span>
+                {canWhatsApp ? (
+                  <MessageCircle className="mr-1.5 inline size-[16px] align-middle" />
+                ) : (
+                  <Lock className="mr-1.5 inline size-[16px] align-middle" />
+                )}
                 WhatsApp
               </button>
             </div>
