@@ -163,6 +163,16 @@ export const automatedLeadEmailSource = pgEnum("automated_lead_email_source", [
   "perplexity",
   "none",
 ]);
+/** Contact quality ranking from lib/email-identity.ts's assessContact —
+ *  persisted so the leads table can show a user which addresses are a real
+ *  named person (highest open rate), a decision-maker role, or a generic
+ *  shared inbox (lowest, kept only when nothing better was findable). Null
+ *  for leads with no email (or from before this column existed). */
+export const automatedLeadContactTier = pgEnum("automated_lead_contact_tier", [
+  "person",
+  "decision_maker",
+  "generic",
+]);
 export const automatedSendStatus = pgEnum("automated_send_status", [
   "scheduled",
   "sent",
@@ -771,6 +781,10 @@ export const automatedLeads = pgTable(
     email: text("email"),
     emailSource: automatedLeadEmailSource("email_source").notNull().default("none"),
     emailConfidence: integer("email_confidence"),
+    /** Contact quality tier (see automatedLeadContactTier above) — set
+     *  whenever an email is, computed once by assessContact and persisted
+     *  rather than re-derived at read time. */
+    contactTier: automatedLeadContactTier("contact_tier"),
     /** Times the email-finder waterfall has been run for this lead and come
      *  up empty. `listPendingEnrichment` retries a "no_email" lead only while
      *  this is below NO_EMAIL_MAX_RETRY_ATTEMPTS and enough cooldown has

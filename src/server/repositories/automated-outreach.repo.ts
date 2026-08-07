@@ -338,6 +338,7 @@ export const automatedLeadRepo = {
       email: string;
       emailSource: EmailSourceType;
       emailConfidence?: number;
+      contactTier?: "person" | "decision_maker" | "generic";
       status: "ready" | "disqualified" | "suppressed";
       notes?: string;
     },
@@ -348,6 +349,7 @@ export const automatedLeadRepo = {
         email: input.email,
         emailSource: input.emailSource,
         emailConfidence: input.emailConfidence ?? null,
+        contactTier: input.contactTier ?? null,
         status: input.status,
         notes: input.notes ?? null,
         enrichedAt: new Date(),
@@ -362,6 +364,17 @@ export const automatedLeadRepo = {
     await ctx.tx
       .update(automatedLeads)
       .set({ status: "disqualified", notes: reason, enrichedAt: new Date() })
+      .where(and(eq(automatedLeads.id, id), eq(automatedLeads.tenantId, ctx.tenantId)));
+  },
+
+  /** Same "already-ready-at-discovery, overridden after a follow-up check"
+   *  shape as setDisqualified — an OSM-tagged email's contact tier isn't
+   *  known until discoverPhase runs assessContact on it after the initial
+   *  insert (see run-automated-campaign.ts). */
+  async setContactTier(ctx: TenantContext, id: string, tier: "person" | "decision_maker" | "generic") {
+    await ctx.tx
+      .update(automatedLeads)
+      .set({ contactTier: tier })
       .where(and(eq(automatedLeads.id, id), eq(automatedLeads.tenantId, ctx.tenantId)));
   },
 

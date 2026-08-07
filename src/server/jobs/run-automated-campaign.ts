@@ -15,7 +15,7 @@ import { SEND_AUTOMATED_EMAIL_JOB } from "@/server/jobs/send-automated-email";
 import { inlineStepRun, type StepRun } from "@/server/jobs/step-runner";
 import { logger } from "@/server/observability/logger";
 import { normalizeLeadQualification } from "@/server/lib/lead-qualification";
-import { assessContact } from "@/server/lib/email-identity";
+import { assessContact, type ContactTier } from "@/server/lib/email-identity";
 import type { Services, BlueprintSections, BlueprintLeadQualification } from "@/server/ports";
 import type { automatedCampaigns, automatedLeads } from "@/server/db/schema";
 
@@ -372,6 +372,8 @@ async function discoverPhase(
       await withTenantTx({ tenantId }, (ctx) => automatedLeadRepo.markNoEmail(ctx, lead.id, contact.reason));
       continue;
     }
+    const contactTier: Exclude<ContactTier, "reject"> = contact.tier;
+    await withTenantTx({ tenantId }, (ctx) => automatedLeadRepo.setContactTier(ctx, lead.id, contactTier));
     const { qualified, reason } = await qualifyLead(services, sections, lead);
     if (qualified) {
       readyFound++;
@@ -440,6 +442,7 @@ async function enrichBatch(
       await withTenantTx({ tenantId }, (ctx) => automatedLeadRepo.markNoEmail(ctx, lead.id, contact.reason));
       continue;
     }
+    const contactTier: Exclude<ContactTier, "reject"> = contact.tier;
     // Suppression check: an address that already unsubscribed (from this
     // campaign or any other in the tenant) must never be re-qualified or
     // emailed again — see schema.ts's suppressedEmails doc comment. Checked
@@ -452,6 +455,7 @@ async function enrichBatch(
           email: result.email,
           emailSource: result.source,
           emailConfidence: result.confidence,
+          contactTier,
           status: "suppressed",
           notes: "email previously unsubscribed",
         }),
@@ -465,6 +469,7 @@ async function enrichBatch(
         email: result.email,
         emailSource: result.source,
         emailConfidence: result.confidence,
+        contactTier,
         status: qualified ? "ready" : "disqualified",
         notes: reason,
       }),

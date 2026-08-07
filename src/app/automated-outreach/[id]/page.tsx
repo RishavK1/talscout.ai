@@ -75,6 +75,7 @@ interface AutomatedLead {
     | "snov"
     | "perplexity"
     | "none";
+  contactTier: "person" | "decision_maker" | "generic" | null;
   status:
     | "discovered"
     | "disqualified"
@@ -145,6 +146,29 @@ const SOURCE_META: Record<
   perplexity: { label: "AI search", icon: "travel_explore", badge: "bg-tertiary-fixed/20 text-tertiary border border-tertiary-fixed-dim/30" },
   none: { label: "—", icon: "remove", badge: "bg-surface-container-high text-on-surface-variant border border-border-low-alpha" },
 };
+
+/** Contact quality — named person (highest open rate) down to a shared
+ *  front-desk inbox (kept only when nothing better was findable — see
+ *  lib/email-identity.ts). Null for leads with no email or from before this
+ *  column existed. */
+const CONTACT_TIER_META: Record<
+  NonNullable<AutomatedLead["contactTier"]>,
+  { label: string; className: string }
+> = {
+  person: { label: "Named contact", className: "bg-tertiary-fixed/25 text-tertiary border-tertiary-fixed-dim/40" },
+  decision_maker: { label: "Decision-maker", className: "bg-primary/10 text-primary border-primary/25" },
+  generic: { label: "Shared inbox", className: "bg-surface-container-high text-on-surface-variant border-border-low-alpha" },
+};
+
+function ContactTierBadge({ tier }: { tier: AutomatedLead["contactTier"] }) {
+  if (!tier) return null;
+  const meta = CONTACT_TIER_META[tier];
+  return (
+    <Badge variant="outline" className={cn("rounded-md px-2 py-0.5 text-[11px] font-label-md font-medium", meta.className)}>
+      {meta.label}
+    </Badge>
+  );
+}
 
 function LeadStatusPill({ status }: { status: AutomatedLead["status"] }) {
   if (status === "replied") {
@@ -344,7 +368,10 @@ export default function AutomatedCampaignDetailPage({
       headerClassName: headCls,
       cellClassName: cellCls,
       render: (lead) => (
-        <span className="font-data-mono text-[12px] text-on-surface-variant">{lead.email ?? "—"}</span>
+        <div className="flex flex-col gap-1">
+          <span className="font-data-mono text-[12px] text-on-surface-variant">{lead.email ?? "—"}</span>
+          <ContactTierBadge tier={lead.contactTier} />
+        </div>
       ),
     },
     {
@@ -536,6 +563,11 @@ export default function AutomatedCampaignDetailPage({
                           <span className="mt-1 block truncate font-data-mono text-[12px] text-on-surface-variant">
                             {lead.email ?? "No email found"}
                           </span>
+                          {lead.contactTier && (
+                            <span className="mt-1 inline-block">
+                              <ContactTierBadge tier={lead.contactTier} />
+                            </span>
+                          )}
                         </span>
                         <LeadStatusPill status={lead.status} />
                       </div>

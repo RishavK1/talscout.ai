@@ -5,15 +5,19 @@ import { parseJsonLoosely } from "@/server/adapters/openrouter.client";
 import type { EmailFinder, EmailFinderResult, RateLimiter } from "@/server/ports";
 
 /**
- * Last-resort email finder: the only rung in the waterfall able to search
- * *beyond* the business's own website (SiteScrape/Firecrawl only read the
- * business's own domain; Hunter/Snov/Apollo query their own datasets). Uses
- * PERPLEXITY_API_KEY (the "real-time web search" budget). Appended as the
- * LAST entry in the waterfall — see container.ts — so it only ever runs
- * after every free rung has already missed.
+ * Last rung in the waterfall — the only one able to search *beyond* the
+ * business's own website (SiteScrape/Firecrawl only read the business's own
+ * domain; Hunter/Snov/Apollo query their own datasets). Uses
+ * PERPLEXITY_API_KEY (the "real-time web search" budget). WaterfallEmailFinder
+ * now continues PAST a merely-generic (info@/contact@) find rather than
+ * stopping at the first hit, so this rung is reached not just on a total
+ * miss but whenever nothing better than a shared inbox has been found yet —
+ * its job is specifically to try to find the actual named person or
+ * decision-maker (founder, owner, principal, HR) upstream sources couldn't.
  *
  * Never throws (matches EmailFinder's hard contract) — a null result here
- * becomes the lead's final "no_email" status.
+ * becomes the lead's final "no_email" status (or, if a generic address was
+ * already found upstream, that generic address is what gets used).
  */
 
 const CHAT_ENDPOINT = "https://api.perplexity.ai/chat/completions";
@@ -22,11 +26,19 @@ const GLOBAL_BUDGET = 400;
 const PER_CAMPAIGN_BUDGET = 20;
 
 const SYSTEM_PROMPT =
-  "You are helping find a real, currently-valid public contact email for a " +
-  "specific business, by searching the live web (their own site if given, " +
-  "Google Business/Maps listing, business directories, social profiles). " +
-  "Only return an email you have genuine search evidence belongs to this " +
-  "exact business — never guess or construct one from a pattern. If you " +
+  "You are helping find the email of a REAL, NAMED person at a specific " +
+  "business — the founder, owner, principal, director, or a clear " +
+  "decision-maker role (HR, admissions, management) — NOT a generic " +
+  "shared inbox. Search the live web: the business's own site (About/Team/" +
+  "Leadership/Staff pages), LinkedIn, Google Business/Maps listing, and " +
+  "business directories. Strongly prefer a named individual's own email " +
+  "over info@/contact@/hello@-style addresses — only fall back to a " +
+  "generic business email if you can find no named person or " +
+  "decision-maker role at all. Only return an email you have genuine " +
+  "search evidence belongs to THIS exact business — never guess or " +
+  "construct one from a name/domain pattern, and never return an email " +
+  "belonging to a different organization (even a similarly-named one) or " +
+  "a private individual with no connection to this business. If you " +
   "can't find one with real evidence, say so.\n\n" +
   'Respond with ONLY a JSON object: {"email": "..." or null, "confidence": ' +
   "0 to 1}. No prose outside the JSON.";

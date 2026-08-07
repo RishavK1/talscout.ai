@@ -40,8 +40,36 @@ export function findContactPageUrl(html: string, baseUrl: string): string | null
   return null;
 }
 
+/** A page listing named staff — "who is actually behind this business" is
+ *  exactly where a real human's email (not a shared inbox) tends to live.
+ *  Matched against a broad, language-agnostic set of common English link
+ *  labels; a site with none of these simply yields no team-page candidate,
+ *  same as any other free-source miss. */
+export function findTeamPageUrl(html: string, baseUrl: string): string | null {
+  const linkMatches = [...html.matchAll(/href=["']([^"']+)["']/gi)];
+  for (const m of linkMatches) {
+    if (!/team|leadership|staff|management|our-people|meet-the|about-us|\babout\b/i.test(m[1])) continue;
+    try {
+      return new URL(m[1], baseUrl).toString();
+    } catch {
+      continue;
+    }
+  }
+  return null;
+}
+
 /** Best email found in a page's markup: mailto links first (highest signal),
  *  then a bounded regex scan of visible text. */
 export function bestEmailFromHtml(html: string): string | null {
   return extractMailtoEmails(html)[0] ?? extractTextEmails(html)[0] ?? null;
+}
+
+/** EVERY plausible email found in a page's markup, mailto and text scan
+ *  combined, de-duped — unlike `bestEmailFromHtml`, which stops at the
+ *  first hit. Used where the caller wants to rank several candidates against
+ *  each other (see email-identity.ts's contact tiering) rather than
+ *  blindly accepting whichever email happens to appear first in the HTML,
+ *  which is very often a generic front-desk address, not a named person. */
+export function allEmailsFromHtml(html: string): string[] {
+  return [...new Set([...extractMailtoEmails(html), ...extractTextEmails(html)])];
 }

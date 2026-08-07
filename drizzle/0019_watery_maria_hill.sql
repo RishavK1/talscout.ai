@@ -1,0 +1,2 @@
+CREATE TYPE "public"."automated_lead_contact_tier" AS ENUM('person', 'decision_maker', 'generic');--> statement-breakpoint
+ALTER TABLE "automated_leads" ADD COLUMN "contact_tier" "automated_lead_contact_tier";
