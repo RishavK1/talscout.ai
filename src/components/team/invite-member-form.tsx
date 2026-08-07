@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { CircleCheck, Link2, Copy } from "lucide-react";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -59,7 +60,7 @@ export function InviteMemberForm({
     return (
       <div className="py-4 text-center">
         <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-tertiary-fixed/20 text-tertiary">
-          <span className="material-symbols-outlined">{emailSent ? "check_circle" : "link"}</span>
+          {emailSent ? <CircleCheck className="size-[22px]" /> : <Link2 className="size-[22px]" />}
         </div>
         <p className="font-headline-md text-[18px] text-primary serif-text">
           {emailSent ? "Invitation sent" : "Member added — share this link"}
@@ -79,7 +80,7 @@ export function InviteMemberForm({
               toast.success("Signup link copied");
             }}
           >
-            <span className="material-symbols-outlined text-[18px]">content_copy</span>
+            <Copy className="size-[18px]" />
             Copy signup link
           </Button>
         )}

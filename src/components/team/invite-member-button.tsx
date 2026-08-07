@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { UserPlus } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { InviteMemberForm } from "./invite-member-form";
@@ -20,7 +21,7 @@ export function InviteMemberButton({
   return (
     <>
       <Button type="button" variant="gradient" size="lg" onClick={() => setOpen(true)}>
-        <span className="material-symbols-outlined text-[18px]">person_add</span>
+        <UserPlus className="size-[18px]" />
         Invite member
       </Button>
 

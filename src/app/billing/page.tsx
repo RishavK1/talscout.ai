@@ -2,6 +2,16 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import {
+  Search,
+  CreditCard,
+  BadgeCheck,
+  Calendar,
+  ReceiptText,
+  UsersRound,
+  History,
+  Headset,
+} from "lucide-react";
 import { AppShell } from "@/components/app/app-shell";
 import { useAuth } from "@/components/app/auth-provider";
 import { api } from "@/lib/api";
@@ -16,6 +26,10 @@ import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageHeaderSkeleton, CardBodySkeleton, DataTableCardSkeleton } from "@/components/ui/skeletons";
+import { Reveal } from "@/components/motion/reveal";
+import { BorderBeam } from "@/components/ui/border-beam";
+import { SpotlightCard } from "@/components/ui/spotlight-card";
+import { NumberTicker } from "@/components/ui/number-ticker";
 
 
 interface BillingInfo {
@@ -231,7 +245,7 @@ export default function BillingPage() {
       <TopAppBar
         leftContent={
           <div className="relative w-full">
-            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
+            <Search className="absolute left-3 top-1/2 size-[18px] -translate-y-1/2 text-on-surface-variant" />
             <input
               className="w-full pl-10 pr-4 py-2 bg-surface-white border border-border-low-alpha rounded-full font-body-md text-body-md text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
               placeholder="Search invoices by ID, status, plan..."
@@ -251,25 +265,28 @@ export default function BillingPage() {
       {/* Main Content Area */}
       <main className="pt-8 sm:pt-12 lg:pt-24 px-4 sm:px-6 lg:px-12 pb-12 sm:pb-16 lg:pb-24 max-w-[1440px] mx-auto w-full">
         {/* Header */}
+        <Reveal>
         <header className="mb-10 flex items-center gap-4">
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary-container/10 text-primary">
-            <span className="material-symbols-outlined text-[24px]">credit_card</span>
+            <CreditCard className="size-[24px]" />
           </div>
           <div>
             <h1 className="font-headline-lg text-headline-lg text-primary mb-1">Billing</h1>
             <p className="font-body-md text-body-md text-text-muted">Manage your workspace subscription, payment methods, and billing history.</p>
           </div>
         </header>
+        </Reveal>
 
         {billingInfo && (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <Reveal delay={0.05} className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             {/* Section 1: Current Plan */}
             <section className="lg:col-span-8 relative">
               <span className="absolute -top-3 left-8 z-10 inline-flex items-center gap-1.5 rounded-full bg-tertiary-fixed px-3 py-1 font-data-mono text-[11px] font-semibold text-on-tertiary-fixed shadow-sm">
-                <span className="material-symbols-outlined text-[14px]">verified</span>
+                <BadgeCheck className="size-[14px]" />
                 Current plan
               </span>
-              <Card className="h-full border-2 border-primary-container [--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
+              <Card className="relative h-full border-2 border-primary-container [--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
+                <BorderBeam size={100} duration={12} />
                 <CardContent>
                   <div className="flex justify-between items-start mb-6">
                     <div>
@@ -278,10 +295,11 @@ export default function BillingPage() {
                         {planDisplayName} — ${billingInfo.pricePerSeat}/seat/mo
                       </p>
                       <p className="font-body-md text-body-md text-on-surface-variant">
-                        {billingInfo.seats} {billingInfo.seats === 1 ? "seat" : "seats"} · ${totalMonthlyPrice.toLocaleString()}/mo
+                        <NumberTicker value={billingInfo.seats} /> {billingInfo.seats === 1 ? "seat" : "seats"} · $
+                        <NumberTicker value={totalMonthlyPrice} />/mo
                       </p>
                       <p className="font-body-sm text-[12px] text-outline mt-1">
-                        {billingInfo.seatsUsed} {billingInfo.seatsUsed === 1 ? "seat" : "seats"} currently active.
+                        <NumberTicker value={billingInfo.seatsUsed} /> {billingInfo.seatsUsed === 1 ? "seat" : "seats"} currently active.
                       </p>
                     </div>
                     <div className="text-right">
@@ -292,7 +310,7 @@ export default function BillingPage() {
                   </div>
                   {billingInfo.renewsAt && (
                     <div className="flex items-center gap-2 mb-8 text-on-surface-variant">
-                      <span className="material-symbols-outlined text-[20px]">calendar_today</span>
+                      <Calendar className="size-[20px]" />
                       <span className="font-body-md text-body-md">Next renewal date:</span>
                       <span className="font-data-mono text-data-mono font-medium">
                         {formatRenewalDate(billingInfo.renewsAt)}
@@ -332,7 +350,7 @@ export default function BillingPage() {
                 <div className="px-6 py-6 border-b border-border-low-alpha flex justify-between items-center gap-3">
                   <div className="flex items-center gap-3">
                     <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-container/10 text-primary">
-                      <span className="material-symbols-outlined text-[18px]">receipt_long</span>
+                      <ReceiptText className="size-[18px]" />
                     </div>
                     <h2 className="font-headline-md text-headline-md text-on-surface">Invoice History</h2>
                   </div>
@@ -353,38 +371,38 @@ export default function BillingPage() {
                 </CardContent>
               </Card>
             </section>
-          </div>
+          </Reveal>
         )}
 
         {/* Additional Help/Links — same footer pattern as Team & seats, so
             this page reads as a full destination rather than a sparse
             2-card row sitting alone in a wide canvas. */}
-        <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="rounded-xl border border-border-low-alpha bg-surface-white p-6">
+        <Reveal delay={0.1} className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
+          <SpotlightCard className="rounded-xl border border-border-low-alpha bg-surface-white p-6">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-container/10 text-primary mb-4">
-              <span className="material-symbols-outlined text-[20px]">groups</span>
+              <UsersRound className="size-[20px]" />
             </div>
             <h4 className="text-[18px] font-semibold text-primary mb-2">Team &amp; Seats</h4>
             <p className="font-body-md text-on-surface-variant text-[14px]">Invite recruiters and manage who&apos;s using a seat on your current plan.</p>
             <Link className="mt-4 inline-block font-label-md text-label-md text-secondary font-semibold hover:underline" href="/team">Manage team →</Link>
-          </div>
-          <div className="rounded-xl border border-border-low-alpha bg-surface-white p-6">
+          </SpotlightCard>
+          <SpotlightCard className="rounded-xl border border-border-low-alpha bg-surface-white p-6">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-container/10 text-primary mb-4">
-              <span className="material-symbols-outlined text-[20px]">history_edu</span>
+              <History className="size-[20px]" />
             </div>
             <h4 className="text-[18px] font-semibold text-primary mb-2">Billing Activity</h4>
             <p className="font-body-md text-on-surface-variant text-[14px]">Every plan change and checkout is recorded in your workspace&apos;s audit log.</p>
             <Link className="mt-4 inline-block font-label-md text-label-md text-secondary font-semibold hover:underline" href="/audit">View audit log →</Link>
-          </div>
-          <div className="rounded-xl border border-border-low-alpha bg-surface-white p-6">
+          </SpotlightCard>
+          <SpotlightCard className="rounded-xl border border-border-low-alpha bg-surface-white p-6">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-container/10 text-primary mb-4">
-              <span className="material-symbols-outlined text-[20px]">support_agent</span>
+              <Headset className="size-[20px]" />
             </div>
             <h4 className="text-[18px] font-semibold text-primary mb-2">Questions about your plan?</h4>
             <p className="font-body-md text-on-surface-variant text-[14px]">Reach out and we&apos;ll help you find the right plan or seat count.</p>
             <a className="mt-4 inline-block font-label-md text-label-md text-secondary font-semibold hover:underline" href="mailto:support@talscout.ai">Contact support →</a>
-          </div>
-        </div>
+          </SpotlightCard>
+        </Reveal>
       </main>
 
       {/* Manage Seats / Plan Dialog */}

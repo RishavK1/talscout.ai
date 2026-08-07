@@ -3,6 +3,20 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  Image as ImageIcon,
+  Upload,
+  Camera,
+  Laptop,
+  Lock,
+  Crown,
+  Construction,
+  ArrowRight,
+  TriangleAlert,
+  ChevronRight,
+  SlidersHorizontal,
+} from "lucide-react";
 import { AppShell } from "@/components/app/app-shell";
 import { useAuth } from "@/components/app/auth-provider";
 import { api } from "@/lib/api";
@@ -15,6 +29,8 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { Skeleton } from "@/components/ui/skeleton";
 import { CardBodySkeleton } from "@/components/ui/skeletons";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Reveal } from "@/components/motion/reveal";
+import { easeOut } from "@/lib/motion";
 
 const TABS = ["General", "Security", "Data & privacy", "Developer"] as const;
 type Tab = (typeof TABS)[number];
@@ -109,11 +125,11 @@ function WorkspaceCard({ workspaceName, tenantId }: { workspaceName: string; ten
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={logoUrl} alt="Agency Logo" className="w-full h-full object-cover" />
                 ) : (
-                  <span className="material-symbols-outlined text-outline text-[40px]">image</span>
+                  <ImageIcon className="size-[40px] text-outline" />
                 )}
                 {/* Hover Overlay */}
                 <div className="absolute inset-0 bg-primary-container/70 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center text-on-primary-container transition-opacity duration-200">
-                  <span className="material-symbols-outlined text-[24px]">upload</span>
+                  <Upload className="size-[24px]" />
                   <span className="text-[10px] font-label-md uppercase tracking-wider mt-1">Upload</span>
                 </div>
               </div>
@@ -204,7 +220,7 @@ function ProfileCard({ email, userId }: { email: string; userId: string }) {
                 )}
                 {/* Hover Overlay */}
                 <div className="absolute inset-0 bg-primary-container/70 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center text-on-primary-container transition-opacity duration-200">
-                  <span className="material-symbols-outlined text-[20px]">add_a_photo</span>
+                  <Camera className="size-[20px]" />
                   <span className="text-[9px] font-label-md uppercase tracking-wider mt-1">Change</span>
                 </div>
               </div>
@@ -314,7 +330,7 @@ function SecurityCard() {
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
                     <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-container/10 text-primary">
-                      <span className="material-symbols-outlined text-[18px]">devices</span>
+                      <Laptop className="size-[18px]" />
                     </div>
                     <div>
                       <p className="text-label-md text-on-surface">
@@ -522,7 +538,7 @@ function DataPanel({ profile, signOut }: { profile: any; signOut: () => void }) 
         <div className="space-y-6">
           <div className="bg-error/10 border border-error/20 rounded-xl p-4 flex gap-3">
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-error text-on-error">
-              <span className="material-symbols-outlined text-[18px]">warning</span>
+              <TriangleAlert className="size-[18px]" />
             </div>
             <div className="text-body-md text-[14px] leading-relaxed text-error">
               <span className="font-semibold">WARNING:</span> Are you absolutely sure you want to permanently delete this workspace? This will remove all candidates, resumes, team members, and billing details.
@@ -568,7 +584,7 @@ function DeveloperCard({ plan }: { plan: string }) {
         <CardContent>
           <div className="max-w-md mx-auto py-8">
             <div className="w-16 h-16 rounded-2xl bg-primary-container/10 text-primary flex items-center justify-center mx-auto mb-6">
-              <span className="material-symbols-outlined text-[32px]">lock</span>
+              <Lock className="size-[32px]" />
             </div>
 
             <span className="brass-badge inline-block text-[11px] px-3 py-1 rounded-full font-bold uppercase tracking-wider mb-3">
@@ -586,7 +602,7 @@ function DeveloperCard({ plan }: { plan: string }) {
             <Button asChild variant="gradient">
               <Link href="/billing">
                 Upgrade subscription to Scale
-                <span className="material-symbols-outlined text-[18px]">workspace_premium</span>
+                <Crown className="size-[18px]" />
               </Link>
             </Button>
           </div>
@@ -607,7 +623,7 @@ function DeveloperCard({ plan }: { plan: string }) {
       <CardContent>
         <div className="flex items-start gap-4">
           <div className="w-12 h-12 shrink-0 rounded-xl bg-primary-container/10 text-primary flex items-center justify-center">
-            <span className="material-symbols-outlined text-[24px]">construction</span>
+            <Construction className="size-[24px]" />
           </div>
           <div>
             <div className="flex items-center gap-2 mb-2">
@@ -626,7 +642,7 @@ function DeveloperCard({ plan }: { plan: string }) {
               className="inline-flex items-center gap-2 font-label-md text-label-md text-secondary font-semibold hover:underline"
             >
               Get notified when it&apos;s live
-              <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+              <ArrowRight className="size-[16px]" />
             </a>
           </div>
         </div>
@@ -690,7 +706,7 @@ export default function SettingsPage() {
             <div className="flex flex-wrap items-center gap-4 w-full sm:w-auto">
               <nav className="flex text-on-surface-variant font-label-md gap-2 items-center">
                 <span className="text-on-surface-variant">Settings</span>
-                <span className="material-symbols-outlined text-[16px]">chevron_right</span>
+                <ChevronRight className="size-[16px]" />
                 <span className="text-primary font-semibold">{tab}</span>
               </nav>
             </div>
@@ -704,14 +720,19 @@ export default function SettingsPage() {
 
         {/* Content Canvas */}
         <div className="flex-1 p-4 sm:p-6 lg:p-12 max-w-6xl mx-auto w-full">
-          <div className="flex items-center gap-4 mb-8 lg:mb-12">
+          <Reveal className="flex items-center gap-4 mb-8 lg:mb-12">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary-container/10 text-primary">
-              <span className="material-symbols-outlined text-[24px]">tune</span>
+              <SlidersHorizontal className="size-[24px]" />
             </div>
-            <h1 className="font-headline-lg text-headline-lg text-primary">
-              Settings
-            </h1>
-          </div>
+            <div>
+              <h1 className="font-headline-lg text-headline-lg text-primary">
+                Settings
+              </h1>
+              <p className="mt-1 font-body-md text-[14px] text-on-surface-variant">
+                Manage your workspace, profile, security, and data.
+              </p>
+            </div>
+          </Reveal>
 
           <Tabs
             value={tab}
@@ -728,34 +749,51 @@ export default function SettingsPage() {
                 <TabsTrigger
                   key={t}
                   value={t}
-                  className="justify-start whitespace-nowrap rounded-lg px-4 py-3 text-on-surface-variant transition-all hover:bg-surface-container-low data-active:bg-primary-container/10 data-active:font-semibold data-active:text-primary"
+                  className="relative justify-start whitespace-nowrap rounded-lg px-4 py-3 text-on-surface-variant transition-colors hover:bg-surface-container-low data-active:font-semibold data-active:text-primary"
                 >
-                  {t}
+                  {tab === t && (
+                    <motion.span
+                      layoutId="settings-tab-pill"
+                      className="absolute inset-0 rounded-lg bg-primary-container/10"
+                      transition={{ type: "spring", stiffness: 500, damping: 35 }}
+                    />
+                  )}
+                  <span className="relative">{t}</span>
                 </TabsTrigger>
               ))}
             </TabsList>
 
             {/* Content Column */}
             <div className="flex-1 min-w-0 w-full pb-20">
-              <TabsContent value="General" className="mt-0 space-y-8">
-                <WorkspaceCard
-                  workspaceName={nameOfWorkspace}
-                  tenantId={profile?.tenantId || ""}
-                />
-                <ProfileCard
-                  email={userEmail}
-                  userId={profile?.userId || ""}
-                />
-              </TabsContent>
-              <TabsContent value="Security" className="mt-0">
-                <SecurityCard />
-              </TabsContent>
-              <TabsContent value="Data & privacy" className="mt-0">
-                <DataPanel profile={profile} signOut={signOut} />
-              </TabsContent>
-              <TabsContent value="Developer" className="mt-0">
-                <DeveloperCard plan={profile?.plan || "starter"} />
-              </TabsContent>
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={tab}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.2, ease: easeOut }}
+                >
+                  <TabsContent value="General" className="mt-0 space-y-8">
+                    <WorkspaceCard
+                      workspaceName={nameOfWorkspace}
+                      tenantId={profile?.tenantId || ""}
+                    />
+                    <ProfileCard
+                      email={userEmail}
+                      userId={profile?.userId || ""}
+                    />
+                  </TabsContent>
+                  <TabsContent value="Security" className="mt-0">
+                    <SecurityCard />
+                  </TabsContent>
+                  <TabsContent value="Data & privacy" className="mt-0">
+                    <DataPanel profile={profile} signOut={signOut} />
+                  </TabsContent>
+                  <TabsContent value="Developer" className="mt-0">
+                    <DeveloperCard plan={profile?.plan || "starter"} />
+                  </TabsContent>
+                </motion.div>
+              </AnimatePresence>
             </div>
           </Tabs>
         </div>
