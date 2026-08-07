@@ -13,8 +13,8 @@ interface TopAppBarProps {
  * competing header above the primary content. */
 export function TopAppBar({ leftContent, rightContent }: TopAppBarProps) {
   return (
-    <header className="glass-header hidden shrink-0 border-b border-border-low-alpha lg:sticky lg:top-0 lg:z-40 lg:block">
-      <div className="flex flex-col gap-3 px-4 py-3 sm:px-6 sm:py-4 lg:h-[73px] lg:flex-row lg:items-center lg:justify-between lg:gap-4 lg:px-12 lg:py-0">
+    <header className="glass-header hidden shrink-0 border-b border-border-low-alpha lg:sticky lg:top-0 lg:z-40 lg:block lg:h-[73px]">
+      <div className="flex h-full flex-col gap-3 px-4 py-3 sm:px-6 sm:py-4 lg:flex-row lg:items-center lg:justify-between lg:gap-4 lg:px-12 lg:py-0">
         <div className="min-w-0 flex-1 lg:flex lg:max-w-xl lg:items-center">
           {leftContent}
         </div>

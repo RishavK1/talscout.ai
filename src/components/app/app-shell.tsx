@@ -3,6 +3,28 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import {
+  LayoutDashboard,
+  Search,
+  Users,
+  Upload,
+  Star,
+  ChartLine,
+  Send,
+  FileText,
+  Sparkles,
+  MessageSquare,
+  UsersRound,
+  CreditCard,
+  Settings,
+  ReceiptText,
+  Lock,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Menu,
+  Building2,
+  type LucideIcon,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Sidebar,
@@ -31,26 +53,26 @@ const SIDEBAR_COLLAPSE_KEY = "sidebar-collapsed";
 const SIDEBAR_WIDTH = "264px";
 const SIDEBAR_WIDTH_ICON = "72px";
 
-type Item = { href: string; icon: string; label: string; capability?: string };
+type Item = { href: string; icon: LucideIcon; label: string; capability?: string };
 
 const mainNav: Item[] = [
-  { href: "/dashboard", icon: "dashboard", label: "Dashboard" },
-  { href: "/search", icon: "search", label: "Search" },
-  { href: "/candidates", icon: "group", label: "Candidates" },
-  { href: "/upload", icon: "upload_file", label: "Upload" },
-  { href: "/shortlists", icon: "star", label: "Shortlists" },
-  { href: "/analytics", icon: "insights", label: "Analytics" },
-  { href: "/outreach/bulk-fire", icon: "send", label: "Bulk Fire" },
-  { href: "/blueprints", icon: "description", label: "Blueprints" },
-  { href: "/automated-outreach", icon: "auto_awesome", label: "Automated Outreach" },
-  { href: "/automated-outreach/replies", icon: "forum", label: "Reply Review" },
+  { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
+  { href: "/search", icon: Search, label: "Search" },
+  { href: "/candidates", icon: Users, label: "Candidates" },
+  { href: "/upload", icon: Upload, label: "Upload" },
+  { href: "/shortlists", icon: Star, label: "Shortlists" },
+  { href: "/analytics", icon: ChartLine, label: "Analytics" },
+  { href: "/outreach/bulk-fire", icon: Send, label: "Bulk Fire" },
+  { href: "/blueprints", icon: FileText, label: "Blueprints" },
+  { href: "/automated-outreach", icon: Sparkles, label: "Automated Outreach" },
+  { href: "/automated-outreach/replies", icon: MessageSquare, label: "Reply Review" },
 ];
 
 const footerNav: Item[] = [
-  { href: "/team", icon: "groups", label: "Team & seats" },
-  { href: "/billing", icon: "credit_card", label: "Billing" },
-  { href: "/settings", icon: "settings", label: "Settings" },
-  { href: "/audit", icon: "receipt_long", label: "Audit log", capability: "audit_log" },
+  { href: "/team", icon: UsersRound, label: "Team & seats" },
+  { href: "/billing", icon: CreditCard, label: "Billing" },
+  { href: "/settings", icon: Settings, label: "Settings" },
+  { href: "/audit", icon: ReceiptText, label: "Audit log", capability: "audit_log" },
 ];
 
 function NavLink({
@@ -64,6 +86,8 @@ function NavLink({
   locked?: boolean;
   collapsed: boolean;
 }) {
+  const Icon = item.icon;
+
   // Locked (plan doesn't include it): route to billing/upgrade, show a lock.
   if (locked) {
     return (
@@ -74,15 +98,11 @@ function NavLink({
         className="h-9 text-sidebar-foreground/50"
       >
         <Link href="/billing" aria-label={collapsed ? `${item.label} — upgrade to unlock` : undefined}>
-          <span className="material-symbols-outlined shrink-0 text-[20px]" aria-hidden="true">
-            {item.icon}
-          </span>
+          <Icon className="size-[18px] shrink-0" aria-hidden="true" />
           {!collapsed && (
             <>
               <span>{item.label}</span>
-              <span className="material-symbols-outlined ml-auto text-[16px] text-sidebar-foreground/50" aria-hidden="true">
-                lock
-              </span>
+              <Lock className="ml-auto size-[14px] text-sidebar-foreground/50" aria-hidden="true" />
             </>
           )}
         </Link>
@@ -99,11 +119,12 @@ function NavLink({
     >
       <Link href={item.href} aria-label={collapsed ? item.label : undefined}>
         <span
-          className="material-symbols-outlined shrink-0 text-[20px]"
-          aria-hidden="true"
-          {...(active ? { "data-weight": "fill" } : {})}
+          className={cn(
+            "flex size-7 shrink-0 items-center justify-center rounded-lg transition-colors",
+            active && "bg-primary-container text-on-primary-container",
+          )}
         >
-          {item.icon}
+          <Icon className="size-[18px]" strokeWidth={active ? 2.25 : 2} aria-hidden="true" />
         </span>
         {!collapsed && <span>{item.label}</span>}
       </Link>
@@ -124,13 +145,7 @@ function SidebarCollapseToggle() {
       title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
       className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-transparent text-on-surface-variant transition-[color,background-color,transform] hover:bg-surface-container hover:text-on-surface active:scale-95 lg:flex"
     >
-      <span
-        className={cn(
-          "material-symbols-outlined text-[20px] transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)]",
-        )}
-      >
-        {collapsed ? "chevron_right" : "chevron_left"}
-      </span>
+      {collapsed ? <PanelLeftOpen className="size-[20px]" /> : <PanelLeftClose className="size-[20px]" />}
     </button>
   );
 }
@@ -149,7 +164,7 @@ function MobileTopBar() {
         onClick={toggleSidebar}
         className="flex h-9 w-9 items-center justify-center rounded-lg text-on-surface-variant transition-colors hover:bg-bg-cream active:scale-95"
       >
-        <span className="material-symbols-outlined">menu</span>
+        <Menu className="size-[20px]" />
       </button>
       <Link href="/dashboard" className="flex items-center gap-2">
         {logoUrl ? (
@@ -157,7 +172,7 @@ function MobileTopBar() {
           <img src={logoUrl} alt="Logo" className="h-7 w-7 rounded object-cover border border-border-low-alpha" />
         ) : (
           <div className="flex h-7 w-7 items-center justify-center rounded bg-primary text-on-primary">
-            <span className="material-symbols-outlined text-[18px]">work</span>
+            <Building2 className="size-[16px]" />
           </div>
         )}
         <span className="font-headline-md text-[18px] text-primary truncate max-w-[120px]">
@@ -202,7 +217,7 @@ function AppSidebar() {
               />
             ) : (
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary-container text-on-primary-container shadow-[0_1px_2px_rgba(15,23,42,0.12)]">
-                <span className="material-symbols-outlined text-[20px]">work</span>
+                <Building2 className="size-[18px]" />
               </div>
             )}
             <div className="min-w-0 overflow-hidden whitespace-nowrap">
