@@ -42,6 +42,7 @@ export default function BillingPage() {
   const [billingInfo, setBillingInfo] = useState<BillingInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [invoices, setInvoices] = useState<{ id: string; date: string; amount: string; status: string; plan?: string; seats?: number }[]>([]);
+  const [invoiceSearch, setInvoiceSearch] = useState("");
 
   const [showModal, setShowModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState("starter");
@@ -179,6 +180,16 @@ export default function BillingPage() {
     return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
   };
 
+  const filteredInvoices = (() => {
+    const q = invoiceSearch.trim().toLowerCase();
+    if (!q) return invoices;
+    return invoices.filter((inv) =>
+      [inv.id, inv.status, inv.plan, inv.date, inv.amount].some((field) =>
+        field?.toLowerCase().includes(q),
+      ),
+    );
+  })();
+
   const invoiceColumns: DataTableColumn<Invoice>[] = [
     {
       key: "date",
@@ -221,7 +232,13 @@ export default function BillingPage() {
         leftContent={
           <div className="relative w-full">
             <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
-            <input className="w-full pl-10 pr-4 py-2 bg-surface-white border border-border-low-alpha rounded-full font-body-md text-body-md text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all" placeholder="Search settings, invoices..." type="text" />
+            <input
+              className="w-full pl-10 pr-4 py-2 bg-surface-white border border-border-low-alpha rounded-full font-body-md text-body-md text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+              placeholder="Search invoices by ID, status, plan..."
+              type="text"
+              value={invoiceSearch}
+              onChange={(e) => setInvoiceSearch(e.target.value)}
+            />
           </div>
         }
         rightContent={
@@ -323,11 +340,13 @@ export default function BillingPage() {
                 <CardContent className="p-0">
                   <DataTable
                     columns={invoiceColumns}
-                    rows={invoices}
+                    rows={filteredInvoices}
                     getRowKey={(inv) => inv.id}
                     emptyState={
                       <span className="font-body-md text-body-md text-text-muted">
-                        No invoices found. Billed history is generated after checkout.
+                        {invoiceSearch.trim()
+                          ? `No invoices match "${invoiceSearch.trim()}".`
+                          : "No invoices found. Billed history is generated after checkout."}
                       </span>
                     }
                   />

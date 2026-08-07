@@ -315,15 +315,26 @@ export default function UploadPage() {
 
         <TopAppBar
           leftContent={
-            <div className="relative w-full">
+            <form
+              className="relative w-full"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const q = new FormData(e.currentTarget).get("q");
+                if (typeof q === "string" && q.trim()) {
+                  router.push(`/search?q=${encodeURIComponent(q.trim())}`);
+                } else {
+                  router.push("/candidates");
+                }
+              }}
+            >
               <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
               <input
+                name="q"
                 className="w-full bg-surface-white border border-border-low-alpha rounded-full pl-10 pr-4 py-2 font-body-md text-body-md text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
-                placeholder="Search files or candidates..."
+                placeholder="Search candidates..."
                 type="text"
-                onClick={() => router.push("/candidates")}
               />
-            </div>
+            </form>
           }
           rightContent={
             <Button type="button" variant="gradient" onClick={triggerBrowse} className="whitespace-nowrap">
