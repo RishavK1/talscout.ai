@@ -22,12 +22,14 @@ export class MockOutreachCopywriter implements OutreachCopywriter {
             : `Hi ${input.lead.businessName} team,\n\nLast note from me — happy to help with ${input.blueprint.whatWeOffer} whenever it's useful.`,
       };
     }
+    const greeting = input.lead.recipientFirstName ? `Hi ${input.lead.recipientFirstName}` : `Hi ${input.lead.businessName} team`;
     return {
       subject: `Quick question for ${input.lead.businessName}`,
       body:
-        `Hi ${input.lead.businessName} team,\n\n` +
-        `${input.blueprint.whatWeOffer} ${input.blueprint.differentiator}\n\n` +
-        `Worth a quick chat?`,
+        `${greeting},\n\n` +
+        `${input.blueprint.whatWeOffer} ${input.blueprint.differentiator}` +
+        (input.lead.websiteExcerpt ? ` ${input.lead.websiteExcerpt}` : "") +
+        `\n\nWorth a quick chat?`,
     };
   }
 }

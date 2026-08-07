@@ -656,6 +656,49 @@ describe("runAutomatedCampaigns — suppression gate (unsubscribe sprint)", () =
   });
 });
 
+describe("runAutomatedCampaigns — per-lead personalization (website content + named greeting)", () => {
+  it("greets a named contact by first name and grounds the email in that lead's own website content", async () => {
+    const { tenant, token } = await makeUser("recruiter");
+    const blueprint = await seedActiveBlueprint(tenant.id);
+    const sender = await seedGmailSender(tenant.id);
+    // %%SITETEXT%% (MockLeadDiscovery) gives the lead a website whose
+    // MockSiteTextFetcher fixture text is distinctive fixed content;
+    // %%PERSONEMAIL%% (MockEmailFinder) resolves to a named-person address
+    // (jane.doe@...), which assessContact tiers as "person".
+    const campaignId = await createActiveCampaign(
+      token,
+      blueprint.id,
+      sender.id,
+      "school %%SITETEXT%% %%PERSONEMAIL%%",
+    );
+
+    const leads = await leadsForCampaign(campaignId);
+    expect(leads.every((l) => l.contactTier === "person")).toBe(true);
+
+    const sends = await sendsForCampaign(campaignId);
+    const day0 = sends.filter((s) => s.stepIndex === 0);
+    expect(day0.length).toBeGreaterThan(0);
+    // MockOutreachCopywriter echoes recipientFirstName into the greeting and
+    // websiteExcerpt into the body when the pipeline actually threads them
+    // through — this is the end-to-end proof, not just a unit-level check.
+    expect(day0.every((s) => s.body.startsWith("Hi Jane,"))).toBe(true);
+    expect(day0.every((s) => s.body.includes("robotics enrichment program"))).toBe(true);
+  });
+
+  it("does not fabricate a greeting name or website content for a generic/no-website lead", async () => {
+    const { tenant, token } = await makeUser("recruiter");
+    const blueprint = await seedActiveBlueprint(tenant.id);
+    const sender = await seedGmailSender(tenant.id);
+    const campaignId = await createActiveCampaign(token, blueprint.id, sender.id, "bakery");
+
+    const sends = await sendsForCampaign(campaignId);
+    const day0 = sends.filter((s) => s.stepIndex === 0);
+    expect(day0.length).toBeGreaterThan(0);
+    expect(day0.every((s) => s.body.includes(" team,"))).toBe(true); // generic "Hi X team," greeting
+    expect(day0.every((s) => !s.body.includes("robotics enrichment program"))).toBe(true);
+  });
+});
+
 describe("runAutomatedCampaigns — deferred follow-up generation", () => {
   it("writes NO follow-up copy until Day 0 has actually sent, then writes both offset from the real send time", async () => {
     // Regression for a real production stall: generating Day 0/3/7 up front

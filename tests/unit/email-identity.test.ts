@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { assessContact, domainLabel, looksLikePersonName } from "@/server/lib/email-identity";
+import { assessContact, domainLabel, looksLikePersonName, guessFirstName } from "@/server/lib/email-identity";
 
 describe("assessContact — real production wrong-person incidents (must reject)", () => {
   it("rejects the web agency's address scraped off a client site's footer", () => {
@@ -181,6 +181,26 @@ describe("looksLikePersonName", () => {
       expect(looksLikePersonName(local)).toBe(false);
     },
   );
+});
+
+describe("guessFirstName", () => {
+  it.each([
+    ["jane.doe", "Jane"],
+    ["sarah-khan", "Sarah"],
+    ["rishav_kamboj", "Rishav"],
+  ])("%s -> %s", (local, expected) => {
+    expect(guessFirstName(local)).toBe(expected);
+  });
+
+  it("never guesses from a single-initial local part — not a usable greeting name", () => {
+    expect(guessFirstName("j.morales")).toBeNull();
+    expect(guessFirstName("r_kamboj")).toBeNull();
+  });
+
+  it("returns null for a local part with no name-shaped separator", () => {
+    expect(guessFirstName("rkamboj")).toBeNull();
+    expect(guessFirstName("info")).toBeNull();
+  });
 });
 
 describe("domainLabel", () => {

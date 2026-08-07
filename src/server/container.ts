@@ -45,6 +45,8 @@ import { FallbackLeadDiscovery } from "@/server/adapters/fallback.lead-discovery
 import { MockEmailFinder } from "@/server/adapters/mock.email-finder";
 import { MockEmailVerifier } from "@/server/adapters/mock.email-verifier";
 import { DnsEmailVerifier } from "@/server/adapters/dns.email-verifier";
+import { MockSiteTextFetcher } from "@/server/adapters/mock.site-text-fetcher";
+import { SafeFetchSiteTextFetcher } from "@/server/adapters/safe-fetch.site-text-fetcher";
 import { SiteScrapeEmailFinder } from "@/server/adapters/site-scrape.email-finder";
 import { FirecrawlEmailFinder } from "@/server/adapters/firecrawl.email-finder";
 import { HunterEmailFinder } from "@/server/adapters/hunter.email-finder";
@@ -158,6 +160,7 @@ export function getServices(): Services {
       leadDiscovery: new MockLeadDiscovery(),
       emailFinder: new MockEmailFinder(),
       emailVerifier: new MockEmailVerifier(),
+      siteTextFetcher: new MockSiteTextFetcher(),
       leadQualifier: new MockLeadQualifier(),
       outreachCopywriter: new MockOutreachCopywriter(),
       replyDrafter: new MockReplyDrafter(),
@@ -366,6 +369,10 @@ export function getServices(): Services {
     // as the email finder above, just DNS instead of an API waterfall.
     const emailVerifier = new DnsEmailVerifier();
 
+    // Free, no-key website text fetch for copy generation — always on, same
+    // reasoning as emailVerifier above.
+    const siteTextFetcher = new SafeFetchSiteTextFetcher();
+
     // Same Gemini-primary / OpenRouter-fallback pattern as the blueprint
     // adapters above, PLUS a third tier: Perplexity (PERPLEXITY_API_KEY_PRIMARY),
     // tried only once BOTH Gemini and OpenRouter fail. Added after a real
@@ -432,6 +439,7 @@ export function getServices(): Services {
       leadDiscovery,
       emailFinder,
       emailVerifier,
+      siteTextFetcher,
       leadQualifier,
       outreachCopywriter,
       replyDrafter,

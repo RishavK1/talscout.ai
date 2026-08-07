@@ -15,7 +15,8 @@ import { SEND_AUTOMATED_EMAIL_JOB } from "@/server/jobs/send-automated-email";
 import { inlineStepRun, type StepRun } from "@/server/jobs/step-runner";
 import { logger } from "@/server/observability/logger";
 import { normalizeLeadQualification } from "@/server/lib/lead-qualification";
-import { assessContact, type ContactTier } from "@/server/lib/email-identity";
+import { assessContact, guessFirstName, type ContactTier } from "@/server/lib/email-identity";
+import { referencesWebsiteContent } from "@/server/lib/copy-quality";
 import type { Services, BlueprintSections, BlueprintLeadQualification } from "@/server/ports";
 import type { automatedCampaigns, automatedLeads } from "@/server/db/schema";
 
@@ -52,6 +53,12 @@ const FOLLOW_UP_DAY_OFFSETS: Record<1 | 2, number> = { 1: 3, 2: 7 };
  *  a tick must never spend its whole quota on follow-ups for already-contacted
  *  leads at the expense of reaching new ones. */
 const FOLLOW_UP_GENERATE_PER_TICK = 10;
+
+/** Cap on how much of a lead's own website text gets sent to the copywriter
+ *  — enough for real, specific facts without ballooning prompt size/cost.
+ *  Free (this fetch reuses the same SSRF-safe helper the email finder
+ *  already uses), so the only cost is prompt tokens. */
+const WEBSITE_EXCERPT_MAX_CHARS = 3_000;
 
 type Campaign = typeof automatedCampaigns.$inferSelect;
 type Lead = typeof automatedLeads.$inferSelect;
@@ -512,10 +519,25 @@ async function generateCopyBatch(
   const out: GeneratedCopy[] = [];
   for (const lead of leads) {
     if (!lead.email) continue; // defensive — only "ready" leads (email required) reach here
+
+    // Fetched fresh here (not persisted from enrichment) — free, and this is
+    // the one place it's actually needed. Empty string on any failure
+    // (unreachable site, timeout) — the copywriter falls back to the
+    // blueprint/market-research grounding it already had.
+    const websiteExcerpt = lead.website
+      ? (await services.siteTextFetcher.fetchText(lead.website)).slice(0, WEBSITE_EXCERPT_MAX_CHARS)
+      : "";
+    // Only ever set for a "person" contact tier — never fabricated for a
+    // decision-maker role or generic shared inbox.
+    const recipientFirstName =
+      lead.contactTier === "person" ? (guessFirstName(lead.email.split("@")[0]) ?? undefined) : undefined;
+
     const leadArg = {
       businessName: lead.businessName,
       category: lead.category ?? undefined,
       location: lead.addressText ?? undefined,
+      recipientFirstName,
+      websiteExcerpt: websiteExcerpt || undefined,
     };
 
     let day0;
@@ -526,6 +548,27 @@ async function generateCopyBatch(
         styleExamples,
         marketResearch: campaign.marketResearch ?? undefined,
       });
+      // Reject-and-regenerate: if we handed the writer real, specific
+      // website content and the draft still reads as generic (no shared
+      // distinctive word), retry ONCE. A single bounded retry, only when
+      // there was actually something specific to draw on — never blocks a
+      // send indefinitely, and costs nothing extra in the common case where
+      // the first draft already used it.
+      if (websiteExcerpt && !referencesWebsiteContent(day0.body, websiteExcerpt)) {
+        try {
+          const retry = await services.outreachCopywriter.generateEmail({
+            blueprint: sections,
+            lead: leadArg,
+            styleExamples,
+            marketResearch: campaign.marketResearch ?? undefined,
+          });
+          if (referencesWebsiteContent(retry.body, websiteExcerpt)) day0 = retry;
+        } catch (err) {
+          logger.warn({ err, leadId: lead.id }, "automated_lead_copy_regenerate_failed");
+          // Keep the original (generic but usable) draft — never lose a
+          // working email over a quality-improvement retry failing.
+        }
+      }
     } catch (err) {
       logger.warn({ err, leadId: lead.id }, "automated_lead_copy_generation_failed");
       continue;

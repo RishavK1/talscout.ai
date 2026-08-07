@@ -228,6 +228,20 @@ export function looksLikePersonName(local: string): boolean {
   return false;
 }
 
+/** Best-effort first name from a "person" contact tier's local part —
+ *  "jane.doe" -> "Jane", "j.morales" -> null (a single initial isn't a
+ *  usable greeting name; never guess). Used to greet a real, named
+ *  individual by name instead of a generic "Hello team at X" — only ever
+ *  called for addresses that already passed `looksLikePersonName`, so this
+ *  never fabricates a name for a role/generic mailbox. */
+export function guessFirstName(local: string): string | null {
+  const base = local.toLowerCase().replace(/[0-9]+$/, "");
+  const match = base.match(/^([a-z]+)[._-][a-z]{2,}$/);
+  const first = match?.[1];
+  if (!first || first.length < 2) return null;
+  return first[0].toUpperCase() + first.slice(1);
+}
+
 /**
  * The core gate. Judges an email against the business it's claimed to belong
  * to, returning the tier the caller should act on. `website` (when known) is

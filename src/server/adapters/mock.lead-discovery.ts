@@ -37,6 +37,11 @@ export class MockLeadDiscovery implements LeadDiscovery {
     const noWebsite = query.category.includes("%%NOWEBSITE%%");
     const polished = query.category.includes("%%POLISHED%%");
     const osmEmail = query.category.includes("%%OSMEMAIL%%");
+    // Embedded in the generated website URL — read by MockSiteTextFetcher to
+    // return real fixture text instead of "" (simulating a real business
+    // whose site actually has content), so tests can exercise copy
+    // generation's website-personalization path.
+    const siteText = query.category.includes("%%SITETEXT%%");
     const known = query.excludeSourcePlaceIds ?? new Set<string>();
 
     // Honor excludeSourcePlaceIds like a real provider paging past what the
@@ -55,7 +60,9 @@ export class MockLeadDiscovery implements LeadDiscovery {
         phone: "+15555550100",
         ...(noWebsite
           ? {}
-          : { website: `https://mock-business-${i + 1}${polished ? "-%%POLISHED%%" : ""}.example.com` }),
+          : {
+              website: `https://mock-business-${i + 1}${polished ? "-%%POLISHED%%" : ""}${siteText ? "-%%SITETEXT%%" : ""}.example.com`,
+            }),
         // Only the first business in the page gets one — mirrors a real
         // area where an OSM email tag is the exception, not the norm.
         ...(osmEmail && i === 0
