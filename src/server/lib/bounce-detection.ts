@@ -43,9 +43,41 @@ const BOUNCE_SUBJECT_PATTERNS = [
   /^undeliverable:/i,
 ];
 
+/** Body phrases Gmail/Google Workspace use for a SENDER-side throttle notice
+ *  — "you (the account) are rate-limited right now", not "this recipient's
+ *  address is bad". These arrive from the same mailer-daemon address as a
+ *  genuine bounce and were, before this check existed, misclassified as one:
+ *  a real production incident where a Gmail account hit its daily send cap
+ *  mid-campaign and 33 perfectly good leads (principal@vit.edu.in,
+ *  contact@kohinoorcollege.com, ...) got permanently marked "bounced" and
+ *  suppressed, though nothing was ever wrong with any of them — the account
+ *  itself, not the recipients, was the problem. MUST be checked before
+ *  `isBounceNotification`, which would otherwise match these first (both
+ *  come from mailer-daemon). */
+const SENDER_RATE_LIMIT_BODY_PATTERNS = [
+  /reached a limit for sending mail/i,
+  /exceeded (the )?(daily )?(sending|send) (quota|limit)/i,
+  /your message was not sent/i,
+  /rate.?limit(ed|ing)? (exceeded|reached)/i,
+  /too many (login attempts|messages sent)/i,
+];
+
+/** True if this inbound message is the SENDING account being throttled by
+ *  its own provider, not a real recipient-side bounce. See callers — this is
+ *  NEVER terminal for the lead; it means "stop sending from this account
+ *  right now", not "this address is bad". Checked on the message BODY, since
+ *  the from-address/subject alone can't be distinguished from a genuine
+ *  bounce (both come from mailer-daemon@...). */
+export function isSenderRateLimited(args: { from: string; body: string }): boolean {
+  if (!BOUNCE_FROM_PATTERNS.some((p) => p.test(args.from ?? ""))) return false;
+  const body = args.body ?? "";
+  return SENDER_RATE_LIMIT_BODY_PATTERNS.some((p) => p.test(body));
+}
+
 /** True if this inbound message is a delivery-failure (bounce) notification,
  *  not a reply from the lead. Checked on BOTH signals — either alone is
- *  already a strong, standardized indicator; matching either is enough. */
+ *  already a strong, standardized indicator; matching either is enough.
+ *  Callers MUST check `isSenderRateLimited` first — see its doc comment. */
 export function isBounceNotification(args: { from: string; subject: string }): boolean {
   const from = args.from ?? "";
   const subject = (args.subject ?? "").trim();

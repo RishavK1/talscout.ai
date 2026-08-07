@@ -8,7 +8,7 @@ import {
 import { blueprintRepo } from "@/server/repositories/blueprint.repo";
 import { senderAccountRepo } from "@/server/repositories/outreach.repo";
 import { decryptSecret } from "@/server/lib/secret-box";
-import { isBounceNotification, isAutoReply } from "@/server/lib/bounce-detection";
+import { isBounceNotification, isSenderRateLimited, isAutoReply } from "@/server/lib/bounce-detection";
 import { inlineStepRun, type StepRun } from "@/server/jobs/step-runner";
 import { logger } from "@/server/observability/logger";
 import type { Services, SenderAccountCredentials, BlueprintSections } from "@/server/ports";
@@ -173,6 +173,29 @@ async function pollSendBatch(
 
       const lead = await withTenantTx({ tenantId }, (ctx) => automatedLeadRepo.getById(ctx, send.leadId));
       if (!lead) continue;
+
+      // Checked BEFORE isBounceNotification — see isSenderRateLimited's doc
+      // comment. Both a genuine bounce and a sender-side throttle notice
+      // arrive from mailer-daemon@..., but a throttle notice means "this
+      // ACCOUNT can't send right now", not "this recipient is bad" — a real
+      // incident where 33 perfectly good leads got permanently marked
+      // "bounced" (and suppressed) because Gmail's own daily send cap
+      // generated this exact notice mid-campaign. The lead is left
+      // untouched; the CAMPAIGN is paused so sending stops immediately
+      // instead of continuing to hammer a blocked account.
+      if (isSenderRateLimited(content)) {
+        logger.warn(
+          { campaignId: campaign.id, senderId: sender.id, leadId: send.leadId },
+          "automated_campaign_sender_rate_limited_pausing",
+        );
+        await automatedCampaignRepo.setErrorAdmin(
+          campaign.id,
+          `Sending account ${sender.email} hit its provider's sending limit — campaign paused. ` +
+            `Resume once the account's limit resets, or switch to a different sender.`,
+        );
+        processed++;
+        continue;
+      }
 
       // Two cheap, deterministic pre-filters BEFORE ever calling the AI
       // drafter — both catch messages that read as "replied" (someone other
