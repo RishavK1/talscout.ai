@@ -7,6 +7,10 @@ import { LandingNav } from "@/components/marketing/landing-nav";
 import { LandingFaq } from "@/components/marketing/landing-faq";
 import { useAuth } from "@/components/app/auth-provider";
 import { PLAN_ORDER, PLANS } from "@/lib/plans";
+import { BorderBeam } from "@/components/ui/border-beam";
+import { SpotlightCard } from "@/components/ui/spotlight-card";
+import { TiltCard } from "@/components/ui/tilt-card";
+import { NumberTicker } from "@/components/ui/number-ticker";
 
 const PIPELINE = [
   {
@@ -76,7 +80,8 @@ const TRUST_POINTS = [
  *  is a sidebar feature of the other. */
 function WorkspaceWindow() {
   return (
-    <div className="overflow-hidden rounded-[22px] border border-border-low-alpha bg-surface-white shadow-[0_34px_90px_-42px_rgba(15,23,42,0.42)]">
+    <div className="relative overflow-hidden rounded-[22px] border border-border-low-alpha bg-surface-white shadow-[0_34px_90px_-42px_rgba(15,23,42,0.42)]">
+      <BorderBeam size={90} duration={11} />
       <div className="flex h-11 items-center justify-between border-b border-border-low-alpha bg-surface-container-low/80 px-4">
         <div className="flex items-center gap-1.5" aria-hidden>
           <span className="size-2.5 rounded-full bg-outline-variant" />
@@ -110,13 +115,15 @@ function WorkspaceWindow() {
 
         <div className="mb-3 grid grid-cols-4 divide-x divide-border-low-alpha rounded-xl border border-border-low-alpha bg-surface-white">
           {[
-            ["142", "Found"],
-            ["96", "Emails"],
-            ["61", "Qualified"],
-            ["14", "Replies"],
-          ].map(([value, label]) => (
+            [142, "Found"],
+            [96, "Emails"],
+            [61, "Qualified"],
+            [14, "Replies"],
+          ].map(([value, label], index) => (
             <div key={label} className="px-1.5 py-2.5 text-center">
-              <p className="font-data-mono text-[15px] font-semibold text-on-surface">{value}</p>
+              <p className="font-data-mono text-[15px] font-semibold text-on-surface">
+                <NumberTicker value={value as number} delay={index * 0.08} />
+              </p>
               <p className="mt-0.5 text-[9px] text-text-muted">{label}</p>
             </div>
           ))}
@@ -248,12 +255,14 @@ function BulkFireWindow() {
       <div className="p-5">
         <div className="mb-4 grid grid-cols-3 divide-x divide-border-low-alpha rounded-xl border border-border-low-alpha bg-bg-cream">
           {[
-            ["1,240", "Contacts"],
-            ["842", "Sent"],
-            ["97", "Replies"],
-          ].map(([value, label]) => (
+            [1240, "Contacts"],
+            [842, "Sent"],
+            [97, "Replies"],
+          ].map(([value, label], index) => (
             <div key={label} className="px-3 py-3 text-center">
-              <p className="font-data-mono text-[17px] font-semibold text-on-surface">{value}</p>
+              <p className="font-data-mono text-[17px] font-semibold text-on-surface">
+                <NumberTicker value={value as number} delay={index * 0.08} />
+              </p>
               <p className="mt-0.5 text-[9px] text-text-muted">{label}</p>
             </div>
           ))}
@@ -430,7 +439,9 @@ export default function LandingPage() {
             </Reveal>
 
             <Reveal delay={0.08} className="relative lg:translate-y-5">
-              <WorkspaceWindow />
+              <TiltCard maxTilt={4}>
+                <WorkspaceWindow />
+              </TiltCard>
             </Reveal>
           </div>
         </section>
@@ -444,8 +455,11 @@ export default function LandingPage() {
               ["Résumé parsing", "PDFs into structured profiles"],
               ["Semantic search", "Find people by meaning"],
             ].map(([title, body]) => (
-              <div key={title} className="px-4 py-7 first:pl-0 sm:px-6">
-                <p className="text-[12px] font-semibold text-on-surface">{title}</p>
+              <div
+                key={title}
+                className="group px-4 py-7 transition-transform duration-300 first:pl-0 hover:-translate-y-0.5 sm:px-6"
+              >
+                <p className="text-[12px] font-semibold text-on-surface transition-colors group-hover:text-primary">{title}</p>
                 <p className="mt-1 text-[11px] text-text-muted">{body}</p>
               </div>
             ))}
@@ -499,7 +513,7 @@ export default function LandingPage() {
                 },
               ].map((engine, index) => (
                 <Reveal key={engine.name} delay={index * 0.08}>
-                  <div className="flex h-full flex-col rounded-[22px] border border-primary/25 bg-bg-cream p-8 shadow-[0_20px_60px_-40px_rgba(13,148,136,0.5)]">
+                  <SpotlightCard className="flex h-full flex-col rounded-[22px] border border-primary/25 bg-bg-cream p-8 shadow-[0_20px_60px_-40px_rgba(13,148,136,0.5)] transition-transform duration-300 hover:-translate-y-1">
                     <div className="flex items-center gap-3">
                       <span className="flex size-11 items-center justify-center rounded-xl bg-primary-container text-on-primary-container">
                         <span className="material-symbols-outlined text-[22px]">{engine.icon}</span>
@@ -531,7 +545,7 @@ export default function LandingPage() {
                         <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
                       </Link>
                     </div>
-                  </div>
+                  </SpotlightCard>
                 </Reveal>
               ))}
             </div>
@@ -553,7 +567,8 @@ export default function LandingPage() {
               </p>
             </Reveal>
 
-            <div className="mt-16 grid gap-px overflow-hidden rounded-[22px] border border-border-low-alpha bg-border-low-alpha sm:grid-cols-2 lg:grid-cols-5">
+            <div className="relative mt-16 grid gap-px overflow-hidden rounded-[22px] border border-border-low-alpha bg-border-low-alpha sm:grid-cols-2 lg:grid-cols-5">
+              <BorderBeam size={140} duration={14} />
               {PIPELINE.map((step, index) => (
                 <Reveal
                   key={step.number}
@@ -610,7 +625,10 @@ export default function LandingPage() {
                     ["Targeting rules", "The blueprint also defines who is not a fit, and that gate runs before any email is written."],
                     ["Grounded output", "The writer is instructed to never invent a claim, metric or testimonial that isn't in your blueprint."],
                   ].map(([title, body]) => (
-                    <div key={title} className="grid grid-cols-[20px_1fr] gap-3">
+                    <div
+                      key={title}
+                      className="-mx-3 grid grid-cols-[20px_1fr] gap-3 rounded-xl px-3 py-2 transition-colors duration-200 hover:bg-surface-container/60"
+                    >
                       <span className="material-symbols-outlined mt-0.5 text-[17px] text-primary">check_circle</span>
                       <div>
                         <p className="text-[14px] font-semibold text-on-surface">{title}</p>
@@ -622,7 +640,9 @@ export default function LandingPage() {
               </Reveal>
 
               <Reveal delay={0.08}>
-                <BlueprintWindow />
+                <TiltCard>
+                  <BlueprintWindow />
+                </TiltCard>
               </Reveal>
             </div>
           </div>
@@ -633,7 +653,9 @@ export default function LandingPage() {
           <div className="mx-auto max-w-[1240px]">
             <div className="grid items-center gap-14 lg:grid-cols-2 lg:gap-24">
               <Reveal delay={0.08} className="lg:order-1">
-                <BulkFireWindow />
+                <TiltCard>
+                  <BulkFireWindow />
+                </TiltCard>
               </Reveal>
 
               <Reveal className="lg:order-2">
@@ -692,7 +714,9 @@ export default function LandingPage() {
               </Reveal>
 
               <Reveal delay={0.08}>
-                <ReplyWindow />
+                <TiltCard>
+                  <ReplyWindow />
+                </TiltCard>
               </Reveal>
             </div>
           </div>
@@ -716,10 +740,12 @@ export default function LandingPage() {
 
             <div className="mt-14 grid gap-px overflow-hidden rounded-[22px] border border-border-low-alpha bg-border-low-alpha sm:grid-cols-2 lg:grid-cols-4">
               {DELIVERABILITY.map((item, index) => (
-                <Reveal key={item.title} delay={index * 0.05} className="h-full bg-surface-white p-7">
-                  <span className="material-symbols-outlined text-[21px] text-primary">{item.icon}</span>
-                  <h3 className="mt-5 text-[14px] font-semibold text-on-surface">{item.title}</h3>
-                  <p className="mt-2 text-[12px] leading-5 text-text-muted">{item.body}</p>
+                <Reveal key={item.title} delay={index * 0.05} className="h-full">
+                  <SpotlightCard className="h-full bg-surface-white p-7 transition-transform duration-300 hover:z-10 hover:-translate-y-0.5">
+                    <span className="material-symbols-outlined text-[21px] text-primary">{item.icon}</span>
+                    <h3 className="mt-5 text-[14px] font-semibold text-on-surface">{item.title}</h3>
+                    <p className="mt-2 text-[12px] leading-5 text-text-muted">{item.body}</p>
+                  </SpotlightCard>
                 </Reveal>
               ))}
             </div>
@@ -747,7 +773,10 @@ export default function LandingPage() {
                     ["Shortlists", "Group the people worth moving forward and keep your team aligned."],
                     ["Bulk ingestion", "Stand up a whole database in minutes by dropping in your existing files."],
                   ].map(([title, body]) => (
-                    <div key={title} className="grid grid-cols-[20px_1fr] gap-3">
+                    <div
+                      key={title}
+                      className="-mx-3 grid grid-cols-[20px_1fr] gap-3 rounded-xl px-3 py-2 transition-colors duration-200 hover:bg-surface-container/60"
+                    >
                       <span className="material-symbols-outlined mt-0.5 text-[17px] text-primary">check_circle</span>
                       <div>
                         <p className="text-[14px] font-semibold text-on-surface">{title}</p>
@@ -759,7 +788,9 @@ export default function LandingPage() {
               </Reveal>
 
               <Reveal delay={0.08}>
-                <TalentWindow />
+                <TiltCard>
+                  <TalentWindow />
+                </TiltCard>
               </Reveal>
             </div>
           </div>
@@ -777,11 +808,15 @@ export default function LandingPage() {
               </div>
               <div className="grid gap-px overflow-hidden rounded-2xl border border-white/15 bg-white/15 dark:border-outline-variant dark:bg-border-low-alpha sm:grid-cols-2">
                 {TRUST_POINTS.map((point) => (
-                  <div key={point.title} className="bg-primary-container p-7 dark:bg-surface-container-low">
+                  <SpotlightCard
+                    key={point.title}
+                    spotlightColor="var(--color-primary-fixed)"
+                    className="bg-primary-container p-7 transition-transform duration-300 hover:z-10 hover:-translate-y-0.5 dark:bg-surface-container-low"
+                  >
                     <span className="material-symbols-outlined text-[21px] text-primary-fixed dark:text-primary">{point.icon}</span>
                     <h3 className="mt-5 text-[14px] font-semibold text-on-primary-container dark:text-on-surface">{point.title}</h3>
                     <p className="mt-2 text-[12px] leading-5 text-primary-fixed-dim dark:text-text-muted">{point.body}</p>
-                  </div>
+                  </SpotlightCard>
                 ))}
               </div>
             </Reveal>
@@ -810,7 +845,7 @@ export default function LandingPage() {
                 return (
                   <div
                     key={plan.id}
-                    className={`relative p-7 sm:p-8 ${
+                    className={`relative overflow-hidden p-7 sm:p-8 ${
                       index < PLAN_ORDER.length - 1 ? "border-b border-border-low-alpha lg:border-b-0 lg:border-r" : ""
                     } ${
                       plan.recommended
@@ -818,6 +853,9 @@ export default function LandingPage() {
                         : "bg-surface-white"
                     }`}
                   >
+                    {plan.recommended && (
+                      <BorderBeam size={100} duration={12} colorFrom="var(--color-primary-fixed)" colorTo="var(--color-primary-container)" />
+                    )}
                     {plan.recommended && (
                       <span className="absolute right-6 top-6 text-[10px] font-semibold uppercase tracking-[0.13em] text-primary-fixed dark:text-primary">
                         Recommended
@@ -876,7 +914,8 @@ export default function LandingPage() {
 
         {/* ---- Closing CTA ---- */}
         <section className="bg-surface-white px-6 py-20 lg:px-8 lg:py-24">
-          <Reveal className="mx-auto flex max-w-[1240px] flex-col items-start justify-between gap-9 rounded-[24px] bg-primary-container px-7 py-12 text-on-primary-container shadow-[0_32px_80px_-44px_rgba(15,118,110,0.75)] dark:border dark:border-outline-variant dark:bg-surface-container-low dark:text-on-surface dark:shadow-[0_28px_70px_-42px_rgba(0,0,0,0.9)] sm:px-10 lg:flex-row lg:items-center lg:px-14 lg:py-14">
+          <Reveal className="relative mx-auto flex max-w-[1240px] flex-col items-start justify-between gap-9 overflow-hidden rounded-[24px] bg-primary-container px-7 py-12 text-on-primary-container shadow-[0_32px_80px_-44px_rgba(15,118,110,0.75)] dark:border dark:border-outline-variant dark:bg-surface-container-low dark:text-on-surface dark:shadow-[0_28px_70px_-42px_rgba(0,0,0,0.9)] sm:px-10 lg:flex-row lg:items-center lg:px-14 lg:py-14">
+            <BorderBeam size={120} duration={13} colorFrom="var(--color-primary-fixed)" colorTo="var(--color-primary-container)" />
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-primary-fixed dark:text-primary">Put both engines to work</p>
               <h2 className="mt-4 max-w-2xl text-[32px] font-semibold leading-[1.12] tracking-[-0.035em] sm:text-[40px]">

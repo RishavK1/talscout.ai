@@ -49,9 +49,10 @@ export function LandingNav() {
             <a
               key={l.label}
               href={l.href}
-              className="text-[13px] font-medium text-text-muted transition-colors duration-200 hover:text-on-surface"
+              className="group relative text-[13px] font-medium text-text-muted transition-colors duration-200 hover:text-on-surface"
             >
               {l.label}
+              <span className="absolute inset-x-0 -bottom-1 h-px origin-center scale-x-0 bg-primary transition-transform duration-300 ease-out group-hover:scale-x-100" />
             </a>
           ))}
         </nav>

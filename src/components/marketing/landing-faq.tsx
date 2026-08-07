@@ -19,7 +19,7 @@ export function LandingFaq() {
             <button
               type="button"
               onClick={() => setOpen(isOpen ? null : i)}
-              className="flex w-full items-center justify-between gap-4 py-5 text-left"
+              className="-mx-3 flex w-full items-center justify-between gap-4 rounded-lg px-3 py-5 text-left transition-colors duration-200 hover:bg-surface-container/60"
             >
               <span className="text-[15px] font-semibold text-on-surface">
                 {faq.q}
