@@ -109,9 +109,16 @@ export default async function RootLayout({
             __html: `(function(){try{var t=localStorage.getItem("talscout-theme");var d=t==="dark"||(!t&&matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.classList.toggle("dark",d);document.documentElement.style.colorScheme=d?"dark":"light"}catch(e){}})()`,
           }}
         />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        {/* `display=block` (not `swap`) — this is a ligature icon font, so a
+         *  "swap" fallback period doesn't show a blank glyph, it shows the
+         *  literal fallback text ("travel_explore", "arrow_forward"...)
+         *  overlapping the real UI until the font loads. `block` keeps that
+         *  window invisible instead. */}
         <link
           rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block"
         />
       </head>
       <body className="min-h-dvh bg-bg-cream text-on-surface">

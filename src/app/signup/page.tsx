@@ -3,9 +3,13 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
 import { supabase } from "@/lib/supabase";
 import { authCallbackUrl } from "@/lib/auth-redirect";
 import { toast } from "sonner";
+import { Reveal } from "@/components/motion/reveal";
+import { BorderBeam } from "@/components/ui/border-beam";
+import { SpotlightCard } from "@/components/ui/spotlight-card";
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -81,7 +85,8 @@ export default function SignUpPage() {
   if (emailSent) {
     return (
       <main className="flex min-h-screen w-full items-center justify-center bg-bg-cream p-4">
-        <div className="w-full max-w-[480px] rounded-xl border border-border-low-alpha bg-surface-white p-10 text-center shadow-[0_10px_40px_rgba(44,35,34,0.06)]">
+        <Reveal className="relative w-full max-w-[480px] overflow-hidden rounded-xl border border-border-low-alpha bg-surface-white p-10 text-center shadow-[0_10px_40px_rgba(44,35,34,0.06)]">
+          <BorderBeam size={90} duration={13} />
           <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-container/10">
             <span className="material-symbols-outlined text-[28px] text-primary">mark_email_unread</span>
           </div>
@@ -108,7 +113,7 @@ export default function SignUpPage() {
             </button>
             .
           </p>
-        </div>
+        </Reveal>
       </main>
     );
   }
@@ -118,8 +123,13 @@ export default function SignUpPage() {
     <main className="flex min-h-screen w-full overflow-hidden">
       {/* Left Panel (55%): Registration Flow */}
       <section className="w-full lg:flex-[0.55] bg-bg-cream flex items-center justify-center p-4 sm:p-6 relative overflow-y-auto">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 opacity-70 [background-image:linear-gradient(to_right,var(--color-border-low-alpha)_1px,transparent_1px),linear-gradient(to_bottom,var(--color-border-low-alpha)_1px,transparent_1px)] [background-size:64px_64px] [mask-image:radial-gradient(ellipse_at_center,black,transparent_72%)] dark:opacity-30"
+        />
         {/* Auth Card */}
-        <div className="w-full max-w-[480px] bg-surface-white rounded-xl p-10 shadow-[0_10px_40px_rgba(44,35,34,0.06)] border border-border-low-alpha">
+        <Reveal className="relative w-full max-w-[480px] overflow-hidden bg-surface-white rounded-xl p-10 shadow-[0_10px_40px_rgba(44,35,34,0.06)] border border-border-low-alpha">
+          <BorderBeam size={110} duration={15} />
           {/* Logo — same icon (travel_explore) and chip as the main site nav */}
           <Link href="/" className="flex items-center gap-2.5 mb-8">
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-container text-on-primary-container shadow-sm">
@@ -133,19 +143,21 @@ export default function SignUpPage() {
             <p className="font-body-md text-body-md text-on-surface-variant">Start finding talent in minutes.</p>
           </div>
           {/* Social Auth */}
-          <button
-            type="button"
-            onClick={handleGoogleSignUp}
-            className="w-full flex items-center justify-center gap-3 py-3 px-4 border border-outline-variant rounded-lg font-label-md text-label-md text-on-background hover:bg-surface-container-low transition-all duration-200"
-          >
-            <svg height="18" viewBox="0 0 18 18" width="18">
-              <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z" fill="#4285F4" />
-              <path d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853" />
-              <path d="M3.964 10.707c-.18-.54-.282-1.117-.282-1.707s.102-1.167.282-1.707V4.961H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.039l3.007-2.332z" fill="#FBBC05" />
-              <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.443 2.048.957 4.961l3.007 2.332C4.672 5.164 6.656 3.58 9 3.58z" fill="#EA4335" />
-            </svg>
-            Continue with Google
-          </button>
+          <SpotlightCard className="rounded-lg">
+            <button
+              type="button"
+              onClick={handleGoogleSignUp}
+              className="w-full flex items-center justify-center gap-3 py-3 px-4 border border-outline-variant rounded-lg font-label-md text-label-md text-on-background hover:bg-surface-container-low transition-all duration-200"
+            >
+              <svg height="18" viewBox="0 0 18 18" width="18">
+                <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z" fill="#4285F4" />
+                <path d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853" />
+                <path d="M3.964 10.707c-.18-.54-.282-1.117-.282-1.707s.102-1.167.282-1.707V4.961H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.039l3.007-2.332z" fill="#FBBC05" />
+                <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.443 2.048.957 4.961l3.007 2.332C4.672 5.164 6.656 3.58 9 3.58z" fill="#EA4335" />
+              </svg>
+              Continue with Google
+            </button>
+          </SpotlightCard>
           {/* Divider */}
           <div className="relative my-8">
             <div className="absolute inset-0 flex items-center">
@@ -222,7 +234,7 @@ export default function SignUpPage() {
               <Link className="underline" href="/terms">Terms</Link> and <Link className="underline" href="/privacy">Privacy Policy</Link>.
             </p>
           </div>
-        </div>
+        </Reveal>
       </section>
       {/* Right Panel (45%): Brand panel. Uses the SAME token pair as
        *  /login's brand panel (`bg-primary-container` + `text-on-primary-container`)
@@ -232,9 +244,20 @@ export default function SignUpPage() {
        *  didn't track the background in either mode. */}
       <section className="lg:flex-[0.45] bg-primary-container text-on-primary-container relative hidden lg:flex items-center justify-center px-16">
         {/* Decorative background pattern */}
-        <div className="absolute inset-0 opacity-10 pointer-events-none">
+        <motion.div
+          aria-hidden
+          className="absolute inset-0 pointer-events-none"
+          animate={{ opacity: [0.08, 0.14, 0.08] }}
+          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+        >
           <div className="w-full h-full" style={{ backgroundImage: "radial-gradient(circle at 2px 2px, currentColor 1px, transparent 0)", backgroundSize: "48px 48px" }}></div>
-        </div>
+        </motion.div>
+        <motion.div
+          aria-hidden
+          className="absolute top-0 right-0 w-80 h-80 bg-on-primary-container/10 rounded-full blur-[110px] -translate-y-1/3 translate-x-1/4"
+          animate={{ scale: [1, 1.15, 1], opacity: [0.7, 1, 0.7] }}
+          transition={{ duration: 11, repeat: Infinity, ease: "easeInOut" }}
+        />
         <div className="relative z-10 max-w-lg">
           {/* Value proposition */}
           <div className="space-y-8">

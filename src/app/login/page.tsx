@@ -3,10 +3,14 @@
 import Link from "next/link";
 import { useEffect, useRef, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { motion } from "framer-motion";
 import { supabase } from "@/lib/supabase";
 import { authCallbackUrl } from "@/lib/auth-redirect";
 import { toast } from "sonner";
 import { Modal } from "@/components/ui/modal";
+import { Reveal } from "@/components/motion/reveal";
+import { BorderBeam } from "@/components/ui/border-beam";
+import { SpotlightCard } from "@/components/ui/spotlight-card";
 
 function LoginPageContent() {
   const router = useRouter();
@@ -97,8 +101,13 @@ function LoginPageContent() {
   };
 
   return (
-    <div className="bg-bg-cream text-on-background min-h-screen flex items-center justify-center p-0 sm:p-6 lg:p-12 font-body-md text-body-md overflow-x-hidden">
-      <div className="max-w-[1440px] w-full h-full lg:h-[800px] flex flex-col lg:flex-row bg-surface-white rounded-none sm:rounded-2xl overflow-hidden shadow-warm">
+    <div className="relative bg-bg-cream text-on-background min-h-screen flex items-center justify-center p-0 sm:p-6 lg:p-12 font-body-md text-body-md overflow-x-hidden">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 opacity-70 [background-image:linear-gradient(to_right,var(--color-border-low-alpha)_1px,transparent_1px),linear-gradient(to_bottom,var(--color-border-low-alpha)_1px,transparent_1px)] [background-size:64px_64px] [mask-image:radial-gradient(ellipse_at_center,black,transparent_72%)] dark:opacity-30"
+      />
+      <Reveal className="relative max-w-[1440px] w-full h-full lg:h-[800px] flex flex-col lg:flex-row bg-surface-white rounded-none sm:rounded-2xl overflow-hidden shadow-warm">
+        <BorderBeam size={110} duration={15} />
         {/* Left Side: Login Form */}
         <div className="w-full lg:w-1/2 p-6 sm:p-12 lg:p-24 flex flex-col justify-center relative bg-surface-white z-10">
           <div className="max-w-md w-full mx-auto space-y-8">
@@ -115,19 +124,21 @@ function LoginPageContent() {
               <p className="font-body-md text-body-md text-on-surface-variant">Log in to continue transforming your recruitment process.</p>
             </div>
             {/* Google Auth */}
-            <button
-              type="button"
-              onClick={handleGoogleSignIn}
-              className="w-full flex items-center justify-center gap-3 py-3 px-4 border border-outline-variant rounded-lg font-label-md text-label-md text-on-surface hover:bg-surface-container-low transition-colors"
-            >
-              <svg height="18" viewBox="0 0 18 18" width="18" aria-hidden="true">
-                <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z" fill="#4285F4" />
-                <path d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853" />
-                <path d="M3.964 10.707c-.18-.54-.282-1.117-.282-1.707s.102-1.167.282-1.707V4.961H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.039l3.007-2.332z" fill="#FBBC05" />
-                <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.443 2.048.957 4.961l3.007 2.332C4.672 5.164 6.656 3.58 9 3.58z" fill="#EA4335" />
-              </svg>
-              Continue with Google
-            </button>
+            <SpotlightCard className="rounded-lg">
+              <button
+                type="button"
+                onClick={handleGoogleSignIn}
+                className="w-full flex items-center justify-center gap-3 py-3 px-4 border border-outline-variant rounded-lg font-label-md text-label-md text-on-surface hover:bg-surface-container-low transition-colors"
+              >
+                <svg height="18" viewBox="0 0 18 18" width="18" aria-hidden="true">
+                  <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z" fill="#4285F4" />
+                  <path d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853" />
+                  <path d="M3.964 10.707c-.18-.54-.282-1.117-.282-1.707s.102-1.167.282-1.707V4.961H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.039l3.007-2.332z" fill="#FBBC05" />
+                  <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.443 2.048.957 4.961l3.007 2.332C4.672 5.164 6.656 3.58 9 3.58z" fill="#EA4335" />
+                </svg>
+                Continue with Google
+              </button>
+            </SpotlightCard>
             {/* Divider */}
             <div className="relative flex items-center py-4">
               <div className="flex-grow border-t border-border-low-alpha"></div>
@@ -198,8 +209,18 @@ function LoginPageContent() {
           {/* Abstract Pattern Overlay */}
           <div className="absolute inset-0 bg-pattern opacity-20 z-0"></div>
           {/* Decorative Elements */}
-          <div className="absolute top-0 right-0 w-96 h-96 bg-on-primary-container/10 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/4 z-0"></div>
-          <div className="absolute bottom-0 left-0 w-80 h-80 bg-on-primary-container/[0.07] rounded-full blur-[120px] translate-y-1/3 -translate-x-1/4 z-0"></div>
+          <motion.div
+            aria-hidden
+            className="absolute top-0 right-0 w-96 h-96 bg-on-primary-container/10 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/4 z-0"
+            animate={{ scale: [1, 1.15, 1], opacity: [0.7, 1, 0.7] }}
+            transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
+          />
+          <motion.div
+            aria-hidden
+            className="absolute bottom-0 left-0 w-80 h-80 bg-on-primary-container/[0.07] rounded-full blur-[120px] translate-y-1/3 -translate-x-1/4 z-0"
+            animate={{ scale: [1, 1.2, 1], opacity: [0.6, 1, 0.6] }}
+            transition={{ duration: 12, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+          />
           {/* Content Area */}
           <div className="relative z-10 mt-auto mb-auto w-full max-w-lg">
             <h2 className="font-headline-lg text-headline-lg text-on-primary-container leading-tight mb-6">
@@ -210,7 +231,7 @@ function LoginPageContent() {
             </p>
           </div>
         </div>
-      </div>
+      </Reveal>
 
       {/* Forgot password */}
       <Modal

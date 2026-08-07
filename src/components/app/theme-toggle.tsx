@@ -19,8 +19,22 @@ export function ThemeToggle({ className }: { className?: string }) {
         className,
       )}
     >
-      <span className="material-symbols-outlined text-[19px]">
-        {isDark ? "light_mode" : "dark_mode"}
+      {/* Both glyphs always render; only `dark:` (a plain CSS selector on
+       *  the `<html>` class the blocking script in layout.tsx sets before
+       *  first paint) decides which is visible. `theme` from context isn't
+       *  known until after hydration, so branching this text on it caused a
+       *  real SSR/client mismatch — React would paint the server's guess,
+       *  then swap it for the client's real value a beat later, which read
+       *  as raw ligature text ("light_mode"/"dark_mode") flashing over the
+       *  UI on load. This version has nothing to swap: it's correct on the
+       *  very first paint, in both the light and dark case. */}
+      <span className="relative inline-flex size-[19px] items-center justify-center">
+        <span className="material-symbols-outlined absolute text-[19px] opacity-100 dark:opacity-0">
+          dark_mode
+        </span>
+        <span className="material-symbols-outlined absolute text-[19px] opacity-0 dark:opacity-100">
+          light_mode
+        </span>
       </span>
     </button>
   );
