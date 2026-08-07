@@ -220,7 +220,7 @@ export const users = pgTable(
       .references(() => tenants.id, { onDelete: "cascade" }),
     email: text("email").notNull(),
     role: userRole("role").notNull().default("recruiter"),
-    status: text("status").notNull().default("active"), // active | removed
+    status: text("status").notNull().default("active"), // active | invited | removed
     avatar: text("avatar"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },

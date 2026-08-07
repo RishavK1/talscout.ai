@@ -101,6 +101,41 @@ describe("PAY-06 / PAY-07: seat math", () => {
     });
     expect(retry.status).toBe(201); // seat freed
   });
+
+  it("re-inviting the SAME email that was previously removed revives it instead of 500ing", async () => {
+    // Regression: `users` has a UNIQUE(tenantId, email) index with no
+    // exception for removed rows. Before this fix, remove-then-re-invite of
+    // the exact same address (an entirely ordinary admin action — someone
+    // left and came back, or a typo'd invite got redone) threw a raw
+    // unique-violation 500 instead of reclaiming the freed seat.
+    const { tenant, token } = await makeUser("admin");
+    await seedSubscription(tenant.id, { status: "active", seats: 5 });
+    const first = await call(invitePOST, {
+      token,
+      body: { email: "returning@x.com", role: "viewer" },
+    });
+    expect(first.status).toBe(201);
+
+    await call(removeDELETE, {
+      method: "DELETE",
+      token,
+      routeCtx: params(first.json.data.id),
+    });
+
+    const reinvite = await call(invitePOST, {
+      token,
+      body: { email: "returning@x.com", role: "recruiter" },
+    });
+    expect(reinvite.status).toBe(201);
+    // Revived in place (same row id), not a duplicate — and the NEW role
+    // from this invite wins over whatever it was before removal.
+    expect(reinvite.json.data.id).toBe(first.json.data.id);
+    expect(reinvite.json.data.role).toBe("recruiter");
+    expect(reinvite.json.data.status).toBe("invited");
+
+    const list = await call(teamGET, { token });
+    expect(list.json.data).toHaveLength(2); // admin + the one revived row, no duplicate
+  });
 });
 
 describe("RBAC-03: last-admin lockout", () => {

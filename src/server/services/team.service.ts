@@ -30,10 +30,16 @@ export const teamService = {
       throw new Conflict("That email is already a member");
     }
 
-    const member = await userRepo.createMember(ctx, {
-      email: body.email,
-      role: body.role,
-    });
+    // A previously-removed member's email must be REVIVED, not re-inserted —
+    // `users` has a unique (tenantId, email) index with no exception for
+    // removed rows, so a bare insert here throws a raw 500 the moment an
+    // admin removes someone and later re-invites the same address (a
+    // completely ordinary action: they left and came back, or a typo'd
+    // invite got redone). See userRepo.reviveMember's doc comment.
+    const member = existing
+      ? await userRepo.reviveMember(ctx, existing.id, { role: body.role })
+      : await userRepo.createMember(ctx, { email: body.email, role: body.role });
+    if (!member) throw new Conflict("That email is already a member");
 
     // Actually tell the person they were invited. Until this existed the row
     // was created and nothing else happened — the UI claimed "they'll get an

@@ -93,30 +93,6 @@ export const userRepo = {
     return rows[0] ?? null;
   },
 
-  /** Count active members of a tenant (admin path — for seat checks). */
-  async countActiveByTenantAdmin(tenantId: string): Promise<number> {
-    const [row] = await adminDb()
-      .select({ n: count() })
-      .from(users)
-      .where(and(eq(users.tenantId, tenantId), eq(users.status, "active")));
-    return row?.n ?? 0;
-  },
-
-  /** Count admins in a tenant (admin path — last-admin lockout guard). */
-  async countAdminsAdmin(tenantId: string): Promise<number> {
-    const [row] = await adminDb()
-      .select({ n: count() })
-      .from(users)
-      .where(
-        and(
-          eq(users.tenantId, tenantId),
-          eq(users.role, "admin"),
-          eq(users.status, "active"),
-        ),
-      );
-    return row?.n ?? 0;
-  },
-
   /** Tenant-scoped list of members (RLS enforced via tx). */
   async listByTenant(ctx: TenantContext) {
     return ctx.tx
@@ -179,6 +155,26 @@ export const userRepo = {
         status: "invited",
         authUserId: null,
       })
+      .returning();
+    return row;
+  },
+
+  /** Re-invite a previously-removed member. `users` has a UNIQUE(tenantId,
+   *  email) index with no exception for removed rows, so a bare INSERT for
+   *  an email that was ever removed throws a raw unique-violation (a real
+   *  bug: remove a member to free their seat, then re-invite the same email
+   *  — e.g. they left and came back, or a typo'd invite got redone — and it
+   *  500s instead of working). Revives the row in place instead: back to
+   *  "invited" with the new role, authUserId reset to null so the standard
+   *  claim-on-signup flow (claimInviteAdmin) re-links it regardless of
+   *  whether this person still holds their old Supabase identity — same
+   *  "revive rather than duplicate" precedent as
+   *  outreach.repo.ts's sender-account reconnect path. */
+  async reviveMember(ctx: TenantContext, id: string, input: { role: Role }) {
+    const [row] = await ctx.tx
+      .update(users)
+      .set({ role: input.role, status: "invited", authUserId: null })
+      .where(and(eq(users.id, id), eq(users.tenantId, ctx.tenantId)))
       .returning();
     return row;
   },
