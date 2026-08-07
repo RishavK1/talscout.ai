@@ -1,7 +1,21 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { motion } from "framer-motion";
 import { toast } from "sonner";
+import {
+  MailCheck,
+  Clock3,
+  CircleAlert,
+  Ban,
+  MailX,
+  Reply,
+  Send,
+  Sparkles,
+  TrendingUp,
+  PieChart,
+  type LucideIcon,
+} from "lucide-react";
 import { AppShell } from "@/components/app/app-shell";
 import { TopAppBar } from "@/components/app/top-app-bar";
 import { api } from "@/lib/api";
@@ -11,6 +25,11 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChartSkeleton, TableSkeleton } from "@/components/ui/skeletons";
+import { Reveal } from "@/components/motion/reveal";
+import { BorderBeam } from "@/components/ui/border-beam";
+import { SpotlightCard } from "@/components/ui/spotlight-card";
+import { NumberTicker } from "@/components/ui/number-ticker";
+import { easeOut } from "@/lib/motion";
 
 interface DailyPoint {
   day: string;
@@ -92,20 +111,20 @@ const STAT_TONES: Record<StatTone, string> = {
 // Kept local (rather than promoted to a shared component) since it carries
 // analytics-specific tone coloring per stat, unlike dashboard's plain stat tiles.
 function StatCard({
-  icon,
+  icon: Icon,
   label,
   value,
   loading,
   tone = "default",
 }: {
-  icon: string;
+  icon: LucideIcon;
   label: string;
   value: number;
   loading: boolean;
   tone?: StatTone;
 }) {
   return (
-    <Card className="h-full border border-border-low-alpha bg-surface-white">
+    <Card className="h-full border border-border-low-alpha bg-surface-white transition-transform duration-300 hover:-translate-y-0.5">
       <CardContent className="flex h-full flex-col justify-between gap-2">
         {loading ? (
           <>
@@ -119,12 +138,12 @@ function StatCard({
           <>
             <div className="flex min-w-0 items-center gap-2">
               <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md ${STAT_TONES[tone]}`}>
-                <span className="material-symbols-outlined text-[16px]">{icon}</span>
+                <Icon className="size-[16px]" strokeWidth={2.25} />
               </span>
               <p className="font-label-md text-label-md text-on-surface-variant truncate">{label}</p>
             </div>
             <p className="font-data-mono text-display-lg text-primary tracking-tight">
-              {value.toLocaleString()}
+              <NumberTicker value={value} />
             </p>
           </>
         )}
@@ -182,7 +201,7 @@ function TrendChart({ data, loading }: { data: DailyPoint[]; loading: boolean })
         <ChartSkeleton height={220} />
       ) : !hasData ? (
         <div className="flex h-[220px] flex-col items-center justify-center gap-2 text-center">
-          <span className="material-symbols-outlined text-[28px] text-on-surface-variant/40">show_chart</span>
+          <TrendingUp className="size-[28px] text-on-surface-variant/40" strokeWidth={1.75} />
           <p className="font-body-md text-body-md text-on-surface-variant">No sends in this window yet.</p>
         </div>
       ) : (
@@ -214,14 +233,23 @@ function TrendChart({ data, loading }: { data: DailyPoint[]; loading: boolean })
 
           {data.length > 0 && (
             <>
-              <path d={areaPath} fill="var(--color-primary)" opacity={0.08} />
-              <path
+              <motion.path
+                d={areaPath}
+                fill="var(--color-primary)"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 0.08 }}
+                transition={{ duration: 0.6, delay: 0.3 }}
+              />
+              <motion.path
                 d={linePath}
                 fill="none"
                 stroke="var(--color-primary)"
                 strokeWidth={2}
                 strokeLinecap="round"
                 strokeLinejoin="round"
+                initial={{ pathLength: 0 }}
+                animate={{ pathLength: 1 }}
+                transition={{ duration: 0.9, ease: easeOut }}
               />
             </>
           )}
@@ -237,13 +265,17 @@ function TrendChart({ data, loading }: { data: DailyPoint[]; loading: boolean })
                 strokeWidth={1}
                 strokeDasharray="3,3"
               />
-              <circle
+              <motion.circle
                 cx={hover.x}
                 cy={hover.y}
                 r={4}
                 fill="var(--color-primary)"
                 stroke="white"
                 strokeWidth={2}
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                style={{ transformOrigin: `${hover.x}px ${hover.y}px` }}
               />
             </>
           )}
@@ -330,7 +362,7 @@ function DonutChart({
   if (total === 0) {
     return (
       <div className="flex h-[220px] flex-col items-center justify-center gap-2 text-center">
-        <span className="material-symbols-outlined text-[28px] text-on-surface-variant/40">donut_large</span>
+        <PieChart className="size-[28px] text-on-surface-variant/40" strokeWidth={1.75} />
         <p className="font-body-md text-body-md text-on-surface-variant">No sends in this window yet.</p>
       </div>
     );
@@ -363,8 +395,8 @@ function DonutChart({
             strokeWidth={stroke}
             opacity={0.3}
           />
-          {arcs.map(({ seg, dash, offset }) => (
-            <circle
+          {arcs.map(({ seg, dash, offset }, index) => (
+            <motion.circle
               key={seg.label}
               cx={size / 2}
               cy={size / 2}
@@ -375,11 +407,16 @@ function DonutChart({
               strokeWidth={stroke}
               strokeDasharray={`${dash} ${circumference - dash}`}
               strokeDashoffset={-offset}
+              initial={{ pathLength: 0 }}
+              animate={{ pathLength: 1 }}
+              transition={{ duration: 0.6, ease: easeOut, delay: index * 0.1 }}
             />
           ))}
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="font-data-mono text-headline-md text-primary">{total.toLocaleString()}</span>
+          <span className="font-data-mono text-headline-md text-primary">
+            <NumberTicker value={total} />
+          </span>
           <span className="font-label-md text-[11px] text-on-surface-variant text-center px-2">
             {centerLabel}
           </span>
@@ -443,7 +480,7 @@ function BarList({
   const top = rows.slice(0, 6);
   return (
     <ul className="flex flex-col gap-3.5">
-      {top.map((row) => (
+      {top.map((row, index) => (
         <li key={row.label} className="flex items-center gap-3">
           <span
             className="w-24 shrink-0 truncate font-body-md text-[13px] text-on-surface-variant sm:w-32"
@@ -452,13 +489,15 @@ function BarList({
             {row.label}
           </span>
           <div className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-surface-container-high">
-            <div
+            <motion.div
               className="h-full rounded-full bg-primary-container"
-              style={{ width: `${(row.value / max) * 100}%` }}
+              initial={{ width: "0%" }}
+              animate={{ width: `${(row.value / max) * 100}%` }}
+              transition={{ duration: 0.6, ease: easeOut, delay: index * 0.05 }}
             />
           </div>
           <span className="w-10 shrink-0 text-right font-data-mono text-[12px] text-on-surface">
-            {row.value.toLocaleString()}
+            <NumberTicker value={row.value} delay={index * 0.05} />
           </span>
         </li>
       ))}
@@ -470,18 +509,18 @@ function BarList({
  *  Bulk Fire and Automated Outreach read as two symmetric, clearly divided
  *  zones instead of one ad hoc box. */
 function ChannelSectionHeader({
-  icon,
+  icon: Icon,
   label,
   description,
 }: {
-  icon: string;
+  icon: LucideIcon;
   label: string;
   description: string;
 }) {
   return (
     <div className="mb-6 flex items-start gap-3">
       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-container/10 text-primary">
-        <span className="material-symbols-outlined text-[18px]">{icon}</span>
+        <Icon className="size-[18px]" strokeWidth={2} />
       </div>
       <div className="min-w-0">
         <p className="font-label-md text-[12px] font-semibold uppercase tracking-wider text-on-surface-variant">
@@ -633,7 +672,9 @@ export default function AnalyticsPage() {
           }
         />
         <main className="flex-1 p-4 sm:p-6 lg:p-12 max-w-[1440px] mx-auto w-full">
-          <Card className="mb-8 border border-border-low-alpha bg-surface-white [--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
+          <Reveal>
+          <Card className="relative mb-8 border border-border-low-alpha bg-surface-white [--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
+            <BorderBeam size={90} duration={12} />
             <CardContent className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
               <div>
                 <div className="mb-2 flex flex-wrap items-center gap-3">
@@ -661,37 +702,46 @@ export default function AnalyticsPage() {
                     size="sm"
                     onClick={() => setDays(d)}
                     className={cn(
-                      "px-3",
+                      "relative px-3",
                       days === d
-                        ? "bg-surface-white text-primary shadow-sm font-semibold hover:bg-surface-white"
+                        ? "text-primary font-semibold hover:bg-transparent"
                         : "text-text-muted hover:bg-transparent hover:text-on-surface",
                     )}
                   >
-                    {d}d
+                    {days === d && (
+                      <motion.span
+                        layoutId="analytics-days-pill"
+                        className="absolute inset-0 rounded-md bg-surface-white shadow-sm"
+                        transition={{ type: "spring", stiffness: 500, damping: 35 }}
+                      />
+                    )}
+                    <span className="relative">{d}d</span>
                   </Button>
                 ))}
               </div>
             </CardContent>
           </Card>
+          </Reveal>
 
           {/* ---- Bulk Fire ---- */}
-          <div className="mb-10 rounded-xl border border-border-low-alpha p-4 sm:p-6 lg:p-8">
+          <Reveal delay={0.05} className="mb-10 rounded-xl border border-border-low-alpha p-4 sm:p-6 lg:p-8">
             <ChannelSectionHeader
-              icon="send"
+              icon={Send}
               label="Bulk Fire"
               description="Manually scheduled spintax campaigns sent from your connected inboxes."
             />
 
             <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-6 mb-8">
-              <StatCard icon="mark_email_read" label="Sent" value={totals?.sent ?? 0} loading={loading} tone="positive" />
-              <StatCard icon="schedule_send" label="Scheduled" value={totals?.scheduled ?? 0} loading={loading} />
-              <StatCard icon="error" label="Failed" value={totals?.failed ?? 0} loading={loading} tone="negative" />
-              <StatCard icon="block" label="Skipped" value={totals?.skipped ?? 0} loading={loading} tone="neutral" />
-              <StatCard icon="report" label="Bounced" value={totals?.bounced ?? 0} loading={loading} tone="negative" />
+              <StatCard icon={MailCheck} label="Sent" value={totals?.sent ?? 0} loading={loading} tone="positive" />
+              <StatCard icon={Clock3} label="Scheduled" value={totals?.scheduled ?? 0} loading={loading} />
+              <StatCard icon={CircleAlert} label="Failed" value={totals?.failed ?? 0} loading={loading} tone="negative" />
+              <StatCard icon={Ban} label="Skipped" value={totals?.skipped ?? 0} loading={loading} tone="neutral" />
+              <StatCard icon={MailX} label="Bounced" value={totals?.bounced ?? 0} loading={loading} tone="negative" />
             </section>
 
             <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-              <Card className="border border-border-low-alpha bg-surface-white lg:col-span-2">
+              <SpotlightCard className="rounded-2xl border border-border-low-alpha bg-surface-white lg:col-span-2">
+              <Card className="border-0 bg-transparent">
                 <CardHeader>
                   <CardTitle className="font-sans font-semibold text-headline-md text-primary">
                     Sent per day (last {days} days)
@@ -701,6 +751,7 @@ export default function AnalyticsPage() {
                   <TrendChart data={overview?.daily ?? []} loading={loading} />
                 </CardContent>
               </Card>
+              </SpotlightCard>
               <Card className="border border-border-low-alpha bg-surface-white">
                 <CardHeader>
                   <CardTitle className="font-sans font-semibold text-headline-md text-primary">
@@ -724,7 +775,8 @@ export default function AnalyticsPage() {
             </section>
 
             <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-              <Card className="border border-border-low-alpha bg-surface-white lg:col-span-2">
+              <SpotlightCard className="rounded-2xl border border-border-low-alpha bg-surface-white lg:col-span-2">
+              <Card className="border-0 bg-transparent">
                 <CardHeader>
                   <CardTitle className="font-sans font-semibold text-headline-md text-primary">
                     Top campaigns by volume
@@ -740,6 +792,7 @@ export default function AnalyticsPage() {
                   />
                 </CardContent>
               </Card>
+              </SpotlightCard>
               <Card className="border border-border-low-alpha bg-surface-white">
                 <CardHeader>
                   <CardTitle className="font-sans font-semibold text-headline-md text-primary">
@@ -808,53 +861,53 @@ export default function AnalyticsPage() {
                 )}
               </CardContent>
             </Card>
-          </div>
+          </Reveal>
 
           {/* ---- Automated Outreach ---- */}
-          <div className="rounded-xl border border-border-low-alpha p-4 sm:p-6 lg:p-8">
+          <Reveal delay={0.1} className="rounded-xl border border-border-low-alpha p-4 sm:p-6 lg:p-8">
             <ChannelSectionHeader
-              icon="auto_awesome"
+              icon={Sparkles}
               label="Automated Outreach"
               description="Blueprint-powered discovery + AI-written sends, separate from Bulk Fire."
             />
 
             <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 sm:gap-6 mb-8">
               <StatCard
-                icon="mark_email_read"
+                icon={MailCheck}
                 label="Sent"
                 value={auto?.totals.sent ?? 0}
                 loading={loading}
                 tone="positive"
               />
               <StatCard
-                icon="schedule_send"
+                icon={Clock3}
                 label="Scheduled"
                 value={auto?.totals.scheduled ?? 0}
                 loading={loading}
               />
               <StatCard
-                icon="error"
+                icon={CircleAlert}
                 label="Failed"
                 value={auto?.totals.failed ?? 0}
                 loading={loading}
                 tone="negative"
               />
               <StatCard
-                icon="block"
+                icon={Ban}
                 label="Skipped"
                 value={auto?.totals.skipped ?? 0}
                 loading={loading}
                 tone="neutral"
               />
               <StatCard
-                icon="mark_email_unread"
+                icon={Reply}
                 label="Replied"
                 value={auto?.totals.replied ?? 0}
                 loading={loading}
                 tone="positive"
               />
               <StatCard
-                icon="report"
+                icon={MailX}
                 label="Bounced"
                 value={auto?.totals.bounced ?? 0}
                 loading={loading}
@@ -863,7 +916,8 @@ export default function AnalyticsPage() {
             </section>
 
             <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-              <Card className="border border-border-low-alpha bg-surface-white lg:col-span-2">
+              <SpotlightCard className="rounded-2xl border border-border-low-alpha bg-surface-white lg:col-span-2">
+              <Card className="border-0 bg-transparent">
                 <CardHeader>
                   <CardTitle className="font-sans font-semibold text-headline-md text-primary">
                     Automated sent per day (last {days} days)
@@ -873,6 +927,7 @@ export default function AnalyticsPage() {
                   <TrendChart data={auto?.daily ?? []} loading={loading} />
                 </CardContent>
               </Card>
+              </SpotlightCard>
               <Card className="border border-border-low-alpha bg-surface-white">
                 <CardHeader>
                   <CardTitle className="font-sans font-semibold text-headline-md text-primary">
@@ -896,7 +951,8 @@ export default function AnalyticsPage() {
             </section>
 
             <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-              <Card className="border border-border-low-alpha bg-surface-white lg:col-span-2">
+              <SpotlightCard className="rounded-2xl border border-border-low-alpha bg-surface-white lg:col-span-2">
+              <Card className="border-0 bg-transparent">
                 <CardHeader>
                   <CardTitle className="font-sans font-semibold text-headline-md text-primary">
                     Top campaigns by volume
@@ -912,6 +968,7 @@ export default function AnalyticsPage() {
                   />
                 </CardContent>
               </Card>
+              </SpotlightCard>
               <Card className="border border-border-low-alpha bg-surface-white">
                 <CardHeader>
                   <CardTitle className="font-sans font-semibold text-headline-md text-primary">
@@ -932,7 +989,7 @@ export default function AnalyticsPage() {
                     <>
                       <div className="flex items-baseline gap-2">
                         <span className="font-data-mono text-display-lg text-primary tracking-tight">
-                          {replyRate}%
+                          <NumberTicker value={replyRate} suffix="%" />
                         </span>
                         <span className="font-body-md text-[13px] text-on-surface-variant">
                           of sent emails
@@ -977,7 +1034,7 @@ export default function AnalyticsPage() {
                 )}
               </CardContent>
             </Card>
-          </div>
+          </Reveal>
         </main>
       </div>
     </AppShell>
