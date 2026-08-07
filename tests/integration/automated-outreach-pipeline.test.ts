@@ -494,7 +494,7 @@ describe("runAutomatedCampaigns — lead qualification gate", () => {
 
   it("'no_or_weak_site' + website present → routes through the lead qualifier, both outcomes land the right status + reason", async () => {
     const { tenant, token } = await makeUser("recruiter");
-    await setPlan(tenant.id, "scale"); // two concurrently-active campaigns below
+    await setPlan(tenant.id, "scale"); // three concurrently-active campaigns below
     const blueprint = await seedQualifyingBlueprint(tenant.id, "no_or_weak_site", "Web Design Offer");
     const sender = await seedGmailSender(tenant.id);
     // MockLeadDiscovery embeds a %%POLISHED%% marker in every generated
@@ -508,11 +508,39 @@ describe("runAutomatedCampaigns — lead qualification gate", () => {
     expect(leads.every((l) => l.status === "disqualified")).toBe(true);
     expect(leads.every((l) => l.notes?.includes("polished"))).toBe(true);
 
-    // Same setup WITHOUT the polish marker — the qualifier should let it through.
+    // Same setup WITHOUT any marker — the qualifier now defaults to
+    // DISQUALIFIED (tightened after a real incident: 16/53 leads with
+    // perfectly good websites reached "ready" under a "no_or_weak_site"
+    // campaign). A website with no explicit weak/thin/broken signal is
+    // assumed good enough to disqualify, not the other way around.
     const campaignId2 = await createActiveCampaign(token, blueprint.id, sender.id, "dentist");
     const leads2 = await leadsForCampaign(campaignId2);
     expect(leads2).toHaveLength(5);
-    expect(leads2.every((l) => l.status === "queued")).toBe(true);
+    expect(leads2.every((l) => l.status === "disqualified")).toBe(true);
+
+    // The narrow exception: a website with an EXPLICIT weak/thin/broken
+    // signal still qualifies.
+    const campaignId3 = await createActiveCampaign(token, blueprint.id, sender.id, "dentist %%WEAKSITE%%");
+    const leads3 = await leadsForCampaign(campaignId3);
+    expect(leads3).toHaveLength(5);
+    expect(leads3.every((l) => l.status === "queued")).toBe(true);
+  });
+
+  it("'no_or_weak_site' + qualifier call fails → excludes the lead (fails CLOSED, not open)", async () => {
+    // Regression: this qualifier's failure path used to default to
+    // qualified=true ("a wasted email is cheaper than dropping a good
+    // lead"). Tightened after a real incident — for this specific narrow
+    // judgment, "only no-website businesses qualify" wins over that
+    // general fail-soft bias when the check can't even run.
+    const { tenant, token } = await makeUser("recruiter");
+    const blueprint = await seedQualifyingBlueprint(tenant.id, "no_or_weak_site", "Web Design Offer 2");
+    const sender = await seedGmailSender(tenant.id);
+    const campaignId = await createActiveCampaign(token, blueprint.id, sender.id, "dentist %%QUALIFIERTHROW%%");
+
+    const leads = await leadsForCampaign(campaignId);
+    expect(leads).toHaveLength(5);
+    expect(leads.every((l) => l.status === "disqualified")).toBe(true);
+    expect(leads.every((l) => l.notes?.includes("excluded"))).toBe(true);
   });
 });
 

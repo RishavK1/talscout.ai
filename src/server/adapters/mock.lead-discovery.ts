@@ -36,7 +36,13 @@ export class MockLeadDiscovery implements LeadDiscovery {
     }
     const noWebsite = query.category.includes("%%NOWEBSITE%%");
     const polished = query.category.includes("%%POLISHED%%");
+    const weakSite = query.category.includes("%%WEAKSITE%%");
     const osmEmail = query.category.includes("%%OSMEMAIL%%");
+    // Distinct from the top-level %%THROW%% (which simulates DISCOVERY
+    // itself failing) — this embeds a %%THROW%% marker into the generated
+    // WEBSITE only, which MockLeadQualifier reads to simulate the
+    // QUALIFIER call failing instead.
+    const qualifierThrow = query.category.includes("%%QUALIFIERTHROW%%");
     // Embedded in the generated website URL — read by MockSiteTextFetcher to
     // return real fixture text instead of "" (simulating a real business
     // whose site actually has content), so tests can exercise copy
@@ -61,7 +67,7 @@ export class MockLeadDiscovery implements LeadDiscovery {
         ...(noWebsite
           ? {}
           : {
-              website: `https://mock-business-${i + 1}${polished ? "-%%POLISHED%%" : ""}${siteText ? "-%%SITETEXT%%" : ""}.example.com`,
+              website: `https://mock-business-${i + 1}${polished ? "-%%POLISHED%%" : ""}${weakSite ? "-%%WEAKSITE%%" : ""}${siteText ? "-%%SITETEXT%%" : ""}${qualifierThrow ? "-%%THROW%%" : ""}.example.com`,
             }),
         // Only the first business in the page gets one — mirrors a real
         // area where an OSM email tag is the exception, not the norm.

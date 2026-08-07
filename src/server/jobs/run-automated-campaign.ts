@@ -294,8 +294,16 @@ async function qualifyLead(
       },
     });
   } catch (err) {
-    logger.warn({ err }, "automated_lead_qualification_failed_defaulting_to_qualified");
-    return { qualified: true, reason: "Qualification check failed — defaulting to include" };
+    // Fails CLOSED (unlike most of this pipeline's other fail-soft checks)
+    // deliberately: this qualifier is only ever consulted for the one case
+    // qualifyLeadCheaply can't resolve on its own — "no_or_weak_site" and
+    // this lead HAS a website. If we can't verify the site is genuinely
+    // weak, the strict reading of "only no-website businesses qualify"
+    // wins over "a wasted email is cheaper" — a real production complaint
+    // was leads with perfectly good websites reaching send under exactly
+    // this campaign setting.
+    logger.warn({ err }, "automated_lead_qualification_failed_defaulting_to_excluded");
+    return { qualified: false, reason: "Website quality check failed — excluded (has a website, target is no/weak-site businesses)" };
   }
 }
 
