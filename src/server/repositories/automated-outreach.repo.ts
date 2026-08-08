@@ -565,6 +565,18 @@ export const automatedSendRepo = {
       .returning();
   },
 
+  /** All-time count of actually-sent (not just scheduled) automated-outreach
+   *  emails for this tenant — used by the AI Agent's workspace-stats tool,
+   *  which needed a total that didn't exist anywhere yet (every prior
+   *  counter here is scoped to "today" for daily-cap enforcement). */
+  async countSentTotal(ctx: TenantContext): Promise<number> {
+    const [row] = await ctx.tx
+      .select({ count: sql<number>`count(*)::int` })
+      .from(automatedSends)
+      .where(and(eq(automatedSends.tenantId, ctx.tenantId), eq(automatedSends.status, "sent")));
+    return row?.count ?? 0;
+  },
+
   /** Mirrors outreachSendRepo.countSentTodayForTenant's exact predicate
    *  shape, against automated_sends — an independent counter from bulk-fire's
    *  cap, never shared. */

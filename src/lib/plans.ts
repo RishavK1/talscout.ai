@@ -18,7 +18,8 @@ export type Capability =
   | "blueprint_web_research" // live Perplexity web research when generating a blueprint
   | "outreach_bulk_fire" // bulk-fire outreach campaigns at all
   | "outreach_scheduler" // scheduling a fire for a future time
-  | "whatsapp_channel"; // WhatsApp Business as an outreach channel
+  | "whatsapp_channel" // WhatsApp Business as an outreach channel
+  | "ai_agent"; // AI Agent chat — conversational control of the app
 
 export const CAPABILITY_LABEL: Record<Capability, string> = {
   advanced_filters: "Advanced search filters",
@@ -32,6 +33,7 @@ export const CAPABILITY_LABEL: Record<Capability, string> = {
   outreach_bulk_fire: "Bulk-fire outreach",
   outreach_scheduler: "Scheduled outreach sends",
   whatsapp_channel: "WhatsApp outreach channel",
+  ai_agent: "AI Agent chat",
 };
 
 export interface Plan {
@@ -108,6 +110,7 @@ export const PLANS: Record<PlanId, Plan> = {
       "automated_outreach",
       "blueprint_web_research",
       "outreach_bulk_fire",
+      "ai_agent",
     ],
     features: [
       "Everything in Starter",
@@ -115,6 +118,7 @@ export const PLANS: Record<PlanId, Plan> = {
       "Automated Outreach (150 emails/day, 3 senders)",
       "5 blueprints with live web research",
       "Bulk Fire (100 emails/day) & ATS export",
+      "AI Agent chat",
       "Priority support",
     ],
   },
@@ -141,6 +145,7 @@ export const PLANS: Record<PlanId, Plan> = {
       "outreach_bulk_fire",
       "outreach_scheduler",
       "whatsapp_channel",
+      "ai_agent",
     ],
     features: [
       "Everything in Growth",
@@ -148,6 +153,7 @@ export const PLANS: Record<PlanId, Plan> = {
       "Automated Outreach (500 emails/day, 10 senders)",
       "Unlimited Bulk Fire sends & scheduling",
       "WhatsApp Business outreach channel",
+      "AI Agent chat with scheduled tasks",
       "Audit log",
       "API access & SSO (coming soon)",
     ],

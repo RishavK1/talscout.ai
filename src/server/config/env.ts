@@ -33,6 +33,12 @@ const EnvSchema = z
     /** ---- live-mode provider keys (validated lazily by adapters) ---- */
     ANTHROPIC_API_KEY: z.string().optional(),
     GEMINI_API_KEY: z.string().optional(),
+    /** Second Gemini key for the AI Agent's model chain only (see
+     *  agent/models.ts) — tried after GEMINI_API_KEY's quota is exhausted,
+     *  before falling through to OpenRouter. Not wired into the other
+     *  Gemini-backed adapters (extractor, reranker, blueprint, ...), which
+     *  all share GEMINI_API_KEY as today. */
+    GEMINI_API_KEY_FALLBACK: z.string().optional(),
     VOYAGE_API_KEY: z.string().optional(),
     STRIPE_SECRET_KEY: z.string().optional(),
     STRIPE_WEBHOOK_SECRET: z.string().optional(),
@@ -109,6 +115,20 @@ const EnvSchema = z
      *  from PERPLEXITY_API_KEY above so the two budgets never share a meter:
      *  that one stays reserved for the real-time web-research call. */
     PERPLEXITY_API_KEY_PRIMARY: z.string().optional(),
+
+    /** ---- Composio (new, opt-in — validated lazily by use). Powers both
+     *  the "Connected apps" integrations page and the AI Agent's tool
+     *  registry. Absent key -> MockConnectionProvider, same ternary pattern
+     *  as every other adapter in container.ts; nothing else in the app is
+     *  affected. See server/adapters/composio.connection-provider.ts. ---- */
+    COMPOSIO_API_KEY: z.string().optional(),
+
+    /** ---- AI Agent chat (new, opt-in). Gates the agent route/UI and its
+     *  model fallback chain — see server/agent/*. All optional so the app
+     *  boots and every existing feature keeps working with none of these
+     *  set; the nav item itself is also plan-gated (capability "ai_agent"),
+     *  independent of whether a key is configured. ---- */
+    AGENT_RATE_LIMIT_PER_HOUR: z.coerce.number().int().positive().default(20),
 
     /** ---- live-mode tuning (all optional, sensible defaults) ---- */
     ANTHROPIC_MODEL: z.string().default("claude-haiku-4-5"),

@@ -27,6 +27,7 @@ import {
   sendAutomatedEmail,
   type SendAutomatedEmailPayload,
 } from "@/server/jobs/send-automated-email";
+import { runDueAgentTasks, runAgentTaskNow } from "@/server/jobs/run-agent-task";
 import { getServices } from "@/server/container";
 import { withTenantTx } from "@/server/db/tx";
 import {
@@ -366,6 +367,43 @@ const pollOutreachRepliesFunction = inngest.createFunction(
   }
 );
 
+/**
+ * Cron-triggered sweep for scheduled/background AI Agent tasks (see the
+ * system design doc's Part B — "Scheduled / background agent tasks").
+ * Every 15 minutes is tight enough that "hourly" tasks stay reasonably
+ * close to on-time without hammering the DB with a due-task scan; the
+ * finer-grained per-task error isolation lives in run-agent-task.ts itself
+ * (one task erroring never blocks the rest of the sweep), same as
+ * runAutomatedCampaignsFunction above.
+ */
+const runDueAgentTasksFunction = inngest.createFunction(
+  {
+    id: "run-due-agent-tasks",
+    name: "AI Agent — Run Due Scheduled Tasks",
+    triggers: [{ cron: "*/15 * * * *" }],
+    concurrency: { limit: 1 },
+  },
+  async () => {
+    await runDueAgentTasks();
+  }
+);
+
+/** Event-triggered — the Tasks UI's "Run now" button enqueues this to run
+ *  one task immediately instead of waiting for the next 15-minute sweep.
+ *  `concurrency` keyed per-task so running one task manually can't overlap
+ *  a cron tick that happens to land on the same task at the same moment. */
+const runAgentTaskNowFunction = inngest.createFunction(
+  {
+    id: "run-agent-task-now",
+    name: "AI Agent — Run Task Now",
+    triggers: [{ event: "job/run-agent-task-now" }],
+    concurrency: { limit: 1, key: "event.data.taskId" },
+  },
+  async ({ event }: { event: { data: { taskId: string } } }) => {
+    await runAgentTaskNow(event.data.taskId);
+  }
+);
+
 export const { GET, POST, PUT } = serve({
   client: inngest,
   functions: [
@@ -380,5 +418,7 @@ export const { GET, POST, PUT } = serve({
     pollAutomatedRepliesFunction,
     sendAutomatedEmailFunction,
     pollOutreachRepliesFunction,
+    runDueAgentTasksFunction,
+    runAgentTaskNowFunction,
   ],
 });

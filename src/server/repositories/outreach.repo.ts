@@ -1093,6 +1093,18 @@ export const outreachSendRepo = {
     return new Map(rows.map((r) => [r.senderAccountId, r.count]));
   },
 
+  /** All-time count of actually-sent (not just scheduled) Bulk Fire emails
+   *  for this tenant — used by the AI Agent's workspace-stats tool, which
+   *  needed a total that didn't exist anywhere yet (every prior counter
+   *  here is scoped to "today" for daily-cap enforcement). */
+  async countSentTotal(ctx: TenantContext) {
+    const [row] = await ctx.tx
+      .select({ count: sql<number>`count(*)::int` })
+      .from(outreachSends)
+      .where(and(eq(outreachSends.tenantId, ctx.tenantId), eq(outreachSends.status, "sent")));
+    return row?.count ?? 0;
+  },
+
   /** How many sends the whole tenant already has today — enforces the plan's
    *  outreachDailySendCap. Same window as countSentTodayForSenders, just not
    *  scoped to a sender subset. */

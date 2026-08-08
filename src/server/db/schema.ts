@@ -197,6 +197,17 @@ export const automatedReplyIntent = pgEnum("automated_reply_intent", [
   "unclear",
 ]);
 
+export const toolkitConnectionStatus = pgEnum("toolkit_connection_status", [
+  "active",
+  "pending",
+  "expired",
+  "revoked",
+]);
+
+export const agentMessageRole = pgEnum("agent_message_role", ["user", "assistant", "system"]);
+
+export const agentTaskStatus = pgEnum("agent_task_status", ["active", "paused", "done", "error"]);
+
 export const tenants = pgTable("tenants", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
@@ -950,6 +961,166 @@ export const suppressedEmails = pgTable(
   ],
 );
 
+/**
+ * Composio-backed third-party app connections (Gmail via Composio, Google
+ * Calendar, Notion, ...) — see the system design doc's Part A. This table is
+ * a local, tenant-scoped cache/index for fast UI reads and audit, NOT the
+ * source of truth: Composio holds the actual OAuth tokens. Same "external
+ * system owns the secret, we store a pointer" posture as
+ * `subscriptions.stripeSubscriptionId` already has — no encrypted-secret
+ * column here, unlike `senderAccounts.gmailRefreshTokenEnc`.
+ */
+export const toolkitConnections = pgTable(
+  "toolkit_connections",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    /** e.g. "gmail", "googlecalendar", "notion" — Composio's toolkit slug. */
+    toolkitSlug: text("toolkit_slug").notNull(),
+    /** Composio's connected_account id — the pointer, not a secret. */
+    composioConnectionId: text("composio_connection_id").notNull(),
+    /** Display only, e.g. the connected Gmail address — never a credential. */
+    accountLabel: text("account_label"),
+    status: toolkitConnectionStatus("status").notNull().default("pending"),
+    createdBy: uuid("created_by"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("toolkit_connections_tenant_idx").on(t.tenantId),
+    uniqueIndex("toolkit_connections_tenant_composio_uq").on(t.tenantId, t.composioConnectionId),
+  ],
+);
+
+/**
+ * AI Agent chat — see the system design doc's Part B. `agentMessages.parts`
+ * stores the AI SDK v7 `UIMessage["parts"]` array as-is (text/tool-call/
+ * tool-result/tool-approval parts all live inline in that array in the
+ * current SDK — there is no separate "tool calls" column to keep in sync).
+ */
+export const agentConversations = pgTable(
+  "agent_conversations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").notNull(),
+    /** Auto-generated from the first exchange (see agent.service.ts),
+     *  editable later — same pattern as ChatGPT/Claude.ai conversation
+     *  titles. Starts as "New chat" before the first title generation. */
+    title: text("title").notNull().default("New chat"),
+    pinned: boolean("pinned").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    /** Soft-archive — same "never hard-delete a conversation history row"
+     *  posture as `senderAccounts.deletedAt` elsewhere in this schema. */
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+  },
+  (t) => [
+    index("agent_conversations_tenant_idx").on(t.tenantId),
+    index("agent_conversations_tenant_user_idx").on(t.tenantId, t.userId),
+  ],
+);
+
+export const agentMessages = pgTable(
+  "agent_messages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    conversationId: uuid("conversation_id")
+      .notNull()
+      .references(() => agentConversations.id, { onDelete: "cascade" }),
+    role: agentMessageRole("role").notNull(),
+    parts: jsonb("parts").notNull().default([]),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("agent_messages_conversation_idx").on(t.conversationId, t.createdAt),
+    index("agent_messages_tenant_idx").on(t.tenantId),
+  ],
+);
+
+/**
+ * A named, reusable procedure a user teaches the agent once and invokes by
+ * name in any future conversation — see the system design doc's Part C
+ * ("Skills"). Deliberately explicit/user-controlled rather than the
+ * implicit "learns silently over time" model some competing assistants
+ * use: `instructions` is plain text the user (or the agent, with the
+ * user's confirmation) writes, always inspectable and editable, never a
+ * black-box behavior drift. No embedding/vector column in this first pass
+ * — the tenant-scoped skill list is small enough that the agent just reads
+ * name+description directly (still progressive: full `instructions` only
+ * load when a skill is actually invoked, not on every turn); semantic
+ * auto-suggestion is a deferred enhancement, not required for the core
+ * "save once, reuse by name" value.
+ */
+export const agentSkills = pgTable(
+  "agent_skills",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    description: text("description").notNull(),
+    instructions: text("instructions").notNull(),
+    sourceConversationId: uuid("source_conversation_id").references(() => agentConversations.id, {
+      onDelete: "set null",
+    }),
+    createdBy: uuid("created_by"),
+    usageCount: integer("usage_count").notNull().default(0),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("agent_skills_tenant_idx").on(t.tenantId),
+    uniqueIndex("agent_skills_tenant_name_uq").on(t.tenantId, t.name),
+  ],
+);
+
+/**
+ * A scheduled or one-off instruction the agent runs unattended — see the
+ * system design doc's "Scheduled / background agent tasks". Execution
+ * mirrors run-automated-campaign.ts's cron-scan + event-trigger pair
+ * exactly (see jobs/run-agent-task.ts): one task's failure is caught and
+ * recorded on THAT row only, never allowed to abort the sweep over every
+ * other tenant's due tasks.
+ */
+export const agentTasks = pgTable(
+  "agent_tasks",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").notNull(),
+    conversationId: uuid("conversation_id")
+      .notNull()
+      .references(() => agentConversations.id, { onDelete: "cascade" }),
+    instruction: text("instruction").notNull(),
+    /** Cron expression — null means a one-off task (see runAt). */
+    schedule: text("schedule"),
+    runAt: timestamp("run_at", { withTimezone: true }),
+    status: agentTaskStatus("status").notNull().default("active"),
+    lastRunAt: timestamp("last_run_at", { withTimezone: true }),
+    nextRunAt: timestamp("next_run_at", { withTimezone: true }),
+    /** Set when status = 'error' — surfaced in the tasks UI so a silently
+     *  broken recurring task isn't invisible to the user. */
+    lastError: text("last_error"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("agent_tasks_tenant_idx").on(t.tenantId),
+    index("agent_tasks_next_run_idx").on(t.nextRunAt),
+  ],
+);
+
 export const schema = {
   tenants,
   users,
@@ -973,4 +1144,9 @@ export const schema = {
   automatedSends,
   automatedReplyDrafts,
   suppressedEmails,
+  toolkitConnections,
+  agentConversations,
+  agentMessages,
+  agentSkills,
+  agentTasks,
 };

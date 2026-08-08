@@ -64,6 +64,8 @@ import { OpenRouterLeadQualifier } from "@/server/adapters/openrouter.lead-quali
 import { MockReplyDrafter } from "@/server/adapters/mock.reply-drafter";
 import { GeminiReplyDrafter } from "@/server/adapters/gemini.reply-drafter";
 import { OpenRouterReplyDrafter } from "@/server/adapters/openrouter.reply-drafter";
+import { MockConnectionProvider } from "@/server/adapters/mock.connection-provider";
+import { ComposioConnectionProvider } from "@/server/adapters/composio.connection-provider";
 import {
   FallbackBlueprintResearcher,
   FallbackBlueprintGenerator,
@@ -124,6 +126,12 @@ import {
   SEND_AUTOMATED_EMAIL_JOB,
   type SendAutomatedEmailPayload,
 } from "@/server/jobs/send-automated-email";
+import {
+  runDueAgentTasks,
+  runAgentTaskNow,
+  RUN_DUE_AGENT_TASKS_JOB,
+  RUN_AGENT_TASK_NOW_JOB,
+} from "@/server/jobs/run-agent-task";
 
 let services: Services | null = null;
 
@@ -164,6 +172,7 @@ export function getServices(): Services {
       leadQualifier: new MockLeadQualifier(),
       outreachCopywriter: new MockOutreachCopywriter(),
       replyDrafter: new MockReplyDrafter(),
+      connectionProvider: new MockConnectionProvider(),
     };
     queue.register(PARSE_RESUME_JOB, (payload) =>
       parseResume(payload as ParseResumePayload, services as Services),
@@ -224,6 +233,12 @@ export function getServices(): Services {
         services as Services,
       );
     });
+    // No real cron under InProcessQueue/mock mode, same as the other cron
+    // jobs above — registered so a manual enqueue still resolves.
+    queue.register(RUN_DUE_AGENT_TASKS_JOB, () => runDueAgentTasks());
+    queue.register(RUN_AGENT_TASK_NOW_JOB, (payload) =>
+      runAgentTaskNow((payload as { taskId: string }).taskId),
+    );
   } else {
     // APP_MODE=live — real services.
     // In serverless production, use InngestQueue to prevent background job freezing.
@@ -420,6 +435,13 @@ export function getServices(): Services {
         ? new FallbackReplyDrafter(geminiReplyDrafter, openRouterReplyDrafter)
         : (geminiReplyDrafter ?? openRouterReplyDrafter ?? new MockReplyDrafter());
 
+    // Composio — Connected apps (Settings) + the AI Agent's tool registry.
+    // Missing key -> MockConnectionProvider, same "feature degrades to an
+    // in-memory mock, nothing else breaks" posture as every adapter above.
+    const connectionProvider = env.COMPOSIO_API_KEY
+      ? new ComposioConnectionProvider()
+      : new MockConnectionProvider();
+
     services = {
       storage: new SupabaseStorage(),
       extractor,
@@ -443,6 +465,7 @@ export function getServices(): Services {
       leadQualifier,
       outreachCopywriter,
       replyDrafter,
+      connectionProvider,
     };
 
     if (queue instanceof InProcessQueue) {
@@ -491,6 +514,10 @@ export function getServices(): Services {
           services as Services,
         );
       });
+      queue.register(RUN_DUE_AGENT_TASKS_JOB, () => runDueAgentTasks());
+      queue.register(RUN_AGENT_TASK_NOW_JOB, (payload) =>
+        runAgentTaskNow((payload as { taskId: string }).taskId),
+      );
     }
   }
 
