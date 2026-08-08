@@ -102,54 +102,69 @@ export function ConnectionsCard() {
           ) : (
             <div className="space-y-3">
               {toolkits.map((toolkit) => {
-                const conn = connections.find((c) => c.toolkitSlug === toolkit.slug);
+                // A toolkit can legitimately have MORE THAN ONE live
+                // connection (e.g. a personal + work Gmail) — Composio's
+                // own connect flow allows it (allowMultiple), and the AI
+                // Agent's chat-driven "connect" tool can independently add
+                // one too. Showing only the first match here used to make
+                // any additional connection invisible and unmanageable —
+                // still live and still usable by the AI Agent's tools,
+                // just with no way to see or disconnect it from this page.
+                // Every visible (non-revoked/expired) row for this toolkit
+                // now gets its own line.
+                const conns = connections.filter(
+                  (c) => c.toolkitSlug === toolkit.slug && c.status !== "revoked" && c.status !== "expired",
+                );
                 const Icon = TOOLKIT_ICON[toolkit.slug] ?? Blocks;
                 return (
                   <div
                     key={toolkit.slug}
-                    className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-border-low-alpha/50 bg-bg-cream/30 px-4 py-4"
+                    className="rounded-xl border border-border-low-alpha/50 bg-bg-cream/30 px-4 py-4"
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary-container/10 text-primary">
-                        <Icon className="size-[20px]" />
-                      </div>
-                      <div>
+                    <div className="flex flex-wrap items-center justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary-container/10 text-primary">
+                          <Icon className="size-[20px]" />
+                        </div>
                         <p className="font-label-md text-primary font-semibold">{toolkit.name}</p>
-                        {conn?.status === "active" && conn.accountLabel ? (
-                          <p className="text-[13px] text-on-surface-variant">{conn.accountLabel}</p>
-                        ) : conn?.status === "pending" ? (
-                          <p className="text-[13px] text-on-surface-variant">Finishing connection…</p>
-                        ) : null}
                       </div>
+                      <Button
+                        type="button"
+                        variant={conns.length === 0 ? "gradient" : "outline"}
+                        size="sm"
+                        loading={connectingSlug === toolkit.slug}
+                        onClick={() => handleConnect(toolkit.slug)}
+                      >
+                        {conns.length === 0 ? "Connect" : "Connect another"}
+                      </Button>
                     </div>
-                    <div className="flex items-center gap-3">
-                      {conn && conn.status !== "revoked" && conn.status !== "expired" ? (
-                        <>
-                          <StatusBadge tone={conn.status === "active" ? "active" : "invited"}>
-                            {conn.status === "active" ? "Connected" : "Pending"}
-                          </StatusBadge>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setDisconnectTarget(conn)}
-                          >
-                            <Unlink className="size-[14px]" />
-                            Disconnect
-                          </Button>
-                        </>
-                      ) : (
-                        <Button
-                          type="button"
-                          variant="gradient"
-                          size="sm"
-                          loading={connectingSlug === toolkit.slug}
-                          onClick={() => handleConnect(toolkit.slug)}
-                        >
-                          Connect
-                        </Button>
-                      )}
-                    </div>
+                    {conns.length > 0 && (
+                      <div className="mt-3 space-y-2 border-t border-border-low-alpha/40 pt-3">
+                        {conns.map((conn) => (
+                          <div key={conn.id} className="flex flex-wrap items-center justify-between gap-3 pl-[52px]">
+                            <p className="min-w-0 truncate text-[13px] text-on-surface-variant">
+                              {conn.status === "active"
+                                ? (conn.accountLabel ?? "Connected")
+                                : "Finishing connection…"}
+                            </p>
+                            <div className="flex shrink-0 items-center gap-2.5">
+                              <StatusBadge tone={conn.status === "active" ? "active" : "invited"}>
+                                {conn.status === "active" ? "Connected" : "Pending"}
+                              </StatusBadge>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setDisconnectTarget(conn)}
+                              >
+                                <Unlink className="size-[14px]" />
+                                Disconnect
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 );
               })}

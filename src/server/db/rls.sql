@@ -36,7 +36,8 @@ DECLARE
     'sender_accounts','outreach_campaigns','outreach_leads','outreach_sends',
     'whatsapp_templates','blueprints',
     'automated_campaigns','automated_leads','automated_sends','automated_reply_drafts',
-    'suppressed_emails','toolkit_connections','agent_conversations','agent_messages'
+    'suppressed_emails','toolkit_connections','agent_conversations','agent_messages',
+    'agent_skills','agent_tasks'
   ];
 BEGIN
   FOREACH t IN ARRAY scoped LOOP

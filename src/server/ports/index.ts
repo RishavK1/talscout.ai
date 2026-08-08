@@ -719,6 +719,17 @@ export interface ConnectionProvider {
    *  callback route to verify the real outcome server-side instead of
    *  trusting anything in the redirect's query string. */
   getConnection(tenantId: string, connectionId: string): Promise<ToolkitConnection | null>;
+  /** Best-effort, toolkit-specific real account label lookup (e.g. the
+   *  actual Gmail address) — separate from `accountLabel` on `getConnection`
+   *  because getting a reliable label often needs an extra live API call
+   *  (Composio's raw connection `state` for Gmail is just OAuth tokens, no
+   *  plain email field), which the callback flow can afford once per
+   *  successful connect but every other caller of getConnection/
+   *  listConnections should NOT pay on every read. Optional — a provider
+   *  (or a toolkit it doesn't specially support) can simply not implement
+   *  this and callers fall back to whatever getConnection already
+   *  returned (often null). Never throws; returns null on any failure. */
+  resolveAccountLabel?(tenantId: string, connectionId: string, toolkitSlug: string): Promise<string | null>;
   /** Toolkit slugs available to connect, e.g. from Composio's catalog — used
    *  both by the curated Settings list and the agent's ad-hoc "connect any
    *  app" tool (see the system design doc, Part B "Tool registry"). */

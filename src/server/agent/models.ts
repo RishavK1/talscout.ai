@@ -6,11 +6,19 @@ import { getEnv } from "@/server/config/env";
 export interface AgentModelCandidate {
   model: LanguageModel;
   label: string;
+  /** Whether this candidate can safely be given the FULL tool set
+   *  (in-house + Composio-published third-party schemas). False routes it
+   *  to run-turn.ts's `fallbackTools` (in-house only) instead — see that
+   *  file's doc comment for the live-verified reason: OpenRouter's strict
+   *  validator rejects Composio's real tool schemas outright, a failure
+   *  Gemini has never shown. */
+  fullToolsSafe: boolean;
 }
 
 /**
  * Fallback chain for the agent's reasoning/tool-calling loop: Gemini
- * (primary) -> OpenRouter free tier.
+ * (primary key) -> Gemini (secondary key, once the primary's free-tier
+ * daily quota is exhausted) -> OpenRouter free tier.
  *
  * You asked for Perplexity first, with "or manage accordingly, which you
  * should" — so here's the finding that changed the order. Live-tested all
@@ -42,11 +50,19 @@ export function getAgentModelChain(): AgentModelCandidate[] {
 
   if (env.GEMINI_API_KEY) {
     const google = createGoogle({ apiKey: env.GEMINI_API_KEY });
-    chain.push({ model: google(env.GEMINI_MODEL), label: "Gemini" });
+    chain.push({ model: google(env.GEMINI_MODEL), label: "Gemini", fullToolsSafe: true });
+  }
+  if (env.GEMINI_API_KEY_FALLBACK) {
+    // Same model, a second (separately quota'd) API key — covers the
+    // common daily-free-tier-exhausted case without dropping all the way
+    // to OpenRouter, which can't take the full tool set (see
+    // fullToolsSafe's doc comment).
+    const googleFallback = createGoogle({ apiKey: env.GEMINI_API_KEY_FALLBACK });
+    chain.push({ model: googleFallback(env.GEMINI_MODEL), label: "Gemini (fallback key)", fullToolsSafe: true });
   }
   if (env.OPENROUTER_API_KEY) {
     const openrouter = createOpenRouter({ apiKey: env.OPENROUTER_API_KEY });
-    chain.push({ model: openrouter("openai/gpt-oss-20b:free"), label: "OpenRouter" });
+    chain.push({ model: openrouter("openai/gpt-oss-20b:free"), label: "OpenRouter", fullToolsSafe: false });
   }
   return chain;
 }

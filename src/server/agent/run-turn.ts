@@ -38,6 +38,19 @@ export function runAgentTurn(args: {
   system: string;
   messages: UIMessage[];
   tools: ToolSet;
+  /** Used for any candidate whose `fullToolsSafe` is false, instead of
+   *  `tools` — falls back to `tools` if not given. Exists because
+   *  Composio-published tool schemas (real third-party app actions, not
+   *  ours) have been observed live to make OpenRouter's strict validator
+   *  reject the ENTIRE request ("auto tool schema uses unsupported
+   *  assertions or reserved metadata") — a different failure mode than the
+   *  tool-COUNT cap this file's fallback logic already handles, and not
+   *  something we can fix by rewriting a schema (it isn't ours). Gemini
+   *  (primary or secondary key — see models.ts) has shown no such issue,
+   *  so it gets the full tool set; an unsafe candidate gets the smaller,
+   *  all-our-own-schemas set instead of failing outright — degraded (no
+   *  connected-app tools) beats broken. */
+  fallbackTools?: ToolSet;
   /** The incoming HTTP request's AbortSignal — closing the tab or
    *  navigating away aborts the underlying model call (and, since tool
    *  execution runs inside the same call, stops any not-yet-started tool
@@ -57,11 +70,12 @@ export function runAgentTurn(args: {
       let lastError: unknown;
       for (const candidate of args.candidates) {
         if (args.signal?.aborted) return;
+        const toolsForCandidate = candidate.fullToolsSafe ? args.tools : (args.fallbackTools ?? args.tools);
         const reader = streamText({
           model: candidate.model,
           system: args.system,
           messages: modelMessages,
-          tools: args.tools,
+          tools: toolsForCandidate,
           stopWhen: stepCountIs(8),
           abortSignal: args.signal,
         })

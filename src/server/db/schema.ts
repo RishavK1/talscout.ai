@@ -206,6 +206,8 @@ export const toolkitConnectionStatus = pgEnum("toolkit_connection_status", [
 
 export const agentMessageRole = pgEnum("agent_message_role", ["user", "assistant", "system"]);
 
+export const agentTaskStatus = pgEnum("agent_task_status", ["active", "paused", "done", "error"]);
+
 export const tenants = pgTable("tenants", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
@@ -1043,6 +1045,82 @@ export const agentMessages = pgTable(
   ],
 );
 
+/**
+ * A named, reusable procedure a user teaches the agent once and invokes by
+ * name in any future conversation — see the system design doc's Part C
+ * ("Skills"). Deliberately explicit/user-controlled rather than the
+ * implicit "learns silently over time" model some competing assistants
+ * use: `instructions` is plain text the user (or the agent, with the
+ * user's confirmation) writes, always inspectable and editable, never a
+ * black-box behavior drift. No embedding/vector column in this first pass
+ * — the tenant-scoped skill list is small enough that the agent just reads
+ * name+description directly (still progressive: full `instructions` only
+ * load when a skill is actually invoked, not on every turn); semantic
+ * auto-suggestion is a deferred enhancement, not required for the core
+ * "save once, reuse by name" value.
+ */
+export const agentSkills = pgTable(
+  "agent_skills",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    description: text("description").notNull(),
+    instructions: text("instructions").notNull(),
+    sourceConversationId: uuid("source_conversation_id").references(() => agentConversations.id, {
+      onDelete: "set null",
+    }),
+    createdBy: uuid("created_by"),
+    usageCount: integer("usage_count").notNull().default(0),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("agent_skills_tenant_idx").on(t.tenantId),
+    uniqueIndex("agent_skills_tenant_name_uq").on(t.tenantId, t.name),
+  ],
+);
+
+/**
+ * A scheduled or one-off instruction the agent runs unattended — see the
+ * system design doc's "Scheduled / background agent tasks". Execution
+ * mirrors run-automated-campaign.ts's cron-scan + event-trigger pair
+ * exactly (see jobs/run-agent-task.ts): one task's failure is caught and
+ * recorded on THAT row only, never allowed to abort the sweep over every
+ * other tenant's due tasks.
+ */
+export const agentTasks = pgTable(
+  "agent_tasks",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").notNull(),
+    conversationId: uuid("conversation_id")
+      .notNull()
+      .references(() => agentConversations.id, { onDelete: "cascade" }),
+    instruction: text("instruction").notNull(),
+    /** Cron expression — null means a one-off task (see runAt). */
+    schedule: text("schedule"),
+    runAt: timestamp("run_at", { withTimezone: true }),
+    status: agentTaskStatus("status").notNull().default("active"),
+    lastRunAt: timestamp("last_run_at", { withTimezone: true }),
+    nextRunAt: timestamp("next_run_at", { withTimezone: true }),
+    /** Set when status = 'error' — surfaced in the tasks UI so a silently
+     *  broken recurring task isn't invisible to the user. */
+    lastError: text("last_error"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("agent_tasks_tenant_idx").on(t.tenantId),
+    index("agent_tasks_next_run_idx").on(t.nextRunAt),
+  ],
+);
+
 export const schema = {
   tenants,
   users,
@@ -1069,4 +1147,6 @@ export const schema = {
   toolkitConnections,
   agentConversations,
   agentMessages,
+  agentSkills,
+  agentTasks,
 };

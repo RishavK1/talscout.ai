@@ -3,9 +3,11 @@
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Loader2, CircleCheck, CircleX, Search, FileText, Wrench, ExternalLink, ChartLine, Globe, Sparkles, Mail, Rocket } from "lucide-react";
+import { motion } from "framer-motion";
+import { Loader2, CircleCheck, CircleX, Search, FileText, Wrench, ExternalLink, ChartLine, Globe, Sparkles, Mail, Rocket, Plug, Clock } from "lucide-react";
 import type { UIMessage } from "ai";
 import { cn } from "@/lib/utils";
+import { easeOut } from "@/lib/motion";
 
 /** Renders the model's Markdown output (bold, lists, tables, links — the
  *  model writes GFM-flavored Markdown naturally, e.g. "**pong**" or a
@@ -63,7 +65,27 @@ const TOOL_META: Record<string, { label: string; icon: React.ComponentType<{ cla
   research_campaign_market: { label: "Researching market", icon: Globe },
   create_campaign: { label: "Creating campaign", icon: FileText },
   activate_campaign: { label: "Activating campaign", icon: Rocket },
+  connect_app: { label: "Connecting app", icon: Plug },
+  save_skill: { label: "Saving skill", icon: Sparkles },
+  use_skill: { label: "Loading skill", icon: Sparkles },
+  schedule_task: { label: "Scheduling task", icon: Clock },
+  list_tasks: { label: "Checking scheduled tasks", icon: Clock },
+  cancel_task: { label: "Pausing task", icon: Clock },
 };
+
+/** connect_app's success shape — rendered as a real, prominent "Connect X"
+ *  button (not just a generic "Open" link) so authorizing a new app is one
+ *  click from inside the chat, matching the system design doc's "connect-
+ *  app card" — the same pattern Settings' own connect flow uses under the
+ *  hood (createConnectLink), just surfaced here instead of on a page. */
+function isConnectAppResult(v: unknown): v is { url: string; toolkitSlug: string } {
+  return (
+    !!v &&
+    typeof v === "object" &&
+    typeof (v as Record<string, unknown>).url === "string" &&
+    typeof (v as Record<string, unknown>).toolkitSlug === "string"
+  );
+}
 
 /** Renders a tool-call part as a small "doing X… / done" card instead of
  *  raw JSON — the default renderer any current or future tool gets for
@@ -94,12 +116,48 @@ function ToolPart({
   const result = isDone && typeof output === "object" && output !== null ? (output as Record<string, unknown>) : null;
   const resultUrl = result && typeof result.url === "string" ? result.url : null;
 
+  if (toolName === "connect_app" && isDone && isConnectAppResult(output)) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 4 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.2, ease: easeOut }}
+        className="flex items-center gap-3 rounded-xl border border-primary/20 bg-gradient-to-br from-primary-container/12 to-primary-container/4 px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
+      >
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary text-on-primary shadow-[0_1px_2px_rgba(15,23,42,0.16)]">
+          <Plug className="size-[16px]" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="font-label-md text-[13px] font-semibold text-primary">
+            Connect {output.toolkitSlug}
+          </p>
+          <p className="text-[12px] text-on-surface-variant">Opens in a new tab — come back and try again once connected.</p>
+        </div>
+        <a
+          href={output.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="shrink-0 rounded-lg bg-primary px-3.5 py-2 font-label-md text-[12.5px] font-semibold text-on-primary shadow-[0_1px_2px_rgba(15,23,42,0.16)] transition-all hover:brightness-110 active:brightness-95"
+        >
+          Connect
+        </a>
+      </motion.div>
+    );
+  }
+
   return (
-    <div className="flex items-center gap-2.5 rounded-xl border border-border-low-alpha/60 bg-surface-container-low px-3.5 py-2.5 text-[13px]">
+    <motion.div
+      initial={{ opacity: 0, y: 4 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.2, ease: easeOut }}
+      className="flex items-center gap-2.5 rounded-xl border border-border-low-alpha/60 bg-surface-container-low px-3.5 py-2.5 text-[13px] transition-colors"
+    >
       <span
         className={cn(
-          "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg",
-          isError ? "bg-error-container text-on-error-container" : "bg-primary-container/10 text-primary",
+          "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors",
+          isError
+            ? "bg-error-container text-on-error-container"
+            : "bg-gradient-to-br from-primary-container/25 to-primary-container/5 text-primary ring-1 ring-primary/10",
         )}
       >
         {isDone || isError ? (
@@ -123,7 +181,7 @@ function ToolPart({
           Open <ExternalLink className="size-[12px]" />
         </Link>
       )}
-    </div>
+    </motion.div>
   );
 }
 

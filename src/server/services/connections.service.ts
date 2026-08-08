@@ -7,8 +7,10 @@ import { BadRequest, NotFound } from "@/server/http/errors";
 /** Toolkit slugs must be short lowercase identifiers — guards against
  *  passing an arbitrary string straight through to Composio's API (and,
  *  since it ends up in a signed-but-still-attacker-influenced state token
- *  and a callback redirect, keeps that surface boring). */
-const TOOLKIT_SLUG_RE = /^[a-z0-9_-]{1,64}$/;
+ *  and a callback redirect, keeps that surface boring). Exported — the
+ *  agent's own connect_app tool (composio-tools.ts) reuses this exact
+ *  pattern rather than trusting whatever string the model produces. */
+export const TOOLKIT_SLUG_RE = /^[a-z0-9_-]{1,64}$/;
 
 export const connectionsService = {
   /** The short, curated list this app proactively surfaces as buttons in
@@ -75,15 +77,24 @@ export const connectionsService = {
         return { toolkitSlug: payload.toolkitSlug, connected: true };
       }
 
-      const live = await getServices().connectionProvider.getConnection(
-        payload.tenantId,
-        target.composioConnectionId,
-      );
+      const provider = getServices().connectionProvider;
+      const live = await provider.getConnection(payload.tenantId, target.composioConnectionId);
       if (!live) throw new NotFound("Connection not found");
+
+      // Best-effort enrichment, only when the provider's own state didn't
+      // already have a label and only once (right here, on the ONE
+      // callback that flips this connection active) — never blocks or
+      // fails the connection itself if this lookup errors.
+      const accountLabel =
+        live.accountLabel ??
+        (await provider.resolveAccountLabel?.(payload.tenantId, target.composioConnectionId, payload.toolkitSlug).catch(
+          () => null,
+        )) ??
+        null;
 
       await connectionRepo.updateStatus(tx, target.composioConnectionId, {
         status: live.status,
-        accountLabel: live.accountLabel,
+        accountLabel,
       });
       return { toolkitSlug: payload.toolkitSlug, connected: live.status === "active" };
     });

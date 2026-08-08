@@ -9,6 +9,10 @@ import { candidateRepo } from "@/server/repositories/candidate.repo";
 import { shortlistRepo } from "@/server/repositories/shortlist.repo";
 import { automatedSendRepo } from "@/server/repositories/automated-outreach.repo";
 import { outreachSendRepo } from "@/server/repositories/outreach.repo";
+import { agentSkillsService } from "@/server/services/agent-skills.service";
+import { agentSkillRepo } from "@/server/repositories/agent-skill.repo";
+import { agentTasksService } from "@/server/services/agent-tasks.service";
+import { agentTaskRepo } from "@/server/repositories/agent-task.repo";
 
 /** The exact category set the discovery backend has a real OpenStreetMap/
  *  Geoapify tag mapping for (see BUSINESS_CATEGORIES in the campaign
@@ -37,7 +41,7 @@ const CAMPAIGN_CATEGORIES = [
  * exactly the duration of that one call, per the pool-pressure guidance in
  * the same doc — the streamed turn itself never holds a transaction open.
  */
-export function buildInHouseTools(identity: { tenantId: string; userId: string }): ToolSet {
+export function buildInHouseTools(identity: { tenantId: string; userId: string; conversationId: string }): ToolSet {
   return {
     search_candidates: tool({
       description:
@@ -376,6 +380,117 @@ export function buildInHouseTools(identity: { tenantId: string; userId: string }
         // race a concurrent reader still seeing the pre-activation status.
         await afterCommit();
         return { id: result.id, name: result.name, status: result.status, url: `/automated-outreach/${result.id}` };
+      },
+    }),
+
+    save_skill: tool({
+      description:
+        "Saves a reusable 'skill' — a named procedure the user can invoke by name in ANY future conversation " +
+        "without re-explaining it, e.g. 'run my weekly follow-up skill'. Use this when the user asks to save, " +
+        "remember, or turn what you just did into a reusable skill. Before calling this, summarize back to the " +
+        "user the name, one-line description, and the instructions you're about to save, and get their " +
+        "confirmation or edits — never save silently without them seeing what's being saved. `instructions` " +
+        "should be a clear, complete, standalone procedure (written so a future conversation with NO other " +
+        "context could follow it) — include which tools to use and in what order, and use {placeholders} for " +
+        "whatever should vary each time it's run (e.g. 'search_candidates for {role} in {location}').",
+      inputSchema: z.object({
+        name: z.string().min(1).max(100),
+        description: z.string().min(1).max(500).describe("One line — this is what future-you sees when deciding whether to use it"),
+        instructions: z.string().min(1).max(8000),
+      }),
+      execute: async (input) => {
+        const row = await withTenantTx(identity, (ctx) =>
+          agentSkillsService.create(ctx, {
+            name: input.name,
+            description: input.description,
+            instructions: input.instructions,
+          }),
+        );
+        return { id: row.id, name: row.name, url: "/agent/skills" };
+      },
+    }),
+
+    use_skill: tool({
+      description:
+        "Loads the full instructions for one of this workspace's saved skills by exact name (see the 'Saved " +
+        "skills' list in your instructions for the names/descriptions already available — call this once " +
+        "you've identified which one applies) and follow them as the procedure for the rest of this turn, " +
+        "filling in any {placeholder} from what the user told you or asking for whatever's missing.",
+      inputSchema: z.object({ name: z.string().max(100) }),
+      execute: async (input) => {
+        const row = await withTenantTx(identity, (ctx) => agentSkillRepo.getByName(ctx, input.name));
+        if (!row) return { error: `No skill named "${input.name}" found.` };
+        await withTenantTx(identity, (ctx) => agentSkillRepo.recordUsage(ctx, row.id));
+        return { name: row.name, instructions: row.instructions };
+      },
+    }),
+
+    schedule_task: tool({
+      description:
+        "Schedules an instruction to run automatically in the background, either recurring (hourly/daily/" +
+        "weekly) or once at a specific future time — e.g. 'check for new replies every morning' or 'activate " +
+        "this campaign tomorrow at 9am'. The instruction runs with the same tools you have now, in a headless " +
+        "copy of THIS conversation, and its result gets posted back into this same chat so the user can review " +
+        "it later. Write `instruction` as a complete, standalone request — it will be read with no other " +
+        "context. Confirm the exact schedule/time and what it will do with the user before calling this. For a " +
+        "one-off `runAt`, the user's plain-language time (e.g. 'tomorrow at 9am') has no timezone on its own — " +
+        "if they haven't told you their timezone anywhere in this conversation, ask before converting to an " +
+        "ISO datetime, don't silently assume UTC (a 'daily' or 'hourly' schedule has no such ambiguity — it's " +
+        "always relative to whenever this is created, not a specific clock time).",
+      inputSchema: z.object({
+        instruction: z.string().min(1).max(4000),
+        schedule: z.enum(["hourly", "daily", "weekly"]).optional().describe("For a recurring task"),
+        runAt: z
+          .string()
+          .optional()
+          .describe("Full ISO datetime WITH timezone offset for a one-off task, e.g. '2026-08-10T09:00:00-05:00' or '...Z' for UTC"),
+      }),
+      execute: async (input) => {
+        if (!input.schedule && !input.runAt) {
+          return { error: "Provide either a recurring schedule or a specific one-off run time." };
+        }
+        const task = await withTenantTx(identity, (ctx) =>
+          agentTasksService.create(ctx, {
+            conversationId: identity.conversationId,
+            instruction: input.instruction,
+            schedule: input.schedule,
+            runAt: input.runAt,
+          }),
+        );
+        return {
+          id: task.id,
+          schedule: task.schedule,
+          nextRunAt: task.nextRunAt,
+          url: "/agent/tasks",
+        };
+      },
+    }),
+
+    list_tasks: tool({
+      description: "Lists this workspace's scheduled/background agent tasks and their status.",
+      inputSchema: z.object({}),
+      execute: async () => {
+        const tasks = await withTenantTx(identity, (ctx) => agentTaskRepo.list(ctx));
+        return {
+          tasks: tasks.slice(0, 50).map((t) => ({
+            id: t.id,
+            instruction: t.instruction,
+            schedule: t.schedule,
+            status: t.status,
+            nextRunAt: t.nextRunAt,
+            lastRunAt: t.lastRunAt,
+            lastError: t.lastError,
+          })),
+        };
+      },
+    }),
+
+    cancel_task: tool({
+      description: "Pauses (stops running) a scheduled task by its id — call list_tasks first if you need the id.",
+      inputSchema: z.object({ taskId: z.string() }),
+      execute: async (input) => {
+        const row = await withTenantTx(identity, (ctx) => agentTasksService.pause(ctx, input.taskId));
+        return { id: row.id, status: row.status };
       },
     }),
   };

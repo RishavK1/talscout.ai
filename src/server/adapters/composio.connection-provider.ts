@@ -136,6 +136,43 @@ export class ComposioConnectionProvider implements ConnectionProvider {
     }
   }
 
+  /** Verified live against a real connected Gmail account: Composio's raw
+   *  connection `state` only holds OAuth tokens (access_token, id_token,
+   *  ...), no plain email field, and the id_token's own claims didn't
+   *  include one either for this auth config — so extractAccountLabel's
+   *  static guess always comes back null for Gmail specifically. This
+   *  executes GMAIL_GET_PROFILE through Composio (which handles token
+   *  refresh itself, unlike reading the possibly-stale access_token out of
+   *  `state` and calling Google directly) to get the real address. Only
+   *  Gmail for now — the toolkits this app curates in Settings
+   *  (Calendar, Notion) haven't been checked for an equivalent profile
+   *  action, and getting this wrong should degrade to "no label shown",
+   *  never break the connection itself. */
+  async resolveAccountLabel(tenantId: string, connectionId: string, toolkitSlug: string): Promise<string | null> {
+    if (toolkitSlug !== "gmail") return null;
+    try {
+      const composio = getClient();
+      const result = await composio.tools.execute("GMAIL_GET_PROFILE", {
+        userId: tenantId,
+        connectedAccountId: connectionId,
+        arguments: {},
+        // GMAIL_GET_PROFILE is a read-only lookup we call once right after
+        // a connection completes — pinning to a specific toolkit version
+        // isn't worth tracking for that; see ComposioToolVersionRequiredError's
+        // own docs for why manual execute() otherwise refuses "latest".
+        dangerouslySkipVersionCheck: true,
+      } as Parameters<typeof composio.tools.execute>[1]);
+      const email = (result.data as Record<string, unknown> | undefined)?.emailAddress;
+      return typeof email === "string" ? email : null;
+    } catch (err) {
+      logger.warn(
+        { err: err instanceof Error ? err.message : String(err), connectionId },
+        "composio_resolve_gmail_account_label_failed",
+      );
+      return null;
+    }
+  }
+
   async listAvailableToolkits(): Promise<{ slug: string; name: string; logoUrl: string | null }[]> {
     const composio = getClient();
     // toolkits.get({}) — not .list(); it's an overloaded method (single slug

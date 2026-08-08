@@ -22,6 +22,7 @@ function AgentPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const activeId = searchParams.get("c");
+  const skillPrompt = searchParams.get("skill");
 
   const [conversations, setConversations] = useState<AgentConversation[] | null>(null);
   const [creating, setCreating] = useState(false);
@@ -101,7 +102,7 @@ function AgentPageContent() {
   if (!can("ai_agent")) {
     return (
       <main className="flex h-dvh flex-col items-center justify-center gap-4 bg-surface px-6 text-center">
-        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-container/10 text-primary">
+        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary-container/25 to-primary-container/5 text-primary ring-1 ring-primary/10">
           <Lock className="size-[26px]" />
         </div>
         <h1 className="font-headline-md text-[20px] font-semibold text-primary">
@@ -112,7 +113,7 @@ function AgentPageContent() {
         </p>
         <Link
           href="/billing"
-          className="mt-2 rounded-xl bg-primary px-5 py-2.5 font-label-md text-[13px] font-semibold text-on-primary"
+          className="mt-2 rounded-xl bg-primary px-5 py-2.5 font-label-md text-[13px] font-semibold text-on-primary shadow-[0_1px_2px_rgba(15,23,42,0.16)] transition-all hover:brightness-110 active:brightness-95"
         >
           View plans
         </Link>
@@ -156,10 +157,15 @@ function AgentPageContent() {
           <Menu className="size-[18px]" />
         </button>
         {activeId ? (
-          <ChatPane key={activeId} conversationId={activeId} onFirstMessageSent={loadConversations} />
+          <ChatPane
+            key={activeId}
+            conversationId={activeId}
+            onFirstMessageSent={loadConversations}
+            initialPrompt={skillPrompt ? `Use skill: "${skillPrompt}"` : undefined}
+          />
         ) : (
           <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-container/10 text-primary">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary-container/25 to-primary-container/5 text-primary ring-1 ring-primary/10">
               <Bot className="size-[26px]" />
             </div>
             <p className="font-body-md text-[14px] text-on-surface-variant">

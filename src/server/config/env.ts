@@ -33,6 +33,12 @@ const EnvSchema = z
     /** ---- live-mode provider keys (validated lazily by adapters) ---- */
     ANTHROPIC_API_KEY: z.string().optional(),
     GEMINI_API_KEY: z.string().optional(),
+    /** Second Gemini key for the AI Agent's model chain only (see
+     *  agent/models.ts) — tried after GEMINI_API_KEY's quota is exhausted,
+     *  before falling through to OpenRouter. Not wired into the other
+     *  Gemini-backed adapters (extractor, reranker, blueprint, ...), which
+     *  all share GEMINI_API_KEY as today. */
+    GEMINI_API_KEY_FALLBACK: z.string().optional(),
     VOYAGE_API_KEY: z.string().optional(),
     STRIPE_SECRET_KEY: z.string().optional(),
     STRIPE_WEBHOOK_SECRET: z.string().optional(),

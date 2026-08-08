@@ -74,6 +74,7 @@ export async function POST(req: Request, routeCtx?: { params?: Promise<Record<st
       id,
       parsed.data.messages as unknown as UIMessage[],
       req.signal,
+      new URL(req.url).origin,
     );
   } catch (err) {
     if (err instanceof AppError) {

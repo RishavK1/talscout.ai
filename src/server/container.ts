@@ -126,6 +126,12 @@ import {
   SEND_AUTOMATED_EMAIL_JOB,
   type SendAutomatedEmailPayload,
 } from "@/server/jobs/send-automated-email";
+import {
+  runDueAgentTasks,
+  runAgentTaskNow,
+  RUN_DUE_AGENT_TASKS_JOB,
+  RUN_AGENT_TASK_NOW_JOB,
+} from "@/server/jobs/run-agent-task";
 
 let services: Services | null = null;
 
@@ -227,6 +233,12 @@ export function getServices(): Services {
         services as Services,
       );
     });
+    // No real cron under InProcessQueue/mock mode, same as the other cron
+    // jobs above — registered so a manual enqueue still resolves.
+    queue.register(RUN_DUE_AGENT_TASKS_JOB, () => runDueAgentTasks());
+    queue.register(RUN_AGENT_TASK_NOW_JOB, (payload) =>
+      runAgentTaskNow((payload as { taskId: string }).taskId),
+    );
   } else {
     // APP_MODE=live — real services.
     // In serverless production, use InngestQueue to prevent background job freezing.
@@ -502,6 +514,10 @@ export function getServices(): Services {
           services as Services,
         );
       });
+      queue.register(RUN_DUE_AGENT_TASKS_JOB, () => runDueAgentTasks());
+      queue.register(RUN_AGENT_TASK_NOW_JOB, (payload) =>
+        runAgentTaskNow((payload as { taskId: string }).taskId),
+      );
     }
   }
 
