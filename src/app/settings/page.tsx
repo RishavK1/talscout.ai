@@ -31,8 +31,9 @@ import { CardBodySkeleton } from "@/components/ui/skeletons";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Reveal } from "@/components/motion/reveal";
 import { easeOut } from "@/lib/motion";
+import { ConnectionsCard } from "@/components/settings/connections-card";
 
-const TABS = ["General", "Security", "Data & privacy", "Developer"] as const;
+const TABS = ["General", "Security", "Connected apps", "Data & privacy", "Developer"] as const;
 type Tab = (typeof TABS)[number];
 
 const slug = (t: string) => t.toLowerCase().replace(/[^a-z]+/g, "-").replace(/^-|-$/g, "");
@@ -663,6 +664,26 @@ export default function SettingsPage() {
     if (found) setTab(() => found);
   }, []);
 
+  // Composio connect-app callback lands back here with ?connection=... —
+  // report the real, server-verified outcome (never assumed) and strip the
+  // params so a refresh doesn't re-toast.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const result = params.get("connection");
+    if (!result) return;
+    const toolkit = params.get("toolkit");
+    if (result === "connected") {
+      toast.success(toolkit ? `Connected ${toolkit}` : "App connected");
+    } else {
+      toast.error(params.get("message") || "Failed to connect app");
+    }
+    const url = new URL(window.location.href);
+    url.searchParams.delete("connection");
+    url.searchParams.delete("toolkit");
+    url.searchParams.delete("message");
+    window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+  }, []);
+
   const selectTab = (t: Tab) => {
     setTab(t);
     window.history.replaceState(null, "", `#${slug(t)}`);
@@ -679,7 +700,7 @@ export default function SettingsPage() {
             </div>
             <div className="flex flex-col lg:flex-row gap-8 lg:gap-12 items-start">
               <div className="w-full lg:w-56 lg:shrink-0 space-y-1">
-                {Array.from({ length: 4 }, (_, i) => (
+                {Array.from({ length: TABS.length }, (_, i) => (
                   <Skeleton key={i} className="h-10 w-full rounded-lg" />
                 ))}
               </div>
@@ -785,6 +806,9 @@ export default function SettingsPage() {
                   </TabsContent>
                   <TabsContent value="Security" className="mt-0">
                     <SecurityCard />
+                  </TabsContent>
+                  <TabsContent value="Connected apps" className="mt-0">
+                    <ConnectionsCard />
                   </TabsContent>
                   <TabsContent value="Data & privacy" className="mt-0">
                     <DataPanel profile={profile} signOut={signOut} />

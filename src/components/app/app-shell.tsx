@@ -23,6 +23,7 @@ import {
   PanelLeftOpen,
   Menu,
   Building2,
+  Bot,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -53,7 +54,16 @@ const SIDEBAR_COLLAPSE_KEY = "sidebar-collapsed";
 const SIDEBAR_WIDTH = "264px";
 const SIDEBAR_WIDTH_ICON = "72px";
 
-type Item = { href: string; icon: LucideIcon; label: string; capability?: string };
+type Item = {
+  href: string;
+  icon: LucideIcon;
+  label: string;
+  capability?: string;
+  /** Opens in a new browser tab instead of navigating this one — used for
+   *  the AI Agent, which is its own focused, full-screen chat surface
+   *  rather than a panel within the main app shell. */
+  newTab?: boolean;
+};
 
 const mainNav: Item[] = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
@@ -66,6 +76,7 @@ const mainNav: Item[] = [
   { href: "/blueprints", icon: FileText, label: "Blueprints" },
   { href: "/automated-outreach", icon: Sparkles, label: "Automated Outreach" },
   { href: "/automated-outreach/replies", icon: MessageSquare, label: "Reply Review" },
+  { href: "/agent", icon: Bot, label: "AI Agent", capability: "ai_agent", newTab: true },
 ];
 
 const footerNav: Item[] = [
@@ -117,7 +128,12 @@ function NavLink({
       tooltip={item.label}
       className="h-9 text-sidebar-foreground"
     >
-      <Link href={item.href} aria-label={collapsed ? item.label : undefined}>
+      <Link
+        href={item.href}
+        aria-label={collapsed ? item.label : undefined}
+        target={item.newTab ? "_blank" : undefined}
+        rel={item.newTab ? "noopener noreferrer" : undefined}
+      >
         <span
           className={cn(
             "flex size-7 shrink-0 items-center justify-center rounded-lg transition-colors",
@@ -243,7 +259,12 @@ function AppSidebar() {
           <SidebarMenu className="gap-0.5">
             {mainNav.map((item) => (
               <SidebarMenuItem key={item.href}>
-                <NavLink item={item} active={isActive(item.href)} collapsed={collapsed} />
+                <NavLink
+                  item={item}
+                  active={isActive(item.href)}
+                  collapsed={collapsed}
+                  locked={item.capability ? (authLoading ? false : !can(item.capability)) : false}
+                />
               </SidebarMenuItem>
             ))}
           </SidebarMenu>

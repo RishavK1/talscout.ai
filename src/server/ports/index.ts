@@ -689,6 +689,43 @@ export interface RateLimiter {
   limit(key: string, limitCount: number, windowSeconds: number): Promise<RateLimitResult>;
 }
 
+/** One third-party app connection (Gmail, Google Calendar, Notion, ...) held
+ *  via Composio — see server/adapters/composio.connection-provider.ts. This
+ *  is the tenant-facing view; the tenant's Composio `user_id` is always our
+ *  `tenantId`, so a connection can never leak across tenants. */
+export interface ToolkitConnection {
+  /** Local `toolkit_connections.id`, not Composio's connected-account id. */
+  id: string;
+  toolkitSlug: string;
+  status: "active" | "pending" | "expired" | "revoked";
+  /** Display label only (e.g. the connected Gmail address) — never a secret. */
+  accountLabel: string | null;
+  createdAt: string;
+}
+
+export interface ConnectionProvider {
+  /** Hosted-auth link for a toolkit — the browser is redirected here, and
+   *  Composio redirects back to `redirectUrl` once the user authorizes. */
+  createConnectLink(args: {
+    tenantId: string;
+    toolkitSlug: string;
+    /** Where Composio redirects the browser back to once the user
+     *  authorizes — typically our own callback route with a signed state
+     *  param already appended (see oauth-state.ts, reused as-is). */
+    callbackUrl: string;
+  }): Promise<{ url: string; connectionId: string }>;
+  listConnections(tenantId: string): Promise<ToolkitConnection[]>;
+  /** Re-fetch one connection's live status from the provider — used by the
+   *  callback route to verify the real outcome server-side instead of
+   *  trusting anything in the redirect's query string. */
+  getConnection(tenantId: string, connectionId: string): Promise<ToolkitConnection | null>;
+  /** Toolkit slugs available to connect, e.g. from Composio's catalog — used
+   *  both by the curated Settings list and the agent's ad-hoc "connect any
+   *  app" tool (see the system design doc, Part B "Tool registry"). */
+  listAvailableToolkits(): Promise<{ slug: string; name: string; logoUrl: string | null }[]>;
+  disconnect(tenantId: string, connectionId: string): Promise<void>;
+}
+
 export interface Services {
   storage: Storage;
   extractor: ResumeExtractor;
@@ -712,4 +749,5 @@ export interface Services {
   leadQualifier: LeadQualifier;
   outreachCopywriter: OutreachCopywriter;
   replyDrafter: ReplyDrafter;
+  connectionProvider: ConnectionProvider;
 }

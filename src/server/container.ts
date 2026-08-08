@@ -64,6 +64,8 @@ import { OpenRouterLeadQualifier } from "@/server/adapters/openrouter.lead-quali
 import { MockReplyDrafter } from "@/server/adapters/mock.reply-drafter";
 import { GeminiReplyDrafter } from "@/server/adapters/gemini.reply-drafter";
 import { OpenRouterReplyDrafter } from "@/server/adapters/openrouter.reply-drafter";
+import { MockConnectionProvider } from "@/server/adapters/mock.connection-provider";
+import { ComposioConnectionProvider } from "@/server/adapters/composio.connection-provider";
 import {
   FallbackBlueprintResearcher,
   FallbackBlueprintGenerator,
@@ -164,6 +166,7 @@ export function getServices(): Services {
       leadQualifier: new MockLeadQualifier(),
       outreachCopywriter: new MockOutreachCopywriter(),
       replyDrafter: new MockReplyDrafter(),
+      connectionProvider: new MockConnectionProvider(),
     };
     queue.register(PARSE_RESUME_JOB, (payload) =>
       parseResume(payload as ParseResumePayload, services as Services),
@@ -420,6 +423,13 @@ export function getServices(): Services {
         ? new FallbackReplyDrafter(geminiReplyDrafter, openRouterReplyDrafter)
         : (geminiReplyDrafter ?? openRouterReplyDrafter ?? new MockReplyDrafter());
 
+    // Composio — Connected apps (Settings) + the AI Agent's tool registry.
+    // Missing key -> MockConnectionProvider, same "feature degrades to an
+    // in-memory mock, nothing else breaks" posture as every adapter above.
+    const connectionProvider = env.COMPOSIO_API_KEY
+      ? new ComposioConnectionProvider()
+      : new MockConnectionProvider();
+
     services = {
       storage: new SupabaseStorage(),
       extractor,
@@ -443,6 +453,7 @@ export function getServices(): Services {
       leadQualifier,
       outreachCopywriter,
       replyDrafter,
+      connectionProvider,
     };
 
     if (queue instanceof InProcessQueue) {

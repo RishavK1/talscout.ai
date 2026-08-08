@@ -110,6 +110,20 @@ const EnvSchema = z
      *  that one stays reserved for the real-time web-research call. */
     PERPLEXITY_API_KEY_PRIMARY: z.string().optional(),
 
+    /** ---- Composio (new, opt-in — validated lazily by use). Powers both
+     *  the "Connected apps" integrations page and the AI Agent's tool
+     *  registry. Absent key -> MockConnectionProvider, same ternary pattern
+     *  as every other adapter in container.ts; nothing else in the app is
+     *  affected. See server/adapters/composio.connection-provider.ts. ---- */
+    COMPOSIO_API_KEY: z.string().optional(),
+
+    /** ---- AI Agent chat (new, opt-in). Gates the agent route/UI and its
+     *  model fallback chain — see server/agent/*. All optional so the app
+     *  boots and every existing feature keeps working with none of these
+     *  set; the nav item itself is also plan-gated (capability "ai_agent"),
+     *  independent of whether a key is configured. ---- */
+    AGENT_RATE_LIMIT_PER_HOUR: z.coerce.number().int().positive().default(20),
+
     /** ---- live-mode tuning (all optional, sensible defaults) ---- */
     ANTHROPIC_MODEL: z.string().default("claude-haiku-4-5"),
     ANTHROPIC_FALLBACK_MODEL: z.string().default("claude-sonnet-4-6"),
