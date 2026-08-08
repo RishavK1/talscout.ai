@@ -4,8 +4,24 @@ import { withTenantTx } from "@/server/db/tx";
 import { searchService } from "@/server/services/search.service";
 import { blueprintService } from "@/server/services/blueprint.service";
 import { automatedOutreachService } from "@/server/services/automated-outreach.service";
+import { outreachService } from "@/server/services/outreach.service";
 import { candidateRepo } from "@/server/repositories/candidate.repo";
 import { shortlistRepo } from "@/server/repositories/shortlist.repo";
+import { automatedSendRepo } from "@/server/repositories/automated-outreach.repo";
+import { outreachSendRepo } from "@/server/repositories/outreach.repo";
+
+/** The exact category set the discovery backend has a real OpenStreetMap/
+ *  Geoapify tag mapping for (see BUSINESS_CATEGORIES in the campaign
+ *  wizard's own discovery-options.ts — this is that same list, not a
+ *  guess). Free-typing anything outside this list has silently returned
+ *  ZERO leads in production before ("Education" isn't a literal OSM tag),
+ *  so the agent needs the same guardrail the wizard's own UI gives a human:
+ *  a real list to pick from, not open-ended free text. */
+const CAMPAIGN_CATEGORIES = [
+  "restaurant", "cafe", "bakery", "bar", "hotel", "dentist", "doctor", "clinic",
+  "pharmacy", "veterinary", "gym", "spa", "salon", "lawyer", "accountant",
+  "real estate", "plumber", "electrician", "auto repair", "education",
+] as const;
 
 /**
  * In-house tool registry — thin wrappers around EXISTING, already-tested
@@ -75,30 +91,59 @@ export function buildInHouseTools(identity: { tenantId: string; userId: string }
 
     get_workspace_stats: tool({
       description:
-        "Get workspace-wide numbers: total candidates (and how many are ready vs. still processing), total " +
-        "blueprints, automated-outreach campaigns (total and how many are currently active), and shortlists. " +
-        "Use this whenever the user asks 'how many...', for totals/counts, or a general overview of the workspace.",
+        "Get workspace-wide numbers covering EVERY outreach system in this app, not just one: candidates " +
+        "(total, ready vs. still processing), blueprints, Automated Outreach campaigns (total + active/paused/" +
+        "draft breakdown) AND separately Bulk Fire campaigns (a different, manual-template outreach system — " +
+        "total + running/paused/draft breakdown), emails actually sent by each system separately, PLUS a " +
+        "combined total emails sent across both systems, and shortlists. Use this whenever the user asks 'how " +
+        "many...', for totals/counts/emails-sent, or a general overview of the workspace — always report both " +
+        "systems, not just Automated Outreach, since this app has two independent outreach engines.",
       inputSchema: z.object({}),
       execute: async () => {
         return await withTenantTx(identity, async (ctx) => {
-          const [totalCandidates, readyCandidates, processingCandidates, blueprints, campaigns, shortlistCount] =
-            await Promise.all([
-              candidateRepo.count(ctx),
-              candidateRepo.count(ctx, { status: "ready" }),
-              candidateRepo.count(ctx, { status: "processing" }),
-              blueprintService.list(ctx),
-              automatedOutreachService.listCampaigns(ctx),
-              shortlistRepo.countByTenant(ctx),
-            ]);
+          const [
+            totalCandidates,
+            readyCandidates,
+            processingCandidates,
+            blueprints,
+            automatedCampaigns,
+            automatedEmailsSent,
+            bulkFireCampaigns,
+            bulkFireEmailsSent,
+            shortlistCount,
+          ] = await Promise.all([
+            candidateRepo.count(ctx),
+            candidateRepo.count(ctx, { status: "ready" }),
+            candidateRepo.count(ctx, { status: "processing" }),
+            blueprintService.list(ctx),
+            automatedOutreachService.listCampaigns(ctx),
+            automatedSendRepo.countSentTotal(ctx),
+            outreachService.listCampaigns(ctx),
+            outreachSendRepo.countSentTotal(ctx),
+            shortlistRepo.countByTenant(ctx),
+          ]);
           return {
             candidates: { total: totalCandidates, ready: readyCandidates, processing: processingCandidates },
             blueprints: { total: blueprints.length },
-            automatedCampaigns: {
-              total: campaigns.length,
-              active: campaigns.filter((c) => c.status === "active").length,
-              paused: campaigns.filter((c) => c.status === "paused").length,
-              draft: campaigns.filter((c) => c.status === "draft").length,
+            automatedOutreach: {
+              campaigns: {
+                total: automatedCampaigns.length,
+                active: automatedCampaigns.filter((c) => c.status === "active").length,
+                paused: automatedCampaigns.filter((c) => c.status === "paused").length,
+                draft: automatedCampaigns.filter((c) => c.status === "draft").length,
+              },
+              emailsSent: automatedEmailsSent,
             },
+            bulkFire: {
+              campaigns: {
+                total: bulkFireCampaigns.length,
+                running: bulkFireCampaigns.filter((c) => c.status === "running").length,
+                paused: bulkFireCampaigns.filter((c) => c.status === "paused").length,
+                draft: bulkFireCampaigns.filter((c) => c.status === "draft").length,
+              },
+              emailsSent: bulkFireEmailsSent,
+            },
+            totalEmailsSentAcrossAllSystems: automatedEmailsSent + bulkFireEmailsSent,
             shortlists: { total: shortlistCount },
           };
         });
@@ -122,9 +167,12 @@ export function buildInHouseTools(identity: { tenantId: string; userId: string }
 
     create_blueprint: tool({
       description:
-        "Create a new blueprint (ideal-customer-profile document) for this workspace. Use when the user asks " +
-        "to create, set up, or start a new blueprint. Ask the user for a name (and optionally a website URL) " +
-        "first if they haven't given one.",
+        "Create a new blueprint (ideal-customer-profile document — who this agency should pitch, NOT a " +
+        "candidate/hiring profile) for this workspace. Use when the user asks to create, set up, or start a new " +
+        "blueprint. Ask for a name first if they haven't given one; a website URL is optional but strongly " +
+        "recommended — if given, follow up with research_blueprint_website next (see that tool), the same " +
+        "auto-research the blueprint page's own 'Generate' button does, rather than asking the user to type out " +
+        "everything about their business by hand.",
       inputSchema: z.object({
         name: z.string().min(1).max(200),
         websiteUrl: z.string().max(2000).optional(),
@@ -134,6 +182,200 @@ export function buildInHouseTools(identity: { tenantId: string; userId: string }
           blueprintService.create(ctx, { name: input.name, websiteUrl: input.websiteUrl }),
         );
         return { id: row.id, name: row.name, status: row.status, url: `/blueprints/${row.id}` };
+      },
+    }),
+
+    research_blueprint_website: tool({
+      description:
+        "Step 2 of the blueprint wizard (same as clicking 'Generate' on the blueprint page): fetches the " +
+        "given website and returns AI-suggested answers for this blueprint — a set of questions, each with " +
+        "multiple-choice options (some allow more than one selection), plus a draft description of the " +
+        "business. Call this right after create_blueprint whenever a website URL is available, BEFORE asking " +
+        "the user anything else. Then show the user the suggested fields (question + options) and let them " +
+        "confirm or adjust — don't invent your own unrelated questions (like candidate skills or job titles; " +
+        "a blueprint describes the AGENCY'S OWN business/offer, not a hiring requirement). Once answers are " +
+        "confirmed, call generate_blueprint with them.",
+      inputSchema: z.object({
+        websiteUrl: z.string().max(2000),
+        name: z.string().max(200).describe("The blueprint's/business's name"),
+      }),
+      execute: async (input) => {
+        const suggestions = await withTenantTx(identity, (ctx) =>
+          blueprintService.suggestFromWebsite(ctx, { websiteUrl: input.websiteUrl, name: input.name }),
+        );
+        return {
+          businessName: suggestions.businessName ?? null,
+          draftContext: suggestions.draftContext ?? null,
+          questions: suggestions.fields.map((f) => ({
+            field: f.field,
+            question: f.question,
+            options: f.options,
+            allowMultipleAnswers: f.multi,
+          })),
+        };
+      },
+    }),
+
+    generate_blueprint: tool({
+      description:
+        "Step 3 of the blueprint wizard (final step): takes the user's confirmed answers to the questions from " +
+        "research_blueprint_website and generates the finished blueprint — business description, offer, target " +
+        "customer, differentiator, proof points, personas, objections, and rules — then saves it and marks the " +
+        "blueprint active. Each entry's `field` must be one of the exact `field` keys returned by " +
+        "research_blueprint_website, with `value` being the option(s) the user picked (for a multi-select " +
+        "question, join the chosen options with a comma into one string). If the user skipped " +
+        "research_blueprint_website and just described their business in plain language instead, pass a single " +
+        "entry like {field: \"about\", value: \"<what they told you>\"} — generation works from freeform " +
+        "answers too, it doesn't require the exact suggested field keys.",
+      inputSchema: z.object({
+        blueprintId: z.string(),
+        businessName: z.string().max(200).optional(),
+        websiteUrl: z.string().max(2000).optional(),
+        answers: z
+          .array(z.object({ field: z.string().max(100), value: z.string().max(2000) }))
+          .max(30)
+          .describe("Confirmed answers, one entry per question"),
+      }),
+      execute: async (input) => {
+        const row = await withTenantTx(identity, (ctx) =>
+          blueprintService.generate(ctx, input.blueprintId, {
+            businessName: input.businessName,
+            websiteUrl: input.websiteUrl,
+            answers: Object.fromEntries(input.answers.map((a) => [a.field, a.value])),
+          }),
+        );
+        return {
+          id: row.id,
+          name: row.name,
+          status: row.status,
+          url: `/blueprints/${row.id}`,
+          sections: row.sections,
+        };
+      },
+    }),
+
+    list_sender_accounts: tool({
+      description:
+        "List this workspace's connected sending mailboxes (Gmail/SMTP). An automated campaign must be sent " +
+        "from one of these — call this before create_campaign to get a valid senderAccountId, and only offer " +
+        "the user accounts where isActive is true.",
+      inputSchema: z.object({}),
+      execute: async () => {
+        const senders = await withTenantTx(identity, (ctx) => outreachService.listSenders(ctx));
+        return {
+          senders: senders
+            .filter((s) => s.isActive)
+            .map((s) => ({
+              id: s.id,
+              type: s.type,
+              label: s.label,
+              email: s.email,
+              supportsReplyPolling: s.type === "gmail" && s.gmailHasReadScope,
+            })),
+        };
+      },
+    }),
+
+    research_campaign_market: tool({
+      description:
+        "Optional campaign wizard 'Research' step: AI research on a target market (category + location) " +
+        "grounded in the chosen blueprint's own positioning, producing a short paragraph you can pass as " +
+        "`marketResearch` on create_campaign. Purely optional and can be skipped — tell the user that if they'd " +
+        "rather not wait for it.",
+      inputSchema: z.object({
+        blueprintId: z.string(),
+        category: z.enum(CAMPAIGN_CATEGORIES),
+        location: z.string().max(200).describe("A real place name, e.g. 'Austin, TX' or 'Mumbai, Maharashtra'"),
+      }),
+      execute: async (input) => {
+        const result = await withTenantTx(identity, (ctx) => automatedOutreachService.researchMarket(ctx, input));
+        return { research: result.research ?? "(no research available on this plan or for this market)" };
+      },
+    }),
+
+    create_campaign: tool({
+      description:
+        "Creates a new automated outreach campaign as a DRAFT — this does NOT start sending emails or " +
+        "searching for leads; a draft is completely inert until separately activated. Matches the app's own " +
+        "4-step wizard (Start / Research / Voice & signature / Review & launch) exactly — ask the user about " +
+        "EVERY field below before calling this, including the optional ones. An optional field having a " +
+        "default does not mean skip asking about it — in the real wizard it's still a visible box/toggle the " +
+        "user sees and can change, so treat it the same way in chat: name (required); blueprintId — must be an " +
+        "ACTIVE blueprint (call list_blueprints first; generate_blueprint it first if it's still a draft); " +
+        "senderAccountId (call list_sender_accounts first); category — MUST be one of the exact enum values, " +
+        "not a synonym or anything free-typed, or the campaign will silently find zero leads; location; " +
+        "signatureName (required); signatureTitle (ask — a role/title under the name in the email signature); " +
+        "signatureClosing (ask — mention the default 'Best regards' if they don't care); styleExamples (ask — " +
+        "1-2 example emails to match the writing style/tone of, optional and skippable but ask); " +
+        "maxLeadsPerRun (ask — how many leads to find per run, mention the default of 25); replyPollingEnabled " +
+        "(ask — auto-pause follow-ups when a lead replies; only possible if the chosen sender's " +
+        "supportsReplyPolling from list_sender_accounts is true); aiDiscoveryEnabled (ask — an extra AI-powered " +
+        "live-search source on top of the standard discovery, default on). After this succeeds, ALWAYS " +
+        "explicitly ask the user whether to activate the campaign now (activating starts real lead discovery " +
+        "and sending real emails) — NEVER call activate_campaign without them clearly saying yes to that " +
+        "specific question in their next message.",
+      inputSchema: z.object({
+        name: z.string().min(1).max(200),
+        blueprintId: z.string(),
+        senderAccountId: z.string(),
+        category: z.enum(CAMPAIGN_CATEGORIES),
+        location: z.string().max(200),
+        maxLeadsPerRun: z.number().int().min(1).max(100).optional().describe("Default 25"),
+        signatureName: z.string().min(1).max(200),
+        signatureTitle: z.string().max(200).optional(),
+        signatureClosing: z.string().max(100).optional().describe("Default 'Best regards'"),
+        marketResearch: z.string().max(4000).optional(),
+        replyPollingEnabled: z
+          .boolean()
+          .optional()
+          .describe("Only works with a Gmail sender that has read access — see list_sender_accounts"),
+        aiDiscoveryEnabled: z.boolean().optional(),
+      }),
+      execute: async (input) => {
+        const row = await withTenantTx(identity, (ctx) =>
+          automatedOutreachService.createCampaign(ctx, {
+            name: input.name,
+            blueprintId: input.blueprintId,
+            senderAccountId: input.senderAccountId,
+            discoveryQuery: { category: input.category, location: { text: input.location } },
+            maxLeadsPerRun: input.maxLeadsPerRun,
+            signatureName: input.signatureName,
+            signatureTitle: input.signatureTitle,
+            signatureClosing: input.signatureClosing,
+            marketResearch: input.marketResearch,
+            replyPollingEnabled: input.replyPollingEnabled,
+            aiDiscoveryEnabled: input.aiDiscoveryEnabled,
+          }),
+        );
+        return {
+          id: row.id,
+          name: row.name,
+          status: row.status,
+          url: `/automated-outreach/${row.id}`,
+        };
+      },
+    }),
+
+    activate_campaign: tool({
+      description:
+        "Activates a draft/paused campaign — this is the SENSITIVE, real-world-effect step: it immediately " +
+        "starts searching for real leads and will send real emails on the schedule that follows. Same effect as " +
+        "the campaign page's 'Activate' button. ONLY call this when the user has explicitly confirmed they want " +
+        "to activate THIS SPECIFIC campaign in their most recent message (e.g. after you asked and they said " +
+        "yes) — never as an automatic follow-up to create_campaign, never inferred, never 'to be helpful'.",
+      inputSchema: z.object({
+        campaignId: z.string(),
+      }),
+      execute: async (input) => {
+        const { result, afterCommit } = await withTenantTx(identity, (ctx) =>
+          automatedOutreachService.resumeCampaign(ctx, input.campaignId),
+        );
+        // Same "only after the activating transaction has actually
+        // committed" ordering the real /resume API route follows (see its
+        // own doc comment) — enqueuing the discovery job any earlier could
+        // race a concurrent reader still seeing the pre-activation status.
+        await afterCommit();
+        return { id: result.id, name: result.name, status: result.status, url: `/automated-outreach/${result.id}` };
       },
     }),
   };

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Loader2, CircleCheck, CircleX, Search, FileText, Wrench, ExternalLink, ChartLine } from "lucide-react";
+import { Loader2, CircleCheck, CircleX, Search, FileText, Wrench, ExternalLink, ChartLine, Globe, Sparkles, Mail, Rocket } from "lucide-react";
 import type { UIMessage } from "ai";
 import { cn } from "@/lib/utils";
 
@@ -57,6 +57,12 @@ const TOOL_META: Record<string, { label: string; icon: React.ComponentType<{ cla
   list_blueprints: { label: "Listing blueprints", icon: FileText },
   create_blueprint: { label: "Creating blueprint", icon: FileText },
   get_workspace_stats: { label: "Checking workspace numbers", icon: ChartLine },
+  research_blueprint_website: { label: "Researching website", icon: Globe },
+  generate_blueprint: { label: "Generating blueprint", icon: Sparkles },
+  list_sender_accounts: { label: "Checking connected senders", icon: Mail },
+  research_campaign_market: { label: "Researching market", icon: Globe },
+  create_campaign: { label: "Creating campaign", icon: FileText },
+  activate_campaign: { label: "Activating campaign", icon: Rocket },
 };
 
 /** Renders a tool-call part as a small "doing X… / done" card instead of
