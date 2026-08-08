@@ -10,6 +10,7 @@ const LINKS = [
   { label: "AI Outreach", href: "/#outreach" },
   { label: "Bulk Fire", href: "/#bulk-fire" },
   { label: "Talent", href: "/#talent" },
+  { label: "AI Agent", href: "/#agent" },
   { label: "Pricing", href: "/#pricing" },
   { label: "FAQ", href: "/#faq" },
 ];

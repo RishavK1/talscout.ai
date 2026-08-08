@@ -378,6 +378,86 @@ function TalentWindow() {
   );
 }
 
+/** AI Agent visual — a real transcript shape, not an invented one: a user
+ *  message, a tool card mid-action (matching the actual "Connect X" card the
+ *  live chat renders), a completed tool card, then a grounded text reply.
+ *  Kept honest to what the product actually shows rather than a generic
+ *  "AI is smart" mockup. */
+function AgentWindow() {
+  return (
+    <div className="overflow-hidden rounded-[22px] border border-border-low-alpha bg-surface-white shadow-[0_28px_70px_-42px_rgba(15,23,42,0.4)]">
+      <div className="flex h-11 items-center justify-between border-b border-border-low-alpha bg-surface-container-low/80 px-4">
+        <div className="flex items-center gap-1.5" aria-hidden>
+          <span className="size-2.5 rounded-full bg-outline-variant" />
+          <span className="size-2.5 rounded-full bg-outline-variant" />
+          <span className="size-2.5 rounded-full bg-outline-variant" />
+        </div>
+        <span className="font-data-mono text-[10px] uppercase tracking-[0.14em] text-outline">AI Agent</span>
+        <span className="size-5" />
+      </div>
+
+      <div className="space-y-3.5 p-5">
+        <div className="flex justify-end">
+          <div className="max-w-[85%] rounded-2xl bg-primary-fixed/50 px-4 py-2.5 dark:bg-primary-container/15">
+            <p className="text-[12px] leading-5 text-on-surface">
+              Find ICU nurses in Texas and connect my Gmail so I can reach out.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 rounded-xl border border-primary/20 bg-primary-fixed/30 px-3.5 py-3 dark:bg-primary-container/10">
+          <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-primary-container text-on-primary-container">
+            <span className="material-symbols-outlined text-[15px]">bolt</span>
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] font-semibold text-primary">Connect Gmail</p>
+            <p className="text-[10px] text-text-muted">Opens in a new tab — come back and try again</p>
+          </div>
+          <span className="shrink-0 rounded-lg bg-primary-container px-2.5 py-1.5 text-[10px] font-semibold text-on-primary-container">
+            Connect
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2.5 rounded-xl border border-border-low-alpha bg-bg-cream px-3.5 py-2.5">
+          <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-primary-container/60 text-on-primary-container">
+            <span className="material-symbols-outlined text-[13px]">check</span>
+          </span>
+          <p className="text-[11px] text-on-surface-variant">Searched candidates — 3 strong matches</p>
+        </div>
+
+        <div className="rounded-2xl bg-surface-container-low px-4 py-2.5">
+          <p className="text-[12px] leading-5 text-on-surface-variant">
+            Found 3 strong matches. Want me to draft outreach to them once Gmail&apos;s connected?
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const AGENT_POINTS = [
+  {
+    icon: "bolt",
+    title: "Takes real action",
+    body: "Searches candidates, builds blueprints, and launches campaigns — not just descriptions of what you could do yourself.",
+  },
+  {
+    icon: "hub",
+    title: "Connects your tools",
+    body: "Gmail, Calendar, Notion, and 1,000+ apps via Composio — connect once in chat, use everywhere after.",
+  },
+  {
+    icon: "verified_user",
+    title: "Waits for your yes",
+    body: "Sending, activating, or deleting anything always pauses for your explicit approval first — every time, no exceptions.",
+  },
+  {
+    icon: "auto_awesome",
+    title: "Learns your playbooks",
+    body: "Save any procedure as a reusable Skill, or schedule it to run on its own — hourly, daily, or weekly.",
+  },
+];
+
 export default function LandingPage() {
   const { user } = useAuth();
   const primaryHref = user ? "/dashboard" : "/signup";
@@ -400,6 +480,18 @@ export default function LandingPage() {
 
           <div className="relative mx-auto grid w-full max-w-[1240px] grid-cols-1 items-center gap-16 px-6 pb-20 pt-20 lg:grid-cols-[1.02fr_0.98fr] lg:px-8 lg:pb-28 lg:pt-24">
             <Reveal>
+              <Link
+                href="/#agent"
+                className="group mb-6 inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary-fixed/60 py-1.5 pl-3 pr-2.5 text-[12px] font-semibold text-primary-fixed-dim transition-colors hover:bg-primary-fixed dark:border-primary-container/30 dark:bg-primary-container/10 dark:text-primary dark:hover:bg-primary-container/20"
+              >
+                <span className="rounded-full bg-primary-container px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-on-primary-container">
+                  New
+                </span>
+                An AI Agent that runs both engines for you
+                <span className="material-symbols-outlined text-[14px] transition-transform group-hover:translate-x-0.5">
+                  arrow_forward
+                </span>
+              </Link>
               <p className="mb-6 text-[12px] font-semibold uppercase tracking-[0.16em] text-primary">
                 AI outreach &amp; talent intelligence
               </p>
@@ -790,6 +882,45 @@ export default function LandingPage() {
               <Reveal delay={0.08}>
                 <TiltCard>
                   <TalentWindow />
+                </TiltCard>
+              </Reveal>
+            </div>
+          </div>
+        </section>
+
+        {/* ---- AI Agent ---- */}
+        <section id="agent" className="scroll-mt-24 border-y border-border-low-alpha bg-bg-cream px-6 py-24 lg:px-8 lg:py-32">
+          <div className="mx-auto max-w-[1240px]">
+            <div className="grid items-center gap-14 lg:grid-cols-2 lg:gap-24">
+              <Reveal>
+                <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-primary">AI Agent</p>
+                <h2 className="mt-5 max-w-xl text-[36px] font-semibold leading-[1.1] tracking-[-0.035em] text-on-surface sm:text-[46px]">
+                  Just tell it what you need. It takes it from there.
+                </h2>
+                <p className="mt-6 max-w-xl text-[16px] leading-7 text-text-muted">
+                  One chat that runs both engines. Ask it to search candidates, build a blueprint, launch a
+                  campaign, or connect Gmail, Calendar and Notion — it calls the same real tools you&apos;d click
+                  through yourself, right from the conversation.
+                </p>
+                <div className="mt-8 space-y-5">
+                  {AGENT_POINTS.map((point) => (
+                    <div
+                      key={point.title}
+                      className="-mx-3 grid grid-cols-[20px_1fr] gap-3 rounded-xl px-3 py-2 transition-colors duration-200 hover:bg-surface-white/60"
+                    >
+                      <span className="material-symbols-outlined mt-0.5 text-[17px] text-primary">{point.icon}</span>
+                      <div>
+                        <p className="text-[14px] font-semibold text-on-surface">{point.title}</p>
+                        <p className="mt-1 text-[13px] leading-5 text-text-muted">{point.body}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Reveal>
+
+              <Reveal delay={0.08}>
+                <TiltCard>
+                  <AgentWindow />
                 </TiltCard>
               </Reveal>
             </div>
