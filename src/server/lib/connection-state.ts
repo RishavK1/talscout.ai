@@ -18,6 +18,21 @@ export interface ConnectStatePayload {
   tenantId: string;
   userId: string;
   toolkitSlug: string;
+  /** Where the callback route sends the browser back to once the OAuth
+   *  hop completes — "settings" (the default, unchanged behavior for
+   *  Settings' own connect flow) or "chat" for the agent's connect_app
+   *  tool. Without this, a connection started mid-conversation always
+   *  landed the user on Settings with no way back to the chat they were
+   *  just in — confusing on its own, and worse once Settings' curated
+   *  card doesn't even recognize a non-curated toolkit (see connect_app's
+   *  own doc comment on the "calendar" vs "googlecalendar" bug this was
+   *  found alongside). */
+  returnTo?: "settings" | "chat";
+  /** Which chat to land back on when returnTo is "chat" — without this the
+   *  redirect target is just the bare /agent page (no conversation
+   *  selected), losing the user's place in the exact conversation they
+   *  asked to connect something from. */
+  conversationId?: string;
 }
 
 const MAX_AGE_MS = 10 * 60_000;
@@ -46,7 +61,13 @@ export function verifyConnectState(state: string): ConnectStatePayload | null {
       ts: number;
     };
     if (Date.now() - parsed.ts > MAX_AGE_MS) return null;
-    return { tenantId: parsed.tenantId, userId: parsed.userId, toolkitSlug: parsed.toolkitSlug };
+    return {
+      tenantId: parsed.tenantId,
+      userId: parsed.userId,
+      toolkitSlug: parsed.toolkitSlug,
+      returnTo: parsed.returnTo,
+      conversationId: parsed.conversationId,
+    };
   } catch {
     return null;
   }

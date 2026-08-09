@@ -5,7 +5,7 @@ import { VercelProvider } from "@composio/vercel";
 import { getEnv } from "@/server/config/env";
 import { getServices } from "@/server/container";
 import { connectionRepo } from "@/server/repositories/connection.repo";
-import { TOOLKIT_SLUG_RE } from "@/server/services/connections.service";
+import { TOOLKIT_SLUG_RE, connectionsService } from "@/server/services/connections.service";
 import { signConnectState } from "@/server/lib/connection-state";
 import { logger } from "@/server/observability/logger";
 import { withTenantTx, type TenantContext } from "@/server/db/tx";
@@ -31,6 +31,73 @@ function getClient(): Composio<VercelProvider> {
   return client;
 }
 
+/** Live-verified real bug: a model asked to "connect calendar" passed that
+ *  word straight through as the toolkitSlug — TOOLKIT_SLUG_RE only checks
+ *  FORMAT (lowercase/digits/hyphens), not whether it's a toolkit that
+ *  actually exists. Composio's real slug is "googlecalendar", not
+ *  "calendar" — the mismatched connect went through some ambiguous
+ *  fallback on Composio's side (the user saw a Gmail-flavored consent
+ *  screen for a "calendar" connect), got marked "active" under the WRONG
+ *  slug, and then could never be found again: Settings' curated card
+ *  matches on the real slug "googlecalendar" and never saw it, and
+ *  buildComposioTools' own tool fetch for toolkit "calendar" would return
+ *  nothing since Composio has no such toolkit. Resolving against the real
+ *  catalog before ever creating a link closes this at the source instead
+ *  of leaving a connection that LOOKS successful but is actually orphaned
+ *  under a name nothing else recognizes.
+ *
+ *  Cached in-process — Composio's full catalog (1000+ toolkits) rarely
+ *  changes and fetching it fresh on every connect_app call would be
+ *  wasteful; a 1-hour TTL is generous enough that a brand-new toolkit
+ *  Composio adds mid-session would just need a redeploy or an hour to
+ *  become connectable by name, not a real product concern. */
+let catalogCache: { toolkits: { slug: string; name: string }[]; fetchedAt: number } | null = null;
+const CATALOG_TTL_MS = 60 * 60_000;
+
+async function getToolkitCatalog(): Promise<{ slug: string; name: string }[]> {
+  if (catalogCache && Date.now() - catalogCache.fetchedAt < CATALOG_TTL_MS) return catalogCache.toolkits;
+  const toolkits = await getServices().connectionProvider.listAvailableToolkits();
+  catalogCache = { toolkits, fetchedAt: Date.now() };
+  return toolkits;
+}
+
+/** Resolves whatever slug-ish string the model produced to a REAL Composio
+ *  toolkit slug, or returns null if nothing reasonable matches. Tries, in
+ *  order: exact slug match, exact name match (case-insensitive), then a
+ *  single unambiguous substring match against slug or name (e.g. "calendar"
+ *  -> "googlecalendar" via its name "Google Calendar") — genuinely
+ *  ambiguous substrings (multiple matches) deliberately do NOT auto-pick
+ *  one, since silently guessing wrong here is exactly the failure mode
+ *  this function exists to prevent. */
+async function resolveToolkitSlug(input: string): Promise<{ slug: string; name: string } | null> {
+  const catalog = await getToolkitCatalog();
+  const needle = input.trim().toLowerCase();
+  const exactSlug = catalog.find((t) => t.slug.toLowerCase() === needle);
+  if (exactSlug) return exactSlug;
+  const exactName = catalog.find((t) => t.name.toLowerCase() === needle);
+  if (exactName) return exactName;
+  const substringMatches = catalog.filter(
+    (t) => t.slug.toLowerCase().includes(needle) || t.name.toLowerCase().includes(needle),
+  );
+  if (substringMatches.length === 1) return substringMatches[0];
+  // Live-verified this matters for real: "calendar" alone is genuinely
+  // ambiguous against Composio's FULL catalog (matches both
+  // "googlecalendar" and an unrelated "calendarhero"), so the single-
+  // match rule above never fires for the exact word most users would
+  // actually say. When multiple candidates exist, prefer whichever one
+  // (if exactly one) is also one of this app's 3 curated toolkits — the
+  // same ones Settings already offers as buttons — since that's
+  // overwhelmingly the more likely intent than an obscure unrelated app
+  // that happens to share a substring. Still returns null (ask, don't
+  // guess) if more than one curated toolkit matches, or none do.
+  if (substringMatches.length > 1) {
+    const curatedSlugs = new Set(connectionsService.curatedToolkits().map((t) => t.slug));
+    const curatedMatches = substringMatches.filter((t) => curatedSlugs.has(t.slug));
+    if (curatedMatches.length === 1) return curatedMatches[0];
+  }
+  return null;
+}
+
 /** Ad-hoc "connect any app" tool — not scoped to the curated Settings list
  *  (Gmail/Calendar/Notion). This is the chat's escape hatch into Composio's
  *  full toolkit catalog: a user can say "connect Slack" mid-conversation
@@ -38,7 +105,10 @@ function getClient(): Composio<VercelProvider> {
  *  frontend renders as a real "Connect X" button (see message-parts.tsx),
  *  same as the Settings page's own connect flow — reuses connectionsService
  *  end to end rather than duplicating the link-creation logic. */
-function buildConnectAppTool(identity: { tenantId: string; userId: string }, appOrigin: string): ToolSet {
+function buildConnectAppTool(
+  identity: { tenantId: string; userId: string; conversationId?: string },
+  appOrigin: string,
+): ToolSet {
   return {
     connect_app: tool({
       description:
@@ -73,6 +143,23 @@ function buildConnectAppTool(identity: { tenantId: string; userId: string }, app
           // connect flow already enforces (connections.service.ts).
           return { error: `"${input.toolkitSlug}" isn't a valid app identifier — use a short lowercase slug like "salesforce" or "google-drive".` };
         }
+        // Resolve against Composio's REAL catalog before anything else —
+        // live-verified this gap for real: "connect calendar" passed
+        // through literally as toolkitSlug "calendar" (the real slug is
+        // "googlecalendar"), which somehow still produced a completed
+        // OAuth flow and an "active" row, just filed under a slug nothing
+        // else recognizes — invisible in Settings, unusable by this
+        // tenant's own tool fetch. Format-only validation above wasn't
+        // enough; this checks the string is actually a real toolkit.
+        const resolved = await resolveToolkitSlug(input.toolkitSlug);
+        if (!resolved) {
+          return {
+            error:
+              `"${input.toolkitSlug}" doesn't match a real, connectable app. Ask the user for the exact app ` +
+              `name and try again with that — don't guess at a slug.`,
+          };
+        }
+        const toolkitSlug = resolved.slug;
         // Defense in depth beneath the system prompt's own "don't
         // reconnect what's already connected, and ask before adding
         // another account" instruction (agent.service.ts) — live-verified
@@ -87,16 +174,16 @@ function buildConnectAppTool(identity: { tenantId: string; userId: string }, app
         // mirrors activate_campaign's own "wait for explicit yes" pattern
         // instead of trying to infer intent from prose alone.
         const existingActive = await withTenantTx(identity, (ctx) => connectionRepo.list(ctx)).then((rows) =>
-          rows.filter((r) => r.toolkitSlug === input.toolkitSlug && r.status === "active"),
+          rows.filter((r) => r.toolkitSlug === toolkitSlug && r.status === "active"),
         );
         if (existingActive.length > 0 && !input.addAnotherAccount) {
           const labels = existingActive.map((c) => c.accountLabel ?? "an unlabeled account");
           return {
             alreadyConnected: true,
-            toolkitSlug: input.toolkitSlug,
+            toolkitSlug,
             accountLabels: labels,
             message:
-              `${input.toolkitSlug} is already connected (${labels.join(", ")}) — its tools are already ` +
+              `${resolved.name} is already connected (${labels.join(", ")}) — its tools are already ` +
               `available, no need to connect again. If the user wants to add a genuinely different account, ` +
               `confirm that with them first, then call this again with addAnotherAccount:true.`,
           };
@@ -104,13 +191,15 @@ function buildConnectAppTool(identity: { tenantId: string; userId: string }, app
         const state = signConnectState({
           tenantId: identity.tenantId,
           userId: identity.userId,
-          toolkitSlug: input.toolkitSlug,
+          toolkitSlug,
+          returnTo: "chat",
+          conversationId: identity.conversationId,
         });
         const callbackUrl = `${appOrigin}/api/connections/callback?state=${encodeURIComponent(state)}`;
         try {
           const { url, connectionId } = await getServices().connectionProvider.createConnectLink({
             tenantId: identity.tenantId,
-            toolkitSlug: input.toolkitSlug,
+            toolkitSlug,
             callbackUrl,
           });
           // Best-effort local record, same as the Settings flow — if this
@@ -119,22 +208,22 @@ function buildConnectAppTool(identity: { tenantId: string; userId: string }, app
           try {
             await withTenantTx(identity, (ctx) =>
               connectionRepo.create(ctx, {
-                toolkitSlug: input.toolkitSlug,
+                toolkitSlug,
                 composioConnectionId: connectionId,
                 createdBy: identity.userId,
               }),
             );
           } catch (err) {
-            logger.warn({ err, toolkitSlug: input.toolkitSlug }, "agent_connect_app_local_record_failed");
+            logger.warn({ err, toolkitSlug }, "agent_connect_app_local_record_failed");
           }
-          return { url, toolkitSlug: input.toolkitSlug };
+          return { url, toolkitSlug, name: resolved.name };
         } catch (err) {
           logger.error(
-            { err: err instanceof Error ? err.message : String(err), toolkitSlug: input.toolkitSlug },
+            { err: err instanceof Error ? err.message : String(err), toolkitSlug },
             "agent_connect_app_failed",
           );
           return {
-            error: `Couldn't start connecting "${input.toolkitSlug}" — the app slug may not exist, or Composio is unavailable right now.`,
+            error: `Couldn't start connecting "${resolved.name}" — Composio is unavailable right now.`,
           };
         }
       },
@@ -155,7 +244,7 @@ function buildConnectAppTool(identity: { tenantId: string; userId: string }, app
  * one level down, at tool-registry build time instead of model-call time.
  */
 export async function buildComposioTools(
-  identity: { tenantId: string; userId: string },
+  identity: { tenantId: string; userId: string; conversationId?: string },
   appOrigin: string,
   /** Count of in-house tools this turn will also send — used to size the
    *  Composio fetch so the combined total stays under TOTAL_TOOL_CAP. See

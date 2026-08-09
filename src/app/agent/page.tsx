@@ -50,6 +50,31 @@ function AgentPageContent() {
     loadConversations();
   }, [loadConversations]);
 
+  // The agent's connect_app tool now sends the OAuth callback back HERE
+  // (see connections/callback/route.ts's returnTo:"chat") instead of
+  // always landing on Settings — without this, a connection started
+  // mid-conversation redirected the browser away with zero visible
+  // confirmation anywhere: not in Settings (which only recognizes its own
+  // 3 curated toolkits), and not back in the chat either, since nothing
+  // here ever read these params. Same toast + strip-params pattern
+  // Settings' own page already uses for its half of this same callback.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const result = params.get("connection");
+    if (!result) return;
+    const toolkit = params.get("toolkit");
+    if (result === "connected") {
+      toast.success(toolkit ? `Connected ${toolkit} — try your request again` : "App connected — try your request again");
+    } else {
+      toast.error(params.get("message") || "Failed to connect app");
+    }
+    const url = new URL(window.location.href);
+    url.searchParams.delete("connection");
+    url.searchParams.delete("toolkit");
+    url.searchParams.delete("message");
+    window.history.replaceState(null, "", `${url.pathname}${url.search}`);
+  }, []);
+
   const selectConversation = (id: string) => {
     router.push(`/agent?c=${id}`);
     setMobileSidebarOpen(false);

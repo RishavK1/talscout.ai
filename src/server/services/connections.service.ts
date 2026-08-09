@@ -60,9 +60,12 @@ export const connectionsService = {
    *  "pending" to its real status; without this, the second call would
    *  find no "pending" row left, throw NotFound, and show the user a false
    *  "failed to connect" error for a connection that actually succeeded. */
-  async completeCallback(state: string): Promise<{ toolkitSlug: string; connected: boolean }> {
+  async completeCallback(
+    state: string,
+  ): Promise<{ toolkitSlug: string; connected: boolean; returnTo: "settings" | "chat" }> {
     const payload = verifyConnectState(state);
     if (!payload) throw new BadRequest("Invalid or expired connection request");
+    const returnTo = payload.returnTo ?? "settings";
 
     return await withTenantTx({ tenantId: payload.tenantId, userId: payload.userId }, async (tx) => {
       const rows = await connectionRepo.list(tx);
@@ -74,7 +77,7 @@ export const connectionsService = {
       // Already resolved by an earlier call to this same callback — report
       // the same success without re-hitting Composio's API.
       if (target.status === "active") {
-        return { toolkitSlug: payload.toolkitSlug, connected: true };
+        return { toolkitSlug: payload.toolkitSlug, connected: true, returnTo };
       }
 
       const provider = getServices().connectionProvider;
@@ -96,7 +99,7 @@ export const connectionsService = {
         status: live.status,
         accountLabel,
       });
-      return { toolkitSlug: payload.toolkitSlug, connected: live.status === "active" };
+      return { toolkitSlug: payload.toolkitSlug, connected: live.status === "active", returnTo };
     });
   },
 
