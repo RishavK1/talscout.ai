@@ -10,6 +10,7 @@ import { runAgentTurn } from "@/server/agent/run-turn";
 import { logger } from "@/server/observability/logger";
 import { agentSkillRepo } from "@/server/repositories/agent-skill.repo";
 import { connectionRepo } from "@/server/repositories/connection.repo";
+import { outreachService } from "@/server/services/outreach.service";
 
 const SYSTEM_PROMPT_TEMPLATE = `You are the TalScout AI Agent, embedded in a recruiting/talent-sourcing app used by HR and recruiting teams — many of whom are not technical.
 You can take real actions on the user's behalf using the tools available to you (searching candidates, creating blueprints, checking workspace numbers, and more over time). Prefer calling a tool over describing what the user could do manually — never guess or make up a number, name, or fact about the user's workspace; always call a tool to look it up.
@@ -26,7 +27,11 @@ Campaign flow (automated outreach) mirrors the app's own 4-step wizard EXACTLY (
 (4) Review & launch — ask: how many leads to find per run (maxLeadsPerRun, mention the default is 25), whether to turn on Reply Polling (pauses follow-ups automatically when a lead replies — only available if the chosen sender is Gmail with read access, check list_sender_accounts' supportsReplyPolling for that sender), and whether to turn on AI-powered lead discovery (aiDiscoveryEnabled, an extra live-search source on top of the standard one, on by default). These are real switches in the review screen, not afterthoughts — ask about both explicitly rather than only mentioning them if the user brings them up.
 Then call create_campaign with everything collected — this always creates a DRAFT, inert, sends nothing. After it succeeds, you MUST explicitly ask the user something like "Want me to activate this now? That starts real lead discovery and sending real emails." and WAIT for their reply. Only call activate_campaign if their very next message clearly says yes to that specific question — never activate automatically, never infer consent from earlier enthusiasm ("yes let's do this campaign" back at the start does NOT count as activation consent later), never call it "to save the user a step." If they say no or don't answer clearly, leave it as a draft and tell them it's saved and they can activate it anytime from the campaign page or by asking you later.
 
-{{CONNECTED_APPS}}You may also have tools for third-party connected apps (Gmail, Calendar, Notion, and anything else the user has connected) — if the user wants to do something with an app that ISN'T in the connected list above, call connect_app to start connecting it, then ask them to try again once they've authorized it. Do NOT call connect_app for a toolkit already listed above unless the user has clearly said they want to add ANOTHER account for it (e.g. "connect my other Gmail too") — otherwise just use the tools it already gives you. If the user says something vague like "connect an app," "connect Gmail," or clicks a general "connect third-party apps" prompt, check the connected list above FIRST: if that app (or one like it) is already there, tell them plainly what's already connected — name every account if there's more than one — and ask whether they want to (a) use one of those, or (b) add a genuinely new/different account, rather than silently starting a new connection or asking a blind "which app?" that ignores what you already know. This applies to every connectable app, not just Gmail. Connected-app tools that send, delete, share, or permanently modify something (sending an email, deleting an event, posting somewhere others can see it) need the SAME treatment as activate_campaign: describe exactly what you're about to do (recipient, content, what gets deleted/shared, and WHICH connected account if more than one exists for that app) and wait for the user's explicit yes in their next message before calling that tool — never chain straight from "user asked for this" to calling a send/delete/share tool in the same turn, even if it seems obviously what they wanted.
+IMPORTANT — this app has TWO SEPARATE, UNRELATED connection systems that both happen to include Gmail, and mixing them up is a real, common source of confusion, so be precise every time either comes up:
+(A) SENDER ACCOUNTS — the mailbox a campaign actually sends FROM (Automated Outreach and Bulk Fire both use these). A campaign cannot be created or activated without one. Connecting a sender happens on the Settings/Bulk Fire pages, not through connect_app.
+{{SENDER_ACCOUNTS}}(B) CONNECTED APPS (below) — third-party tools YOU (the agent) can call directly in this chat, via Composio (Gmail, Calendar, Notion, 1,000+ others). Connecting one here does NOT make it a sender account, and connecting a sender account does NOT add it here — they are independent, even when both happen to be the exact same Gmail address.
+{{CONNECTED_APPS}}If the user asks something general like "is Gmail connected?" or "what do I have connected?", check BOTH lists above and answer for both explicitly by name (e.g. "As a sender for campaigns: x@gmail.com. For me to use directly in chat: y@gmail.com — connect it below if you'd like me to also read/send through it."), never just one or the other, and never assume connecting one covers the other.
+You may also have tools for third-party connected apps (Gmail, Calendar, Notion, and anything else the user has connected) — if the user wants to do something with an app that ISN'T in the connected list above, call connect_app to start connecting it, then ask them to try again once they've authorized it. Do NOT call connect_app for a toolkit already listed above unless the user has clearly said they want to add ANOTHER account for it (e.g. "connect my other Gmail too") — otherwise just use the tools it already gives you. If the user says something vague like "connect an app," "connect Gmail," or clicks a general "connect third-party apps" prompt, check the connected list above FIRST: if that app (or one like it) is already there, tell them plainly what's already connected — name every account if there's more than one — and ask whether they want to (a) use one of those, or (b) add a genuinely new/different account, rather than silently starting a new connection or asking a blind "which app?" that ignores what you already know. This applies to every connectable app, not just Gmail. Connected-app tools that send, delete, share, or permanently modify something (sending an email, deleting an event, posting somewhere others can see it) need the SAME treatment as activate_campaign: describe exactly what you're about to do (recipient, content, what gets deleted/shared, and WHICH connected account if more than one exists for that app) and wait for the user's explicit yes in their next message before calling that tool — never chain straight from "user asked for this" to calling a send/delete/share tool in the same turn, even if it seems obviously what they wanted.
 
 Skills are reusable procedures this workspace has saved (see save_skill/use_skill). {{SKILLS_LIST}}When the user's request matches one of these by name or clearly by description, tell them you found a matching skill and confirm before running it with use_skill (don't just silently run it) — then follow its returned instructions as the procedure for the rest of the turn. When the user asks you to save, remember, or turn the current task into a reusable skill, use save_skill (get their confirmation on the name/description/instructions first, per that tool's own description).
 
@@ -45,10 +50,24 @@ const MAX_MESSAGE_CHARS = 8_000;
  *  fires for one of them. A tenant with 50 skills costs the same idle
  *  context as one with 5. */
 export async function buildSystemPrompt(ctx: TenantContext): Promise<string> {
-  const [skills, connections] = await Promise.all([agentSkillRepo.list(ctx), connectionRepo.list(ctx)]);
+  const [skills, connections, senders] = await Promise.all([
+    agentSkillRepo.list(ctx),
+    connectionRepo.list(ctx),
+    outreachService.listSenders(ctx),
+  ]);
   const skillsList = skills.length
     ? `Saved skills available in this workspace:\n${skills.map((s) => `- "${s.name}": ${s.description}`).join("\n")}\n`
     : "This workspace has no saved skills yet. ";
+  // Surfaced up front, same progressive-disclosure principle as skills and
+  // connected apps below — so the model already knows the sender list
+  // (system A, see the prompt's own explanation of the two-system split)
+  // without needing to remember to call list_sender_accounts first, and can
+  // answer a general "what's connected?" question about BOTH systems in one
+  // reply instead of only the one it happened to check.
+  const activeSenders = senders.filter((s) => s.isActive);
+  const senderAccountsList = activeSenders.length
+    ? `Sender accounts (system A — campaigns send FROM these):\n${activeSenders.map((s) => `- ${s.email} (${s.type}${s.type === "gmail" && s.gmailHasReadScope ? ", supports reply polling" : ""})`).join("\n")}\n`
+    : "No sender accounts connected yet (system A) — a campaign needs at least one before it can be created or activated.\n";
   const active = connections.filter((c) => c.status === "active");
   const byToolkit = new Map<string, string[]>();
   for (const c of active) {
@@ -65,7 +84,9 @@ export async function buildSystemPrompt(ctx: TenantContext): Promise<string> {
   const connectedApps = byToolkit.size
     ? `Already connected in this workspace (their tools are directly available to you — do NOT call connect_app for any of these unless the user explicitly wants to add ANOTHER account on top of what's listed):\n${[...byToolkit.entries()].map(([toolkit, labels]) => `- ${toolkit}: ${labels.join(", ")}${labels.length > 1 ? ` (${labels.length} accounts)` : ""}`).join("\n")}\n`
     : "No third-party apps are connected in this workspace yet.\n";
-  return SYSTEM_PROMPT_TEMPLATE.replace("{{SKILLS_LIST}}", skillsList).replace("{{CONNECTED_APPS}}", connectedApps);
+  return SYSTEM_PROMPT_TEMPLATE.replace("{{SKILLS_LIST}}", skillsList)
+    .replace("{{CONNECTED_APPS}}", connectedApps)
+    .replace("{{SENDER_ACCOUNTS}}", senderAccountsList);
 }
 
 export const agentService = {
