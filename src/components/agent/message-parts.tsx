@@ -4,7 +4,7 @@ import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { motion } from "framer-motion";
-import { Loader2, CircleCheck, CircleX, Search, FileText, Wrench, ExternalLink, ChartLine, Globe, Sparkles, Mail, Rocket, Plug, Clock, Pencil, Trash2, Pause, UserRound, Star, FolderPlus, Reply, Users, UserPlus } from "lucide-react";
+import { Loader2, CircleCheck, CircleX, Search, FileText, Wrench, ExternalLink, ChartLine, Globe, Sparkles, Mail, Rocket, Plug, Clock, Pencil, Trash2, Pause, UserRound, Star, FolderPlus, Reply, Users, UserPlus, Send, Play, Square, ListChecks } from "lucide-react";
 import type { UIMessage } from "ai";
 import { cn } from "@/lib/utils";
 import { easeOut } from "@/lib/motion";
@@ -82,6 +82,16 @@ const TOOL_META: Record<string, { label: string; icon: React.ComponentType<{ cla
   reject_reply_draft: { label: "Discarding draft reply", icon: Trash2 },
   list_team: { label: "Checking team", icon: Users },
   invite_team_member: { label: "Inviting team member", icon: UserPlus },
+  list_bulkfire_campaigns: { label: "Checking Bulk Fire campaigns", icon: ListChecks },
+  create_bulkfire_campaign: { label: "Creating Bulk Fire campaign", icon: FileText },
+  set_bulkfire_sequence: { label: "Setting email sequence", icon: Pencil },
+  set_bulkfire_senders: { label: "Setting campaign senders", icon: Mail },
+  list_bulkfire_leads: { label: "Checking imported leads", icon: ListChecks },
+  fire_bulkfire_campaign: { label: "Sending campaign", icon: Send },
+  pause_bulkfire_campaign: { label: "Pausing campaign", icon: Pause },
+  resume_bulkfire_campaign: { label: "Resuming campaign", icon: Play },
+  stop_bulkfire_campaign: { label: "Stopping campaign", icon: Square },
+  delete_bulkfire_campaign: { label: "Deleting Bulk Fire campaign", icon: Trash2 },
   connect_app: { label: "Connecting app", icon: Plug },
   save_skill: { label: "Saving skill", icon: Sparkles },
   use_skill: { label: "Loading skill", icon: Sparkles },

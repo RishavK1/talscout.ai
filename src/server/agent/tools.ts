@@ -664,6 +664,160 @@ export function buildInHouseTools(identity: { tenantId: string; userId: string; 
       },
     }),
 
+    list_bulkfire_campaigns: tool({
+      description:
+        "Lists this workspace's Bulk Fire campaigns (the bring-your-own-list outreach system — separate from " +
+        "Automated Outreach's discovery-based campaigns, see create_campaign vs this one) with their status.",
+      inputSchema: z.object({}),
+      execute: async () => {
+        const campaigns = await withTenantTx(identity, (ctx) => outreachService.listCampaigns(ctx));
+        return { campaigns };
+      },
+    }),
+
+    create_bulkfire_campaign: tool({
+      description:
+        "Creates a new Bulk Fire campaign shell (name only) — starts completely empty. After creating it, the " +
+        "user still needs to: import their own lead list (a CSV/DOCX upload — you can't do this part, tell them " +
+        "to use the Bulk Fire page's upload button), set_bulkfire_sequence for the email copy, and " +
+        "set_bulkfire_senders before it can be fired. This is the manual bring-your-own-list system — for AI-" +
+        "discovered leads, use create_campaign (Automated Outreach) instead.",
+      inputSchema: z.object({
+        name: z.string().min(1).max(200),
+        channel: z.enum(["email", "whatsapp"]).optional().describe("Default 'email'"),
+      }),
+      execute: async (input) => {
+        const row = await withTenantTx(identity, (ctx) =>
+          outreachService.createCampaign(ctx, { name: input.name, channel: input.channel ?? "email" }),
+        );
+        return { id: row.id, name: row.name, status: row.status, url: `/outreach/bulk-fire/${row.id}` };
+      },
+    }),
+
+    set_bulkfire_sequence: tool({
+      description:
+        "Sets the email sequence for a Bulk Fire campaign — up to 3 steps (day 0 opener, plus optional " +
+        "follow-ups), each with its own subject/body template and day offset from the previous step. Replaces " +
+        "the whole sequence, not a single step — pass every step you want kept. Ask the user for the subject " +
+        "and body of each step; don't invent marketing copy they didn't give you.",
+      inputSchema: z.object({
+        campaignId: z.string(),
+        steps: z
+          .array(
+            z.object({
+              stepIndex: z.number().int().min(0).max(2),
+              dayOffset: z.number().int().min(0).max(90).describe("Days after the previous step; 0 for the first step"),
+              subject: z.string().min(1).max(500),
+              body: z.string().min(1).max(10000),
+            }),
+          )
+          .max(3),
+      }),
+      execute: async (input) => {
+        await withTenantTx(identity, (ctx) =>
+          outreachService.setSequence(ctx, input.campaignId, {
+            sequence: input.steps.map((s) => ({
+              stepIndex: s.stepIndex,
+              dayOffset: s.dayOffset,
+              subjectTemplate: s.subject,
+              bodyTemplate: s.body,
+            })),
+          }),
+        );
+        return { campaignId: input.campaignId, stepsSet: input.steps.length };
+      },
+    }),
+
+    set_bulkfire_senders: tool({
+      description:
+        "Assigns which connected sender accounts a Bulk Fire campaign sends from (call list_sender_accounts " +
+        "first for valid ids) — volume rotates across all of them. An empty list falls back to every active " +
+        "sender account automatically.",
+      inputSchema: z.object({ campaignId: z.string(), senderAccountIds: z.array(z.string()).max(20) }),
+      execute: async (input) => {
+        await withTenantTx(identity, (ctx) =>
+          outreachService.setCampaignSenders(ctx, input.campaignId, { senderAccountIds: input.senderAccountIds }),
+        );
+        return { campaignId: input.campaignId, senderCount: input.senderAccountIds.length };
+      },
+    }),
+
+    list_bulkfire_leads: tool({
+      description: "Lists the leads imported into a Bulk Fire campaign and their send status.",
+      inputSchema: z.object({ campaignId: z.string() }),
+      execute: async (input) => {
+        const result = await withTenantTx(identity, (ctx) => outreachService.listLeads(ctx, input.campaignId, { limit: 50 }));
+        return result;
+      },
+    }),
+
+    fire_bulkfire_campaign: tool({
+      description:
+        "Sends step N of a Bulk Fire campaign's sequence to its eligible leads RIGHT NOW — this is the " +
+        "SENSITIVE, real-world-effect step, same treatment as activate_campaign/approve_reply_draft: state " +
+        "which campaign, which step, and roughly how many leads (call list_bulkfire_leads first if unsure) " +
+        "before calling this, and wait for the user's explicit yes in their next message. Requires the " +
+        "campaign to already have a sequence, senders, and imported leads — if any of those are missing this " +
+        "will fail with a clear reason.",
+      inputSchema: z.object({
+        campaignId: z.string(),
+        stepIndex: z.number().int().min(0).max(2).optional().describe("Default 0 (the first/opening step)"),
+        cascadeFollowups: z
+          .boolean()
+          .optional()
+          .describe("Step 0 only: also auto-schedule the later steps at their day offsets, in the same thread"),
+      }),
+      execute: async (input) => {
+        const row = await withTenantTx(identity, (ctx) =>
+          outreachService.fireCampaign(ctx, input.campaignId, input.stepIndex ?? 0, undefined, {
+            cascadeFollowups: input.cascadeFollowups,
+          }),
+        );
+        return row;
+      },
+    }),
+
+    pause_bulkfire_campaign: tool({
+      description: "Pauses a running Bulk Fire campaign — reversible with resume_bulkfire_campaign, no confirmation needed.",
+      inputSchema: z.object({ campaignId: z.string() }),
+      execute: async (input) => {
+        const row = await withTenantTx(identity, (ctx) => outreachService.pauseCampaign(ctx, input.campaignId));
+        return row;
+      },
+    }),
+
+    resume_bulkfire_campaign: tool({
+      description: "Resumes a paused Bulk Fire campaign — not sensitive, no confirmation needed.",
+      inputSchema: z.object({ campaignId: z.string() }),
+      execute: async (input) => {
+        const row = await withTenantTx(identity, (ctx) => outreachService.resumeCampaign(ctx, input.campaignId));
+        return row;
+      },
+    }),
+
+    stop_bulkfire_campaign: tool({
+      description:
+        "PERMANENTLY stops a Bulk Fire campaign — marks it completed and cancels every not-yet-sent scheduled " +
+        "email. Cannot be resumed afterward (unlike pause). SENSITIVE: same treatment as delete_campaign — " +
+        "confirm which campaign and wait for the user's explicit yes first.",
+      inputSchema: z.object({ campaignId: z.string() }),
+      execute: async (input) => {
+        const row = await withTenantTx(identity, (ctx) => outreachService.stopCampaign(ctx, input.campaignId));
+        return row;
+      },
+    }),
+
+    delete_bulkfire_campaign: tool({
+      description:
+        "PERMANENTLY deletes a Bulk Fire campaign and its lead/send history — cannot be undone. SENSITIVE: " +
+        "confirm which campaign (name) and wait for the user's explicit yes in their next message first.",
+      inputSchema: z.object({ campaignId: z.string() }),
+      execute: async (input) => {
+        await withTenantTx(identity, (ctx) => outreachService.deleteCampaign(ctx, input.campaignId));
+        return { id: input.campaignId, deleted: true };
+      },
+    }),
+
     save_skill: tool({
       description:
         "Saves a reusable 'skill' — a named procedure the user can invoke by name in ANY future conversation " +
