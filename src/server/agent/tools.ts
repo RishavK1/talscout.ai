@@ -7,6 +7,9 @@ import { automatedOutreachService } from "@/server/services/automated-outreach.s
 import { outreachService } from "@/server/services/outreach.service";
 import { candidateService } from "@/server/services/candidate.service";
 import { teamService } from "@/server/services/team.service";
+import { billingService } from "@/server/services/billing.service";
+import { tenantRepo } from "@/server/repositories/tenant.repo";
+import { subscriptionRepo } from "@/server/repositories/subscription.repo";
 import { candidateRepo } from "@/server/repositories/candidate.repo";
 import { shortlistRepo } from "@/server/repositories/shortlist.repo";
 import { automatedSendRepo, automatedCampaignRepo, automatedLeadRepo } from "@/server/repositories/automated-outreach.repo";
@@ -43,7 +46,10 @@ const CAMPAIGN_CATEGORIES = [
  * exactly the duration of that one call, per the pool-pressure guidance in
  * the same doc — the streamed turn itself never holds a transaction open.
  */
-export function buildInHouseTools(identity: { tenantId: string; userId: string; conversationId: string }): ToolSet {
+export function buildInHouseTools(
+  identity: { tenantId: string; userId: string; conversationId: string },
+  appOrigin: string,
+): ToolSet {
   return {
     search_candidates: tool({
       description:
@@ -664,6 +670,49 @@ export function buildInHouseTools(identity: { tenantId: string; userId: string; 
       },
     }),
 
+    get_billing_info: tool({
+      description:
+        "Gets this workspace's current plan, seat count/limit, subscription status, and which capabilities " +
+        "it includes (e.g. ai_agent, automated_outreach) — check this before answering plan questions or " +
+        "suggesting an upgrade, rather than guessing what they're already on.",
+      inputSchema: z.object({}),
+      execute: async () => {
+        const [tenant, sub, capabilities] = await withTenantTx(identity, async (ctx) => [
+          await tenantRepo.getByIdAdmin(ctx.tenantId),
+          await subscriptionRepo.getByTenant(ctx),
+          await billingService.capabilities(ctx),
+        ]);
+        return {
+          plan: tenant?.plan ?? "starter",
+          seatLimit: tenant?.seatLimit ?? 1,
+          subscriptionStatus: sub?.status ?? "none",
+          renewsAt: sub?.renewsAt ?? null,
+          capabilities,
+        };
+      },
+    }),
+
+    get_upgrade_link: tool({
+      description:
+        "Returns a real Stripe checkout link to upgrade (or add seats to) this workspace's plan — you cannot " +
+        "complete a payment yourself, only generate the link for the user to click, same pattern as " +
+        "connect_app's connection links. Only self-serve UPGRADES are supported (moving to a smaller plan or " +
+        "fewer seats than currently subscribed fails with a clear error — tell the user to contact support " +
+        "for that instead of retrying). Call get_billing_info first if you don't already know their current " +
+        "plan/seats in this conversation.",
+      inputSchema: z.object({
+        plan: z.enum(["starter", "growth", "scale"]),
+        seats: z.number().int().min(1).max(1000),
+        billingCycle: z.enum(["monthly", "annual"]).optional().describe("Default 'monthly'"),
+      }),
+      execute: async (input) => {
+        const { url } = await withTenantTx(identity, (ctx) =>
+          billingService.createCheckout(ctx, input, appOrigin),
+        );
+        return { url };
+      },
+    }),
+
     list_bulkfire_campaigns: tool({
       description:
         "Lists this workspace's Bulk Fire campaigns (the bring-your-own-list outreach system — separate from " +
@@ -815,6 +864,83 @@ export function buildInHouseTools(identity: { tenantId: string; userId: string; 
       execute: async (input) => {
         await withTenantTx(identity, (ctx) => outreachService.deleteCampaign(ctx, input.campaignId));
         return { id: input.campaignId, deleted: true };
+      },
+    }),
+
+    list_whatsapp_templates: tool({
+      description:
+        "Lists this workspace's WhatsApp Business message templates and their approval status (pending/" +
+        "approved/rejected) — only approved templates can be used in set_bulkfire_whatsapp_sequence, Meta " +
+        "forbids free-text WhatsApp messages for business-initiated conversations.",
+      inputSchema: z.object({}),
+      execute: async () => {
+        const templates = await withTenantTx(identity, (ctx) => outreachService.listWhatsAppTemplates(ctx));
+        return { templates };
+      },
+    }),
+
+    submit_whatsapp_template: tool({
+      description:
+        "Submits a new WhatsApp message template to Meta for approval — this only records the submission " +
+        "(status starts 'pending'); Meta's own review decides approval asynchronously, sometime later, not " +
+        "instantly. Not sensitive/irreversible in itself (no message is sent to any end user by this call) — " +
+        "no confirmation needed beyond the user asking for it. bodyText can include {{1}}, {{2}}, etc. as " +
+        "placeholders filled in per-recipient later.",
+      inputSchema: z.object({
+        senderAccountId: z.string().describe("Must be a WhatsApp-type sender — see list_sender_accounts"),
+        metaTemplateName: z
+          .string()
+          .max(512)
+          .describe("Lowercase letters, digits, underscores only, e.g. 'weekly_followup_v1'"),
+        category: z.enum(["marketing", "utility", "authentication"]),
+        language: z.string().min(2).max(10).optional().describe("Default 'en_US'"),
+        bodyText: z.string().min(1).max(1024),
+      }),
+      execute: async (input) => {
+        const row = await withTenantTx(identity, (ctx) =>
+          outreachService.submitWhatsAppTemplate(ctx, {
+            senderAccountId: input.senderAccountId,
+            metaTemplateName: input.metaTemplateName,
+            category: input.category,
+            language: input.language ?? "en_US",
+            bodyText: input.bodyText,
+          }),
+        );
+        return { id: row.id, metaTemplateName: row.metaTemplateName, status: row.status };
+      },
+    }),
+
+    set_bulkfire_whatsapp_sequence: tool({
+      description:
+        "Sets the WhatsApp message sequence for a WhatsApp-channel Bulk Fire campaign (create it with " +
+        "create_bulkfire_campaign's channel:'whatsapp') — up to 3 steps, each using an APPROVED template (see " +
+        "list_whatsapp_templates) plus its {{n}} placeholder values, not free text. Use set_bulkfire_sequence " +
+        "instead for an email-channel campaign.",
+      inputSchema: z.object({
+        campaignId: z.string(),
+        steps: z
+          .array(
+            z.object({
+              stepIndex: z.number().int().min(0).max(2),
+              dayOffset: z.number().int().min(0).max(90),
+              templateId: z.string(),
+              templateParams: z.array(z.string().max(500)).max(10).optional().describe("Fills {{1}}, {{2}}, etc. in order"),
+            }),
+          )
+          .max(3),
+      }),
+      execute: async (input) => {
+        await withTenantTx(identity, (ctx) =>
+          outreachService.setWhatsAppSequence(ctx, input.campaignId, {
+            sequence: input.steps.map((s) => ({
+              stepIndex: s.stepIndex,
+              dayOffset: s.dayOffset,
+              templateId: s.templateId,
+              templateParams: s.templateParams ?? [],
+            })),
+          }),
+        );
+        return { campaignId: input.campaignId, stepsSet: input.steps.length };
       },
     }),
 

@@ -57,7 +57,7 @@ async function runOneAgentTaskIsolated(task: Task): Promise<void> {
 async function runOneAgentTask(task: Task): Promise<void> {
   const identity = { tenantId: task.tenantId, userId: task.userId, conversationId: task.conversationId };
 
-  const inHouseTools = buildInHouseTools(identity);
+  const inHouseTools = buildInHouseTools(identity, getEnv().APP_URL);
   const [composioTools, systemBase] = await Promise.all([
     buildComposioTools(identity, getEnv().APP_URL, Object.keys(inHouseTools).length),
     withTenantTx(identity, (ctx) => buildSystemPrompt(ctx)),

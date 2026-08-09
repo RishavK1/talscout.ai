@@ -207,7 +207,7 @@ export const agentService = {
     // Composio tools are additive and fail SOFT (see buildComposioTools'
     // own doc comment) — a Composio outage degrades the agent to in-house
     // tools only, it never takes the whole turn down.
-    const inHouseTools = buildInHouseTools({ ...identity, conversationId });
+    const inHouseTools = buildInHouseTools({ ...identity, conversationId }, appOrigin);
     const [composioTools, system] = await Promise.all([
       buildComposioTools(identity, appOrigin, Object.keys(inHouseTools).length),
       withTenantTx(identity, (ctx) => buildSystemPrompt(ctx)),
