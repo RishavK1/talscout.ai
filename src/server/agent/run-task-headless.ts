@@ -1,46 +1,102 @@
-import { generateText, stepCountIs, type ToolSet } from "ai";
-import { getAgentModelChain } from "@/server/agent/models";
+import { streamText, stepCountIs, type ToolSet } from "ai";
+import { getAgentModelChain, type AgentModelCandidate } from "@/server/agent/models";
+import { logger } from "@/server/observability/logger";
+
+/** Same commit point as run-turn.ts's UI-message-stream version, translated
+ *  to streamText's raw `fullStream` chunk names (`tool-input-available` on
+ *  the UI stream corresponds to `tool-call` here — the point a tool call is
+ *  fully resolved, not just starting to stream in). Once one of these
+ *  arrives, real work may already be underway and switching models stops
+ *  being safe. */
+const COMMIT_CHUNK_TYPES = new Set(["text-start", "reasoning-start", "tool-input-start", "tool-call"]);
 
 /**
  * Runs one scheduled/background agent task to completion — no live SSE
- * consumer, so this uses `generateText` (not `streamText`) and returns the
- * final text once the whole tool loop finishes.
+ * consumer, so results are accumulated internally rather than streamed to a
+ * UI, but the model-fallback logic is now the SAME safe mechanism
+ * run-turn.ts uses for interactive chat: retry the WHOLE run on the next
+ * candidate (secondary Gemini key, then OpenRouter) only if the failure
+ * happens before any real output (text or tool call) — never mid-run.
  *
- * Deliberately PRIMARY MODEL ONLY, no cross-model fallback — unlike
- * run-turn.ts's interactive path, which can safely retry the whole turn on
- * a different model because it tracks exactly when the first byte reached
- * a real user (see its `committed` flag) and only retries before that
- * point. A headless run has no such checkpoint to reason about: if the
- * primary model calls a side-effecting tool and then fails on a LATER
- * step, blindly retrying with a fallback model would replay the same
- * instruction from scratch and could double a real action (e.g. two
- * scheduled emails instead of one) with nobody watching to notice. Given
- * the choice between "occasionally a background task fails outright and
- * gets marked 'error' for the user to see" versus "a background task
- * silently does something twice," failing outright is the safe default —
- * the caller (run-agent-task.ts) surfaces the failure on the task row.
+ * This replaces an earlier "primary model only, zero fallback" version.
+ * That version was deliberately conservative to avoid a duplicate-action
+ * risk (retrying a whole task with a different model after a tool already
+ * fired could double a real action) — but it turned out too conservative in
+ * practice: Gemini's free-tier quota (20 req/day, shared across every
+ * Gemini-backed feature in this app, not just scheduled tasks) is easy to
+ * exhaust, and with zero fallback every recurring task then fails on every
+ * single run until the quota resets, which a live user hit for real. The
+ * actual unsafe case is narrower than "any failure" — it's specifically a
+ * failure AFTER a tool already started, which this file can now detect and
+ * guard against directly (same `committed` tracking run-turn.ts already
+ * proved out), instead of refusing to ever retry at all.
  */
 export async function runAgentTaskHeadless(args: {
   system: string;
   instruction: string;
   tools: ToolSet;
+  /** Same purpose as run-turn.ts's fallbackTools — used for any candidate
+   *  whose fullToolsSafe is false (OpenRouter), since Composio-published
+   *  tool schemas have been observed to make it reject the whole request.
+   *  Now that this file actually falls back to OpenRouter (it never did
+   *  before), it needs the same guard. */
+  fallbackTools?: ToolSet;
 }): Promise<{ text: string; toolCallCount: number }> {
   const candidates = getAgentModelChain();
   if (candidates.length === 0) {
     throw new Error("No agent model is configured (no AI provider key set)");
   }
-  const result = await generateText({
-    model: candidates[0].model,
+
+  let lastError: unknown;
+  for (const candidate of candidates) {
+    const result = await runOneCandidate(candidate, args);
+    if (result.ok) return { text: result.text, toolCallCount: result.toolCallCount };
+    if (result.committed) {
+      // Real work may already have happened on this candidate — surface the
+      // failure as-is rather than risk a fallback model repeating it.
+      throw result.error;
+    }
+    lastError = result.error;
+    logger.error(
+      { model: candidate.label, err: lastError instanceof Error ? lastError.message : String(lastError) },
+      "agent_task_headless_model_failed_before_output_trying_next",
+    );
+  }
+
+  throw lastError instanceof Error ? lastError : new Error("Every agent model failed");
+}
+
+async function runOneCandidate(
+  candidate: AgentModelCandidate,
+  args: { system: string; instruction: string; tools: ToolSet; fallbackTools?: ToolSet },
+): Promise<
+  | { ok: true; text: string; toolCallCount: number }
+  | { ok: false; committed: boolean; error: unknown }
+> {
+  const tools = candidate.fullToolsSafe ? args.tools : (args.fallbackTools ?? args.tools);
+  const result = streamText({
+    model: candidate.model,
     system: args.system,
     prompt: args.instruction,
-    tools: args.tools,
+    tools,
     stopWhen: stepCountIs(8),
   });
-  // Some models (seen with both a free OpenRouter model and, occasionally,
-  // Gemini) finish a multi-step tool-call turn without emitting a closing
-  // text summary — the tool calls still ran for real, there just isn't a
-  // final sentence about them. toolCallCount lets the caller tell "ran
-  // fine, no summary" apart from "did genuinely nothing."
-  const toolCallCount = result.steps.reduce((n, s) => n + (s.toolCalls?.length ?? 0), 0);
-  return { text: result.text, toolCallCount };
+
+  let committed = false;
+  let text = "";
+  let toolCallCount = 0;
+
+  try {
+    for await (const chunk of result.fullStream) {
+      if (!committed && chunk.type === "error") {
+        return { ok: false, committed: false, error: new Error(String((chunk as { error: unknown }).error)) };
+      }
+      if (!committed && COMMIT_CHUNK_TYPES.has(chunk.type)) committed = true;
+      if (chunk.type === "text-delta") text += chunk.text;
+      if (chunk.type === "tool-call") toolCallCount += 1;
+    }
+    return { ok: true, text, toolCallCount };
+  } catch (err) {
+    return { ok: false, committed, error: err };
+  }
 }

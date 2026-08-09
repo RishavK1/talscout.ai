@@ -68,6 +68,7 @@ async function runOneAgentTask(task: Task): Promise<void> {
     system: TASK_PREAMBLE + systemBase,
     instruction: task.instruction,
     tools,
+    fallbackTools: inHouseTools,
   });
 
   // Some models finish a tool-calling turn without a closing text summary
