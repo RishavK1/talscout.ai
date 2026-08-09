@@ -44,6 +44,15 @@ const COMPARISON_GROUPS: { heading: string; rows: Row[] }[] = [
     ],
   },
   {
+    heading: "AI Agent",
+    rows: [
+      { label: CAPABILITY_LABEL.ai_agent, render: (id) => yesNo(id, "ai_agent") },
+      { label: "Connect Gmail, Calendar, Notion & 1,000+ apps", render: (id) => yesNo(id, "ai_agent") },
+      { label: "Saved reusable Skills", render: (id) => yesNo(id, "ai_agent") },
+      { label: "Scheduled background tasks", render: (id) => yesNo(id, "ai_agent") },
+    ],
+  },
+  {
     heading: "Bulk Fire",
     rows: [
       { label: CAPABILITY_LABEL.outreach_bulk_fire, render: (id) => yesNo(id, "outreach_bulk_fire") },

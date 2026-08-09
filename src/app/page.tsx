@@ -468,7 +468,7 @@ export default function LandingPage() {
 
       <main className="flex-grow">
         {/* ---- Hero: outreach-first ---- */}
-        <section className="relative overflow-hidden border-b border-border-low-alpha bg-bg-cream pt-16">
+        <section className="relative overflow-hidden border-b border-border-low-alpha bg-bg-cream pt-20">
           <div
             aria-hidden
             className="pointer-events-none absolute inset-0 opacity-70 [background-image:linear-gradient(to_right,var(--color-border-low-alpha)_1px,transparent_1px),linear-gradient(to_bottom,var(--color-border-low-alpha)_1px,transparent_1px)] [background-size:64px_64px] [mask-image:linear-gradient(to_bottom,black,transparent_78%)] dark:opacity-30"
@@ -478,20 +478,8 @@ export default function LandingPage() {
             className="absolute left-1/2 top-[-420px] size-[780px] -translate-x-1/2 rounded-full bg-primary-fixed/60 blur-[140px] dark:bg-primary-container/15 dark:blur-[180px]"
           />
 
-          <div className="relative mx-auto grid w-full max-w-[1240px] grid-cols-1 items-center gap-16 px-6 pb-20 pt-8 lg:grid-cols-[1.02fr_0.98fr] lg:px-8 lg:pb-28 lg:pt-10">
+          <div className="relative mx-auto grid w-full max-w-[1240px] grid-cols-1 items-center gap-16 px-6 pb-20 pt-14 lg:grid-cols-[1.02fr_0.98fr] lg:px-8 lg:pb-28 lg:pt-16">
             <Reveal>
-              <Link
-                href="/#agent"
-                className="group mb-6 inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary-fixed/60 py-1.5 pl-3 pr-2.5 text-[12px] font-semibold text-on-primary-fixed transition-colors hover:bg-primary-fixed dark:border-primary-container/30 dark:bg-primary-container/10 dark:text-primary dark:hover:bg-primary-container/20"
-              >
-                <span className="rounded-full bg-primary-container px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-on-primary-container">
-                  New
-                </span>
-                An AI Agent that runs both engines for you
-                <span className="material-symbols-outlined text-[14px] transition-transform group-hover:translate-x-0.5">
-                  arrow_forward
-                </span>
-              </Link>
               <p className="mb-6 text-[12px] font-semibold uppercase tracking-[0.16em] text-primary">
                 AI outreach &amp; talent intelligence
               </p>
@@ -1000,12 +988,20 @@ export default function LandingPage() {
                     </div>
                     <div className={`my-7 h-px ${plan.recommended ? "bg-surface-white/10 dark:bg-outline-variant" : "bg-surface-container-high"}`} />
                     <ul className="space-y-3">
-                      {plan.features.slice(0, 5).map((feature) => (
-                        <li key={feature} className={`flex gap-2.5 text-[12px] leading-5 ${plan.recommended ? "text-primary-fixed-dim dark:text-text-muted" : "text-text-muted"}`}>
-                          <span className={`material-symbols-outlined mt-0.5 text-[14px] ${plan.recommended ? "text-primary-fixed dark:text-primary" : "text-primary"}`}>check</span>
-                          {feature}
-                        </li>
-                      ))}
+                      {plan.features.slice(0, 5).map((feature) => {
+                        const isAgent = /ai agent/i.test(feature);
+                        return (
+                          <li
+                            key={feature}
+                            className={`flex gap-2.5 text-[12px] leading-5 ${isAgent ? "font-semibold" : ""} ${plan.recommended ? "text-primary-fixed-dim dark:text-text-muted" : "text-text-muted"}`}
+                          >
+                            <span className={`material-symbols-outlined mt-0.5 text-[14px] ${plan.recommended ? "text-primary-fixed dark:text-primary" : "text-primary"}`}>
+                              {isAgent ? "auto_awesome" : "check"}
+                            </span>
+                            {feature}
+                          </li>
+                        );
+                      })}
                     </ul>
                     <Link
                       href={user ? "/billing" : "/pricing"}

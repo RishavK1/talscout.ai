@@ -25,7 +25,7 @@ const PLANS: {
     popular: !!p.recommended,
     features: p.features.map((label) => ({
       label,
-      emphasized: /semantic|parsing/i.test(label),
+      emphasized: /semantic|parsing|ai agent/i.test(label),
     })),
   };
 });

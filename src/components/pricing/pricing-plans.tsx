@@ -28,9 +28,9 @@ const plans: Plan[] = PLAN_ORDER.map((id) => {
     annual: Math.round(p.monthlyPrice * 0.8),
     highlighted: p.recommended,
     features: p.features.map((label) => ({
-      icon: /semantic|parsing|everything/i.test(label) ? "stars" : "check_circle",
+      icon: /semantic|parsing|everything|ai agent/i.test(label) ? "stars" : "check_circle",
       label,
-      emphasized: /semantic|parsing/i.test(label),
+      emphasized: /semantic|parsing|ai agent/i.test(label),
     })),
   };
 });
