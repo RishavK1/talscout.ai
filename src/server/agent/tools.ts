@@ -13,7 +13,9 @@ import { subscriptionRepo } from "@/server/repositories/subscription.repo";
 import { candidateRepo } from "@/server/repositories/candidate.repo";
 import { shortlistRepo } from "@/server/repositories/shortlist.repo";
 import { automatedSendRepo, automatedCampaignRepo, automatedLeadRepo } from "@/server/repositories/automated-outreach.repo";
-import { outreachSendRepo } from "@/server/repositories/outreach.repo";
+import { outreachSendRepo, senderAccountRepo } from "@/server/repositories/outreach.repo";
+import { toCredentials, generateMessageId } from "@/server/lib/automated-mail-credentials";
+import { getServices } from "@/server/container";
 import { agentSkillsService } from "@/server/services/agent-skills.service";
 import { agentSkillRepo } from "@/server/repositories/agent-skill.repo";
 import { agentTasksService } from "@/server/services/agent-tasks.service";
@@ -710,6 +712,38 @@ export function buildInHouseTools(
           billingService.createCheckout(ctx, input, appOrigin),
         );
         return { url };
+      },
+    }),
+
+    send_email: tool({
+      description:
+        "Sends ONE standalone email right now from a connected sender account (Gmail or SMTP) — NOT part of " +
+        "any campaign or sequence, just a single one-off message (e.g. 'email this lead directly' or 'send a " +
+        "quick note to X'). Call list_sender_accounts first for a valid senderAccountId. For anything that's " +
+        "really a campaign (multiple recipients, a sequence, tracked replies), use create_campaign or " +
+        "create_bulkfire_campaign instead — this tool does none of that bookkeeping. SENSITIVE: same treatment " +
+        "as activate_campaign — state the recipient, subject, and body you're about to send and wait for the " +
+        "user's explicit yes in their next message before calling this.",
+      inputSchema: z.object({
+        senderAccountId: z.string(),
+        to: z.string().max(320),
+        subject: z.string().min(1).max(500),
+        body: z.string().min(1).max(20000),
+      }),
+      execute: async (input) => {
+        const sender = await withTenantTx(identity, (ctx) => senderAccountRepo.getById(ctx, input.senderAccountId));
+        if (!sender) return { error: "Sender account not found." };
+        const creds = toCredentials(sender);
+        const result = await getServices().outreachMailer.send(creds, {
+          from: sender.email,
+          fromName: sender.fromName ?? undefined,
+          to: input.to,
+          subject: input.subject,
+          text: input.body,
+          replyTo: sender.email,
+          messageId: generateMessageId(sender.email),
+        });
+        return { sent: true, to: input.to, subject: input.subject, gmailThreadId: result.gmailThreadId };
       },
     }),
 

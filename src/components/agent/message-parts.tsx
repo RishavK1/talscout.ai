@@ -84,6 +84,7 @@ const TOOL_META: Record<string, { label: string; icon: React.ComponentType<{ cla
   invite_team_member: { label: "Inviting team member", icon: UserPlus },
   get_billing_info: { label: "Checking billing", icon: ChartLine },
   get_upgrade_link: { label: "Creating upgrade link", icon: ExternalLink },
+  send_email: { label: "Sending email", icon: Send },
   list_bulkfire_campaigns: { label: "Checking Bulk Fire campaigns", icon: ListChecks },
   create_bulkfire_campaign: { label: "Creating Bulk Fire campaign", icon: FileText },
   set_bulkfire_sequence: { label: "Setting email sequence", icon: Pencil },
