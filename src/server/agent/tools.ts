@@ -7,7 +7,7 @@ import { automatedOutreachService } from "@/server/services/automated-outreach.s
 import { outreachService } from "@/server/services/outreach.service";
 import { candidateRepo } from "@/server/repositories/candidate.repo";
 import { shortlistRepo } from "@/server/repositories/shortlist.repo";
-import { automatedSendRepo } from "@/server/repositories/automated-outreach.repo";
+import { automatedSendRepo, automatedCampaignRepo, automatedLeadRepo } from "@/server/repositories/automated-outreach.repo";
 import { outreachSendRepo } from "@/server/repositories/outreach.repo";
 import { agentSkillsService } from "@/server/services/agent-skills.service";
 import { agentSkillRepo } from "@/server/repositories/agent-skill.repo";
@@ -302,22 +302,29 @@ export function buildInHouseTools(identity: { tenantId: string; userId: string; 
         "Creates a new automated outreach campaign as a DRAFT — this does NOT start sending emails or " +
         "searching for leads; a draft is completely inert until separately activated. Matches the app's own " +
         "4-step wizard (Start / Research / Voice & signature / Review & launch) exactly — ask the user about " +
-        "EVERY field below before calling this, including the optional ones. An optional field having a " +
-        "default does not mean skip asking about it — in the real wizard it's still a visible box/toggle the " +
-        "user sees and can change, so treat it the same way in chat: name (required); blueprintId — must be an " +
-        "ACTIVE blueprint (call list_blueprints first; generate_blueprint it first if it's still a draft); " +
-        "senderAccountId (call list_sender_accounts first); category — MUST be one of the exact enum values, " +
-        "not a synonym or anything free-typed, or the campaign will silently find zero leads; location; " +
-        "signatureName (required); signatureTitle (ask — a role/title under the name in the email signature); " +
-        "signatureClosing (ask — mention the default 'Best regards' if they don't care); styleExamples (ask — " +
-        "1-2 example emails to match the writing style/tone of, optional and skippable but ask); " +
-        "maxLeadsPerRun (ask — how many leads to find per run, mention the default of 25); replyPollingEnabled " +
-        "(ask — auto-pause follow-ups when a lead replies; only possible if the chosen sender's " +
-        "supportsReplyPolling from list_sender_accounts is true); aiDiscoveryEnabled (ask — an extra AI-powered " +
-        "live-search source on top of the standard discovery, default on). After this succeeds, ALWAYS " +
-        "explicitly ask the user whether to activate the campaign now (activating starts real lead discovery " +
-        "and sending real emails) — NEVER call activate_campaign without them clearly saying yes to that " +
-        "specific question in their next message.",
+        "EVERY field below before calling this, including the optional ones, and NEVER silently omit a field " +
+        "from this call just because it has a default — decide its value from what the user actually told you, " +
+        "not from letting it fall through unset. An optional field having a default does not mean skip asking " +
+        "about it — in the real wizard it's still a visible box/toggle the user sees and can change.\n" +
+        "REQUIRED (the call fails without these): name; blueprintId — must be an ACTIVE blueprint (call " +
+        "list_blueprints first; generate_blueprint it first if it's still a draft); senderAccountId (call " +
+        "list_sender_accounts first); category — MUST be one of the exact enum values, not a synonym or " +
+        "anything free-typed; location — a real, specific place (city + region/country, e.g. 'Austin, TX' or " +
+        "'Karnal, Haryana'), never left vague; signatureName.\n" +
+        "OPTIONAL, but ask about every one and pass an explicit value based on the answer (never just omit it): " +
+        "signatureTitle (a role/title under the name in the email signature); signatureClosing (default " +
+        "'Best regards' if they don't care); styleExamples (1-2 example emails to match the writing style/tone " +
+        "of, skippable but ask); maxLeadsPerRun (how many leads to find per run, default 25); " +
+        "replyPollingEnabled (auto-pause follow-ups when a lead replies, default ON — only possible if the " +
+        "chosen sender's supportsReplyPolling from list_sender_accounts is true); aiDiscoveryEnabled (an extra " +
+        "AI-powered live-web-search discovery source on top of the free structured-directory search, DEFAULT " +
+        "OFF — explicitly recommend turning this ON whenever the location isn't a major metro area, since the " +
+        "free directory sources (OpenStreetMap/Geoapify) have much thinner business coverage outside large " +
+        "Western cities and a campaign can otherwise sit active finding zero leads with no error at all; still " +
+        "the user's call, but say why you're recommending it rather than silently picking a default for them). " +
+        "After this succeeds, ALWAYS explicitly ask the user whether to activate the campaign now (activating " +
+        "starts real lead discovery and sending real emails) — NEVER call activate_campaign without them " +
+        "clearly saying yes to that specific question in their next message.",
       inputSchema: z.object({
         name: z.string().min(1).max(200),
         blueprintId: z.string(),
@@ -380,6 +387,38 @@ export function buildInHouseTools(identity: { tenantId: string; userId: string; 
         // race a concurrent reader still seeing the pre-activation status.
         await afterCommit();
         return { id: result.id, name: result.name, status: result.status, url: `/automated-outreach/${result.id}` };
+      },
+    }),
+
+    list_campaigns: tool({
+      description:
+        "Lists this workspace's automated outreach campaigns with their status and lead counts so far. Use " +
+        "this whenever the user asks how a campaign is doing, why it hasn't found any leads, or wants a status " +
+        "check after activating one — discovery runs on a schedule (not instantly), so 'nothing yet' minutes " +
+        "after activating is normal, but if leadsFound stays at 0 across multiple runs (check lastDiscoveryRunAt), " +
+        "the likely cause is sparse coverage for that category/location combination in the free structured " +
+        "directories, especially outside major metro areas — tell the user this plainly and suggest either " +
+        "turning on aiDiscoveryEnabled (update the campaign) or trying a broader/different location, rather " +
+        "than leaving them guessing why it looks stuck.",
+      inputSchema: z.object({}),
+      execute: async () => {
+        const campaigns = await withTenantTx(identity, (ctx) => automatedCampaignRepo.list(ctx));
+        const withCounts = await withTenantTx(identity, (ctx) =>
+          Promise.all(
+            campaigns.slice(0, 30).map(async (c) => ({
+              id: c.id,
+              name: c.name,
+              status: c.status,
+              category: (c.discoveryQuery as { category?: string } | null)?.category ?? null,
+              location: (c.discoveryQuery as { location?: { text?: string } } | null)?.location?.text ?? null,
+              aiDiscoveryEnabled: c.aiDiscoveryEnabled,
+              lastDiscoveryRunAt: c.lastDiscoveryRunAt,
+              errorReason: c.errorReason,
+              leadsFound: await automatedLeadRepo.count(ctx, c.id, {}),
+            })),
+          ),
+        );
+        return { campaigns: withCounts };
       },
     }),
 

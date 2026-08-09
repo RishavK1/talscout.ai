@@ -65,6 +65,7 @@ const TOOL_META: Record<string, { label: string; icon: React.ComponentType<{ cla
   research_campaign_market: { label: "Researching market", icon: Globe },
   create_campaign: { label: "Creating campaign", icon: FileText },
   activate_campaign: { label: "Activating campaign", icon: Rocket },
+  list_campaigns: { label: "Checking campaign status", icon: ChartLine },
   connect_app: { label: "Connecting app", icon: Plug },
   save_skill: { label: "Saving skill", icon: Sparkles },
   use_skill: { label: "Loading skill", icon: Sparkles },
