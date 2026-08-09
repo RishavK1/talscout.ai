@@ -85,6 +85,16 @@ export function runAgentTurn(args: {
         const buffered: UIMessageChunk[] = [];
         let committed = false;
         let failed = false;
+        // Same class of gap the headless task runner already closed
+        // (toolCallCount tracking there) — a model can finish a multi-step
+        // tool-calling turn with real, successful tool calls but no closing
+        // sentence, either because it hit stepCountIs(8) mid-thought or just
+        // didn't produce one. Live-observed with both Gemini and an
+        // OpenRouter free model. Without this, the chat shows the tool
+        // cards and then just... stops, no wrap-up, reading as broken or
+        // unfinished even though the actions genuinely completed.
+        let hasText = false;
+        let toolCallCount = 0;
 
         try {
           while (true) {
@@ -101,6 +111,8 @@ export function runAgentTurn(args: {
               for (const b of buffered) writer.write(b);
               buffered.length = 0;
             }
+            if (value.type === "text-delta" && value.delta) hasText = true;
+            if (value.type === "tool-input-available") toolCallCount += 1;
             if (committed) {
               writer.write(value);
             } else {
@@ -123,6 +135,16 @@ export function runAgentTurn(args: {
           // not an error), flush whatever we buffered so the turn isn't
           // silently empty.
           for (const b of buffered) writer.write(b);
+          if (!hasText && toolCallCount > 0) {
+            const id = `synthesized-summary-${Date.now()}`;
+            const text =
+              toolCallCount === 1
+                ? "Done — ran that action, but I didn't have a closing summary to add."
+                : `Done — ran ${toolCallCount} actions, but I didn't have a closing summary to add.`;
+            writer.write({ type: "text-start", id });
+            writer.write({ type: "text-delta", id, delta: text });
+            writer.write({ type: "text-end", id });
+          }
           return;
         }
 

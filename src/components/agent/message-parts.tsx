@@ -113,8 +113,17 @@ function ToolPart({
   const Icon = meta.icon;
 
   const isDone = state === "output-available";
-  const isError = state === "output-error" || state === "output-denied";
   const result = isDone && typeof output === "object" && output !== null ? (output as Record<string, unknown>) : null;
+  // Some tools (use_skill, schedule_task, connect_app's validation path)
+  // return `{ error: "..." }` as a normal SUCCESSFUL result instead of
+  // throwing — a deliberate choice so the model gets the message back in
+  // its own context to relay in prose, but it means the AI SDK's own
+  // state stays "output-available", not "output-error". Without also
+  // checking the payload itself here, these rendered a green checkmark
+  // "Done" card with the actual failure reason invisible — this is what
+  // makes that visible instead of just leaving it to the model's text.
+  const softError = result && typeof result.error === "string" ? result.error : null;
+  const isError = state === "output-error" || state === "output-denied" || softError !== null;
   const resultUrl = result && typeof result.url === "string" ? result.url : null;
 
   if (toolName === "connect_app" && isDone && isConnectAppResult(output)) {
@@ -168,7 +177,7 @@ function ToolPart({
         )}
       </span>
       <span className="flex-1 min-w-0 text-on-surface-variant">
-        {isError ? `Couldn't finish: ${meta.label.toLowerCase()}` : isDone ? meta.label : `${meta.label}…`}
+        {isError ? (softError ?? `Couldn't finish: ${meta.label.toLowerCase()}`) : isDone ? meta.label : `${meta.label}…`}
         {!isDone && !isError && (
           <Loader2 className="ml-1.5 inline size-[12px] animate-spin align-[-1px]" />
         )}
