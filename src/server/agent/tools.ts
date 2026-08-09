@@ -5,6 +5,8 @@ import { searchService } from "@/server/services/search.service";
 import { blueprintService } from "@/server/services/blueprint.service";
 import { automatedOutreachService } from "@/server/services/automated-outreach.service";
 import { outreachService } from "@/server/services/outreach.service";
+import { candidateService } from "@/server/services/candidate.service";
+import { teamService } from "@/server/services/team.service";
 import { candidateRepo } from "@/server/repositories/candidate.repo";
 import { shortlistRepo } from "@/server/repositories/shortlist.repo";
 import { automatedSendRepo, automatedCampaignRepo, automatedLeadRepo } from "@/server/repositories/automated-outreach.repo";
@@ -419,6 +421,246 @@ export function buildInHouseTools(identity: { tenantId: string; userId: string; 
           ),
         );
         return { campaigns: withCounts };
+      },
+    }),
+
+    update_campaign: tool({
+      description:
+        "Updates one or more fields on an EXISTING automated outreach campaign (name, category/location, " +
+        "signature, maxLeadsPerRun, replyPollingEnabled, aiDiscoveryEnabled, styleExamples, marketResearch) — " +
+        "call list_campaigns first to get the id. Works on a draft OR an already-active campaign (e.g. turning " +
+        "on aiDiscoveryEnabled for a campaign that's been finding zero leads). Only pass the fields the user " +
+        "actually wants changed; omitted fields keep their current value.",
+      inputSchema: z.object({
+        campaignId: z.string(),
+        name: z.string().min(1).max(200).optional(),
+        category: z.enum(CAMPAIGN_CATEGORIES).optional(),
+        location: z.string().max(200).optional(),
+        maxLeadsPerRun: z.number().int().min(1).max(100).optional(),
+        signatureName: z.string().min(1).max(200).optional(),
+        signatureTitle: z.string().max(200).optional(),
+        signatureClosing: z.string().max(100).optional(),
+        marketResearch: z.string().max(4000).optional(),
+        replyPollingEnabled: z.boolean().optional(),
+        aiDiscoveryEnabled: z.boolean().optional(),
+      }),
+      execute: async (input) => {
+        const { campaignId, category, location, ...rest } = input;
+        const row = await withTenantTx(identity, async (ctx) => {
+          // discoveryQuery is one complete {category, location} unit in the
+          // schema, not two independent fields — sending just one half
+          // (e.g. only a new category) would silently write a broken
+          // {category, location: {text: undefined}} shape into the DB. If
+          // only one of the two changed, fetch the campaign's CURRENT
+          // discoveryQuery first and merge, so a partial edit never
+          // corrupts the other half.
+          let discoveryQuery: { category: string; location: { text: string } } | undefined;
+          if (category || location) {
+            const existing = await automatedOutreachService.getCampaign(ctx, campaignId);
+            const existingQuery = existing.discoveryQuery as { category: string; location?: { text?: string } };
+            discoveryQuery = {
+              category: category ?? existingQuery.category,
+              location: { text: location ?? existingQuery.location?.text ?? "" },
+            };
+          }
+          return automatedOutreachService.updateCampaign(ctx, campaignId, { ...rest, discoveryQuery });
+        });
+        return { id: row.id, name: row.name, status: row.status };
+      },
+    }),
+
+    pause_campaign: tool({
+      description:
+        "Pauses an ACTIVE automated outreach campaign — stops discovery and sending until resumed with " +
+        "activate_campaign. Not sensitive/destructive (nothing is lost, easily reversible) — no confirmation " +
+        "needed beyond the user asking for it.",
+      inputSchema: z.object({ campaignId: z.string() }),
+      execute: async (input) => {
+        const row = await withTenantTx(identity, (ctx) => automatedOutreachService.pauseCampaign(ctx, input.campaignId));
+        return { id: row.id, status: row.status };
+      },
+    }),
+
+    delete_campaign: tool({
+      description:
+        "PERMANENTLY deletes an automated outreach campaign and its leads/history — cannot be undone. " +
+        "SENSITIVE: describe exactly which campaign (name) you're about to delete and wait for the user's " +
+        "explicit yes in their next message before calling this — same rule as activate_campaign, never chain " +
+        "straight from the request to the delete in one turn.",
+      inputSchema: z.object({ campaignId: z.string() }),
+      execute: async (input) => {
+        const result = await withTenantTx(identity, (ctx) => automatedOutreachService.deleteCampaign(ctx, input.campaignId));
+        return { id: result.id, deleted: true };
+      },
+    }),
+
+    update_blueprint: tool({
+      description:
+        "Updates simple fields on an existing blueprint — name, websiteUrl, or status (draft/active/archived). " +
+        "For revising the blueprint's actual CONTENT (offer, target customer, differentiator, etc.), use " +
+        "generate_blueprint again instead — this tool only touches the fields listed, not the generated sections.",
+      inputSchema: z.object({
+        blueprintId: z.string(),
+        name: z.string().min(1).max(200).optional(),
+        websiteUrl: z.string().max(2000).optional(),
+        status: z.enum(["draft", "active", "archived"]).optional(),
+      }),
+      execute: async (input) => {
+        const { blueprintId, ...rest } = input;
+        const row = await withTenantTx(identity, (ctx) => blueprintService.update(ctx, blueprintId, rest));
+        return { id: row.id, name: row.name, status: row.status };
+      },
+    }),
+
+    delete_blueprint: tool({
+      description:
+        "PERMANENTLY deletes a blueprint — cannot be undone, and fails if any campaign still uses it (tell the " +
+        "user to delete or reassign those campaigns first if that happens). SENSITIVE: describe which blueprint " +
+        "(name) you're about to delete and wait for the user's explicit yes in their next message first.",
+      inputSchema: z.object({ blueprintId: z.string() }),
+      execute: async (input) => {
+        await withTenantTx(identity, (ctx) => blueprintService.remove(ctx, input.blueprintId));
+        return { id: input.blueprintId, deleted: true };
+      },
+    }),
+
+    get_candidate: tool({
+      description: "Gets one candidate's full profile by id (from a search_candidates result) — skills, experience, contact info, summary.",
+      inputSchema: z.object({ candidateId: z.string() }),
+      execute: async (input) => {
+        const row = await withTenantTx(identity, (ctx) => candidateService.get(ctx, input.candidateId));
+        return row;
+      },
+    }),
+
+    update_candidate: tool({
+      description:
+        "Updates fields on an existing candidate's profile (name, contact info, location, title, years of " +
+        "experience, skills, certifications, summary) — get the candidateId from search_candidates or " +
+        "get_candidate first. Only pass fields the user wants changed.",
+      inputSchema: z.object({
+        candidateId: z.string(),
+        fullName: z.string().min(1).max(200).optional(),
+        emails: z.array(z.string().max(320)).max(20).optional(),
+        phones: z.array(z.string().max(40)).max(20).optional(),
+        location: z.string().max(200).optional(),
+        currentTitle: z.string().max(200).optional(),
+        yearsExperience: z.number().min(0).max(80).optional(),
+        skills: z.array(z.string().max(80)).max(200).optional(),
+        certifications: z.array(z.string().max(120)).max(100).optional(),
+        summary: z.string().max(10000).optional(),
+      }),
+      execute: async (input) => {
+        const { candidateId, ...rest } = input;
+        const row = await withTenantTx(identity, (ctx) => candidateService.update(ctx, candidateId, rest));
+        return { id: row.id, fullName: row.fullName };
+      },
+    }),
+
+    delete_candidate: tool({
+      description:
+        "PERMANENTLY deletes a candidate's profile — cannot be undone. SENSITIVE: confirm which candidate " +
+        "(name) you're about to delete and wait for the user's explicit yes in their next message first.",
+      inputSchema: z.object({ candidateId: z.string() }),
+      execute: async (input) => {
+        await withTenantTx(identity, (ctx) => candidateService.remove(ctx, input.candidateId));
+        return { id: input.candidateId, deleted: true };
+      },
+    }),
+
+    list_shortlists: tool({
+      description: "Lists this workspace's shortlists (saved groups of candidates).",
+      inputSchema: z.object({}),
+      execute: async () => {
+        const rows = await withTenantTx(identity, (ctx) => shortlistRepo.getByTenant(ctx));
+        return { shortlists: rows };
+      },
+    }),
+
+    create_shortlist: tool({
+      description: "Creates a new, empty shortlist with the given name — add candidates to it with add_to_shortlist.",
+      inputSchema: z.object({ name: z.string().min(1).max(200) }),
+      execute: async (input) => {
+        const row = await withTenantTx(identity, (ctx) => shortlistRepo.create(ctx, input.name));
+        return { id: row.id, name: row.name };
+      },
+    }),
+
+    add_to_shortlist: tool({
+      description:
+        "Adds a candidate (from search_candidates or get_candidate) to an existing shortlist (from " +
+        "list_shortlists or create_shortlist). Not sensitive — no confirmation needed.",
+      inputSchema: z.object({ shortlistId: z.string(), candidateId: z.string() }),
+      execute: async (input) => {
+        await withTenantTx(identity, (ctx) => shortlistRepo.addItem(ctx, input.shortlistId, input.candidateId));
+        return { added: true };
+      },
+    }),
+
+    list_reply_drafts: tool({
+      description:
+        "Lists AI-drafted replies awaiting human review for automated outreach campaigns — each one is a " +
+        "response to a real lead who replied, drafted but NOT sent until approved. Use when the user asks " +
+        "about pending replies or wants to review/approve/reject them.",
+      inputSchema: z.object({}),
+      execute: async () => {
+        const drafts = await withTenantTx(identity, (ctx) => automatedOutreachService.listPendingReplyDrafts(ctx, {}));
+        return { drafts };
+      },
+    }),
+
+    approve_reply_draft: tool({
+      description:
+        "Sends an AI-drafted reply to the real lead who wrote in — this is the SENSITIVE, real-world-effect " +
+        "step, same treatment as activate_campaign. Show the user the draft's full text (call list_reply_drafts " +
+        "or get it from context first) and wait for their explicit yes in their next message before calling " +
+        "this. Optionally pass finalBody to send an edited version instead of the AI's original draft.",
+      inputSchema: z.object({ draftId: z.string(), finalBody: z.string().max(10000).optional() }),
+      execute: async (input) => {
+        const { result, afterCommit } = await withTenantTx(identity, (ctx) =>
+          automatedOutreachService.approveReplyDraft(ctx, input.draftId, input.finalBody),
+        );
+        // Same "only send after the approval itself has actually
+        // committed" ordering as activate_campaign — the real email send
+        // lives in afterCommit precisely so a mid-transaction failure can
+        // never leave a draft marked "approved" with no email sent, or
+        // vice versa.
+        await afterCommit();
+        return { id: result.id, status: result.status };
+      },
+    }),
+
+    reject_reply_draft: tool({
+      description: "Discards an AI-drafted reply without sending it — not sensitive, no confirmation needed.",
+      inputSchema: z.object({ draftId: z.string() }),
+      execute: async (input) => {
+        const row = await withTenantTx(identity, (ctx) => automatedOutreachService.rejectReplyDraft(ctx, input.draftId));
+        return { id: row.id, status: row.status };
+      },
+    }),
+
+    list_team: tool({
+      description: "Lists this workspace's team members and their roles.",
+      inputSchema: z.object({}),
+      execute: async () => {
+        const rows = await withTenantTx(identity, (ctx) => teamService.list(ctx));
+        return { team: rows };
+      },
+    }),
+
+    invite_team_member: tool({
+      description:
+        "Invites a new team member by email with a given role (admin/recruiter/viewer — ask which if unsure, " +
+        "default to recruiter for most cases; a workspace has exactly one owner, set at signup, so 'owner' " +
+        "isn't an invitable role here). SENSITIVE: this sends a real invite email and grants real workspace " +
+        "access — confirm the email and role with the user and wait for their explicit yes before calling this.",
+      inputSchema: z.object({
+        email: z.string().max(320),
+        role: z.enum(["admin", "recruiter", "viewer"]),
+      }),
+      execute: async (input) => {
+        const row = await withTenantTx(identity, (ctx) => teamService.invite(ctx, input));
+        return { id: row.id, email: row.email, role: row.role };
       },
     }),
 

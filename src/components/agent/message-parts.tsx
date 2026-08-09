@@ -4,7 +4,7 @@ import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { motion } from "framer-motion";
-import { Loader2, CircleCheck, CircleX, Search, FileText, Wrench, ExternalLink, ChartLine, Globe, Sparkles, Mail, Rocket, Plug, Clock } from "lucide-react";
+import { Loader2, CircleCheck, CircleX, Search, FileText, Wrench, ExternalLink, ChartLine, Globe, Sparkles, Mail, Rocket, Plug, Clock, Pencil, Trash2, Pause, UserRound, Star, FolderPlus, Reply, Users, UserPlus } from "lucide-react";
 import type { UIMessage } from "ai";
 import { cn } from "@/lib/utils";
 import { easeOut } from "@/lib/motion";
@@ -66,6 +66,22 @@ const TOOL_META: Record<string, { label: string; icon: React.ComponentType<{ cla
   create_campaign: { label: "Creating campaign", icon: FileText },
   activate_campaign: { label: "Activating campaign", icon: Rocket },
   list_campaigns: { label: "Checking campaign status", icon: ChartLine },
+  update_campaign: { label: "Updating campaign", icon: Pencil },
+  pause_campaign: { label: "Pausing campaign", icon: Pause },
+  delete_campaign: { label: "Deleting campaign", icon: Trash2 },
+  update_blueprint: { label: "Updating blueprint", icon: Pencil },
+  delete_blueprint: { label: "Deleting blueprint", icon: Trash2 },
+  get_candidate: { label: "Loading candidate", icon: UserRound },
+  update_candidate: { label: "Updating candidate", icon: Pencil },
+  delete_candidate: { label: "Deleting candidate", icon: Trash2 },
+  list_shortlists: { label: "Checking shortlists", icon: Star },
+  create_shortlist: { label: "Creating shortlist", icon: FolderPlus },
+  add_to_shortlist: { label: "Adding to shortlist", icon: Star },
+  list_reply_drafts: { label: "Checking reply drafts", icon: Reply },
+  approve_reply_draft: { label: "Sending reply", icon: Reply },
+  reject_reply_draft: { label: "Discarding draft reply", icon: Trash2 },
+  list_team: { label: "Checking team", icon: Users },
+  invite_team_member: { label: "Inviting team member", icon: UserPlus },
   connect_app: { label: "Connecting app", icon: Plug },
   save_skill: { label: "Saving skill", icon: Sparkles },
   use_skill: { label: "Loading skill", icon: Sparkles },
