@@ -468,7 +468,7 @@ export default function LandingPage() {
 
       <main className="flex-grow">
         {/* ---- Hero: outreach-first ---- */}
-        <section className="relative overflow-hidden border-b border-border-low-alpha bg-bg-cream pt-28">
+        <section className="relative overflow-hidden border-b border-border-low-alpha bg-bg-cream pt-16">
           <div
             aria-hidden
             className="pointer-events-none absolute inset-0 opacity-70 [background-image:linear-gradient(to_right,var(--color-border-low-alpha)_1px,transparent_1px),linear-gradient(to_bottom,var(--color-border-low-alpha)_1px,transparent_1px)] [background-size:64px_64px] [mask-image:linear-gradient(to_bottom,black,transparent_78%)] dark:opacity-30"
@@ -478,11 +478,11 @@ export default function LandingPage() {
             className="absolute left-1/2 top-[-420px] size-[780px] -translate-x-1/2 rounded-full bg-primary-fixed/60 blur-[140px] dark:bg-primary-container/15 dark:blur-[180px]"
           />
 
-          <div className="relative mx-auto grid w-full max-w-[1240px] grid-cols-1 items-center gap-16 px-6 pb-20 pt-20 lg:grid-cols-[1.02fr_0.98fr] lg:px-8 lg:pb-28 lg:pt-24">
+          <div className="relative mx-auto grid w-full max-w-[1240px] grid-cols-1 items-center gap-16 px-6 pb-20 pt-8 lg:grid-cols-[1.02fr_0.98fr] lg:px-8 lg:pb-28 lg:pt-10">
             <Reveal>
               <Link
                 href="/#agent"
-                className="group mb-6 inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary-fixed/60 py-1.5 pl-3 pr-2.5 text-[12px] font-semibold text-primary-fixed-dim transition-colors hover:bg-primary-fixed dark:border-primary-container/30 dark:bg-primary-container/10 dark:text-primary dark:hover:bg-primary-container/20"
+                className="group mb-6 inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary-fixed/60 py-1.5 pl-3 pr-2.5 text-[12px] font-semibold text-on-primary-fixed transition-colors hover:bg-primary-fixed dark:border-primary-container/30 dark:bg-primary-container/10 dark:text-primary dark:hover:bg-primary-container/20"
               >
                 <span className="rounded-full bg-primary-container px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-on-primary-container">
                   New
