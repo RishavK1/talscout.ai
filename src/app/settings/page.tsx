@@ -381,7 +381,7 @@ function SecurityCard() {
               className="bg-bg-cream/30 h-auto px-4 py-3 rounded-xl font-body-md"
             />
           </div>
-          <div className="flex justify-end gap-3 pt-2">
+          <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end">
             <Button type="button" variant="outline" onClick={() => setPwOpen(false)} disabled={changing}>
               Cancel
             </Button>
@@ -559,7 +559,7 @@ function DataPanel({ profile, signOut }: { profile: any; signOut: () => void }) 
             />
           </div>
 
-          <div className="flex gap-3 justify-end pt-4 border-t border-border-low-alpha">
+          <div className="flex flex-col-reverse gap-3 pt-4 border-t border-border-low-alpha sm:flex-row sm:justify-end">
             <Button type="button" variant="outline" onClick={() => setIsDeleteModalOpen(false)} disabled={deleting}>
               Cancel
             </Button>

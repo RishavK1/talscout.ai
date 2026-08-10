@@ -898,7 +898,7 @@ export default function BulkFirePage() {
               </button>
             </div>
           </div>
-          <div className="flex justify-end gap-3 pt-2">
+          <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end">
             <button
               type="button"
               onClick={() => setNewCampaignOpen(false)}
@@ -1030,7 +1030,7 @@ export default function BulkFirePage() {
             />
             Use TLS (usually on for port 465)
           </label>
-          <div className="flex justify-end gap-3 pt-2">
+          <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end">
             <button
               type="button"
               onClick={() => setSmtpOpen(false)}
@@ -1154,7 +1154,7 @@ export default function BulkFirePage() {
               className="w-full rounded-xl border border-border-low-alpha bg-bg-cream/30 px-4 py-2.5 font-body-md"
             />
           </div>
-          <div className="flex justify-end gap-3 pt-2">
+          <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end">
             <button
               type="button"
               onClick={() => setWhatsappOpen(false)}

@@ -3,6 +3,19 @@
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
+import {
+  ArrowLeft,
+  Search,
+  ChevronRight,
+  BadgeCheck,
+  PenLine,
+  MapPin,
+  Briefcase,
+  Mail,
+  Sparkles,
+  Trash2,
+  Award,
+} from "lucide-react";
 import { AppShell } from "@/components/app/app-shell";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
@@ -14,6 +27,7 @@ import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CardBodySkeleton } from "@/components/ui/skeletons";
+import { Reveal } from "@/components/motion/reveal";
 
 import { AddToShortlistButton } from "@/components/candidate/add-to-shortlist-button";
 import { MessageCandidate } from "@/components/candidate/message-candidate";
@@ -139,7 +153,7 @@ export default function CandidateProfilePage() {
             leftContent={
               <div className="flex items-center text-on-surface-variant w-full">
                 <Link className="p-2 rounded-full text-on-surface-variant flex items-center justify-center" href="/candidates">
-                  <span className="material-symbols-outlined" data-icon="arrow_back">arrow_back</span>
+                  <ArrowLeft className="size-[20px]" />
                 </Link>
               </div>
             }
@@ -220,7 +234,7 @@ export default function CandidateProfilePage() {
           leftContent={
             <div className="flex items-center text-on-surface-variant w-full">
               <Link className="p-2 rounded-full hover:bg-surface-container-low transition-colors text-on-surface-variant flex items-center justify-center" href="/candidates">
-                <span className="material-symbols-outlined" data-icon="arrow_back">arrow_back</span>
+                <ArrowLeft className="size-[20px]" />
               </Link>
               <div className="h-4 w-px bg-border-low-alpha mx-4"></div>
               <form
@@ -233,7 +247,7 @@ export default function CandidateProfilePage() {
                   }
                 }}
               >
-                <span className="material-symbols-outlined absolute left-3 text-on-surface-variant">search</span>
+                <Search className="absolute left-3 size-[18px] text-on-surface-variant" />
                 <input
                   name="q"
                   className="pl-10 pr-4 py-2 rounded-full bg-surface-white border border-border-low-alpha focus:outline-none focus:ring-1 focus:ring-primary w-full sm:w-64 font-body-md text-body-md text-on-surface placeholder:text-on-surface-variant/60 shadow-sm transition-all sm:focus:w-80"
@@ -254,7 +268,7 @@ export default function CandidateProfilePage() {
         <div className="px-4 sm:px-6 lg:px-12 pt-6 max-w-[1440px] mx-auto w-full">
           <nav className="flex items-center space-x-2 font-label-md text-label-md text-on-surface-variant">
             <Link className="hover:text-primary transition-colors" href="/candidates">Candidates</Link>
-            <span className="material-symbols-outlined text-[18px] text-outline">chevron_right</span>
+            <ChevronRight className="size-[18px] text-outline" />
             <span className="text-primary font-semibold truncate max-w-[160px]">{name}</span>
           </nav>
         </div>
@@ -262,7 +276,7 @@ export default function CandidateProfilePage() {
         {/* Profile Canvas */}
         <div className="relative flex-1 p-4 sm:p-6 lg:p-12 max-w-[1440px] mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           {/* Left Column: Main Profile (8 cols) */}
-          <div className="lg:col-span-8 space-y-6">
+          <Reveal className="lg:col-span-8 space-y-6">
             {/* Header Card */}
             <Card className="[--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
               <CardContent className="flex flex-col md:flex-row gap-8 items-start">
@@ -274,11 +288,11 @@ export default function CandidateProfilePage() {
                     <h2 className="font-headline-lg text-headline-lg text-primary">{name}</h2>
                     {candidate.hasResume && candidate.status === "ready" ? (
                       <StatusBadge tone="brass" dot={false} className="gap-1">
-                        <span className="material-symbols-outlined text-[14px]" data-icon="verified">verified</span> AI Scanned
+                        <BadgeCheck className="size-[14px]" /> AI Scanned
                       </StatusBadge>
                     ) : !candidate.hasResume ? (
                       <StatusBadge tone="neutral" dot={false} className="gap-1">
-                        <span className="material-symbols-outlined text-[14px]" data-icon="edit_note">edit_note</span> Manual Entry
+                        <PenLine className="size-[14px]" /> Manual Entry
                       </StatusBadge>
                     ) : null}
                   </div>
@@ -287,16 +301,16 @@ export default function CandidateProfilePage() {
                   </p>
                   <div className="flex flex-wrap gap-4 font-label-md text-label-md text-outline">
                     <div className="flex items-center">
-                      <span className="material-symbols-outlined text-[18px] mr-1.5" data-icon="location_on">location_on</span>
+                      <MapPin className="size-[18px] mr-1.5" />
                       {candidate.location || "Unknown Location"}
                     </div>
                     <div className="flex items-center">
-                      <span className="material-symbols-outlined text-[18px] mr-1.5" data-icon="work">work</span>
+                      <Briefcase className="size-[18px] mr-1.5" />
                       {candidate.yearsExperience ? `${Math.round(parseFloat(candidate.yearsExperience))} Yrs Experience` : "Exp not parsed"}
                     </div>
                     {candidate.emails && candidate.emails.length > 0 && (
                       <div className="flex items-center">
-                        <span className="material-symbols-outlined text-[18px] mr-1.5" data-icon="mail">mail</span>
+                        <Mail className="size-[18px] mr-1.5" />
                         {candidate.emails[0]}
                       </div>
                     )}
@@ -309,7 +323,7 @@ export default function CandidateProfilePage() {
             <Card className="[--card-spacing:--spacing(6)]">
               <CardHeader>
                 <CardTitle className="font-body-md font-semibold text-headline-md text-primary flex items-center">
-                  <span className="material-symbols-outlined mr-2 text-tertiary-fixed-dim" data-icon="auto_awesome">auto_awesome</span>
+                  <Sparkles className="size-[18px] mr-2 text-tertiary-fixed-dim" />
                   Executive Summary
                 </CardTitle>
               </CardHeader>
@@ -422,10 +436,10 @@ export default function CandidateProfilePage() {
                 </CardContent>
               </Card>
             )}
-          </div>
+          </Reveal>
 
           {/* Right Column: Sidebar Actions (4 cols) */}
-          <div className="lg:col-span-4 space-y-6">
+          <Reveal delay={0.05} className="lg:col-span-4 space-y-6">
             {/* Primary Actions */}
             <Card className="[--card-spacing:--spacing(6)]">
               <CardContent className="flex flex-col gap-3">
@@ -443,7 +457,7 @@ export default function CandidateProfilePage() {
                   onClick={() => setDeleteModalOpen(true)}
                   className="w-full mt-2 justify-center py-3"
                 >
-                  <span className="material-symbols-outlined text-sm">delete</span>
+                  <Trash2 className="size-[16px]" />
                   Delete Candidate
                 </Button>
               </CardContent>
@@ -524,7 +538,7 @@ export default function CandidateProfilePage() {
                   <ul className="space-y-2">
                     {certifications.map((c, i) => (
                       <li key={i} className="flex items-start gap-2 font-body-md text-[14px] text-on-surface">
-                        <span className="material-symbols-outlined text-[16px] text-tertiary-fixed-dim mt-0.5">workspace_premium</span>
+                        <Award className="size-[16px] text-tertiary-fixed-dim mt-0.5" />
                         <span>{c}</span>
                       </li>
                     ))}
@@ -548,7 +562,7 @@ export default function CandidateProfilePage() {
                 </CardContent>
               </Card>
             )}
-          </div>
+          </Reveal>
         </div>
 
         <ConfirmDialog

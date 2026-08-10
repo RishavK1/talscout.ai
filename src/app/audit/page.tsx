@@ -2,6 +2,19 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import {
+  ChevronRight,
+  ChevronLeft,
+  Search,
+  CalendarDays,
+  User,
+  ListFilter,
+  History,
+  SearchX,
+  Loader2,
+  ShieldCheck,
+  ShieldAlert,
+} from "lucide-react";
 import { AppShell } from "@/components/app/app-shell";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
@@ -11,6 +24,7 @@ import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 import { StatusBadge, type StatusBadgeProps } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import { TableSkeleton } from "@/components/ui/skeletons";
+import { Reveal } from "@/components/motion/reveal";
 
 const FETCH_BATCH = 100;
 
@@ -208,14 +222,14 @@ export default function AuditLogPage() {
             <div className="flex items-center gap-4">
               <nav className="flex items-center gap-2 text-on-surface-variant font-label-md">
                 <Link href="/settings" className="hover:text-primary cursor-pointer">Settings</Link>
-                <span className="material-symbols-outlined text-[16px]">chevron_right</span>
+                <ChevronRight className="size-[16px]" />
                 <span className="text-primary font-semibold">Audit log</span>
               </nav>
             </div>
           }
           rightContent={
             <div className="relative group w-full sm:w-64">
-              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline group-focus-within:text-primary transition-colors">search</span>
+              <Search className="absolute left-3 top-1/2 size-[18px] -translate-y-1/2 text-outline transition-colors group-focus-within:text-primary" />
               <input
                 className="bg-surface-container-low border-none rounded-full pl-10 pr-4 py-2 text-label-md w-full focus:ring-2 focus:ring-primary/20 transition-all"
                 placeholder="Search logs..."
@@ -233,22 +247,25 @@ export default function AuditLogPage() {
         <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-[1440px] mx-auto w-full">
           <div className="space-y-8">
             {/* Header */}
+            <Reveal>
             <section className="flex items-center gap-4">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary-container/10 text-primary">
-                <span className="material-symbols-outlined text-[24px]">history_edu</span>
+                <History className="size-[24px]" />
               </div>
               <div>
                 <h1 className="font-headline-lg text-headline-lg text-primary mb-1">Audit log</h1>
                 <p className="font-body-md text-text-muted">Every sensitive action, recorded and secured for compliance and oversight.</p>
               </div>
             </section>
+            </Reveal>
             {/* Filter Toolbar */}
+            <Reveal delay={0.05}>
             <Card className="[--card-spacing:--spacing(4)]">
               <CardContent className="flex flex-wrap items-center justify-between gap-4">
                 <div className="flex flex-wrap items-center gap-3">
                   {/* Date Filter */}
                   <div className="flex items-center gap-2 px-3 py-2 bg-bg-cream rounded-lg border border-border-low-alpha cursor-pointer hover:border-primary/30 transition-colors">
-                    <span className="material-symbols-outlined text-[18px] text-primary">calendar_today</span>
+                    <CalendarDays className="size-[18px] text-primary" />
                     <select className="text-label-md bg-transparent border-none focus:outline-none cursor-pointer" value={date} onChange={(e) => setDate(e.target.value)}>
                       {datesList.map((d) => (
                         <option key={d} value={d}>{d}</option>
@@ -257,7 +274,7 @@ export default function AuditLogPage() {
                   </div>
                   {/* Member Dropdown */}
                   <div className="flex items-center gap-2 px-3 py-2 bg-bg-cream rounded-lg border border-border-low-alpha cursor-pointer hover:border-primary/30 transition-colors">
-                    <span className="material-symbols-outlined text-[18px] text-secondary">person</span>
+                    <User className="size-[18px] text-secondary" />
                     <select className="text-label-md bg-transparent border-none focus:outline-none cursor-pointer" value={member} onChange={(e) => setMember(e.target.value)}>
                       {membersList.map((m) => (
                         <option key={m} value={m}>{m}</option>
@@ -266,7 +283,7 @@ export default function AuditLogPage() {
                   </div>
                   {/* Action Filter */}
                   <div className="flex items-center gap-2 px-3 py-2 bg-bg-cream rounded-lg border border-border-low-alpha cursor-pointer hover:border-primary/30 transition-colors">
-                    <span className="material-symbols-outlined text-[18px] text-tertiary-fixed-dim">filter_list</span>
+                    <ListFilter className="size-[18px] text-tertiary-fixed-dim" />
                     <select className="text-label-md bg-transparent border-none focus:outline-none cursor-pointer" value={action} onChange={(e) => setAction(e.target.value)}>
                       {actionsList.map((a) => (
                         <option key={a} value={a}>{a}</option>
@@ -276,7 +293,9 @@ export default function AuditLogPage() {
                 </div>
               </CardContent>
             </Card>
+            </Reveal>
             {/* Data Table */}
+            <Reveal delay={0.1}>
             <Card className="overflow-hidden">
               <CardContent className="p-0">
                 {loading ? (
@@ -289,7 +308,7 @@ export default function AuditLogPage() {
                     emptyState={
                       <div className="flex flex-col items-center gap-3 text-text-muted">
                         <div className="flex h-14 w-14 items-center justify-center rounded-full bg-surface-container-highest text-text-muted">
-                          <span className="material-symbols-outlined text-[28px]">search_off</span>
+                          <SearchX className="size-[28px]" />
                         </div>
                         <p className="font-label-md">No audit entries match your filters.</p>
                       </div>
@@ -314,7 +333,7 @@ export default function AuditLogPage() {
                       disabled={currentPage <= 1}
                       aria-label="Previous page"
                     >
-                      <span className="material-symbols-outlined text-[18px]">chevron_left</span>
+                      <ChevronLeft className="size-[18px]" />
                     </Button>
                     {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
                       <Button
@@ -336,7 +355,7 @@ export default function AuditLogPage() {
                       disabled={currentPage >= totalPages}
                       aria-label="Next page"
                     >
-                      <span className="material-symbols-outlined text-[18px]">chevron_right</span>
+                      <ChevronRight className="size-[18px]" />
                     </Button>
                   </div>
                 </div>
@@ -344,19 +363,21 @@ export default function AuditLogPage() {
               {!loading && logs.length < totalCount && currentPage >= totalPages && (
                 <div className="px-6 py-4 border-t border-border-low-alpha bg-surface-white flex justify-center">
                   <Button type="button" variant="outline" onClick={loadMore} disabled={loadingMore}>
-                    {loadingMore && <span className="material-symbols-outlined text-[16px] animate-spin">sync</span>}
+                    {loadingMore && <Loader2 className="size-[16px] animate-spin" />}
                     {loadingMore ? "Loading…" : `Load more (${totalCount - logs.length} remaining)`}
                   </Button>
                 </div>
               )}
             </Card>
+            </Reveal>
             {/* Footer Section Info */}
+            <Reveal delay={0.15}>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Card>
                 <CardContent>
                   <div className="flex items-start gap-4">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary-container/10 text-primary">
-                      <span className="material-symbols-outlined text-[20px]">verified_user</span>
+                      <ShieldCheck className="size-[20px]" />
                     </div>
                     <div>
                       <h4 className="font-label-md text-primary font-bold mb-1">Retention Policy</h4>
@@ -369,7 +390,7 @@ export default function AuditLogPage() {
                 <CardContent>
                   <div className="flex items-start gap-4">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary-container/10 text-primary">
-                      <span className="material-symbols-outlined text-[20px]">security</span>
+                      <ShieldAlert className="size-[20px]" />
                     </div>
                     <div>
                       <h4 className="font-label-md text-secondary font-bold mb-1">Compliance &amp; Auditing</h4>
@@ -379,6 +400,7 @@ export default function AuditLogPage() {
                 </CardContent>
               </Card>
             </div>
+            </Reveal>
           </div>
         </main>
       </div>

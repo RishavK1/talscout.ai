@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { CheckCircle2, PenLine } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
@@ -88,8 +89,9 @@ export function EditProfile({
       <button
         type="button"
         onClick={handleOpen}
-        className="flex-1 py-2 bg-transparent border border-outline-variant text-on-surface-variant rounded-lg font-label-md text-[13px] hover:bg-surface-container-low transition-colors active:scale-[0.98]"
+        className="flex flex-1 items-center justify-center gap-1.5 py-2 bg-transparent border border-outline-variant text-on-surface-variant rounded-lg font-label-md text-[13px] hover:bg-surface-container-low transition-colors active:scale-[0.98]"
       >
+        <PenLine className="size-[15px]" />
         Edit Profile
       </button>
 
@@ -103,7 +105,7 @@ export function EditProfile({
         {saved ? (
           <div className="py-4 text-center">
             <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-tertiary-fixed/20 text-tertiary">
-              <span className="material-symbols-outlined">check_circle</span>
+              <CheckCircle2 className="size-[24px]" />
             </div>
             <p className="font-headline-md text-[18px] text-primary serif-text">Profile updated</p>
             <p className="mt-1 font-body-md text-[14px] text-on-surface-variant">
@@ -174,7 +176,7 @@ export function EditProfile({
                 />
               </div>
             </div>
-            <div className="flex justify-end gap-3 pt-2">
+            <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end">
               <button
                 type="button"
                 onClick={close}

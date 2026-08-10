@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Loader2 } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
@@ -96,9 +97,7 @@ export default function LeadEmailsModal({
     >
       {loading ? (
         <div className="flex items-center justify-center py-10 font-body-md text-on-surface-variant">
-          <span className="material-symbols-outlined mr-2 animate-spin">
-            sync
-          </span>
+          <Loader2 className="mr-2 size-[18px] animate-spin" />
           Loading…
         </div>
       ) : (
@@ -143,7 +142,7 @@ export default function LeadEmailsModal({
           ))}
         </div>
       )}
-      <div className="mt-5 flex justify-end gap-3 border-t border-border-low-alpha pt-4">
+      <div className="mt-5 flex flex-col-reverse gap-3 border-t border-border-low-alpha pt-4 sm:flex-row sm:justify-end">
         <button
           type="button"
           onClick={onClose}

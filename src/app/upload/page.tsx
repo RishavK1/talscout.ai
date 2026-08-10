@@ -3,6 +3,20 @@
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import {
+  Search,
+  UploadCloud,
+  FileText,
+  CheckCircle2,
+  Loader2,
+  AlertCircle,
+  Lock,
+  X,
+  FlaskConical,
+  TreePine,
+  Megaphone,
+  Share2,
+} from "lucide-react";
 import { AppShell } from "@/components/app/app-shell";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
@@ -12,6 +26,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { Reveal } from "@/components/motion/reveal";
 
 
 interface UploadingFile {
@@ -327,7 +342,7 @@ export default function UploadPage() {
                 }
               }}
             >
-              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
+              <Search className="absolute left-3 top-1/2 size-[18px] -translate-y-1/2 text-on-surface-variant" />
               <input
                 name="q"
                 className="w-full bg-surface-white border border-border-low-alpha rounded-full pl-10 pr-4 py-2 font-body-md text-body-md text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
@@ -345,6 +360,7 @@ export default function UploadPage() {
 
         {/* Canvas Area */}
         <div className="flex-1 max-w-5xl mx-auto w-full px-4 sm:px-6 lg:px-12 py-8 sm:py-10 lg:py-12">
+          <Reveal>
           <Card className="mb-10 [--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
             <CardContent>
               <h1 className="font-headline-lg text-headline-lg text-primary mb-2">Upload résumés</h1>
@@ -353,8 +369,10 @@ export default function UploadPage() {
               </p>
             </CardContent>
           </Card>
+          </Reveal>
 
           {/* Drag & Drop Zone */}
+          <Reveal delay={0.05}>
           <Card
             className={cn(
               "mb-12 cursor-pointer bg-white border-2 border-dashed transition-all group [--card-spacing:--spacing(8)] sm:[--card-spacing:--spacing(12)] lg:[--card-spacing:--spacing(16)]",
@@ -368,7 +386,7 @@ export default function UploadPage() {
           >
             <CardContent className="flex flex-col items-center">
               <div className="w-16 h-16 bg-primary-container rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                <span className="material-symbols-outlined text-on-primary text-4xl">cloud_upload</span>
+                <UploadCloud className="size-9 text-on-primary" />
               </div>
               <h3 className="font-body-md font-semibold text-headline-md text-on-surface mb-1">
                 Drag &amp; drop résumés here
@@ -386,9 +404,11 @@ export default function UploadPage() {
               </div>
             </CardContent>
           </Card>
+          </Reveal>
 
           {/* Uploading List */}
           {uploadList.length > 0 && (
+            <Reveal delay={0.1}>
             <section className="mb-12">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="font-body-md font-semibold text-headline-md text-on-surface">
@@ -400,7 +420,7 @@ export default function UploadPage() {
                   <Card key={file.id} className="[--card-spacing:--spacing(4)]">
                     <CardContent className="flex flex-wrap items-center gap-4 sm:gap-6">
                       <div className="w-10 h-10 rounded-lg bg-primary-container flex items-center justify-center text-on-primary shrink-0">
-                        <span className="material-symbols-outlined">description</span>
+                        <FileText className="size-[18px]" />
                       </div>
                       <div className="flex-1 min-w-[160px]">
                         <div className="flex justify-between items-end mb-2">
@@ -429,25 +449,23 @@ export default function UploadPage() {
                           className="transition-colors hover:brightness-95"
                         >
                           <StatusBadge tone="active" dot={false}>
-                            <span className="material-symbols-outlined text-sm">check_circle</span>
+                            <CheckCircle2 className="size-[14px]" />
                             Ready (View profile)
                           </StatusBadge>
                         </Link>
                       ) : file.status === "processing" ? (
                         <StatusBadge tone="invited" dot={false}>
-                          <span className="material-symbols-outlined text-sm animate-spin">sync</span>
+                          <Loader2 className="size-[14px] animate-spin" />
                           AI Parsing...
                         </StatusBadge>
                       ) : file.status === "error" ? (
                         <StatusBadge tone="error" dot={false} title={file.errorMsg}>
-                          <span className="material-symbols-outlined text-sm">error</span>
+                          <AlertCircle className="size-[14px]" />
                           Error
                         </StatusBadge>
                       ) : (
                         <StatusBadge tone="invited" dot={false}>
-                          <span className="material-symbols-outlined text-sm animate-pulse">
-                            progress_activity
-                          </span>
+                          <Loader2 className="size-[14px] animate-pulse" />
                           Uploading...
                         </StatusBadge>
                       )}
@@ -456,14 +474,24 @@ export default function UploadPage() {
                 ))}
               </div>
             </section>
+            </Reveal>
           )}
 
           {/* Footer Card: ATS Import — Growth+ feature (ats_export capability) */}
+          <Reveal delay={0.15}>
           <Card>
             <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-4">
                 <div className={`w-12 h-12 rounded-full flex items-center justify-center ${authLoading ? "bg-bg-cream text-on-surface-variant/50 animate-pulse" : !canAtsExport ? "bg-bg-cream text-on-surface-variant/50" : connectedAts ? "bg-tertiary-fixed text-on-tertiary-fixed" : "bg-primary-container text-on-primary"}`}>
-                  <span className="material-symbols-outlined">{authLoading ? "sync" : !canAtsExport ? "lock" : connectedAts ? "check_circle" : "sync"}</span>
+                  {authLoading ? (
+                    <Loader2 className="size-[20px] animate-spin" />
+                  ) : !canAtsExport ? (
+                    <Lock className="size-[20px]" />
+                  ) : connectedAts ? (
+                    <CheckCircle2 className="size-[20px]" />
+                  ) : (
+                    <Loader2 className="size-[20px]" />
+                  )}
                 </div>
                 <div>
                   <h4 className="font-label-md text-body-md text-on-surface font-semibold flex items-center gap-2">
@@ -495,7 +523,7 @@ export default function UploadPage() {
               {authLoading ? null : !canAtsExport ? (
                 <Button asChild variant="outline" className="w-full justify-center sm:w-auto">
                   <Link href="/billing" title="Upgrade to Growth to connect your ATS">
-                    <span className="material-symbols-outlined text-[16px]">lock</span>
+                    <Lock className="size-[16px]" />
                     Upgrade to unlock
                   </Link>
                 </Button>
@@ -527,6 +555,7 @@ export default function UploadPage() {
               )}
             </CardContent>
           </Card>
+          </Reveal>
         </div>
 
         {/* ATS Import Modal */}
@@ -546,7 +575,7 @@ export default function UploadPage() {
                 disabled={syncState !== "idle" && syncState !== "completed"}
                 className="absolute top-4 right-4 rounded-full text-on-surface-variant hover:bg-surface-container-low disabled:opacity-30"
               >
-                <span className="material-symbols-outlined">close</span>
+                <X className="size-[20px]" />
               </Button>
 
               <h3 className="font-body-md font-semibold text-headline-md text-primary mb-4">
@@ -555,7 +584,7 @@ export default function UploadPage() {
 
               {/* Honest demo disclosure — this flow does not contact any external ATS. */}
               <div className="mb-5 flex items-start gap-3 rounded-xl border border-secondary/30 bg-secondary-container/15 p-3">
-                <span className="material-symbols-outlined text-secondary text-[20px] mt-0.5">science</span>
+                <FlaskConical className="mt-0.5 size-[20px] shrink-0 text-secondary" />
                 <p className="font-body-md text-[13px] leading-relaxed text-on-surface-variant">
                   <span className="font-semibold text-on-surface">Demo preview.</span>{" "}
                   Native Bullhorn / Greenhouse / Lever sync is on our roadmap. Connecting here
@@ -593,9 +622,13 @@ export default function UploadPage() {
                                 : "border-border-low-alpha hover:border-outline-variant"
                             }`}
                           >
-                            <span className="material-symbols-outlined text-primary text-[28px]">
-                              {ats === "greenhouse" ? "forest" : ats === "bullhorn" ? "campaign" : "hub"}
-                            </span>
+                            {ats === "greenhouse" ? (
+                              <TreePine className="size-[28px] text-primary" />
+                            ) : ats === "bullhorn" ? (
+                              <Megaphone className="size-[28px] text-primary" />
+                            ) : (
+                              <Share2 className="size-[28px] text-primary" />
+                            )}
                             <span className="font-label-md text-label-md capitalize text-on-surface">
                               {ats}
                             </span>
@@ -643,11 +676,11 @@ export default function UploadPage() {
                 <div className="py-8 flex flex-col items-center text-center">
                   {syncState === "completed" ? (
                     <div className="w-16 h-16 bg-tertiary/10 rounded-full flex items-center justify-center text-tertiary mb-6 scale-up animate-pulse">
-                      <span className="material-symbols-outlined text-[36px]">check_circle</span>
+                      <CheckCircle2 className="size-9" />
                     </div>
                   ) : (
                     <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center text-primary mb-6 animate-spin">
-                      <span className="material-symbols-outlined text-[32px]">sync</span>
+                      <Loader2 className="size-8" />
                     </div>
                   )}
 

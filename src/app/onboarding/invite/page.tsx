@@ -3,10 +3,12 @@
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { Plus } from "lucide-react";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Reveal } from "@/components/motion/reveal";
 
 export default function InviteTeamOnboardingPage() {
   const router = useRouter();
@@ -84,7 +86,8 @@ export default function InviteTeamOnboardingPage() {
         </div>
 
         {/* Central Card Container */}
-        <Card className="w-full max-w-[640px] items-center text-center [--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
+        <Reveal className="w-full max-w-[640px]">
+        <Card className="items-center text-center [--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
           <CardContent className="flex flex-col items-center text-center w-full">
           {/* Headline & Subtext */}
           <h1 className="font-headline-lg text-headline-lg text-on-surface mb-2">
@@ -150,7 +153,7 @@ export default function InviteTeamOnboardingPage() {
             disabled={loading}
             className="mb-8"
           >
-            <span className="material-symbols-outlined text-[20px]">add</span>
+            <Plus className="size-[20px]" />
             <span>Add another</span>
           </Button>
 
@@ -181,6 +184,7 @@ export default function InviteTeamOnboardingPage() {
           </div>
           </CardContent>
         </Card>
+        </Reveal>
       </main>
 
       {/* Simple Footer Copyright */}

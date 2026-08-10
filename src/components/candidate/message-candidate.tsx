@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
+import { MailX, Mail, Send } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { api } from "@/lib/api";
 import { useAuth } from "@/components/app/auth-provider";
@@ -62,7 +63,7 @@ export function MessageCandidate({
         title="This candidate has no email address on file"
         className="w-full py-3 bg-surface-white border border-outline-variant text-on-surface-variant/50 rounded-lg font-label-md text-label-md shadow-sm flex justify-center items-center cursor-not-allowed"
       >
-        <span className="material-symbols-outlined mr-2 text-[18px]">mail_off</span>
+        <MailX className="mr-2 size-[18px]" />
         No email on file
       </button>
     );
@@ -75,7 +76,7 @@ export function MessageCandidate({
         onClick={() => setOpen(true)}
         className="w-full py-3 bg-surface-white border border-outline-variant text-primary rounded-lg font-label-md text-label-md shadow-sm hover:bg-surface-container-low transition-colors flex justify-center items-center active:scale-[0.98]"
       >
-        <span className="material-symbols-outlined mr-2 text-[18px]">mail</span>
+        <Mail className="mr-2 size-[18px]" />
         Message Candidate
       </button>
 
@@ -88,7 +89,7 @@ export function MessageCandidate({
         {sent ? (
           <div className="py-4 text-center">
             <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-tertiary-fixed/20 text-tertiary">
-              <span className="material-symbols-outlined">send</span>
+              <Send className="size-[22px]" />
             </div>
             <p className="font-headline-md text-[18px] text-primary serif-text">
               Message sent
@@ -135,7 +136,7 @@ export function MessageCandidate({
                 className="w-full resize-none rounded-xl border border-border-low-alpha bg-bg-cream/30 px-4 py-3 font-body-md leading-relaxed focus:outline-none focus:ring-1 focus:ring-primary"
               />
             </div>
-            <div className="flex justify-end gap-3 pt-2">
+            <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end">
               <button
                 type="button"
                 onClick={close}
@@ -147,9 +148,9 @@ export function MessageCandidate({
               <button
                 type="submit"
                 disabled={sending}
-                className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 font-label-md text-on-primary transition-[filter] hover:brightness-110 active:scale-[0.98] disabled:opacity-50"
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-5 py-2.5 font-label-md text-on-primary transition-[filter] hover:brightness-110 active:scale-[0.98] disabled:opacity-50"
               >
-                <span className="material-symbols-outlined text-[18px]">send</span>
+                <Send className="size-[18px]" />
                 {sending ? "Sending..." : "Send message"}
               </button>
             </div>

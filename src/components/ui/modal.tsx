@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
+import { X } from "lucide-react";
 import { easeOut } from "@/lib/motion";
 
 export function Modal({
@@ -87,7 +88,7 @@ export function Modal({
                 aria-label="Close"
                 className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container-low active:scale-95"
               >
-                <span className="material-symbols-outlined">close</span>
+                <X className="size-[20px]" />
               </button>
             </div>
             <div className="overflow-y-auto p-4 sm:p-6">{children}</div>

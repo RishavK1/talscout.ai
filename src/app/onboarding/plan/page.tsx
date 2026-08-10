@@ -2,12 +2,14 @@
 
 import Link from "next/link";
 import { useState, useEffect } from "react";
+import { Loader2, Check, Minus, Plus, ArrowLeft, Lock } from "lucide-react";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { PLANS as PLAN_CATALOG, PLAN_ORDER, type PlanId } from "@/lib/plans";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { Reveal } from "@/components/motion/reveal";
 
 // Derived from the shared catalog so onboarding, pricing and backend agree.
 const PLANS: {
@@ -112,7 +114,7 @@ export default function ChoosePlanPage() {
   if (checking) {
     return (
       <main className="bg-bg-cream w-full max-w-[1000px] mx-auto min-h-screen flex flex-col items-center justify-center py-20 px-4">
-        <span className="material-symbols-outlined animate-spin text-primary text-3xl">sync</span>
+        <Loader2 className="size-8 animate-spin text-primary" />
         <p className="mt-4 font-label-md text-text-muted">Checking current subscription plan...</p>
       </main>
     );
@@ -136,7 +138,8 @@ export default function ChoosePlanPage() {
         <div className="h-1.5 w-16 rounded-full bg-border-low-alpha"></div>
       </div>
       {/* Main Card Content */}
-      <Card className="w-full [--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
+      <Reveal className="w-full">
+      <Card className="[--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
         <CardContent>
         <div className="text-center mb-10">
           <h2 className="font-headline-lg text-headline-lg text-on-surface mb-3">Choose your plan</h2>
@@ -253,7 +256,7 @@ export default function ChoosePlanPage() {
                           : "flex items-start space-x-3 text-on-surface-variant font-body-md"
                       }
                     >
-                      <span className="material-symbols-outlined text-primary text-sm mt-0.5" data-icon="check">check</span>
+                      <Check className="size-[16px] shrink-0 text-primary mt-0.5" />
                       <span>{feature.label}</span>
                     </li>
                   ))}
@@ -277,7 +280,7 @@ export default function ChoosePlanPage() {
               disabled={seats <= minSeats}
               aria-label="Decrease seats"
             >
-              <span className="material-symbols-outlined text-on-surface" data-icon="remove">remove</span>
+              <Minus className="size-[18px] text-on-surface" />
             </Button>
             <div className="w-16 text-center">
               <span className="font-headline-md text-headline-md text-primary">{seats}</span>
@@ -289,7 +292,7 @@ export default function ChoosePlanPage() {
               onClick={() => setSeats((s) => s + 1)}
               aria-label="Increase seats"
             >
-              <span className="material-symbols-outlined text-on-surface" data-icon="add">add</span>
+              <Plus className="size-[18px] text-on-surface" />
             </Button>
           </div>
         </div>
@@ -317,7 +320,7 @@ export default function ChoosePlanPage() {
             <div className="flex items-center gap-4">
               <Button asChild variant="ghost">
                 <Link href="/billing">
-                  <span className="material-symbols-outlined text-sm" data-icon="arrow_back">arrow_back</span>
+                  <ArrowLeft className="size-[16px]" />
                   <span>Back to billing</span>
                 </Link>
               </Button>
@@ -331,7 +334,7 @@ export default function ChoosePlanPage() {
           ) : (
             <Button asChild variant="ghost">
               <Link href="/onboarding/workspace">
-                <span className="material-symbols-outlined text-sm" data-icon="arrow_back">arrow_back</span>
+                <ArrowLeft className="size-[16px]" />
                 <span>Back</span>
               </Link>
             </Button>
@@ -349,9 +352,10 @@ export default function ChoosePlanPage() {
         </div>
         </CardContent>
       </Card>
+      </Reveal>
       {/* Trust Indicator */}
       <div className="mt-8 flex items-center justify-center gap-2 text-center opacity-60">
-        <span className="material-symbols-outlined text-[16px] text-text-muted">lock</span>
+        <Lock className="size-[16px] text-text-muted" />
         <p className="font-body-md text-xs text-text-muted">Secure checkout powered by Stripe</p>
       </div>
     </main>

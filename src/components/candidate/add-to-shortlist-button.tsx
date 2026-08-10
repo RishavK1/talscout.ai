@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
+import { Star, Loader2 } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { api } from "@/lib/api";
 
@@ -105,7 +106,7 @@ export function AddToShortlistButton({
         onClick={handleOpen}
         className="w-full py-3 bg-primary text-on-primary rounded-lg font-label-md text-label-md shadow-sm hover:bg-primary/90 transition-colors flex justify-center items-center active:scale-[0.98]"
       >
-        <span className="material-symbols-outlined mr-2 text-[18px]">star</span>
+        <Star className="mr-2 size-[18px]" />
         Add to Shortlist
       </button>
 
@@ -117,7 +118,7 @@ export function AddToShortlistButton({
       >
         {loading ? (
           <div className="py-8 text-center flex flex-col items-center gap-2">
-            <span className="material-symbols-outlined animate-spin text-primary">sync</span>
+            <Loader2 className="size-[20px] animate-spin text-primary" />
             <p className="font-body-md text-[14px] text-on-surface-variant">Loading shortlists...</p>
           </div>
         ) : showCreate ? (
@@ -176,7 +177,7 @@ export function AddToShortlistButton({
                 ))}
               </select>
             </div>
-            <div className="flex items-center justify-between pt-2">
+            <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:items-center sm:justify-between">
               <button
                 type="button"
                 onClick={() => setShowCreate(true)}
@@ -184,7 +185,7 @@ export function AddToShortlistButton({
               >
                 + Create new shortlist
               </button>
-              <div className="flex gap-3">
+              <div className="flex flex-col-reverse gap-3 sm:flex-row">
                 <button
                   type="button"
                   onClick={() => setOpen(false)}

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { ChevronRight, Store, Loader2, ArrowRight, Sparkles, Check } from "lucide-react";
 import { AppShell } from "@/components/app/app-shell";
 import { TopAppBar } from "@/components/app/top-app-bar";
 import { api, ApiError } from "@/lib/api";
@@ -10,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Stepper } from "@/components/ui/stepper";
+import { Reveal } from "@/components/motion/reveal";
 
 interface SuggestedField {
   field: string;
@@ -194,7 +196,7 @@ export default function NewBlueprintPage() {
           leftContent={
             <div className="flex items-center gap-2 text-text-muted font-label-md">
               <span>Blueprints</span>
-              <span className="material-symbols-outlined text-sm">chevron_right</span>
+              <ChevronRight className="size-[14px]" />
               <span className="text-on-surface font-medium">New</span>
             </div>
           }
@@ -203,11 +205,12 @@ export default function NewBlueprintPage() {
           <Stepper steps={STEPS} currentStep={step} />
 
           {step === 0 && (
+            <Reveal>
             <Card className="border border-border-low-alpha bg-surface-white [--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
               <CardContent>
                 <div className="mb-2 flex items-center gap-3">
                   <div className="rounded-xl bg-primary-container/10 p-2 text-primary">
-                    <span className="material-symbols-outlined">storefront</span>
+                    <Store className="size-[20px]" />
                   </div>
                   <h2 className="font-sans font-semibold text-headline-md text-primary">
                     Tell us about your business
@@ -253,13 +256,13 @@ export default function NewBlueprintPage() {
                     >
                       {researching ? (
                         <>
-                          <span className="material-symbols-outlined animate-spin text-[18px]">sync</span>
+                          <Loader2 className="size-[18px] animate-spin" />
                           Researching your site...
                         </>
                       ) : (
                         <>
                           Continue
-                          <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                          <ArrowRight className="size-[18px]" />
                         </>
                       )}
                     </Button>
@@ -267,10 +270,11 @@ export default function NewBlueprintPage() {
                 </form>
               </CardContent>
             </Card>
+            </Reveal>
           )}
 
           {step === 1 && suggestions && (
-            <div className="space-y-6">
+            <Reveal className="space-y-6">
               <Card className="border border-border-low-alpha bg-surface-white [--card-spacing:--spacing(6)]">
                 <CardContent>
                   <p className="font-body-md text-body-md text-text-muted">
@@ -293,7 +297,7 @@ export default function NewBlueprintPage() {
                 <CardContent>
                   <div className="mb-3 flex items-center gap-2.5">
                     <div className="rounded-lg bg-primary-container/10 p-1.5 text-primary">
-                      <span className="material-symbols-outlined text-[18px]">auto_awesome</span>
+                      <Sparkles className="size-[18px]" />
                     </div>
                     <h3 className="font-sans font-semibold text-[16px] text-on-surface">
                       Tell us everything about your business
@@ -317,7 +321,7 @@ export default function NewBlueprintPage() {
                   <div className="mt-1.5 flex items-center justify-between gap-3">
                     {contextWasDrafted ? (
                       <p className="flex items-center gap-1.5 font-label-md text-[11px] text-primary">
-                        <span className="material-symbols-outlined text-[14px]">auto_awesome</span>
+                        <Sparkles className="size-[14px]" />
                         Drafted from your website — edit or replace it so it sounds like you.
                       </p>
                     ) : (
@@ -355,7 +359,7 @@ export default function NewBlueprintPage() {
                           )}
                         >
                           {isSelected(field, option) && (
-                            <span className="material-symbols-outlined text-[16px]">check</span>
+                            <Check className="size-[16px]" />
                           )}
                           {option}
                         </button>
@@ -375,7 +379,7 @@ export default function NewBlueprintPage() {
                             onClick={() => toggleOption(field, custom)}
                             className="inline-flex items-center gap-1.5 rounded-full border border-transparent bg-primary-container px-4 py-2 font-label-md text-label-md text-on-primary"
                           >
-                            <span className="material-symbols-outlined text-[16px]">check</span>
+                            <Check className="size-[16px]" />
                             {custom}
                           </button>
                         ))}
@@ -428,29 +432,31 @@ export default function NewBlueprintPage() {
                 >
                   {generating ? (
                     <>
-                      <span className="material-symbols-outlined animate-spin text-[18px]">sync</span>
+                      <Loader2 className="size-[18px] animate-spin" />
                       Generating blueprint...
                     </>
                   ) : (
                     <>
                       Generate blueprint
-                      <span className="material-symbols-outlined text-[18px]">auto_awesome</span>
+                      <Sparkles className="size-[18px]" />
                     </>
                   )}
                 </Button>
               </div>
-            </div>
+            </Reveal>
           )}
 
           {step === 2 && (
+            <Reveal>
             <Card className="border border-border-low-alpha bg-surface-white text-center [--card-spacing:--spacing(8)]">
               <CardContent>
-                <span className="material-symbols-outlined text-primary text-[40px] animate-spin">sync</span>
+                <Loader2 className="mx-auto size-9 animate-spin text-primary" />
                 <p className="mt-4 font-body-md text-body-md text-text-muted">
                   Taking you to your new blueprint...
                 </p>
               </CardContent>
             </Card>
+            </Reveal>
           )}
         </main>
       </div>

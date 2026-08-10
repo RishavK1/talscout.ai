@@ -2,6 +2,23 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import {
+  ThumbsUp,
+  ThumbsDown,
+  Forward,
+  HelpCircle,
+  MessagesSquare,
+  MailCheck,
+  Mail,
+  FileEdit,
+  ArrowLeft,
+  Inbox,
+  Sparkles,
+  BarChart3,
+  Loader2,
+  Send,
+  type LucideIcon,
+} from "lucide-react";
 import { AppShell } from "@/components/app/app-shell";
 import { TopAppBar } from "@/components/app/top-app-bar";
 import { api, ApiError } from "@/lib/api";
@@ -9,6 +26,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { TableRowSkeleton } from "@/components/ui/skeletons";
+import { Reveal } from "@/components/motion/reveal";
 
 interface ReplyDraft {
   id: string;
@@ -31,26 +49,26 @@ function formatDate(iso: string): string {
 
 const INTENT_META: Record<
   NonNullable<ReplyDraft["intent"]>,
-  { label: string; icon: string; className: string }
+  { label: string; icon: LucideIcon; className: string }
 > = {
   interested: {
     label: "Interested",
-    icon: "thumb_up",
+    icon: ThumbsUp,
     className: "bg-tertiary-fixed/20 text-tertiary",
   },
   not_interested: {
     label: "Not interested",
-    icon: "thumb_down",
+    icon: ThumbsDown,
     className: "bg-error-container text-on-error-container",
   },
   referral: {
     label: "Referral",
-    icon: "forward",
+    icon: Forward,
     className: "bg-primary-container/10 text-primary",
   },
   unclear: {
     label: "Unclear",
-    icon: "help",
+    icon: HelpCircle,
     className: "bg-surface-container-high text-on-surface-variant",
   },
 };
@@ -65,7 +83,7 @@ function IntentBadge({ intent }: { intent: ReplyDraft["intent"] }) {
         meta.className,
       )}
     >
-      <span className="material-symbols-outlined text-[14px]">{meta.icon}</span>
+      <meta.icon className="size-[14px]" />
       {meta.label}
     </span>
   );
@@ -180,7 +198,7 @@ export default function AutomatedRepliesPage() {
             <CardHeader className="shrink-0 border-b border-border-low-alpha px-4 py-4 sm:px-5 sm:py-5">
               <div className="flex items-center gap-2.5">
                 <div className="rounded-xl bg-primary-container/10 p-2 text-primary">
-                  <span className="material-symbols-outlined text-[20px]">forum</span>
+                  <MessagesSquare className="size-[20px]" />
                 </div>
                 <div>
                   <CardTitle className="font-body-md text-headline-md font-semibold text-primary">
@@ -202,7 +220,7 @@ export default function AutomatedRepliesPage() {
               ) : drafts.length === 0 ? (
                 <div className="flex flex-col items-center gap-3 p-10 text-center">
                   <div className="flex h-14 w-14 items-center justify-center rounded-full bg-surface-container-low">
-                    <span className="material-symbols-outlined text-[28px] text-outline">mark_email_read</span>
+                    <MailCheck className="size-[28px] text-outline" />
                   </div>
                   <p className="font-body-md text-body-md text-text-muted">
                     All clear — no replies waiting for review.
@@ -222,7 +240,7 @@ export default function AutomatedRepliesPage() {
                     )}
                   >
                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-container/10 text-primary">
-                      <span className="material-symbols-outlined text-[18px]">mail</span>
+                      <Mail className="size-[18px]" />
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="mb-0.5 flex items-baseline justify-between gap-2">
@@ -258,14 +276,14 @@ export default function AutomatedRepliesPage() {
             {!selected ? (
               <div className="flex h-full min-h-[300px] flex-col items-center justify-center gap-3 p-8 text-center">
                 <div className="flex h-14 w-14 items-center justify-center rounded-full bg-surface-container-low">
-                  <span className="material-symbols-outlined text-[28px] text-outline">drafts</span>
+                  <FileEdit className="size-[28px] text-outline" />
                 </div>
                 <p className="font-body-md text-body-md text-text-muted">
                   Select a reply to review.
                 </p>
               </div>
             ) : (
-              <div className="mx-auto max-w-[720px] space-y-5 p-4 sm:p-6 lg:p-8">
+              <Reveal className="mx-auto max-w-[720px] space-y-5 p-4 sm:p-6 lg:p-8">
                 {/* TopAppBar (carrying the page title) is hidden below lg, and
                  *  this pane's own title (the "Pending replies" CardHeader)
                  *  is hidden once a draft is selected — without this, the
@@ -279,7 +297,7 @@ export default function AutomatedRepliesPage() {
                     onClick={() => setSelectedId(null)}
                     className="-ml-2 inline-flex min-h-10 items-center gap-1 rounded-lg px-2 font-label-md text-label-md text-primary hover:underline"
                   >
-                    <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+                    <ArrowLeft className="size-[18px]" />
                     Back to inbox
                   </button>
                   <span className="font-label-md text-[12px] text-text-muted">Reply detail</span>
@@ -290,7 +308,7 @@ export default function AutomatedRepliesPage() {
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="flex items-center gap-2.5">
                         <div className="rounded-lg bg-surface-container-high p-1.5 text-on-surface-variant">
-                          <span className="material-symbols-outlined text-[18px]">move_to_inbox</span>
+                          <Inbox className="size-[18px]" />
                         </div>
                         <CardTitle className="font-body-md text-[16px] font-semibold text-on-surface-variant">
                           Incoming message
@@ -314,7 +332,7 @@ export default function AutomatedRepliesPage() {
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="flex items-center gap-2.5">
                         <div className="rounded-lg bg-primary-container/10 p-1.5 text-primary">
-                          <span className="material-symbols-outlined text-[18px]">auto_awesome</span>
+                          <Sparkles className="size-[18px]" />
                         </div>
                         <CardTitle className="font-body-md text-[16px] font-semibold text-primary">
                           AI-drafted reply
@@ -329,7 +347,7 @@ export default function AutomatedRepliesPage() {
                               : "bg-surface-container-high text-on-surface-variant",
                           )}
                         >
-                          <span className="material-symbols-outlined text-[14px]">insights</span>
+                          <BarChart3 className="size-[14px]" />
                           {Math.round(confidence * 100)}% confidence
                         </span>
                       )}
@@ -359,14 +377,12 @@ export default function AutomatedRepliesPage() {
                       Regenerate
                     </Button>
                     <Button type="button" variant="gradient" size="lg" onClick={approve} disabled={busy} className="w-full sm:w-auto">
-                      <span className={cn("material-symbols-outlined text-[18px]", busy && "animate-spin")}>
-                        {busy ? "sync" : "send"}
-                      </span>
+                      {busy ? <Loader2 className="size-[18px] animate-spin" /> : <Send className="size-[18px]" />}
                       Approve &amp; send
                     </Button>
                   </div>
                 )}
-              </div>
+              </Reveal>
             )}
           </div>
         </div>

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { Bookmark, Users, Search, CirclePlus } from "lucide-react";
 import { AppShell } from "@/components/app/app-shell";
 import { TopAppBar } from "@/components/app/top-app-bar";
 import { Modal } from "@/components/ui/modal";
@@ -14,6 +15,7 @@ import { PageHeaderCard } from "@/components/app/page-header-card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 import { TableSkeleton } from "@/components/ui/skeletons";
+import { Reveal } from "@/components/motion/reveal";
 
 interface Shortlist {
   id: string;
@@ -89,7 +91,7 @@ export default function ShortlistsPage() {
       render: (s) => (
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-container/10 text-primary">
-            <span className="material-symbols-outlined text-[18px]">bookmarks</span>
+            <Bookmark className="size-[18px]" />
           </div>
           <span className="font-body-md text-[14px] font-medium text-on-surface">{s.name}</span>
         </div>
@@ -138,6 +140,7 @@ export default function ShortlistsPage() {
           }
         />
         <main className="flex-1 p-4 sm:p-6 lg:p-12 max-w-[1440px] mx-auto w-full">
+          <Reveal>
           <PageHeaderCard
             icon="bookmarks"
             title="Shortlists"
@@ -150,22 +153,24 @@ export default function ShortlistsPage() {
                 onClick={handleOpenModal}
                 className="w-full justify-center sm:w-auto"
               >
-                <span className="material-symbols-outlined text-[20px]">add_circle</span>
+                <CirclePlus className="size-[20px]" />
                 New shortlist
               </Button>
             }
           />
+          </Reveal>
 
           {!loading && shortlists.length > 0 && (
+            <Reveal delay={0.05}>
             <div className="mb-6 grid gap-4 sm:grid-cols-2">
               {[
-                { icon: "bookmarks", label: "Shortlists", value: shortlists.length },
-                { icon: "group", label: "Candidates shortlisted", value: totalCandidates },
+                { icon: Bookmark, label: "Shortlists", value: shortlists.length },
+                { icon: Users, label: "Candidates shortlisted", value: totalCandidates },
               ].map((stat) => (
                 <Card key={stat.label} className="[--card-spacing:--spacing(5)]">
                   <CardContent className="flex items-center gap-3">
                     <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary-container/10 text-primary">
-                      <span className="material-symbols-outlined text-[20px]">{stat.icon}</span>
+                      <stat.icon className="size-[20px]" />
                     </div>
                     <div>
                       <p className="font-data-mono text-[20px] font-semibold text-on-surface">
@@ -177,16 +182,16 @@ export default function ShortlistsPage() {
                 </Card>
               ))}
             </div>
+            </Reveal>
           )}
 
+          <Reveal delay={0.1}>
           <Card className="overflow-hidden">
             <CardContent className="p-0">
               {!loading && shortlists.length > 0 && (
                 <div className="border-b border-border-low-alpha p-4">
                   <div className="relative max-w-sm">
-                    <span className="material-symbols-outlined pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-outline">
-                      search
-                    </span>
+                    <Search className="pointer-events-none absolute left-3 top-1/2 size-[18px] -translate-y-1/2 text-outline" />
                     <input
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
@@ -208,9 +213,7 @@ export default function ShortlistsPage() {
                   onRowClick={(s) => router.push(`/shortlists/${s.id}`)}
                   emptyState={
                     <div className="flex flex-col items-center gap-3">
-                      <span className="material-symbols-outlined text-outline text-[32px]">
-                        bookmarks
-                      </span>
+                      <Bookmark className="size-[32px] text-outline" />
                       <p className="font-body-md text-body-md text-on-surface-variant">
                         {shortlists.length === 0
                           ? "No shortlists yet. Create one to start grouping candidates for a role."
@@ -231,6 +234,7 @@ export default function ShortlistsPage() {
               )}
             </CardContent>
           </Card>
+          </Reveal>
 
           {!loading && shortlists.length === 0 && (
             <p className="mt-6 text-center font-body-md text-[13px] text-text-muted">
@@ -271,7 +275,7 @@ export default function ShortlistsPage() {
               className="w-full rounded-xl border border-border-low-alpha bg-surface-container-low px-4 py-3 font-body-md text-on-surface placeholder-outline focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
-          <div className="flex justify-end gap-3 pt-2">
+          <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end">
             <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)} disabled={creating}>
               Cancel
             </Button>

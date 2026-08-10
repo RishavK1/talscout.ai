@@ -3,11 +3,13 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Zap, ArrowRight, HelpCircle } from "lucide-react";
 import { useAuth } from "@/components/app/auth-provider";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Reveal } from "@/components/motion/reveal";
 
 export default function SetUpWorkspacePage() {
   const router = useRouter();
@@ -54,7 +56,7 @@ export default function SetUpWorkspacePage() {
         <div className="mb-8 flex flex-col items-center">
           <span className="mb-3 inline-flex items-center gap-2 rounded-full border border-border-low-alpha bg-surface-white px-3 py-1.5 font-label-md text-label-md text-on-surface-variant">
             <span className="flex h-4 w-4 items-center justify-center rounded-full bg-tertiary-fixed">
-              <span className="material-symbols-outlined text-[12px] text-on-tertiary-fixed">bolt</span>
+              <Zap className="size-[12px] text-on-tertiary-fixed" />
             </span>
             Step 1 of 3
           </span>
@@ -65,6 +67,7 @@ export default function SetUpWorkspacePage() {
           </div>
         </div>
         {/* Card */}
+        <Reveal>
         <Card className="[--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
           <CardContent>
           <header className="mb-8 text-center">
@@ -96,19 +99,20 @@ export default function SetUpWorkspacePage() {
                 className="w-full justify-center"
               >
                 <span>{loading ? "Creating..." : "Continue"}</span>
-                <span className="material-symbols-outlined" style={{ fontSize: "18px" }}>arrow_forward</span>
+                <ArrowRight className="size-[18px]" />
               </Button>
             </div>
           </form>
           {/* Contextual Help */}
           <div className="mt-8 text-center">
             <a className="font-label-md text-label-md text-on-surface-variant hover:text-primary transition-colors inline-flex items-center gap-1" href="mailto:support@talscout.ai">
-              <span className="material-symbols-outlined" style={{ fontSize: "16px" }}>help</span>
+              <HelpCircle className="size-[16px]" />
               Need help setting up?
             </a>
           </div>
           </CardContent>
         </Card>
+        </Reveal>
       </main>
     </div>
   );

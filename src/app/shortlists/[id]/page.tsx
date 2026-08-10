@@ -3,6 +3,7 @@
 import { useState, useEffect, use } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { SearchX, ChevronRight, Bookmark, Loader2, X, UsersRound } from "lucide-react";
 import { AppShell } from "@/components/app/app-shell";
 import { TopAppBar } from "@/components/app/top-app-bar";
 import { api } from "@/lib/api";
@@ -15,6 +16,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TableSkeleton } from "@/components/ui/skeletons";
+import { Reveal } from "@/components/motion/reveal";
 
 interface ApiCandidate {
   id: string;
@@ -60,7 +62,7 @@ function CandidateStatusBadge({ status }: { status: Candidate["status"] }) {
   if (status === "Processing") {
     return (
       <StatusBadge tone="invited" dot={false} className="gap-1.5">
-        <span className="material-symbols-outlined animate-spin text-[14px]">sync</span>
+        <Loader2 className="size-[14px] animate-spin" />
         AI Processing
       </StatusBadge>
     );
@@ -144,7 +146,7 @@ export default function ShortlistDetailPage({ params }: { params: Promise<{ id: 
         <main className="flex min-h-screen flex-col items-center justify-center p-4 sm:p-12">
           <Card className="max-w-md [--card-spacing:--spacing(8)]">
             <CardContent className="flex flex-col items-center gap-4 text-center">
-              <span className="material-symbols-outlined text-[48px] text-on-surface-variant">search_off</span>
+              <SearchX className="size-[48px] text-on-surface-variant" />
               <h1 className="font-headline-lg text-headline-lg text-primary">Shortlist not found</h1>
               <p className="font-body-md text-on-surface-variant">It may have been deleted, or you may not have access to it.</p>
               <Button asChild variant="gradient">
@@ -214,9 +216,11 @@ export default function ShortlistDetailPage({ params }: { params: Promise<{ id: 
             aria-label={`Remove ${c.name} from shortlist`}
             title="Remove from shortlist"
           >
-            <span className={`material-symbols-outlined text-[20px] ${removingId === c.id ? "animate-spin" : ""}`}>
-              {removingId === c.id ? "sync" : "close"}
-            </span>
+            {removingId === c.id ? (
+              <Loader2 className="size-[20px] animate-spin" />
+            ) : (
+              <X className="size-[20px]" />
+            )}
           </button>
         </div>
       ),
@@ -229,7 +233,7 @@ export default function ShortlistDetailPage({ params }: { params: Promise<{ id: 
         leftContent={
           <div className="flex items-center gap-2 text-text-muted font-label-md">
             <Link href="/shortlists" className="hover:text-primary transition-colors">Shortlists</Link>
-            <span className="material-symbols-outlined text-sm">chevron_right</span>
+            <ChevronRight className="size-[14px]" />
             <span className="text-on-surface font-medium">{shortlistName || "..."}</span>
           </div>
         }
@@ -240,12 +244,13 @@ export default function ShortlistDetailPage({ params }: { params: Promise<{ id: 
         }
       />
       <main className="mx-auto max-w-[1440px] w-full p-4 sm:p-6 lg:p-12 min-h-screen">
+        <Reveal>
         <Card className="mb-8 [--card-spacing:--spacing(6)] sm:[--card-spacing:--spacing(8)]">
           <CardContent>
             <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
               <div className="flex items-center gap-3">
                 <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-container/10 text-primary shrink-0">
-                  <span className="material-symbols-outlined text-[22px]">bookmark</span>
+                  <Bookmark className="size-[22px]" />
                 </div>
                 <div>
                   <h1 className="font-headline-lg text-headline-lg text-primary mb-1">{shortlistName || "Shortlist"}</h1>
@@ -261,14 +266,16 @@ export default function ShortlistDetailPage({ params }: { params: Promise<{ id: 
             </div>
           </CardContent>
         </Card>
+        </Reveal>
 
+        <Reveal delay={0.05}>
         <Card className="overflow-hidden">
           <CardContent className="overflow-x-auto p-0">
             {loading ? (
               <TableSkeleton rows={5} columns={4} />
             ) : candidates.length === 0 ? (
               <div className="flex flex-col items-center justify-center gap-3 py-24 text-center">
-                <span className="material-symbols-outlined text-[40px] text-on-surface-variant">group_off</span>
+                <UsersRound className="size-[40px] text-on-surface-variant" />
                 <p className="font-body-md text-on-surface-variant">No candidates in this shortlist yet.</p>
                 <Link href="/candidates" className="font-label-md text-primary hover:underline">
                   Browse candidates to add some →
@@ -284,6 +291,7 @@ export default function ShortlistDetailPage({ params }: { params: Promise<{ id: 
             )}
           </CardContent>
         </Card>
+        </Reveal>
       </main>
       <ConfirmDialog
         open={!!pendingRemove}
