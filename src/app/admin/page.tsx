@@ -230,16 +230,40 @@ export default function AdminPage() {
     { icon: FileText, label: "Candidates (all-time)", value: overview.totalCandidates.toLocaleString() },
   ];
 
+  // Same owner email can legitimately own more than one separate workspace
+  // (e.g. an abandoned signup followed by a fresh one) — the name + email
+  // alone then look identical between two DIFFERENT tenants, which is
+  // exactly what makes it easy to suspend the wrong one. Flag it plainly
+  // wherever it happens on the current page so it's never ambiguous.
+  const ownerEmailCounts = tenantsData.tenants.reduce<Record<string, number>>((acc, t) => {
+    if (t.ownerEmail) acc[t.ownerEmail] = (acc[t.ownerEmail] ?? 0) + 1;
+    return acc;
+  }, {});
+
   const tenantColumns: DataTableColumn<TenantRow>[] = [
     {
       key: "name",
       header: "Workspace",
-      render: (t) => (
-        <div>
-          <p className="font-label-md text-[13px] font-medium text-on-surface">{t.name}</p>
-          <p className="font-body-md text-[12px] text-on-surface-variant">{t.ownerEmail ?? "—"}</p>
-        </div>
-      ),
+      render: (t) => {
+        const hasDuplicateOwner = !!t.ownerEmail && (ownerEmailCounts[t.ownerEmail] ?? 0) > 1;
+        return (
+          <div>
+            <div className="flex items-center gap-2">
+              <p className="font-label-md text-[13px] font-medium text-on-surface">{t.name}</p>
+              {hasDuplicateOwner && (
+                <span
+                  className="rounded-full bg-error/10 px-2 py-0.5 font-label-md text-[10px] font-semibold uppercase tracking-wide text-error"
+                  title="This owner email has more than one separate workspace — double-check the ID before suspending."
+                >
+                  Multiple workspaces
+                </span>
+              )}
+            </div>
+            <p className="font-body-md text-[12px] text-on-surface-variant">{t.ownerEmail ?? "—"}</p>
+            <p className="font-data-mono text-[10px] text-outline">id: {t.id.slice(0, 8)}</p>
+          </div>
+        );
+      },
     },
     {
       key: "plan",
@@ -604,9 +628,13 @@ export default function AdminPage() {
         onConfirm={confirmSuspendToggle}
         title={suspendTarget?.status === "active" ? "Suspend workspace" : "Reactivate workspace"}
         description={
-          suspendTarget?.status === "active"
-            ? `${suspendTarget?.name} and everyone in it will be immediately locked out until reactivated.`
-            : `${suspendTarget?.name} will regain access immediately.`
+          suspendTarget
+            ? `${suspendTarget.name} (${suspendTarget.ownerEmail ?? "no owner email"}, id ${suspendTarget.id.slice(0, 8)}) — ${
+                suspendTarget.status === "active"
+                  ? "everyone in it will be immediately locked out until reactivated."
+                  : "will regain access immediately."
+              }`
+            : undefined
         }
         confirmLabel={
           actingOnTenant ? "Working…" : suspendTarget?.status === "active" ? "Suspend" : "Reactivate"
