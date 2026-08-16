@@ -3,8 +3,9 @@ import { resolveSession, authenticate, type Session } from "@/server/auth/sessio
 import { assertRole, type Role } from "@/server/auth/rbac";
 import { withTenantTx, type TenantContext } from "@/server/db/tx";
 import { okResponse, errorResponse } from "./response";
-import { BadRequest, ValidationError, TooManyRequests } from "./errors";
+import { BadRequest, ValidationError, TooManyRequests, NotFound } from "./errors";
 import { getServices } from "@/server/container";
+import { isPlatformAdminEmail } from "@/server/config/env";
 
 /** What a handler returns: optional data + optional status (defaults 200). */
 export interface HandlerResult {
@@ -197,6 +198,76 @@ export function withPublic<B = undefined, Q = undefined>(
       const params = await readParams(routeCtx);
 
       const result = await handler({ req, params, body, query, auth });
+      return okResponse(result.data ?? null, result.status ?? 200);
+    } catch (err) {
+      return errorResponse(err, requestId);
+    }
+  };
+}
+
+// ---------------------------------------------------------------------------
+// withPlatformAdmin — guard for the platform-owner-only /api/admin/* surface.
+// Deliberately NOT a variation of withAuth: access is an email allowlist
+// (PLATFORM_ADMIN_EMAILS), not a tenant role, and handlers query across all
+// tenants via adminDb() rather than a single-tenant RLS transaction. A
+// mismatch or missing token 404s (not 401/403) so the route's existence
+// isn't confirmed to anyone probing it.
+// ---------------------------------------------------------------------------
+export interface PlatformAdminHandlerCtx<B, Q> {
+  req: Request;
+  params: Record<string, string>;
+  body: B;
+  query: Q;
+  email: string;
+}
+
+export interface PlatformAdminOptions<B, Q> {
+  bodySchema?: ZodType<B>;
+  querySchema?: ZodType<Q>;
+  rateLimit?: RateLimitOptions;
+}
+
+export function withPlatformAdmin<B = undefined, Q = undefined>(
+  handler: (c: PlatformAdminHandlerCtx<B, Q>) => Promise<HandlerResult>,
+  options: PlatformAdminOptions<B, Q> = {},
+) {
+  return async (req: Request, routeCtx?: RouteCtx): Promise<Response> => {
+    const requestId = newRequestId();
+    try {
+      let auth: { authUserId: string; email?: string };
+      try {
+        auth = await authenticate(req);
+      } catch {
+        throw new NotFound("Not found");
+      }
+      if (!isPlatformAdminEmail(auth.email)) throw new NotFound("Not found");
+      const email = auth.email!;
+
+      if (options.rateLimit) {
+        const ip = clientIp(req) ?? "127.0.0.1";
+        const key = `rl:admin:${ip}:${options.rateLimit.keyPrefix ?? "default"}`;
+        const rl = await getServices().limiter.limit(
+          key,
+          options.rateLimit.limit,
+          options.rateLimit.windowSeconds,
+        );
+        if (!rl.success) {
+          throw new TooManyRequests(
+            "Rate limit exceeded",
+            Math.ceil((rl.reset - Date.now()) / 1000),
+          );
+        }
+      }
+
+      const body = options.bodySchema
+        ? await parseBody(req, options.bodySchema)
+        : (undefined as B);
+      const query = options.querySchema
+        ? parseQuery(req, options.querySchema)
+        : (undefined as Q);
+      const params = await readParams(routeCtx);
+
+      const result = await handler({ req, params, body, query, email });
       return okResponse(result.data ?? null, result.status ?? 200);
     } catch (err) {
       return errorResponse(err, requestId);

@@ -130,6 +130,13 @@ const EnvSchema = z
      *  independent of whether a key is configured. ---- */
     AGENT_RATE_LIMIT_PER_HOUR: z.coerce.number().int().positive().default(20),
 
+    /** ---- Platform-owner admin dashboard (/admin, new, opt-in). Comma-
+     *  separated allowlist of emails permitted through `withPlatformAdmin` —
+     *  a deliberately separate concept from `users.role`, which is
+     *  tenant-scoped. Unset means /admin is unreachable by anyone (fails
+     *  closed, not open). See server/http/with-api.ts. ---- */
+    PLATFORM_ADMIN_EMAILS: z.string().optional(),
+
     /** ---- live-mode tuning (all optional, sensible defaults) ---- */
     ANTHROPIC_MODEL: z.string().default("claude-haiku-4-5"),
     ANTHROPIC_FALLBACK_MODEL: z.string().default("claude-sonnet-4-6"),
@@ -220,4 +227,18 @@ export function getEnv(): Env {
 export function adminDbUrl(): string {
   const env = getEnv();
   return env.DATABASE_ADMIN_URL ?? env.DATABASE_URL;
+}
+
+/** Case-insensitive membership check against PLATFORM_ADMIN_EMAILS — unset
+ *  or empty means nobody passes (fails closed). */
+export function isPlatformAdminEmail(email: string | undefined | null): boolean {
+  if (!email) return false;
+  const allowlist = getEnv().PLATFORM_ADMIN_EMAILS;
+  if (!allowlist) return false;
+  const target = email.trim().toLowerCase();
+  return allowlist
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean)
+    .includes(target);
 }
